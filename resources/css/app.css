@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+@layer base {
+    html,
+    body {
+        @apply bg-slate-900;
+    }
+
+    input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='range']):not(.swal2-input),
+    textarea:not(.swal2-textarea),
+    select {
+        @apply rounded-lg bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 transition;
+    }
+
+    input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='range']):not(.swal2-input):focus,
+    textarea:not(.swal2-textarea):focus,
+    select:focus {
+        @apply outline-none border-indigo-500 ring-2 ring-indigo-500/20;
+    }
+
+    /* Auto floating-label style for legacy forms using: label + input/textarea/select */
+    form div:has(> label + input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='range'])),
+    form div:has(> label + textarea),
+    form div:has(> label + select) {
+        position: relative;
+    }
+
+    form div:has(> label + input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='range'])) > input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='range']),
+    form div:has(> label + select) > select {
+        @apply px-3 pt-5 pb-2 rounded-lg;
+    }
+
+    form div:has(> label + textarea) > textarea {
+        @apply px-3 pt-6 pb-2 rounded-lg;
+    }
+
+    form div:has(> label + input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='range'])) > label:first-child,
+    form div:has(> label + textarea) > label:first-child,
+    form div:has(> label + select) > label:first-child {
+        @apply pointer-events-none absolute left-3 z-10 px-0 text-base text-slate-400 bg-transparent top-1/2 -translate-y-1/2 transition-all;
+    }
+
+    form div:has(> label + input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='range']):focus) > label:first-child,
+    form div:has(> label + textarea:focus) > label:first-child,
+    form div:has(> label + select:focus) > label:first-child,
+    form div:has(> label + input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='range']):not(:placeholder-shown)) > label:first-child,
+    form div:has(> label + textarea:not(:placeholder-shown)) > label:first-child,
+    form div:has(> label + select) > label:first-child {
+        @apply px-1 text-xs text-slate-300 bg-slate-800 top-0 -translate-y-1/2;
+    }
+}

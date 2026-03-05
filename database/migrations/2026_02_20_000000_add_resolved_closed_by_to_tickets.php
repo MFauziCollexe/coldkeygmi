@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('tickets', function (Blueprint $table) {
+            $table->unsignedBigInteger('resolved_by')->nullable()->after('resolved_at');
+            $table->unsignedBigInteger('closed_by')->nullable()->after('closed_at');
+            
+            $table->foreign('resolved_by')->references('id')->on('users')->onDelete('set null');
+            $table->foreign('closed_by')->references('id')->on('users')->onDelete('set null');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('tickets', function (Blueprint $table) {
+            $table->dropForeignKeyIfExists(['resolved_by']);
+            $table->dropForeignKeyIfExists(['closed_by']);
+            $table->dropColumn(['resolved_by', 'closed_by']);
+        });
+    }
+};

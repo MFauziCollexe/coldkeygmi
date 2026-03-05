@@ -1,0 +1,173 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class RequestAccess extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'request_number',
+        'type',
+        'user_id',
+        'target_user_name',
+        'target_user_email',
+        'target_department_id',
+        'module_keys',
+        'reason',
+        'status',
+        'reviewed_by',
+        'reviewed_at',
+        'review_notes',
+        'processed_by',
+        'processed_at',
+        'processing_notes',
+        'created_by',
+    ];
+
+    protected $casts = [
+        'reviewed_at' => 'datetime',
+        'processed_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'module_keys' => 'array',
+    ];
+
+    /**
+     * Get module keys as array (for backward compatibility)
+     */
+    public function getModuleKeysAttribute($value)
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        return json_decode($value, true) ?? [];
+    }
+
+    /**
+     * Set module keys from array
+     */
+    public function setModuleKeysAttribute($value)
+    {
+        $this->attributes['module_keys'] = json_encode($value);
+    }
+
+    /**
+     * Get the user who made the request (for existing_user type)
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the target department (for new_user type)
+     */
+    public function targetDepartment()
+    {
+        return $this->belongsTo(Department::class, 'target_department_id');
+    }
+
+    /**
+     * Get the manager who reviewed this request
+     */
+    public function reviewer()
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /**
+     * Get the IT staff who processed this request
+     */
+    public function processor()
+    {
+        return $this->belongsTo(User::class, 'processed_by');
+    }
+
+    /**
+     * Get the creator of this request
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Check if current user is the creator of this request
+     */
+    public function isCreator($userId)
+    {
+        return $this->created_by == $userId;
+    }
+
+    /**
+     * Check if current user is the manager who should review this request
+     */
+    public function canReview($userId)
+    {
+        // Get the department of the request creator
+        $creator = User::find($this->created_by);
+        if (!$creator || !$creator->department_id) {
+            return false;
+        }
+
+        // Check if user is a manager of that department
+        $position = \App\Models\Position::where('department_id', $creator->department_id)
+            ->where('is_manager', true)
+            ->first();
+        
+        if (!$position) {
+            return false;
+        }
+
+        $manager = User::where('position_id', $position->id)
+            ->where('status', 'active')
+            ->first();
+
+        return $manager && $manager->id == $userId;
+    }
+
+    /**
+     * Check if current user can process this request (IT staff only)
+     */
+    public function canProcess($userId)
+    {
+        // Only approved requests can be processed
+        if ($this->status !== 'approved') {
+            return false;
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            return false;
+        }
+
+        $itDepartmentId = Department::where('code', 'IT')->value('id');
+        if (!$itDepartmentId) {
+            return false;
+        }
+
+        return (int) $user->department_id === (int) $itDepartmentId;
+    }
+
+    /**
+     * Generate unique request number
+     */
+    public static function generateRequestNumber()
+    {
+        $prefix = 'RAC-';
+        $random = strtoupper(substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 8));
+        $requestNumber = $prefix . $random;
+
+        // Ensure uniqueness
+        while (self::where('request_number', $requestNumber)->exists()) {
+            $random = strtoupper(substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 8));
+            $requestNumber = $prefix . $random;
+        }
+
+        return $requestNumber;
+    }
+}

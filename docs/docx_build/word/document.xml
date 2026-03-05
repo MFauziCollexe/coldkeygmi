@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>DOKUMENTASI MODUL DAN CRUD - COLDKEYGMI</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Tanggal: 02 Maret 2026</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Sumber analisis: resources/js/Config/modules.js dan routes/web.php</w:t></w:r></w:p>
+    <w:p/>
+    <w:p><w:r><w:t>Legenda: C=Create, U=Update, D=Delete</w:t></w:r></w:p>
+    <w:p/>
+    <w:p><w:r><w:t>1) GMISL</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Report Accounting: C Tidak ada, U Tidak ada, D Tidak ada (belum ada route).</w:t></w:r></w:p>
+    <w:p><w:r><w:t>HPP: C Tidak ada, U Tidak ada, D Tidak ada (belum ada route).</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Purchasing: C Tidak ada, U Tidak ada, D Tidak ada (belum ada route).</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Utility - Tickets: C Ada, U Ada, D Ada. (resource + update-status/resolve/close/reopen + attachment delete/replace)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Utility - Request Access: C Ada, U Ada, D Ada. (resource + approve/reject/process)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Utility - Date Code: C Tidak ada, U Tidak ada, D Tidak ada. (index/view)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Utility - Check Inline: C Ada, U Ada, D Tidak ada.</w:t></w:r></w:p>
+    <w:p/>
+    <w:p><w:r><w:t>2) GMIUM</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Plugging: C Ada, U Ada, D Ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Plugging Approval: C Tidak ada, U Ada, D Tidak ada. (approve endpoint)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Electricity - Standard Meter: C Ada, U Ada, D Tidak ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Electricity - HV Meter: C Ada, U Ada, D Tidak ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Water Meter: C Ada, U Ada, D Tidak ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Utility Report: C Tidak ada, U Tidak ada, D Tidak ada. (index/view)</w:t></w:r></w:p>
+    <w:p/>
+    <w:p><w:r><w:t>3) LEAVE PERMIT (GMIVP)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Visitor Form: C Ada, U Ada, D Tidak ada. (status + approval flow)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Exit Permit (Surat Izin Keluar): C Ada, U Ada, D Tidak ada. (approval Security/HRD/Manager)</w:t></w:r></w:p>
+    <w:p/>
+    <w:p><w:r><w:t>4) GMIHR</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Attendance Log: C Ada, U Ada, D Tidak ada. (koreksi + approve/reject)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Leave &amp; Permission: C Ada, U Ada, D Tidak ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Roster Upload/List: C Ada, U Ada, D Tidak ada. (upload/approve/reject)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Overtime: C Ada, U Ada, D Tidak ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Payroll - Salary: C Tidak ada, U Tidak ada, D Tidak ada. (view)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Payroll - Payslip: C Tidak ada, U Tidak ada, D Tidak ada. (view)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Device Integration - Fingerprint: C Ada, U Ada, D Ada (clear endpoint).</w:t></w:r></w:p>
+    <w:p/>
+    <w:p><w:r><w:t>5) MASTER DATA</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Customer: C Ada, U Ada, D Ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Employee: C Ada, U Ada, D Ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Department: C Ada, U Ada, D Ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Position: C Ada, U Ada, D Ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Jenis Kendaraan: C Ada, U Ada, D Ada.</w:t></w:r></w:p>
+    <w:p/>
+    <w:p><w:r><w:t>6) CONTROL PANEL</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Users: C Ada, U Ada, D Ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Modul Control: C Tidak ada, U Ada (save permission), D Tidak ada.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Logs: C Tidak ada, U Tidak ada, D Tidak ada. (monitoring)</w:t></w:r></w:p>
+    <w:p/>
+    <w:p><w:r><w:t>Catatan: Dokumen ini berdasarkan route aktif saat ini. Jika route/module berubah, dokumen perlu diperbarui.</w:t></w:r></w:p>
+    <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>
+  </w:body>
+</w:document>
