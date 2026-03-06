@@ -46,6 +46,16 @@
                 <div class="text-slate-400 text-sm">Alasan</div>
                 <div>{{ leavePermission.reason }}</div>
               </div>
+
+              <div>
+                <div class="text-slate-400 text-sm">Gambar</div>
+                <div v-if="leavePermission.image_url">
+                  <button type="button" @click="openImage(leavePermission.image_url)" class="text-indigo-400 hover:text-indigo-300">
+                    Lihat Gambar
+                  </button>
+                </div>
+                <div v-else>-</div>
+              </div>
             </div>
           </div>
 
@@ -107,11 +117,26 @@
           </div>
         </div>
       </div>
+
+      <!-- Image Preview Modal -->
+      <div
+        v-if="previewImage"
+        class="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4"
+        @click.self="closeImage"
+      >
+        <div class="max-w-4xl w-full bg-slate-900 border border-slate-700 rounded-lg p-3">
+          <div class="flex justify-end mb-2">
+            <button type="button" @click="closeImage" class="px-3 py-1 rounded bg-slate-700 text-slate-200">Tutup</button>
+          </div>
+          <img :src="previewImage" alt="Preview" class="w-full max-h-[75vh] object-contain rounded" />
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { Inertia } from '@inertiajs/inertia';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -121,6 +146,7 @@ const props = defineProps({
   isAdmin: Boolean,
   isManager: Boolean,
 });
+const previewImage = ref('');
 
 function formatDate(date) {
   if (!date) return '-';
@@ -189,5 +215,13 @@ function rejectRequest() {
       // Success - page will reload with updated data
     },
   });
+}
+
+function openImage(url) {
+  previewImage.value = url || '';
+}
+
+function closeImage() {
+  previewImage.value = '';
 }
 </script>

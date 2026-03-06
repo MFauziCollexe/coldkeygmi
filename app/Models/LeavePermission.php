@@ -16,6 +16,7 @@ class LeavePermission extends Model
         'end_date',
         'days',
         'reason',
+        'attachment_image',
         'status',
         'reviewed_by',
         'reviewed_at',

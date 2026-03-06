@@ -9,6 +9,7 @@ use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class LeavePermissionController extends Controller
 {
@@ -71,6 +72,30 @@ class LeavePermissionController extends Controller
     }
 
     /**
+     * Check if a user can review (approve/reject) a leave permission.
+     * - Admin: can review all
+     * - Manager: only requests from visible departments
+     */
+    protected function canReviewLeavePermission($userId, LeavePermission $leavePermission): bool
+    {
+        if ($this->isAdmin($userId)) {
+            return true;
+        }
+
+        if (!$this->isManager($userId)) {
+            return false;
+        }
+
+        $targetDeptId = (int) optional($leavePermission->user)->department_id;
+        if ($targetDeptId <= 0) {
+            return false;
+        }
+
+        $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+        return in_array($targetDeptId, $visibleDeptIds, true);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index()
@@ -123,6 +148,11 @@ class LeavePermissionController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        $leavePermissions->getCollection()->transform(function ($item) {
+            $item->image_url = $item->attachment_image ? Storage::url($item->attachment_image) : null;
+            return $item;
+        });
+
         // Get departments for filter (only visible ones)
         $departments = Department::whereIn('id', $visibleDeptIds)
             ->select('id', 'name')
@@ -154,6 +184,7 @@ class LeavePermissionController extends Controller
         
         // Load the leave permission with related data
         $leavePermission->load(['user', 'user.department', 'reviewer']);
+        $leavePermission->image_url = $leavePermission->attachment_image ? Storage::url($leavePermission->attachment_image) : null;
 
         return Inertia::render('GMIHR/LeavePermission/Show', [
             'leavePermission' => $leavePermission,
@@ -172,11 +203,15 @@ class LeavePermissionController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'reason' => 'required|string|min:5',
+            'attachment_image' => 'nullable|image|max:5120',
         ]);
 
         $data['user_id'] = Auth::id();
         $data['days'] = LeavePermission::calculateDays($data['start_date'], $data['end_date']);
         $data['status'] = 'pending';
+        $data['attachment_image'] = $request->hasFile('attachment_image')
+            ? $request->file('attachment_image')->store('leave-permission-images', 'public')
+            : null;
 
         $leavePermission = LeavePermission::create($data);
 
@@ -198,6 +233,15 @@ class LeavePermissionController extends Controller
      */
     public function update(Request $request, LeavePermission $leavePermission)
     {
+        $userId = Auth::id();
+        $leavePermission->loadMissing(['user:id,department_id']);
+
+        if (!$this->canReviewLeavePermission($userId, $leavePermission)) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki izin untuk menyetujui/menolak permintaan ini.',
+            ], 403);
+        }
+
         $data = $request->validate([
             'status' => 'required|in:approved,rejected',
             'review_notes' => 'nullable|string',

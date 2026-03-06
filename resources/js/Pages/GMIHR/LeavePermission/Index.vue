@@ -89,6 +89,7 @@
               <th>Tanggal Selesai</th>
               <th>Jumlah Hari</th>
               <th>Alasan</th>
+              <th>Gambar</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -104,6 +105,17 @@
               <td>{{ item.days }}</td>
               <td>{{ item.reason }}</td>
               <td>
+                <button
+                  v-if="item.image_url"
+                  type="button"
+                  @click="openImage(item.image_url)"
+                  class="text-indigo-400 hover:text-indigo-300"
+                >
+                  Lihat
+                </button>
+                <span v-else>-</span>
+              </td>
+              <td>
                 <span :class="getStatusClass(item.status)">
                   {{ item.status }}
                 </span>
@@ -115,7 +127,7 @@
               </td>
             </tr>
             <tr v-if="!leavePermissions.data || leavePermissions.data.length === 0">
-              <td colspan="10" class="py-8 text-center text-slate-400">
+              <td colspan="11" class="py-8 text-center text-slate-400">
                 Tidak ada data
               </td>
             </tr>
@@ -217,6 +229,20 @@
           </div>
         </div>
       </div>
+
+      <!-- Image Preview Modal -->
+      <div
+        v-if="previewImage"
+        class="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4"
+        @click.self="closeImage"
+      >
+        <div class="max-w-4xl w-full bg-slate-900 border border-slate-700 rounded-lg p-3">
+          <div class="flex justify-end mb-2">
+            <button type="button" @click="closeImage" class="px-3 py-1 rounded bg-slate-700 text-slate-200">Tutup</button>
+          </div>
+          <img :src="previewImage" alt="Preview" class="w-full max-h-[75vh] object-contain rounded" />
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -246,6 +272,7 @@ const filters = reactive({
 const showCreateModal = ref(false);
 const showDetailModal = ref(false);
 const selectedItem = ref(null);
+const previewImage = ref('');
 const statusOptions = [
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
@@ -346,5 +373,13 @@ function rejectRequest(item) {
       fetchData();
     },
   });
+}
+
+function openImage(url) {
+  previewImage.value = url || '';
+}
+
+function closeImage() {
+  previewImage.value = '';
 }
 </script>

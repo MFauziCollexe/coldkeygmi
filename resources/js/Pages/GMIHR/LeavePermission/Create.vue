@@ -78,6 +78,38 @@
           </label>
         </div>
 
+        <div>
+          <label class="block text-sm text-slate-300">Attachments</label>
+          <div
+            class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition"
+            :class="dragActive ? 'border-indigo-500 bg-slate-700/40' : 'border-slate-600'"
+            @click="clickFileInput"
+            @dragover.prevent="onDragOver"
+            @dragleave.prevent="onDragLeave"
+            @drop.prevent="onDrop"
+          >
+            <p class="text-slate-300 font-medium mb-2">Upload image attachment</p>
+            <p class="text-slate-500 text-sm mb-4">Format: image (JPG, PNG, WEBP)</p>
+            <p class="text-indigo-300 text-sm">Klik area ini atau drag-and-drop file</p>
+            <input
+              ref="fileInput"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="onImageChange"
+            />
+          </div>
+          <div v-if="form.errors.attachment_image" class="text-red-400 text-sm mt-1">
+            {{ form.errors.attachment_image }}
+          </div>
+          <div v-if="form.attachment_image" class="mt-2">
+            <div class="flex items-center justify-between bg-slate-900 p-2 rounded mt-1">
+              <span class="text-sm">{{ form.attachment_image.name }}</span>
+              <button type="button" @click="removeImage" class="text-red-400">Remove</button>
+            </div>
+          </div>
+        </div>
+
         <div class="flex justify-end gap-2">
           <button type="button" @click="cancel" class="px-4 py-2 rounded bg-slate-700 text-slate-300">
             Batal
@@ -92,6 +124,7 @@
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { Inertia } from '@inertiajs/inertia';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -110,7 +143,11 @@ const form = useForm({
   start_date: '',
   end_date: '',
   reason: '',
+  attachment_image: null,
 });
+
+const fileInput = ref(null);
+const dragActive = ref(false);
 
 function submit() {
   if (!form.start_date || !form.end_date || !form.reason) {
@@ -119,10 +156,39 @@ function submit() {
   }
   
   form.post('/leave-permission', {
+    forceFormData: true,
     onSuccess: () => {
       Inertia.get('/leave-permission');
     },
   });
+}
+
+function onImageChange(event) {
+  form.attachment_image = event.target.files?.[0] || null;
+}
+
+function removeImage() {
+  form.attachment_image = null;
+}
+
+function clickFileInput() {
+  if (fileInput.value) {
+    fileInput.value.click();
+  }
+}
+
+function onDragOver() {
+  dragActive.value = true;
+}
+
+function onDragLeave() {
+  dragActive.value = false;
+}
+
+function onDrop(event) {
+  dragActive.value = false;
+  const files = Array.from(event.dataTransfer?.files || []);
+  form.attachment_image = files.length > 0 ? files[0] : null;
 }
 
 function cancel() {
