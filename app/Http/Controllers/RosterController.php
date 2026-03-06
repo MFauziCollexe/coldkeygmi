@@ -116,6 +116,7 @@ class RosterController extends Controller
 
         $user = Auth::user();
         $targetDepartmentId = $this->resolveDepartmentIdForTemplateType($templateType) ?: $user?->department_id;
+
         try {
             $result = $this->parseRosterFile(
                 $file->getRealPath(),
@@ -124,6 +125,48 @@ class RosterController extends Controller
                 $year,
                 $targetDepartmentId
             );
+
+            if (empty($result['preview_rows'])) {
+                return response()->json([
+                    'message' => 'Tidak ada data roster yang terbaca dari file.',
+                ], 422);
+            }
+
+            $previewKey = 'roster_preview_' . Str::uuid();
+            $originalFilename = basename((string) $file->getClientOriginalName());
+            $tempUploadedFilePath = "roster_previews/files/{$previewKey}_" . Str::random(8) . "_{$originalFilename}";
+            Storage::disk('local')->putFileAs('roster_previews/files', $file, basename($tempUploadedFilePath));
+
+            $previewPayload = [
+                'month' => (int) ($result['effective_month'] ?? $month),
+                'year' => (int) ($result['effective_year'] ?? $year),
+                'template_type' => $templateType,
+                'target_department_id' => $targetDepartmentId,
+                'delimiter' => $result['delimiter'],
+                'filename' => $originalFilename,
+                'source_file_path_temp' => $tempUploadedFilePath,
+                'preview_rows' => $result['preview_rows'],
+                'valid_rows' => $result['valid_rows'],
+                'generated_at' => now()->toIso8601String(),
+            ];
+            $json = json_encode($previewPayload, JSON_UNESCAPED_UNICODE);
+            if ($json === false) {
+                throw new \RuntimeException('Gagal encode preview payload ke JSON.');
+            }
+            Storage::disk('local')->put("roster_previews/{$previewKey}.json", $json);
+
+            return response()->json([
+                'preview_key' => $previewKey,
+                'month' => (int) ($result['effective_month'] ?? $month),
+                'year' => (int) ($result['effective_year'] ?? $year),
+                'delimiter' => $result['delimiter'],
+                'summary' => [
+                    'total_preview_rows' => count($result['preview_rows']),
+                    'valid_rows' => count($result['valid_rows']),
+                    'invalid_rows' => count($result['preview_rows']) - count($result['valid_rows']),
+                ],
+                'rows' => $result['preview_rows'],
+            ]);
         } catch (\Throwable $e) {
             Log::error('Roster preview failed', [
                 'error' => $e->getMessage(),
@@ -131,7 +174,8 @@ class RosterController extends Controller
                 'user_id' => optional($user)->id,
             ]);
 
-            $isZipError = str_contains(strtolower($e->getMessage()), 'ziparchive');
+            $msg = strtolower($e->getMessage());
+            $isZipError = str_contains($msg, 'ziparchive') || str_contains($msg, 'zip extension');
             $message = $isZipError
                 ? 'Preview Excel gagal: ekstensi PHP ZIP belum aktif di server. Aktifkan php_zip atau upload file CSV.'
                 : 'Preview roster gagal diproses. Silakan coba lagi atau upload file CSV.';
@@ -140,44 +184,6 @@ class RosterController extends Controller
                 'message' => $message,
             ], 422);
         }
-
-        if (empty($result['preview_rows'])) {
-            return response()->json([
-                'message' => 'Tidak ada data roster yang terbaca dari file.',
-            ], 422);
-        }
-
-        $previewKey = 'roster_preview_' . Str::uuid();
-        $originalFilename = basename((string) $file->getClientOriginalName());
-        $tempUploadedFilePath = "roster_previews/files/{$previewKey}_" . Str::random(8) . "_{$originalFilename}";
-        Storage::disk('local')->putFileAs('roster_previews/files', $file, basename($tempUploadedFilePath));
-
-        $previewPayload = [
-            'month' => (int) ($result['effective_month'] ?? $month),
-            'year' => (int) ($result['effective_year'] ?? $year),
-            'template_type' => $templateType,
-            'target_department_id' => $targetDepartmentId,
-            'delimiter' => $result['delimiter'],
-            'filename' => $originalFilename,
-            'source_file_path_temp' => $tempUploadedFilePath,
-            'preview_rows' => $result['preview_rows'],
-            'valid_rows' => $result['valid_rows'],
-            'generated_at' => now()->toIso8601String(),
-        ];
-        Storage::disk('local')->put("roster_previews/{$previewKey}.json", json_encode($previewPayload));
-
-        return response()->json([
-            'preview_key' => $previewKey,
-            'month' => (int) ($result['effective_month'] ?? $month),
-            'year' => (int) ($result['effective_year'] ?? $year),
-            'delimiter' => $result['delimiter'],
-            'summary' => [
-                'total_preview_rows' => count($result['preview_rows']),
-                'valid_rows' => count($result['valid_rows']),
-                'invalid_rows' => count($result['preview_rows']) - count($result['valid_rows']),
-            ],
-            'rows' => $result['preview_rows'],
-        ]);
     }
 
     public function upload(Request $request)
