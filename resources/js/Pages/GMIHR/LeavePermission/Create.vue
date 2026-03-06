@@ -26,6 +26,7 @@
           >
             Jenis Permintaan
           </label>
+          <div v-if="form.errors.type" class="text-red-400 text-sm mt-1">{{ form.errors.type }}</div>
         </div>
 
         <div class="relative group">
@@ -45,6 +46,7 @@
           >
             Tanggal Mulai
           </label>
+          <div v-if="form.errors.start_date" class="text-red-400 text-sm mt-1">{{ form.errors.start_date }}</div>
         </div>
 
         <div class="relative group">
@@ -64,6 +66,7 @@
           >
             Tanggal Selesai
           </label>
+          <div v-if="form.errors.end_date" class="text-red-400 text-sm mt-1">{{ form.errors.end_date }}</div>
         </div>
 
         <div class="relative">
@@ -76,6 +79,7 @@
           <label class="pointer-events-none absolute left-3 z-10 px-1 transition-all text-xs text-slate-300 bg-slate-800 top-0 -translate-y-1/2 peer-placeholder-shown:top-4 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:text-base peer-placeholder-shown:text-slate-400 peer-placeholder-shown:bg-transparent peer-placeholder-shown:px-0 peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-slate-200 peer-focus:bg-slate-800 peer-focus:px-1">
             Alasan
           </label>
+          <div v-if="form.errors.reason" class="text-red-400 text-sm mt-1">{{ form.errors.reason }}</div>
         </div>
 
         <div>
@@ -150,7 +154,7 @@ const fileInput = ref(null);
 const dragActive = ref(false);
 
 function submit() {
-  if (!form.start_date || !form.end_date || !form.reason) {
+  if (!form.type || !form.start_date || !form.end_date || !form.reason) {
     alert('Mohon lengkapi semua field');
     return;
   }
@@ -159,6 +163,10 @@ function submit() {
     forceFormData: true,
     onSuccess: () => {
       Inertia.get('/leave-permission');
+    },
+    onError: () => {
+      const firstError = Object.values(form.errors || {})[0];
+      if (firstError) alert(String(firstError));
     },
   });
 }

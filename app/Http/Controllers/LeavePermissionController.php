@@ -272,6 +272,39 @@ class LeavePermissionController extends Controller
     }
 
     /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(LeavePermission $leavePermission)
+    {
+        $userId = Auth::id();
+
+        if (!$this->isAdmin($userId)) {
+            return response()->json([
+                'message' => 'Hanya admin yang dapat menghapus data ini.',
+            ], 403);
+        }
+
+        if ($leavePermission->attachment_image) {
+            Storage::disk('public')->delete($leavePermission->attachment_image);
+        }
+
+        $oldData = $leavePermission->toArray();
+        $id = $leavePermission->id;
+        $leavePermission->delete();
+
+        $this->logActivity(
+            'leave_permissions',
+            $id,
+            'deleted',
+            $oldData,
+            null,
+            'Deleted leave permission request'
+        );
+
+        return redirect()->route('leave-permission.index')->with('success', 'Data berhasil dihapus.');
+    }
+
+    /**
      * Helper function to log activity
      */
     private function logActivity($tableName, $recordId, $action, $oldValues, $newValues, $description)

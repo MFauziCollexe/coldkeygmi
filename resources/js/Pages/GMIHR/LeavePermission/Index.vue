@@ -124,6 +124,14 @@
                 <Link :href="`/leave-permission/${item.id}`" class="text-indigo-400 hover:text-indigo-300">
                   Detail
                 </Link>
+                <button
+                  v-if="isAdmin"
+                  type="button"
+                  class="ml-3 text-red-400 hover:text-red-300"
+                  @click="deleteRequest(item)"
+                >
+                  Hapus
+                </button>
               </td>
             </tr>
             <tr v-if="!leavePermissions.data || leavePermissions.data.length === 0">
@@ -157,14 +165,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Create Modal -->
-      <LeavePermissionForm 
-        v-if="showCreateModal" 
-        title="Ajukan Permintaan"
-        @close="showCreateModal = false"
-        @success="fetchData"
-      />
 
       <!-- Detail Modal -->
       <div v-if="showDetailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -381,5 +381,16 @@ function openImage(url) {
 
 function closeImage() {
   previewImage.value = '';
+}
+
+function deleteRequest(item) {
+  if (!item?.id) return;
+  if (!confirm('Yakin ingin menghapus data ini?')) return;
+
+  Inertia.delete(`/leave-permission/${item.id}`, {
+    onSuccess: () => {
+      fetchData();
+    },
+  });
 }
 </script>

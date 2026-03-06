@@ -116,6 +116,12 @@
             </button>
           </div>
         </div>
+
+        <div v-if="isAdmin" class="mt-6 pt-4 border-t border-slate-700">
+          <button @click="deleteRequest" class="px-6 py-3 rounded bg-red-700 text-white hover:bg-red-800">
+            Hapus Data
+          </button>
+        </div>
       </div>
 
       <!-- Image Preview Modal -->
@@ -223,5 +229,15 @@ function openImage(url) {
 
 function closeImage() {
   previewImage.value = '';
+}
+
+function deleteRequest() {
+  if (!confirm('Yakin ingin menghapus data ini?')) return;
+
+  Inertia.delete(`/leave-permission/${props.leavePermission.id}`, {
+    onSuccess: () => {
+      Inertia.get('/leave-permission');
+    },
+  });
 }
 </script>
