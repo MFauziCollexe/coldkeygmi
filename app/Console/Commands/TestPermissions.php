@@ -36,7 +36,7 @@ class TestPermissions extends Command
         // Check Fauzi - using name field
         $fauzi = User::where('email', 'fauzi.muhammad@gmail.com')
             ->orWhere(function ($q) {
-                $q->where('name', 'like', '%Fauzi%');
+                $q->where('first_name', 'Muhammad')->where('last_name', 'Fauzi');
             })
             ->first();
 

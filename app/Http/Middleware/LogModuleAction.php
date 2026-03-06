@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 
 class LogModuleAction
 {
@@ -44,27 +45,37 @@ class LogModuleAction
             $payload = array_merge($payload, ['export' => true]);
         }
 
+        $payload = $this->stripHeavyPayloadKeys($payload);
         $normalizedPayload = $this->normalizePayload($payload);
         $safePayload = $this->shrinkPayloadForLog($normalizedPayload);
 
-        ActivityLog::create([
-            'table_name' => $tableName,
-            'record_id' => $recordId,
-            'action' => $action,
-            'old_values' => null,
-            'new_values' => $safePayload,
-            'user_id' => (string) optional($request->user())->id,
-            'user_email' => optional($request->user())->email,
-            'ip_address' => $request->ip(),
-            'created_date' => now(),
-            'description' => sprintf(
-                '%s action on %s (%s) [%s]',
-                ucfirst($buttonLabel),
-                $request->path(),
-                $request->method(),
-                (string) ($route?->getName() ?? 'unnamed')
-            ),
-        ]);
+        try {
+            ActivityLog::create([
+                'table_name' => $tableName,
+                'record_id' => $recordId,
+                'action' => $action,
+                'old_values' => null,
+                'new_values' => $safePayload,
+                'user_id' => (string) optional($request->user())->id,
+                'user_email' => optional($request->user())->email,
+                'ip_address' => $request->ip(),
+                'created_date' => now(),
+                'description' => sprintf(
+                    '%s action on %s (%s) [%s]',
+                    ucfirst($buttonLabel),
+                    $request->path(),
+                    $request->method(),
+                    (string) ($route?->getName() ?? 'unnamed')
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            // Activity logging must never break the primary request flow.
+            Log::warning('Skip activity log due to logging error', [
+                'path' => $request->path(),
+                'method' => $request->method(),
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return $response;
     }
@@ -235,6 +246,32 @@ class LogModuleAction
             }
 
             $payload[$key] = $this->reduceLargeArrays($value);
+        }
+
+        return $payload;
+    }
+
+    private function stripHeavyPayloadKeys(array $payload): array
+    {
+        $heavyKeys = ['rows', 'edited_rows', 'preview_rows', 'matrix', 'data'];
+
+        foreach ($heavyKeys as $key) {
+            if (!array_key_exists($key, $payload)) {
+                continue;
+            }
+
+            $value = $payload[$key];
+            if (is_array($value)) {
+                $payload[$key] = [
+                    '_summary' => 'omitted_large_payload',
+                    '_count' => count($value),
+                ];
+            } else {
+                $payload[$key] = [
+                    '_summary' => 'omitted_large_payload',
+                    '_type' => gettype($value),
+                ];
+            }
         }
 
         return $payload;

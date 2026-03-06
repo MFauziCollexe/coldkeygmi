@@ -18,6 +18,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use Illuminate\Support\Facades\Log;
 
 class RosterController extends Controller
 {
@@ -115,13 +116,30 @@ class RosterController extends Controller
 
         $user = Auth::user();
         $targetDepartmentId = $this->resolveDepartmentIdForTemplateType($templateType) ?: $user?->department_id;
-        $result = $this->parseRosterFile(
-            $file->getRealPath(),
-            $file->getClientOriginalName(),
-            $month,
-            $year,
-            $targetDepartmentId
-        );
+        try {
+            $result = $this->parseRosterFile(
+                $file->getRealPath(),
+                $file->getClientOriginalName(),
+                $month,
+                $year,
+                $targetDepartmentId
+            );
+        } catch (\Throwable $e) {
+            Log::error('Roster preview failed', [
+                'error' => $e->getMessage(),
+                'filename' => (string) $file->getClientOriginalName(),
+                'user_id' => optional($user)->id,
+            ]);
+
+            $isZipError = str_contains(strtolower($e->getMessage()), 'ziparchive');
+            $message = $isZipError
+                ? 'Preview Excel gagal: ekstensi PHP ZIP belum aktif di server. Aktifkan php_zip atau upload file CSV.'
+                : 'Preview roster gagal diproses. Silakan coba lagi atau upload file CSV.';
+
+            return response()->json([
+                'message' => $message,
+            ], 422);
+        }
 
         if (empty($result['preview_rows'])) {
             return response()->json([
@@ -645,6 +663,10 @@ class RosterController extends Controller
         $delimiter = ';';
 
         if (in_array($extension, ['xlsx', 'xls'], true)) {
+            if (!class_exists(\ZipArchive::class)) {
+                throw new \RuntimeException('ZipArchive extension is required to read Excel files.');
+            }
+
             $spreadsheet = IOFactory::load($path);
             $sheet = $spreadsheet->getSheet(0);
             $rows = $sheet->toArray(null, true, true, false);
