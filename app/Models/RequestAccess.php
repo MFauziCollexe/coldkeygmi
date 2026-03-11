@@ -114,20 +114,18 @@ class RequestAccess extends Model
             return false;
         }
 
-        // Check if user is a manager of that department
-        $position = \App\Models\Position::where('department_id', $creator->department_id)
-            ->where('is_manager', true)
-            ->first();
-        
-        if (!$position) {
+        $reviewer = User::find($userId);
+        if (!$reviewer || !$reviewer->position_id) {
             return false;
         }
 
-        $manager = User::where('position_id', $position->id)
-            ->where('status', 'active')
-            ->first();
+        $position = \App\Models\Position::find($reviewer->position_id);
+        if (!$position || !$position->is_manager) {
+            return false;
+        }
 
-        return $manager && $manager->id == $userId;
+        $managedDeptIds = \App\Support\DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
+        return in_array((int) $creator->department_id, $managedDeptIds, true);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ExitPermit;
 use App\Models\Position;
+use App\Support\DepartmentScope;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -233,6 +234,7 @@ class ExitPermitController extends Controller
             return false;
         }
 
-        return (int) $position->department_id === $departmentId;
+        $managedDeptIds = DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
+        return in_array((int) $departmentId, $managedDeptIds, true);
     }
 }

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Department;
 use App\Models\ModulePermission;
 use App\Models\ActivityLog;
+use App\Support\DepartmentScope;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
@@ -104,10 +105,23 @@ class RequestAccessController extends Controller
         // If manager/admin, they can request for new users (Flow 2)
         $canRequestNewUser = $isManager || $isAdmin;
 
-        // Get users filtered by current user's department (for existing user request)
-        $users = User::select('id', 'name', 'email', 'department_id')
-            ->where('status', 'active')
-            ->where('department_id', $currentUser->department_id)
+        // Get users for existing user request:
+        // - Admin: all active users
+        // - Manager: users in managed departments (OPS manager includes INV/RSC/ADL)
+        // - Regular: users in their own department
+        $usersQuery = User::select('id', 'name', 'email', 'department_id')
+            ->where('status', 'active');
+
+        if ($isAdmin) {
+            // no extra filter
+        } elseif ($isManager) {
+            $managedDeptIds = $this->getManagedDepartmentIds($currentUser->id);
+            $usersQuery->whereIn('department_id', $managedDeptIds);
+        } else {
+            $usersQuery->where('department_id', $currentUser->department_id);
+        }
+
+        $users = $usersQuery
             ->orderBy('name')
             ->get()
             ->map(function($user) {
@@ -426,7 +440,7 @@ class RequestAccessController extends Controller
             return [];
         }
 
-        return [$position->department_id];
+        return DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
     }
 
     protected function normalizeModuleKeys(array $keys): array

@@ -86,8 +86,8 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
 
@@ -100,7 +100,8 @@ const props = defineProps({
   filters: Object
 });
 
-const employees = reactive(props.employees);
+// Always read the latest paginator from Inertia props (don't copy into local reactive state).
+const employees = computed(() => props.employees);
 const searchQuery = ref(props.filters?.search || '');
 
 function search() {

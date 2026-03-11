@@ -11,6 +11,7 @@ class LeavePermission extends Model
 
     protected $fillable = [
         'user_id',
+        'employee_id',
         'type',
         'start_date',
         'end_date',
@@ -35,6 +36,11 @@ class LeavePermission extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class);
     }
 
     /**

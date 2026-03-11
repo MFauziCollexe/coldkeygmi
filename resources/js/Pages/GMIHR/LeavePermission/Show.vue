@@ -63,21 +63,21 @@
           <div>
             <h3 class="text-lg font-semibold mb-4 text-indigo-400">Informasi Karyawan</h3>
             
-            <div class="space-y-4">
-              <div>
-                <div class="text-slate-400 text-sm">Nama Karyawan</div>
-                <div>{{ leavePermission.user?.name || '-' }}</div>
-              </div>
-              
-              <div>
-                <div class="text-slate-400 text-sm">Email</div>
+              <div class="space-y-4">
+                <div>
+                  <div class="text-slate-400 text-sm">Nama Karyawan</div>
+                <div>{{ leavePermission.employee?.name || leavePermission.user?.name || '-' }}</div>
+                </div>
+               
+                <div>
+                  <div class="text-slate-400 text-sm">Email</div>
                 <div>{{ leavePermission.user?.email || '-' }}</div>
-              </div>
-              
-              <div>
-                <div class="text-slate-400 text-sm">Department</div>
-                <div>{{ leavePermission.user?.department?.name || '-' }}</div>
-              </div>
+                </div>
+               
+                <div>
+                  <div class="text-slate-400 text-sm">Department</div>
+                <div>{{ leavePermission.employee?.department?.name || leavePermission.user?.department?.name || '-' }}</div>
+                </div>
               
               <div>
                 <div class="text-slate-400 text-sm">Status</div>

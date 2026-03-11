@@ -98,8 +98,8 @@
             <tr v-for="(item, index) in leavePermissions.data" :key="item.id" class="border-t border-slate-700">
               <td class="py-3">{{ index + 1 }}</td>
               <td>{{ formatDate(item.created_at) }}</td>
-              <td>{{ item.user?.name || '-' }}</td>
-              <td>{{ item.user?.department?.name || '-' }}</td>
+              <td>{{ item.employee?.name || item.user?.name || '-' }}</td>
+              <td>{{ item.employee?.department?.name || item.user?.department?.name || '-' }}</td>
               <td>{{ formatDate(item.start_date) }}</td>
               <td>{{ formatDate(item.end_date) }}</td>
               <td>{{ item.days }}</td>
@@ -178,11 +178,11 @@
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Karyawan:</span>
-              <span>{{ selectedItem?.user?.name }}</span>
+              <span>{{ selectedItem?.employee?.name || selectedItem?.user?.name || '-' }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Department:</span>
-              <span>{{ selectedItem?.user?.department?.name }}</span>
+              <span>{{ selectedItem?.employee?.department?.name || selectedItem?.user?.department?.name || '-' }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Tanggal Mulai:</span>

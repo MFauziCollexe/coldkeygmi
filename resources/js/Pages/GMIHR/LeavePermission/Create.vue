@@ -3,10 +3,10 @@
     <div class="p-6 max-w-2xl">
       <h2 class="text-2xl font-bold mb-4">Ajukan Permintaan Cuti/Izin</h2>
 
-      <form @submit.prevent="submit" class="space-y-4 bg-slate-800 p-4 rounded">
-        <div v-if="canSelectEmployee" class="relative group">
-          <SearchableSelect
-            v-model="form.user_id"
+        <form @submit.prevent="submit" class="space-y-4 bg-slate-800 p-4 rounded">
+          <div v-if="canSelectEmployee" class="relative group">
+            <SearchableSelect
+            v-model="form.employee_id"
             :options="employees"
             option-value="id"
             option-label="label"
@@ -18,7 +18,7 @@
           <label
             :class="[
               'pointer-events-none absolute left-3 z-10 transition-all',
-              (form.user_id
+              (form.employee_id
                 ? 'px-1 text-xs text-slate-300 bg-slate-800 top-0 -translate-y-1/2'
                 : 'px-0 text-base text-slate-400 bg-transparent top-1/2 -translate-y-1/2'),
               'group-focus-within:px-1 group-focus-within:text-xs group-focus-within:text-slate-200 group-focus-within:bg-slate-800 group-focus-within:top-0 group-focus-within:-translate-y-1/2',
@@ -26,7 +26,7 @@
           >
             Karyawan
           </label>
-          <div v-if="form.errors.user_id" class="text-red-400 text-sm mt-1">{{ form.errors.user_id }}</div>
+          <div v-if="form.errors.employee_id" class="text-red-400 text-sm mt-1">{{ form.errors.employee_id }}</div>
         </div>
 
         <div class="relative group">
@@ -175,7 +175,7 @@ const requestTypeOptions = [
 ];
 
 const form = useForm({
-  user_id: props.canSelectEmployee
+  employee_id: props.canSelectEmployee
     ? (props.canSubmitForOthers ? '' : (props.defaultEmployeeId || ''))
     : '',
   type: '',

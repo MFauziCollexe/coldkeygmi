@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Employee;
 use App\Models\LeavePermission;
 use App\Models\User;
 use App\Models\Department;
 use App\Models\ActivityLog;
+use App\Support\DepartmentScope;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +15,18 @@ use Illuminate\Support\Facades\Storage;
 
 class LeavePermissionController extends Controller
 {
+    protected function getActorEmployee($userId): ?Employee
+    {
+        if (!$userId) {
+            return null;
+        }
+
+        return Employee::query()
+            ->select('id', 'user_id', 'department_id', 'position_id', 'name', 'nik')
+            ->where('user_id', $userId)
+            ->first();
+    }
+
     /**
      * Check if user is admin
      */
@@ -28,12 +42,60 @@ class LeavePermissionController extends Controller
     protected function isManager($userId)
     {
         $user = User::find($userId);
-        if (!$user || !$user->position_id) {
+        if (!$user) {
             return false;
         }
 
-        $position = \App\Models\Position::find($user->position_id);
+        $positionId = (int) ($user->position_id ?? 0);
+        if ($positionId <= 0) {
+            $emp = $this->getActorEmployee($userId);
+            $positionId = (int) ($emp?->position_id ?? 0);
+        }
+
+        if ($positionId <= 0) {
+            return false;
+        }
+
+        $position = \App\Models\Position::find($positionId);
         return $position && $position->is_manager;
+    }
+
+    /**
+     * Check if user is a supervisor.
+     *
+     * This project currently doesn't have an explicit `is_supervisor` flag on positions,
+     * so we infer it from position `code` / `name` containing "SPV" / "Supervisor".
+     */
+    protected function isSupervisor($userId)
+    {
+        $user = User::find($userId);
+        if (!$user) {
+            return false;
+        }
+
+        $positionId = (int) ($user->position_id ?? 0);
+        if ($positionId <= 0) {
+            $emp = $this->getActorEmployee($userId);
+            $positionId = (int) ($emp?->position_id ?? 0);
+        }
+
+        if ($positionId <= 0) {
+            return false;
+        }
+
+        $position = \App\Models\Position::find($positionId);
+        if (!$position) {
+            return false;
+        }
+
+        $code = strtoupper(trim((string) ($position->code ?? '')));
+        $name = strtoupper(trim((string) ($position->name ?? '')));
+
+        if ($code === 'SPV' || str_ends_with($code, '-SPV') || str_contains($code, 'SPV')) {
+            return true;
+        }
+
+        return str_contains($name, 'SUPERVISOR') || str_contains($name, 'SPV');
     }
 
     /**
@@ -50,6 +112,8 @@ class LeavePermissionController extends Controller
             return [];
         }
 
+        $emp = $this->getActorEmployee($userId);
+
         // Admin can see all
         if ($this->isAdmin($userId)) {
             return Department::pluck('id')->toArray();
@@ -57,15 +121,24 @@ class LeavePermissionController extends Controller
 
         // Manager can see their department
         if ($this->isManager($userId)) {
-            $position = \App\Models\Position::find($user->position_id);
+            $positionId = (int) ($user->position_id ?? 0);
+            if ($positionId <= 0) {
+                $positionId = (int) ($emp?->position_id ?? 0);
+            }
+
+            $position = $positionId > 0 ? \App\Models\Position::find($positionId) : null;
             if ($position && $position->department_id) {
-                return [$position->department_id];
+                return DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
             }
         }
 
         // Regular user can only see their own department
-        if ($user->department_id) {
-            return [$user->department_id];
+        $deptId = (int) ($user->department_id ?? 0);
+        if ($deptId <= 0) {
+            $deptId = (int) ($emp?->department_id ?? 0);
+        }
+        if ($deptId > 0) {
+            return [$deptId];
         }
 
         return [];
@@ -86,7 +159,14 @@ class LeavePermissionController extends Controller
             return false;
         }
 
-        $targetDeptId = (int) optional($leavePermission->user)->department_id;
+        $targetDeptId = (int) optional($leavePermission->employee)->department_id;
+        if ($targetDeptId <= 0) {
+            $targetDeptId = (int) optional($leavePermission->user)->department_id;
+        }
+        if ($targetDeptId <= 0 && $leavePermission->user_id) {
+            // Legacy rows without employee_id: attempt to resolve via employee.user_id
+            $targetDeptId = (int) Employee::where('user_id', (int) $leavePermission->user_id)->value('department_id');
+        }
         if ($targetDeptId <= 0) {
             return false;
         }
@@ -104,13 +184,26 @@ class LeavePermissionController extends Controller
         
         // Get visible department IDs
         $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
-        
-        // Get users in visible departments
-        $visibleUserIds = User::whereIn('department_id', $visibleDeptIds)->pluck('id')->toArray();
 
         $query = LeavePermission::query()
-            ->with(['user', 'user.department', 'reviewer'])
-            ->whereIn('user_id', $visibleUserIds);
+            ->with([
+                'employee',
+                'employee.department',
+                'employee.position',
+                'user',
+                'user.department',
+                'reviewer',
+            ])
+            ->where(function ($q) use ($visibleDeptIds) {
+                // Preferred: filter by employee.department_id
+                $q->whereHas('employee', function ($qq) use ($visibleDeptIds) {
+                    $qq->whereIn('department_id', $visibleDeptIds);
+                })
+                // Legacy fallback: filter by user.department_id
+                ->orWhereHas('user', function ($qq) use ($visibleDeptIds) {
+                    $qq->whereIn('department_id', $visibleDeptIds);
+                });
+            });
 
         // Filters
         $search = request('search');
@@ -120,9 +213,14 @@ class LeavePermissionController extends Controller
         $endDate = request('end_date');
 
         if ($search) {
-            $query->whereHas('user', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('employee', function ($qq) use ($search) {
+                    $qq->where('name', 'like', "%{$search}%")
+                        ->orWhere('nik', 'like', "%{$search}%");
+                })->orWhereHas('user', function ($qq) use ($search) {
+                    $qq->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
             });
         }
 
@@ -173,51 +271,95 @@ class LeavePermissionController extends Controller
     public function create()
     {
         $userId = Auth::id();
-        $actor = User::find($userId);
-        $canSubmitForOthers = $this->isAdmin($userId) || $this->isManager($userId);
-        $canSelectEmployee = true;
+        $canSubmitForOthers = $this->isAdmin($userId) || $this->isManager($userId) || $this->isSupervisor($userId);
 
         $employees = [];
         if ($canSubmitForOthers) {
 
-            $employees = User::query()
-                ->whereNotNull('department_id')
-                ->select('id', 'name', 'account', 'email', 'department_id')
-                ->orderBy('name')
-                ->get()
-                ->map(function (User $user) {
-                    $account = trim((string) ($user->account ?? ''));
-                    $email = trim((string) ($user->email ?? ''));
-                    $suffix = $account !== '' ? $account : $email;
-                    $label = trim((string) $user->name);
-                    if ($suffix !== '') {
-                        $label .= " ({$suffix})";
-                    }
+            $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+            if (empty($visibleDeptIds)) {
+                $employees = [];
+            } else {
 
-                    return [
-                        'id' => $user->id,
-                        'label' => $label,
-                        'department_id' => $user->department_id,
-                    ];
-                })
-                ->values()
-                ->all();
+                // Dropdown uses Employee (not User). We only include employees that have a linked user,
+                // because leave/permission is tracked by employee.
+                $employees = Employee::query()
+                    ->with([
+                        'department:id,name',
+                        'position:id,name',
+                    ])
+                    ->whereNotNull('department_id')
+                    ->whereIn('department_id', $visibleDeptIds)
+                    ->select('id', 'name', 'nik', 'department_id', 'position_id')
+                    ->orderBy('name')
+                    ->get()
+                    ->map(function (Employee $emp) {
+                        $name = trim((string) ($emp->name ?? ''));
+                        $nik = trim((string) ($emp->nik ?? ''));
+                        $dept = trim((string) optional($emp->department)->name);
+                        $pos = trim((string) optional($emp->position)->name);
+
+                        $label = $name !== '' ? $name : ('Employee #' . $emp->id);
+                        $metaParts = array_values(array_filter([$dept, $pos]));
+                        if (!empty($metaParts)) {
+                            $label .= ' - ' . implode(' / ', $metaParts);
+                        }
+                        if ($nik !== '') {
+                            $label .= " ({$nik})";
+                        }
+
+                        return [
+                            'id' => $emp->id,
+                            'label' => $label,
+                            'department_id' => $emp->department_id,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            }
         } else {
-            // Regular user: only allow selecting self.
-            $employees = $actor
-                ? [[
-                    'id' => $actor->id,
-                    'label' => trim((string) $actor->name),
-                    'department_id' => $actor->department_id,
-                ]]
-                : [];
+            // Regular user: only allow selecting self (employee).
+            $actorEmployee = Employee::query()
+                ->with([
+                    'department:id,name',
+                    'position:id,name',
+                ])
+                ->where('user_id', $userId)
+                ->first();
+
+            if ($actorEmployee) {
+                $name = trim((string) ($actorEmployee->name ?? ''));
+                $nik = trim((string) ($actorEmployee->nik ?? ''));
+                $dept = trim((string) optional($actorEmployee->department)->name);
+                $pos = trim((string) optional($actorEmployee->position)->name);
+
+                $label = $name !== '' ? $name : ('Employee #' . $actorEmployee->id);
+                $metaParts = array_values(array_filter([$dept, $pos]));
+                if (!empty($metaParts)) {
+                    $label .= ' - ' . implode(' / ', $metaParts);
+                }
+                if ($nik !== '') {
+                    $label .= " ({$nik})";
+                }
+
+                $employees = [[
+                    'id' => $actorEmployee->id,
+                    'label' => $label,
+                    'department_id' => $actorEmployee->department_id,
+                ]];
+            } else {
+                $employees = [];
+            }
         }
+
+        $canSelectEmployee = !empty($employees);
+        $defaultEmployeeId = Employee::where('user_id', $userId)->value('id') ?? '';
 
         return Inertia::render('GMIHR/LeavePermission/Create', [
             'employees' => $employees,
             'canSelectEmployee' => $canSelectEmployee,
             'canSubmitForOthers' => $canSubmitForOthers,
-            'defaultEmployeeId' => $userId,
+            'defaultEmployeeId' => $defaultEmployeeId,
         ]);
     }
 
@@ -229,7 +371,14 @@ class LeavePermissionController extends Controller
         $userId = Auth::id();
         
         // Load the leave permission with related data
-        $leavePermission->load(['user', 'user.department', 'reviewer']);
+        $leavePermission->load([
+            'employee',
+            'employee.department',
+            'employee.position',
+            'user',
+            'user.department',
+            'reviewer',
+        ]);
         $leavePermission->image_url = $leavePermission->attachment_image ? Storage::url($leavePermission->attachment_image) : null;
 
         return Inertia::render('GMIHR/LeavePermission/Show', [
@@ -245,7 +394,7 @@ class LeavePermissionController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'user_id' => 'nullable|integer|exists:users,id',
+            'employee_id' => 'nullable|integer|exists:employees,id',
             'type' => 'required|in:cuti,izin,sakit,dinas_luar',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -254,14 +403,32 @@ class LeavePermissionController extends Controller
         ]);
 
         $actorId = Auth::id();
-        $targetUserId = $actorId;
+        $targetEmployeeId = null;
 
-        $requestedUserId = $data['user_id'] ?? null;
-        if ($requestedUserId !== null && ($this->isAdmin($actorId) || $this->isManager($actorId))) {
-            $targetUserId = (int) $requestedUserId;
+        $requestedEmployeeId = $data['employee_id'] ?? null;
+        $canSubmitForOthers = $this->isAdmin($actorId) || $this->isManager($actorId) || $this->isSupervisor($actorId);
+
+        if ($requestedEmployeeId !== null) {
+            if (!$canSubmitForOthers) {
+                return back()->withErrors([
+                    'employee_id' => 'Anda tidak memiliki izin untuk memilih karyawan lain.',
+                ]);
+            }
+
+            $targetEmployeeId = (int) $requestedEmployeeId;
+        } else {
+            // No selection provided: default to actor's employee record.
+            $targetEmployeeId = (int) (Employee::where('user_id', $actorId)->value('id') ?? 0);
         }
 
-        $data['user_id'] = $targetUserId;
+        if ($targetEmployeeId <= 0) {
+            return back()->withErrors([
+                'employee_id' => 'Karyawan tidak ditemukan untuk akun ini. Silakan pilih karyawan.',
+            ]);
+        }
+
+        $data['employee_id'] = $targetEmployeeId;
+        $data['user_id'] = null; // employee-based, user is optional
         $data['days'] = LeavePermission::calculateDays($data['start_date'], $data['end_date']);
         $data['status'] = 'pending';
         $data['attachment_image'] = $request->hasFile('attachment_image')
@@ -289,7 +456,10 @@ class LeavePermissionController extends Controller
     public function update(Request $request, LeavePermission $leavePermission)
     {
         $userId = Auth::id();
-        $leavePermission->loadMissing(['user:id,department_id']);
+        $leavePermission->loadMissing([
+            'employee:id,department_id',
+            'user:id,department_id',
+        ]);
 
         if (!$this->canReviewLeavePermission($userId, $leavePermission)) {
             return response()->json([

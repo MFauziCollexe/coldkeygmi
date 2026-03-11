@@ -1469,25 +1469,43 @@ class AttendanceLogController extends Controller
                 : Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
         }
 
+        $employeeIdByPin = [];
+        $pinByEmployeeId = [];
         $userIdByPin = [];
         $pinByUserId = [];
         $employeePairs = DB::table('employees')
-            ->whereNotNull('user_id')
             ->whereNotNull('nik')
             ->where('nik', '<>', '')
-            ->get(['user_id', 'nik']);
+            ->get(['id', 'user_id', 'nik']);
 
         foreach ($employeePairs as $row) {
             $pin = $this->normalizePin((string) $row->nik);
             if ($pin === '') {
                 continue;
             }
-            $userId = (int) $row->user_id;
-            $userIdByPin[$pin] = $userId;
-            if (!isset($pinByUserId[$userId])) {
-                $pinByUserId[$userId] = $pin;
+
+            $employeeId = (int) $row->id;
+            if ($employeeId > 0) {
+                $employeeIdByPin[$pin] = $employeeId;
+                if (!isset($pinByEmployeeId[$employeeId])) {
+                    $pinByEmployeeId[$employeeId] = $pin;
+                }
+            }
+
+            $userId = (int) ($row->user_id ?? 0);
+            if ($userId > 0) {
+                $userIdByPin[$pin] = $userId;
+                if (!isset($pinByUserId[$userId])) {
+                    $pinByUserId[$userId] = $pin;
+                }
             }
         }
+
+        $employeeIdsInScope = $pinsInScope
+            ->map(fn($pin) => $employeeIdByPin[(string) $pin] ?? null)
+            ->filter(fn($id) => $id !== null)
+            ->unique()
+            ->values();
 
         $userIdsInScope = $pinsInScope
             ->map(fn($pin) => $userIdByPin[(string) $pin] ?? null)
@@ -1495,21 +1513,42 @@ class AttendanceLogController extends Controller
             ->unique()
             ->values();
 
-        if ($userIdsInScope->isEmpty()) {
+        if ($employeeIdsInScope->isEmpty() && $userIdsInScope->isEmpty()) {
             return [];
         }
 
         $leaveRows = DB::table('leave_permissions')
             ->where('status', 'approved')
-            ->whereIn('user_id', $userIdsInScope->all())
+            ->where(function ($q) use ($employeeIdsInScope, $userIdsInScope) {
+                $hasEmp = !$employeeIdsInScope->isEmpty();
+                $hasUser = !$userIdsInScope->isEmpty();
+
+                if ($hasEmp && $hasUser) {
+                    $q->whereIn('employee_id', $employeeIdsInScope->all())
+                        ->orWhereIn('user_id', $userIdsInScope->all());
+                } elseif ($hasEmp) {
+                    $q->whereIn('employee_id', $employeeIdsInScope->all());
+                } elseif ($hasUser) {
+                    $q->whereIn('user_id', $userIdsInScope->all());
+                }
+            })
             ->whereDate('start_date', '<=', $rangeEnd->toDateString())
             ->whereDate('end_date', '>=', $rangeStart->toDateString())
-            ->get(['user_id', 'type', 'start_date', 'end_date']);
+            ->get(['employee_id', 'user_id', 'type', 'start_date', 'end_date']);
 
         $result = [];
         foreach ($leaveRows as $leave) {
-            $userId = (int) $leave->user_id;
-            $pin = $pinByUserId[$userId] ?? null;
+            $pin = null;
+
+            $employeeId = (int) ($leave->employee_id ?? 0);
+            if ($employeeId > 0) {
+                $pin = $pinByEmployeeId[$employeeId] ?? null;
+            }
+
+            if (($pin === null || $pin === '') && !empty($leave->user_id)) {
+                $userId = (int) $leave->user_id;
+                $pin = $pinByUserId[$userId] ?? null;
+            }
             if ($pin === null || $pin === '') {
                 continue;
             }

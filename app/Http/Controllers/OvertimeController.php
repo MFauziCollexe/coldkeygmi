@@ -6,6 +6,7 @@ use App\Models\Overtime;
 use App\Models\User;
 use App\Models\Department;
 use App\Models\ActivityLog;
+use App\Support\DepartmentScope;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -62,7 +63,7 @@ class OvertimeController extends Controller
         if ($this->isManager($userId)) {
             $position = \App\Models\Position::find($user->position_id);
             if ($position && $position->department_id) {
-                return [$position->department_id];
+                return DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
             }
         }
 
@@ -197,6 +198,26 @@ class OvertimeController extends Controller
      */
     public function update(Request $request, Overtime $overtime)
     {
+        $userId = Auth::id();
+        if (!$userId) {
+            abort(403);
+        }
+
+        $overtime->loadMissing(['user:id,department_id']);
+        $targetDeptId = (int) optional($overtime->user)->department_id;
+
+        // Only admin or manager of the requester's department can approve/reject.
+        if (!$this->isAdmin($userId)) {
+            if (!$this->isManager($userId)) {
+                abort(403, 'Anda tidak memiliki izin untuk menyetujui/menolak overtime ini.');
+            }
+
+            $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+            if ($targetDeptId <= 0 || !in_array($targetDeptId, $visibleDeptIds, true)) {
+                abort(403, 'Anda tidak memiliki izin untuk menyetujui/menolak overtime departemen ini.');
+            }
+        }
+
         $data = $request->validate([
             'status' => 'required|in:approved,rejected',
             'review_notes' => 'nullable|string',
