@@ -36,7 +36,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 
 const profileOpen = ref(false);
 const page = usePage();
@@ -68,7 +68,7 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribut
 
 function signOut() {
   profileOpen.value = false;
-  Inertia.post('/logout');
+  router.post('/logout');
 }
 </script>
 

@@ -30,6 +30,8 @@
               <th class="py-2">#</th>
               <th>NIK</th>
               <th>Name</th>
+              <th>Department</th>
+              <th>Position</th>
               <th>Work Group</th>
               <th>Phone</th>
               <th>Address</th>
@@ -44,6 +46,8 @@
               <td class="py-3">{{ (employees.current_page - 1) * employees.per_page + index + 1 }}</td>
               <td>{{ emp.nik || '-' }}</td>
               <td>{{ emp.name || '-' }}</td>
+              <td>{{ emp.user?.department?.name || emp.department?.name || '-' }}</td>
+              <td>{{ emp.user?.position?.name || emp.position?.name || '-' }}</td>
               <td>{{ formatWorkGroup(emp.work_group) }}</td>
               <td>{{ emp.phone || '-' }}</td>
               <td>{{ emp.address || '-' }}</td>
@@ -56,7 +60,7 @@
               </td>
             </tr>
             <tr v-if="employees.data.length === 0">
-              <td colspan="11" class="py-4 text-center text-slate-400">No employees found</td>
+              <td colspan="13" class="py-4 text-center text-slate-400">No employees found</td>
             </tr>
           </tbody>
         </table>
@@ -85,7 +89,7 @@
 import { ref, reactive } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 
 import Swal from 'sweetalert2';
 
@@ -100,7 +104,7 @@ const employees = reactive(props.employees);
 const searchQuery = ref(props.filters?.search || '');
 
 function search() {
-  Inertia.get('/master-data/employee', 
+  router.get('/master-data/employee', 
     { search: searchQuery.value },
     { preserveState: true, preserveScroll: true }
   );
@@ -108,11 +112,11 @@ function search() {
 
 function resetSearch() {
   searchQuery.value = '';
-  Inertia.get('/master-data/employee', {}, { preserveState: true, preserveScroll: true });
+  router.get('/master-data/employee', {}, { preserveState: true, preserveScroll: true });
 }
 
 function goToPage(page) {
-  Inertia.get('/master-data/employee', 
+  router.get('/master-data/employee', 
     { page: page, search: searchQuery.value },
     { preserveState: true, preserveScroll: true }
   );
@@ -120,7 +124,7 @@ function goToPage(page) {
 
 function deleteEmployee(id) {
   if (confirm('Are you sure you want to delete this employee?')) {
-    Inertia.delete(`/master-data/employee/${id}`, {
+    router.delete(`/master-data/employee/${id}`, {
       onSuccess: () => {
         // Will refresh automatically
       },
@@ -130,7 +134,7 @@ function deleteEmployee(id) {
 
 function deleteAll() {
   if (confirm('Are you sure you want to delete all employees?')) {
-    Inertia.delete('/master-data/employee/delete-all', {
+    router.delete('/master-data/employee/delete-all', {
       onSuccess: () => {
         // Will refresh automatically
       },

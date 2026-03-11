@@ -80,7 +80,7 @@
 
 <script setup>
 import { reactive } from 'vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 
 const props = defineProps({
@@ -122,7 +122,7 @@ function submit() {
     return;
   }
   
-  Inertia.post(props.submitUrl, form, {
+  router.post(props.submitUrl, form, {
     onSuccess: () => {
       emit('success');
       emit('close');

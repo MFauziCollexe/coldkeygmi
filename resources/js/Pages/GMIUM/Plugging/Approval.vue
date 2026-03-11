@@ -124,7 +124,7 @@
 <script setup>
 import { reactive, ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 
@@ -157,7 +157,7 @@ function fetch(page = 1) {
   if (filters.tanggal) params.tanggal = filters.tanggal;
   if (filters.customer) params.customer = filters.customer;
   if (page > 1) params.page = page;
-  Inertia.get('/gmium/plugging/approval', params, { preserveState: true, preserveScroll: true });
+  router.get('/gmium/plugging/approval', params, { preserveState: true, preserveScroll: true });
 }
 
 function next() {

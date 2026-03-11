@@ -52,7 +52,7 @@
 import { reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 
 import Swal from 'sweetalert2';
 
@@ -62,19 +62,19 @@ const departments = reactive(props.departments);
 
 function next() {
   if (departments.next_page_url) {
-    Inertia.get(departments.next_page_url, {}, { preserveState: true, preserveScroll: true });
+    router.get(departments.next_page_url, {}, { preserveState: true, preserveScroll: true });
   }
 }
 
 function prev() {
   if (departments.prev_page_url) {
-    Inertia.get(departments.prev_page_url, {}, { preserveState: true, preserveScroll: true });
+    router.get(departments.prev_page_url, {}, { preserveState: true, preserveScroll: true });
   }
 }
 
 function deleteDepartment(id) {
   if (confirm('Are you sure you want to delete this department?')) {
-    Inertia.delete(`/master-data/department/${id}`, {
+    router.delete(`/master-data/department/${id}`, {
       onSuccess: () => {
         // Will refresh automatically
       },

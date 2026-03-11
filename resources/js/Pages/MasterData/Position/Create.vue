@@ -64,7 +64,7 @@
 <script setup>
 import { reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
@@ -80,6 +80,6 @@ const form = reactive({
 });
 
 function submit() {
-  Inertia.post('/master-data/position', form);
+  router.post('/master-data/position', form);
 }
 </script>

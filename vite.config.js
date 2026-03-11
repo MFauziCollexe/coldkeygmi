@@ -4,6 +4,11 @@ import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
 
 export default defineConfig({
+    // Strip console/debugger statements from output (and from pre-bundled deps)
+    // so browser console stays clean across modules.
+    esbuild: {
+        drop: ["console", "debugger"],
+    },
     plugins: [
         laravel({
             input: ["resources/css/app.css", "resources/js/app.js"],
@@ -22,6 +27,11 @@ export default defineConfig({
     server: {
         watch: {
             ignored: ["**/storage/framework/views/**"],
+        },
+    },
+    optimizeDeps: {
+        esbuildOptions: {
+            drop: ["console", "debugger"],
         },
     },
 });

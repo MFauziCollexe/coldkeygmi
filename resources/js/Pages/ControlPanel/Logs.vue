@@ -147,7 +147,7 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 const props = defineProps({
@@ -184,7 +184,7 @@ function fetch() {
   if (filters.table_name) params.table_name = filters.table_name;
   if (filters.action) params.action = filters.action;
   if (filters.user_id) params.user_id = filters.user_id;
-  Inertia.get('/control-panel/logs', params, { preserveState: true, preserveScroll: true });
+  router.get('/control-panel/logs', params, { preserveState: true, preserveScroll: true });
 }
 
 function goToPage(pageNum) {
@@ -193,7 +193,7 @@ function goToPage(pageNum) {
   if (filters.table_name) params.table_name = filters.table_name;
   if (filters.action) params.action = filters.action;
   if (filters.user_id) params.user_id = filters.user_id;
-  Inertia.get('/control-panel/logs', { ...params, page: pageNum }, { preserveState: true, preserveScroll: true });
+  router.get('/control-panel/logs', { ...params, page: pageNum }, { preserveState: true, preserveScroll: true });
 }
 
 function next() {

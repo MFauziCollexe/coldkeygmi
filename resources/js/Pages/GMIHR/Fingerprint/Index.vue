@@ -262,7 +262,7 @@
 <script setup>
 import { ref, computed, reactive } from 'vue';
 import { usePage } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -369,6 +369,7 @@ async function checkData(pageNum = 1) {
     try {
         const response = await fetch('/fingerprint/preview', {
             method: 'POST',
+            credentials: 'same-origin',
             body: formData,
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -439,6 +440,7 @@ async function saveAllData() {
             
             const response = await fetch('/fingerprint/preview', {
                 method: 'POST',
+                credentials: 'same-origin',
                 body: formData,
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -460,6 +462,7 @@ async function saveAllData() {
         // Now save all data
         const saveResponse = await fetch('/fingerprint/confirm-save', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -513,6 +516,7 @@ async function saveData() {
     try {
         const response = await fetch('/fingerprint/confirm-save', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -579,6 +583,7 @@ async function clearData() {
     try {
         const response = await fetch('/fingerprint/clear', {
             method: 'DELETE',
+            credentials: 'same-origin',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                 'Accept': 'application/json',
@@ -612,7 +617,7 @@ async function clearData() {
 }
 
 function goToPage(pageNum) {
-    Inertia.get('/fingerprint', {
+    router.get('/fingerprint', {
         page: pageNum,
         q: filters.q || '',
     }, {
@@ -625,7 +630,7 @@ function goToPage(pageNum) {
 function onSearchInput() {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
-        Inertia.get('/fingerprint', {
+        router.get('/fingerprint', {
             q: filters.q || '',
             page: 1,
         }, {

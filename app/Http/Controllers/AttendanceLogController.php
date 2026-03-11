@@ -95,6 +95,33 @@ class AttendanceLogController extends Controller
                 're.end_time',
             ]);
 
+        $pinsInScope = $scanRows
+            ->pluck('pin')
+            ->merge($rosterRows->pluck('pin'))
+            ->map(fn($pin) => $this->normalizePin((string) $pin))
+            ->filter()
+            ->unique()
+            ->values();
+
+        // When "Semua Tahun" is selected, we still want leave/permission overlay (izin/sakit/cuti/dinas)
+        // for the date range currently in scope. Derive the range from roster + scan dates.
+        $rangeDates = $scanRows
+            ->pluck('log_date')
+            ->merge($rosterRows->pluck('log_date'))
+            ->map(fn($date) => $this->toDateString($date))
+            ->filter()
+            ->values();
+        $rangeStartDate = $rangeDates->min();
+        $rangeEndDate = $rangeDates->max();
+
+        $approvedLeaveTypeByPinDate = $this->buildApprovedLeaveTypesByPinDate(
+            $year,
+            $month,
+            $pinsInScope,
+            $rangeStartDate,
+            $rangeEndDate
+        );
+
         $holidaysByDate = DB::table('attendance_holidays')
             ->when($year !== null, fn($query) => $query->whereYear('holiday_date', $year))
             ->when($month !== null, fn($query) => $query->whereMonth('holiday_date', $month))
@@ -249,6 +276,20 @@ class AttendanceLogController extends Controller
                 [$expected, $reason] = $this->evaluateCheckIn($startTime, $firstScanTime, $firstScan, $logDate);
             }
 
+            $hasOvertime = $this->hasOvertime($logDate, $startTime, $endTime, $lastScan, $isOff || $isNationalHoliday);
+            $overtimeMinutes = $this->overtimeMinutes($logDate, $startTime, $endTime, $lastScan, $isOff || $isNationalHoliday);
+            $overtimeLabel = $this->overtimeLabel($logDate, $startTime, $endTime, $lastScan, $isOff || $isNationalHoliday);
+
+            $leaveType = $approvedLeaveTypeByPinDate[$pin][$logDate] ?? null;
+            if ($leaveType !== null) {
+                $rowStatus = (string) $leaveType;
+                $expected = $this->leaveTypeLabel((string) $leaveType);
+                $reason = 'Leave/permission disetujui.';
+                $hasOvertime = false;
+                $overtimeMinutes = 0;
+                $overtimeLabel = '-';
+            }
+
             $rows->push([
                 'log_date' => $logDate,
                 'pin' => $pin,
@@ -266,9 +307,9 @@ class AttendanceLogController extends Controller
                 'status' => $rowStatus,
                 'expected' => $expected,
                 'reason' => $reason,
-                'has_overtime' => $this->hasOvertime($logDate, $startTime, $endTime, $lastScan, $isOff || $isNationalHoliday),
-                'overtime_minutes' => $this->overtimeMinutes($logDate, $startTime, $endTime, $lastScan, $isOff || $isNationalHoliday),
-                'overtime_label' => $this->overtimeLabel($logDate, $startTime, $endTime, $lastScan, $isOff || $isNationalHoliday),
+                'has_overtime' => $hasOvertime,
+                'overtime_minutes' => $overtimeMinutes,
+                'overtime_label' => $overtimeLabel,
                 'correction' => $this->formatCorrection($correction),
             ]);
         }
@@ -425,6 +466,20 @@ class AttendanceLogController extends Controller
                         }
                     }
 
+                    $hasOvertime = $this->hasOvertime($logDate, '08:00:00', '16:00:00', $lastScan, $isSunday || $isNationalHoliday);
+                    $overtimeMinutes = $this->overtimeMinutes($logDate, '08:00:00', '16:00:00', $lastScan, $isSunday || $isNationalHoliday);
+                    $overtimeLabel = $this->overtimeLabel($logDate, '08:00:00', '16:00:00', $lastScan, $isSunday || $isNationalHoliday);
+
+                    $leaveType = $approvedLeaveTypeByPinDate[$pin][$logDate] ?? null;
+                    if ($leaveType !== null) {
+                        $rowStatus = (string) $leaveType;
+                        $expected = $this->leaveTypeLabel((string) $leaveType);
+                        $reason = 'Leave/permission disetujui.';
+                        $hasOvertime = false;
+                        $overtimeMinutes = 0;
+                        $overtimeLabel = '-';
+                    }
+
                     $rows->push([
                         'log_date' => $logDate,
                         'pin' => $pin,
@@ -442,9 +497,9 @@ class AttendanceLogController extends Controller
                         'status' => $rowStatus,
                         'expected' => $expected,
                         'reason' => $reason,
-                        'has_overtime' => $this->hasOvertime($logDate, '08:00:00', '16:00:00', $lastScan, $isSunday || $isNationalHoliday),
-                        'overtime_minutes' => $this->overtimeMinutes($logDate, '08:00:00', '16:00:00', $lastScan, $isSunday || $isNationalHoliday),
-                        'overtime_label' => $this->overtimeLabel($logDate, '08:00:00', '16:00:00', $lastScan, $isSunday || $isNationalHoliday),
+                        'has_overtime' => $hasOvertime,
+                        'overtime_minutes' => $overtimeMinutes,
+                        'overtime_label' => $overtimeLabel,
                         'correction' => $this->formatCorrection($correction),
                     ]);
                 }
@@ -513,11 +568,14 @@ class AttendanceLogController extends Controller
             'expected_counts' => $expectedCounts,
         ];
 
+        $monthlyInsights = $this->buildMonthlyLateAbsentInsights($year, $month);
+
         $attendanceLogs = $this->paginateCollection($rows, $perPage, $request);
 
         return Inertia::render('GMIHR/AttendanceLog/Index', [
             'attendanceLogs' => $attendanceLogs,
             'summary' => $summary,
+            'monthlyInsights' => $monthlyInsights,
             'canManageCorrections' => $canManageCorrections,
             'filters' => [
                 'month' => $month ?? 'all',
@@ -527,6 +585,420 @@ class AttendanceLogController extends Controller
                 'per_page' => $perPage,
             ],
         ]);
+    }
+
+    private function buildMonthlyLateAbsentInsights(?int $year, ?int $month): array
+    {
+        $now = Carbon::now();
+        $minCount = 5;
+
+        // Decide the target month (single month only).
+        // Requirement:
+        // - Only follow filters when BOTH month and year are selected (not "all").
+        // - If month OR year is "all", always show current month.
+        if ($year !== null && $month !== null) {
+            $target = Carbon::create($year, $month, 1);
+        } else {
+            $target = $now->copy();
+        }
+
+        $target = $target->copy()->startOfMonth();
+
+        $monthNames = [
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember',
+        ];
+
+        [$lateCounts, $absentCounts] = $this->buildLateAbsentCountsByNameForMonth((int) $target->year, (int) $target->month);
+
+        $ym = $target->format('Y-m');
+        $byMonth = [
+            $ym => [
+                'month_key' => $ym,
+                'month_label' => ($monthNames[(int) $target->month] ?? $target->format('F')) . ' ' . $target->year,
+                'late' => [
+                    'events' => 0,
+                    'people' => 0,
+                    'top' => [],
+                    'others' => 0,
+                ],
+                'absent' => [
+                    'events' => 0,
+                    'people' => 0,
+                    'top' => [],
+                    'others' => 0,
+                ],
+            ],
+        ];
+
+        $topLimit = 12;
+
+        arsort($lateCounts);
+        $lateCounts = array_filter($lateCounts, fn($count) => (int) $count >= $minCount);
+        $lateEvents = array_sum($lateCounts);
+        $latePeople = count($lateCounts);
+        $lateTop = array_slice($lateCounts, 0, $topLimit, true);
+        $byMonth[$ym]['late']['events'] = (int) $lateEvents;
+        $byMonth[$ym]['late']['people'] = (int) $latePeople;
+        $byMonth[$ym]['late']['top'] = collect($lateTop)->map(function ($count, $name) {
+            return ['name' => (string) $name, 'count' => (int) $count];
+        })->values()->all();
+        $byMonth[$ym]['late']['others'] = max(0, $latePeople - count($lateTop));
+
+        arsort($absentCounts);
+        $absentCounts = array_filter($absentCounts, fn($count) => (int) $count >= $minCount);
+        $absentEvents = array_sum($absentCounts);
+        $absentPeople = count($absentCounts);
+        $absentTop = array_slice($absentCounts, 0, $topLimit, true);
+        $byMonth[$ym]['absent']['events'] = (int) $absentEvents;
+        $byMonth[$ym]['absent']['people'] = (int) $absentPeople;
+        $byMonth[$ym]['absent']['top'] = collect($absentTop)->map(function ($count, $name) {
+            return ['name' => (string) $name, 'count' => (int) $count];
+        })->values()->all();
+        $byMonth[$ym]['absent']['others'] = max(0, $absentPeople - count($absentTop));
+
+        return [
+            'range_start' => $target->format('Y-m-01'),
+            'range_end' => $target->copy()->endOfMonth()->format('Y-m-d'),
+            'min_count' => $minCount,
+            'months' => array_values($byMonth),
+        ];
+    }
+
+    private function buildLateAbsentCountsByNameForMonth(int $year, int $month): array
+    {
+        $corrections = AttendanceLogCorrection::query()
+            ->whereYear('log_date', $year)
+            ->whereMonth('log_date', $month)
+            ->get();
+
+        $correctionMap = $corrections->keyBy(function (AttendanceLogCorrection $correction) {
+            return $correction->log_date->format('Y-m-d') . '|' . $this->normalizePin((string) $correction->pin);
+        });
+
+        $scanRows = DB::table('fingerprints')
+            ->whereYear('scan_date_only', $year)
+            ->whereMonth('scan_date_only', $month)
+            ->whereNotNull('pin')
+            ->where('pin', '<>', '')
+            ->get([
+                'scan_date_only as log_date',
+                'pin',
+                'name',
+                'scan_date',
+            ]);
+
+        $scanGroups = $scanRows
+            ->groupBy(fn($row) => $this->toDateString($row->log_date) . '|' . $this->normalizePin((string) $row->pin))
+            ->map(fn(Collection $group) => $group->sortBy('scan_date')->values());
+
+        $employeeNameMap = DB::table('employees')
+            ->whereNotNull('nik')
+            ->where('nik', '<>', '')
+            ->pluck('name', 'nik')
+            ->mapWithKeys(function ($name, $nik) {
+                $pin = $this->normalizePin((string) $nik);
+                if ($pin === '') {
+                    return [];
+                }
+                return [$pin => trim((string) $name)];
+            });
+
+        $rosterRows = DB::table('roster_entries as re')
+            ->join('roster_upload_batches as rub', 'rub.id', '=', 're.batch_id')
+            ->whereYear('re.roster_date', $year)
+            ->whereMonth('re.roster_date', $month)
+            ->where('rub.status', 'approved')
+            ->where('rub.is_current', true)
+            ->whereNotNull('re.employee_nrp')
+            ->where('re.employee_nrp', '<>', '')
+            ->get([
+                're.roster_date as log_date',
+                're.employee_nrp as pin',
+                're.employee_name as roster_name',
+                're.is_off',
+                're.start_time',
+                're.end_time',
+            ]);
+
+        $pinsInScope = $scanRows
+            ->pluck('pin')
+            ->merge($rosterRows->pluck('pin'))
+            ->map(fn($pin) => $this->normalizePin((string) $pin))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $approvedLeaveTypeByPinDate = $this->buildApprovedLeaveTypesByPinDate($year, $month, $pinsInScope);
+
+        $holidaysByDate = DB::table('attendance_holidays')
+            ->whereYear('holiday_date', $year)
+            ->whereMonth('holiday_date', $month)
+            ->get(['holiday_date', 'name', 'scope_type'])
+            ->groupBy(function ($row) {
+                $date = $this->toDateString($row->holiday_date);
+                return $date ?? '__invalid__';
+            });
+
+        if ($holidaysByDate->has('__invalid__')) {
+            $holidaysByDate->forget('__invalid__');
+        }
+
+        // Work group map used for holiday scoping (office/operational).
+        $pinWorkGroupMap = DB::table('employees')
+            ->whereNotNull('nik')
+            ->where('nik', '<>', '')
+            ->whereNotNull('work_group')
+            ->where('work_group', '<>', '')
+            ->pluck('work_group', 'nik')
+            ->mapWithKeys(function ($group, $nik) {
+                $pin = $this->normalizePin((string) $nik);
+                if ($pin === '') {
+                    return [];
+                }
+                $normalized = strtolower(trim((string) $group));
+                if (!in_array($normalized, ['office', 'operational'], true)) {
+                    return [];
+                }
+                return [$pin => $normalized];
+            })
+            ->all();
+
+        $fingerprintWorkGroupFallback = DB::table('fingerprints')
+            ->whereYear('scan_date_only', $year)
+            ->whereMonth('scan_date_only', $month)
+            ->whereNotNull('pin')
+            ->where('pin', '<>', '')
+            ->whereNotNull('department')
+            ->where('department', '<>', '')
+            ->orderBy('scan_date', 'desc')
+            ->get(['pin', 'department'])
+            ->reduce(function ($carry, $row) {
+                $pin = $this->normalizePin((string) $row->pin);
+                if ($pin === '' || isset($carry[$pin])) {
+                    return $carry;
+                }
+                $carry[$pin] = $this->resolveWorkGroup((string) $row->department);
+                return $carry;
+            }, []);
+
+        foreach ($fingerprintWorkGroupFallback as $pin => $group) {
+            if (!isset($pinWorkGroupMap[$pin]) && in_array($group, ['office', 'operational'], true)) {
+                $pinWorkGroupMap[$pin] = $group;
+            }
+        }
+
+        $lateCounts = [];
+        $absentCounts = [];
+
+        // Build roster pin index so we can detect pins that have roster coverage (including pin variants).
+        $rosterPinIndex = [];
+        foreach ($rosterRows as $row) {
+            $pin = $this->normalizePin((string) $row->pin);
+            foreach ($this->pinCandidatesForMatch($pin) as $candidate) {
+                $rosterPinIndex[$candidate] = true;
+            }
+        }
+
+        foreach ($rosterRows as $row) {
+            $logDate = $this->toDateString($row->log_date);
+            $pin = $this->normalizePin((string) $row->pin);
+            if ($logDate === null || $pin === '') {
+                continue;
+            }
+
+            $startTime = $this->normalizeTime($row->start_time);
+            $endTime = $this->normalizeTime($row->end_time);
+            $isOff = (bool) ($row->is_off ?? false);
+
+            $scanLookupKeys = $this->pinCandidatesForMatch($pin);
+            $lookupDates = $this->scanLookupDatesForSchedule($logDate, $startTime, $endTime);
+            $scans = collect();
+            foreach ($scanLookupKeys as $lookupPin) {
+                foreach ($lookupDates as $lookupDate) {
+                    $scans = $scans->merge($scanGroups->get($lookupDate . '|' . $lookupPin, collect()));
+                }
+            }
+            $scans = $scans->sortBy('scan_date')->values();
+            if ($isOff) {
+                $scans = $this->filterOffdayBoundaryScans($scans);
+            }
+
+            [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate);
+            $correction = $correctionMap->get($logDate . '|' . $pin);
+            if ($correction && $correction->status === 'approved') {
+                if ($correction->corrected_first_scan !== null) {
+                    $firstScan = $correction->corrected_first_scan->format('Y-m-d H:i:s');
+                }
+                if ($correction->corrected_last_scan !== null) {
+                    $lastScan = $correction->corrected_last_scan->format('Y-m-d H:i:s');
+                }
+            }
+
+            $firstScanTime = $this->normalizeTime($firstScan);
+            $hasFirstScan = $firstScan !== null;
+            $hasLastScan = $lastScan !== null;
+            $hasScheduleTime = $startTime !== null && $endTime !== null;
+            $timeMatched = $startTime !== null && $firstScanTime !== null && substr($startTime, 0, 5) === substr($firstScanTime, 0, 5);
+
+            [$isNationalHoliday] = $this->resolveHolidayForPin(
+                $holidaysByDate,
+                $logDate,
+                $pin,
+                $pinWorkGroupMap
+            );
+
+            // Skip OFF/holiday days.
+            if ($isNationalHoliday || $isOff) {
+                continue;
+            }
+
+            // Overlay approved leave/permission, skip counting late/absent.
+            $leaveType = $approvedLeaveTypeByPinDate[$pin][$logDate] ?? null;
+            if ($leaveType !== null) {
+                continue;
+            }
+
+            $expected = null;
+            if (!$hasScheduleTime && ($hasFirstScan || $hasLastScan)) {
+                $expected = 'Cek Lagi';
+            } elseif (!$hasFirstScan && !$hasLastScan) {
+                $expected = 'Tidak Masuk';
+            } elseif ($hasFirstScan && !$hasLastScan) {
+                [$evaluationExpected] = $this->evaluateCheckIn($startTime, $firstScanTime, $firstScan, $logDate);
+                $expected = $evaluationExpected === 'Terlambat' ? 'Terlambat' : 'Tidak Scan pulang';
+            } elseif (!$hasFirstScan && $hasLastScan) {
+                $expected = 'Tidak Scan masuk';
+            } elseif ($timeMatched) {
+                $expected = 'On Time';
+            } else {
+                [$expected] = $this->evaluateCheckIn($startTime, $firstScanTime, $firstScan, $logDate);
+            }
+
+            $name = trim((string) ($row->roster_name ?? ''));
+            if ($name === '') {
+                $name = trim((string) ($scans->last()->name ?? ''));
+            }
+            if ($name === '') {
+                continue;
+            }
+
+            if ($expected === 'Terlambat') {
+                $lateCounts[$name] = ($lateCounts[$name] ?? 0) + 1;
+            } elseif ($expected === 'Tidak Masuk') {
+                $absentCounts[$name] = ($absentCounts[$name] ?? 0) + 1;
+            }
+        }
+
+        // Include "Tanpa Roster" evaluation (default 08:00-16:00) for pins that do not match roster at all.
+        $monthStart = Carbon::create($year, $month, 1)->startOfMonth();
+        $daysInMonth = $monthStart->daysInMonth;
+
+        $pinsNoRoster = $scanRows
+            ->pluck('pin')
+            ->map(fn($pin) => $this->normalizePin((string) $pin))
+            ->filter()
+            ->unique()
+            ->values()
+            ->filter(function ($pin) use ($rosterPinIndex) {
+                return !$this->hasRosterPinMatch((string) $pin, $rosterPinIndex);
+            })
+            ->values();
+
+        foreach ($pinsNoRoster as $pinValue) {
+            $pin = (string) $pinValue;
+            if ($pin === '') {
+                continue;
+            }
+
+            // Pick a stable display name (prefer scans, fallback to employees table).
+            $displayName = $scanRows
+                ->filter(fn($row) => $this->normalizePin((string) $row->pin) === $pin)
+                ->sortByDesc('scan_date')
+                ->map(fn($row) => trim((string) ($row->name ?? '')))
+                ->first(fn($name) => $name !== '');
+
+            if ($displayName === null || $displayName === '') {
+                $displayName = trim((string) ($employeeNameMap->get($pin) ?? ''));
+            }
+            if ($displayName === null || $displayName === '') {
+                $displayName = '-';
+            }
+
+            for ($day = 1; $day <= $daysInMonth; $day++) {
+                $logDate = $monthStart->copy()->day($day)->format('Y-m-d');
+                $isSunday = Carbon::parse($logDate)->isSunday();
+
+                [$isNationalHoliday] = $this->resolveHolidayForPin(
+                    $holidaysByDate,
+                    $logDate,
+                    $pin,
+                    $pinWorkGroupMap
+                );
+
+                if ($isNationalHoliday || $isSunday) {
+                    continue;
+                }
+
+                // Overlay approved leave/permission, do not count late/absent.
+                $leaveType = $approvedLeaveTypeByPinDate[$pin][$logDate] ?? null;
+                if ($leaveType !== null) {
+                    continue;
+                }
+
+                // Merge scans across known pin variants.
+                $scans = collect();
+                foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
+                    $scans = $scans->merge($scanGroups->get($logDate . '|' . $candidatePin, collect()));
+                }
+                $scans = $scans->sortBy('scan_date')->values();
+
+                [$firstScan, $lastScan] = $this->resolveScanWindow($scans, '08:00:00', '16:00:00', $logDate);
+                $correction = $correctionMap->get($logDate . '|' . $pin);
+                if ($correction && $correction->status === 'approved') {
+                    if ($correction->corrected_first_scan !== null) {
+                        $firstScan = $correction->corrected_first_scan->format('Y-m-d H:i:s');
+                    }
+                    if ($correction->corrected_last_scan !== null) {
+                        $lastScan = $correction->corrected_last_scan->format('Y-m-d H:i:s');
+                    }
+                }
+
+                $firstScanTime = $this->normalizeTime($firstScan);
+                $hasFirstScan = $firstScan !== null;
+                $hasLastScan = $lastScan !== null;
+
+                $expected = null;
+                if (!$hasFirstScan && !$hasLastScan) {
+                    $expected = 'Tidak Masuk';
+                } elseif ($hasFirstScan && !$hasLastScan) {
+                    [$evaluationExpected] = $this->evaluateCheckIn('08:00:00', $firstScanTime, $firstScan, $logDate);
+                    $expected = $evaluationExpected === 'Terlambat' ? 'Terlambat' : 'Tidak Scan pulang';
+                } elseif (!$hasFirstScan && $hasLastScan) {
+                    $expected = 'Tidak Scan masuk';
+                } else {
+                    [$expected] = $this->evaluateCheckIn('08:00:00', $firstScanTime, $firstScan, $logDate);
+                }
+
+                if ($expected === 'Terlambat') {
+                    $lateCounts[$displayName] = ($lateCounts[$displayName] ?? 0) + 1;
+                } elseif ($expected === 'Tidak Masuk') {
+                    $absentCounts[$displayName] = ($absentCounts[$displayName] ?? 0) + 1;
+                }
+            }
+        }
+
+        return [$lateCounts, $absentCounts];
     }
 
     public function storeCorrection(Request $request)
@@ -968,6 +1440,114 @@ class AttendanceLogController extends Controller
         }
 
         return array_values(array_unique(array_filter($candidates)));
+    }
+
+    private function buildApprovedLeaveTypesByPinDate(
+        ?int $year,
+        ?int $month,
+        Collection $pinsInScope,
+        ?string $rangeStartDate = null,
+        ?string $rangeEndDate = null
+    ): array
+    {
+        if ($pinsInScope->isEmpty()) {
+            return [];
+        }
+
+        if ($year === null) {
+            if ($rangeStartDate === null || $rangeEndDate === null) {
+                return [];
+            }
+            $rangeStart = Carbon::parse($rangeStartDate)->startOfDay();
+            $rangeEnd = Carbon::parse($rangeEndDate)->endOfDay();
+        } else {
+            $rangeStart = $month === null
+                ? Carbon::create($year, 1, 1)->startOfDay()
+                : Carbon::create($year, $month, 1)->startOfDay();
+            $rangeEnd = $month === null
+                ? Carbon::create($year, 12, 31)->endOfDay()
+                : Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
+        }
+
+        $userIdByPin = [];
+        $pinByUserId = [];
+        $employeePairs = DB::table('employees')
+            ->whereNotNull('user_id')
+            ->whereNotNull('nik')
+            ->where('nik', '<>', '')
+            ->get(['user_id', 'nik']);
+
+        foreach ($employeePairs as $row) {
+            $pin = $this->normalizePin((string) $row->nik);
+            if ($pin === '') {
+                continue;
+            }
+            $userId = (int) $row->user_id;
+            $userIdByPin[$pin] = $userId;
+            if (!isset($pinByUserId[$userId])) {
+                $pinByUserId[$userId] = $pin;
+            }
+        }
+
+        $userIdsInScope = $pinsInScope
+            ->map(fn($pin) => $userIdByPin[(string) $pin] ?? null)
+            ->filter(fn($id) => $id !== null)
+            ->unique()
+            ->values();
+
+        if ($userIdsInScope->isEmpty()) {
+            return [];
+        }
+
+        $leaveRows = DB::table('leave_permissions')
+            ->where('status', 'approved')
+            ->whereIn('user_id', $userIdsInScope->all())
+            ->whereDate('start_date', '<=', $rangeEnd->toDateString())
+            ->whereDate('end_date', '>=', $rangeStart->toDateString())
+            ->get(['user_id', 'type', 'start_date', 'end_date']);
+
+        $result = [];
+        foreach ($leaveRows as $leave) {
+            $userId = (int) $leave->user_id;
+            $pin = $pinByUserId[$userId] ?? null;
+            if ($pin === null || $pin === '') {
+                continue;
+            }
+
+            $from = Carbon::parse($leave->start_date)->startOfDay();
+            $to = Carbon::parse($leave->end_date)->startOfDay();
+            if ($from->lt($rangeStart)) {
+                $from = $rangeStart->copy()->startOfDay();
+            }
+            if ($to->gt($rangeEnd)) {
+                $to = $rangeEnd->copy()->startOfDay();
+            }
+
+            $type = (string) ($leave->type ?? '');
+            if ($type === '') {
+                continue;
+            }
+
+            for ($cursor = $from->copy(); $cursor->lte($to); $cursor->addDay()) {
+                $dateKey = $cursor->format('Y-m-d');
+                foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
+                    $result[$candidatePin][$dateKey] = $type;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    private function leaveTypeLabel(string $type): string
+    {
+        return match (strtolower(trim($type))) {
+            'cuti' => 'Cuti',
+            'izin' => 'Izin',
+            'sakit' => 'Sakit',
+            'dinas_luar' => 'Dinas Luar',
+            default => $type !== '' ? $type : 'Izin',
+        };
     }
 
     private function hasRosterPinMatch(string $pin, array $rosterPinIndex): bool

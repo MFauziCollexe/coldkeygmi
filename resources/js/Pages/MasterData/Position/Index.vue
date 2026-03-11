@@ -54,7 +54,7 @@
 import { reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 
 import Swal from 'sweetalert2';
 
@@ -64,19 +64,19 @@ const positions = reactive(props.positions);
 
 function next() {
   if (positions.next_page_url) {
-    Inertia.get(positions.next_page_url, {}, { preserveState: true, preserveScroll: true });
+    router.get(positions.next_page_url, {}, { preserveState: true, preserveScroll: true });
   }
 }
 
 function prev() {
   if (positions.prev_page_url) {
-    Inertia.get(positions.prev_page_url, {}, { preserveState: true, preserveScroll: true });
+    router.get(positions.prev_page_url, {}, { preserveState: true, preserveScroll: true });
   }
 }
 
 function deletePosition(id) {
   if (confirm('Are you sure you want to delete this position?')) {
-    Inertia.delete(`/master-data/position/${id}`, {
+    router.delete(`/master-data/position/${id}`, {
       onSuccess: () => {
         // Will refresh automatically
       },

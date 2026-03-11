@@ -95,7 +95,7 @@
 <script setup>
 import { reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
@@ -123,7 +123,7 @@ const form = reactive({
 const departments = props.departments || [];
 
 function submit() {
-  Inertia.put(`/master-data/user/${userData.id}`, form, {
+  router.put(`/master-data/user/${userData.id}`, form, {
     onError: (errors) => {
     },
   });

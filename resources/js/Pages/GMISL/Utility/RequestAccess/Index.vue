@@ -90,7 +90,7 @@
 import { ref, reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 
 const props = defineProps({ requests: Object, filters: Object });
 
@@ -113,7 +113,7 @@ function fetch() {
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.type) params.type = filters.type;
-  Inertia.get('/request-access', params, { preserveState: true, preserveScroll: true });
+  router.get('/request-access', params, { preserveState: true, preserveScroll: true });
 }
 
 function goToPage(pageNum) {
@@ -121,7 +121,7 @@ function goToPage(pageNum) {
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.type) params.type = filters.type;
-  Inertia.get('/request-access', { ...params, page: pageNum }, { preserveState: true, preserveScroll: true });
+  router.get('/request-access', { ...params, page: pageNum }, { preserveState: true, preserveScroll: true });
 }
 
 function next() {

@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Department;
 use App\Models\Position;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
 class EmployeeController extends Controller
@@ -19,7 +20,7 @@ class EmployeeController extends Controller
         $search = $request->search;
         
         // Query from employees table with user relation
-        $employees = Employee::with(['user.department', 'user.position'])
+        $employees = Employee::with(['user.department', 'user.position', 'department', 'position'])
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nik', 'like', "%{$search}%")
@@ -34,7 +35,9 @@ class EmployeeController extends Controller
 
         // Get departments and positions for filters/dropdowns
         $departments = Department::orderBy('name')->get();
-        $positions = Position::orderBy('name')->get();
+        $positions = Position::with('department:id,name,code')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'department_id']);
 
         return Inertia::render('MasterData/Employee/Index', [
             'employees' => $employees,
@@ -52,12 +55,14 @@ class EmployeeController extends Controller
     public function create()
     {
         $departments = Department::orderBy('name')->get();
-        $positions = Position::orderBy('name')->get();
+        $positions = Position::with('department:id,name,code')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'department_id']);
         
         // Get users that don't have employee records yet
         $availableUsers = User::whereDoesntHave('employee')
             ->orderBy('name')
-            ->get();
+            ->get(['id', 'name', 'email', 'account', 'department_id', 'position_id']);
 
         return Inertia::render('MasterData/Employee/Create', [
             'departments' => $departments,
@@ -71,8 +76,17 @@ class EmployeeController extends Controller
      */
     public function store(Request $request)
     {
+        // Ensure optional select inputs don't fail `exists` validation when sent as empty strings.
+        $request->merge([
+            'user_id' => $request->input('user_id') ?: null,
+            'department_id' => $request->input('department_id') ?: null,
+            'position_id' => $request->input('position_id') ?: null,
+        ]);
+
         $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
+            'user_id' => 'nullable|exists:users,id',
+            'department_id' => 'nullable|exists:departments,id',
+            'position_id' => 'nullable|exists:positions,id',
             'nik' => 'nullable|string|max:255|unique:employees,nik',
             'work_group' => 'nullable|in:office,operational',
             'join_date' => 'nullable|date',
@@ -89,6 +103,15 @@ class EmployeeController extends Controller
         // Create employee record
         Employee::create($validated);
 
+        $departmentId = $validated['department_id'] ?? null;
+        $positionId = $validated['position_id'] ?? null;
+        if (!empty($validated['user_id'])) {
+            User::whereKey((int) $validated['user_id'])->update([
+                'department_id' => $departmentId,
+                'position_id' => $positionId,
+            ]);
+        }
+
         return redirect('/master-data/employee')
             ->with('message', [
                 'type' => 'success',
@@ -102,16 +125,18 @@ class EmployeeController extends Controller
     public function edit(Employee $employee)
     {
         $departments = Department::orderBy('name')->get();
-        $positions = Position::orderBy('name')->get();
+        $positions = Position::with('department:id,name,code')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'department_id']);
 
         // Load user relation
-        $employee->load('user');
+        $employee->load(['user', 'user.department', 'user.position']);
 
         // Get available users (current user + users without employee records)
         $availableUsers = User::whereDoesntHave('employee')
             ->orWhere('id', $employee->user_id)
             ->orderBy('name')
-            ->get();
+            ->get(['id', 'name', 'email', 'account', 'department_id', 'position_id']);
 
         return Inertia::render('MasterData/Employee/Edit', [
             'employee' => $employee,
@@ -126,8 +151,17 @@ class EmployeeController extends Controller
      */
     public function update(Request $request, Employee $employee)
     {
-        $validated = $request->validate([
+        // Ensure optional select inputs don't fail `exists` validation when sent as empty strings.
+        $request->merge([
+            'user_id' => $request->input('user_id') ?: null,
+            'department_id' => $request->input('department_id') ?: null,
+            'position_id' => $request->input('position_id') ?: null,
+        ]);
+
+        $validator = Validator::make($request->all(), [
             'user_id' => 'nullable|exists:users,id',
+            'department_id' => 'nullable|exists:departments,id',
+            'position_id' => 'nullable|exists:positions,id',
             'nik' => 'nullable|string|max:255|unique:employees,nik,' . $employee->id,
             'work_group' => 'nullable|in:office,operational',
             'join_date' => 'nullable|date',
@@ -141,8 +175,26 @@ class EmployeeController extends Controller
             'education' => 'nullable|string|max:255',
         ]);
 
+        $validated = $validator->validate();
+
+        // Avoid unintentionally clearing existing user link when user_id is left empty.
+        if (array_key_exists('user_id', $validated) && $validated['user_id'] === null) {
+            unset($validated['user_id']);
+        }
+
+        $targetUserId = (int) (($validated['user_id'] ?? null) ?: $employee->user_id);
+
         // Update employee record
         $employee->update($validated);
+
+        if ($targetUserId > 0) {
+            $departmentId = $validated['department_id'] ?? null;
+            $positionId = $validated['position_id'] ?? null;
+            User::whereKey($targetUserId)->update([
+                'department_id' => $departmentId,
+                'position_id' => $positionId,
+            ]);
+        }
 
         return redirect('/master-data/employee')
             ->with('message', [

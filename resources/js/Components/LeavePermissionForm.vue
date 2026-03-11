@@ -89,7 +89,7 @@
 
 <script setup>
 import { reactive, watch } from 'vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 
 const props = defineProps({
@@ -145,7 +145,7 @@ function submit() {
   
   if (props.isEdit && props.itemId) {
     // Update existing
-    Inertia.put(`${props.submitUrl}/${props.itemId}`, form, {
+    router.put(`${props.submitUrl}/${props.itemId}`, form, {
       onSuccess: () => {
         emit('success');
         emit('close');
@@ -153,7 +153,7 @@ function submit() {
     });
   } else {
     // Create new
-    Inertia.post(props.submitUrl, form, {
+    router.post(props.submitUrl, form, {
       onSuccess: () => {
         emit('success');
         emit('close');

@@ -85,7 +85,7 @@
 <script setup>
 import { reactive, ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -110,7 +110,7 @@ function fetch(page = 1) {
   const params = {};
   if (filters.search) params.search = filters.search;
   if (page > 1) params.page = page;
-  Inertia.get('/check-inline', params, { preserveState: true, preserveScroll: true });
+  router.get('/check-inline', params, { preserveState: true, preserveScroll: true });
 }
 
 function next() {

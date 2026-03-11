@@ -144,7 +144,7 @@
 import { ref, reactive, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 const props = defineProps({ 
@@ -175,7 +175,7 @@ function fetch() {
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.department_id) params.department_id = filters.department_id;
-  Inertia.get('/tickets', params, { preserveState: true, preserveScroll: true });
+  router.get('/tickets', params, { preserveState: true, preserveScroll: true });
 }
 
 function goToPage(pageNum) {
@@ -187,7 +187,7 @@ function goToPage(pageNum) {
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.department_id) params.department_id = filters.department_id;
-  Inertia.get('/tickets', { ...params, page: pageNum }, { preserveState: true, preserveScroll: true });
+  router.get('/tickets', { ...params, page: pageNum }, { preserveState: true, preserveScroll: true });
 }
 
 function next() {

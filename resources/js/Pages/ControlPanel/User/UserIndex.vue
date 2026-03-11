@@ -91,7 +91,7 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
@@ -122,7 +122,7 @@ function fetch() {
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.department_id) params.department_id = filters.department_id;
-  Inertia.get('/control-panel/user', params, { preserveState: true, preserveScroll: true });
+  router.get('/control-panel/user', params, { preserveState: true, preserveScroll: true });
 }
 
 function goToPage(pageNum) {
@@ -130,7 +130,7 @@ function goToPage(pageNum) {
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.department_id) params.department_id = filters.department_id;
-  Inertia.get('/control-panel/user', params, { preserveState: true, preserveScroll: true });
+  router.get('/control-panel/user', params, { preserveState: true, preserveScroll: true });
 }
 
 function next() {
@@ -152,7 +152,7 @@ function formatDate(date) {
 
 function deleteUser(user) {
   if (confirm(`Are you sure you want to delete ${user.first_name} ${user.last_name}?`)) {
-    Inertia.delete(`/control-panel/user/${user.id}`, {
+    router.delete(`/control-panel/user/${user.id}`, {
       onSuccess: () => {
         // Reload to get updated list
       },

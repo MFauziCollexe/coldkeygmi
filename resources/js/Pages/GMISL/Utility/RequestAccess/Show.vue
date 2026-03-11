@@ -198,7 +198,7 @@
 import { ref, reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 
 const props = defineProps({ 
   request: Object,
@@ -237,7 +237,7 @@ function formatModules(moduleKeys) {
 }
 
 function approve() {
-  Inertia.post(`/request-access/${props.request.id}/approve`, {
+  router.post(`/request-access/${props.request.id}/approve`, {
     review_notes: reviewNotes.value,
   }, {
     onSuccess: () => {
@@ -253,7 +253,7 @@ function reject() {
     return;
   }
   
-  Inertia.post(`/request-access/${props.request.id}/reject`, {
+  router.post(`/request-access/${props.request.id}/reject`, {
     review_notes: reviewNotes.value,
   }, {
     onSuccess: () => {
@@ -264,7 +264,7 @@ function reject() {
 }
 
 function process() {
-  Inertia.post(`/request-access/${props.request.id}/process`, {
+  router.post(`/request-access/${props.request.id}/process`, {
     processing_notes: processingNotes.value,
   }, {
     onSuccess: () => {

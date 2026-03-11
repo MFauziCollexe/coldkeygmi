@@ -172,7 +172,53 @@ class LeavePermissionController extends Controller
      */
     public function create()
     {
-        return Inertia::render('GMIHR/LeavePermission/Create');
+        $userId = Auth::id();
+        $actor = User::find($userId);
+        $canSubmitForOthers = $this->isAdmin($userId) || $this->isManager($userId);
+        $canSelectEmployee = true;
+
+        $employees = [];
+        if ($canSubmitForOthers) {
+
+            $employees = User::query()
+                ->whereNotNull('department_id')
+                ->select('id', 'name', 'account', 'email', 'department_id')
+                ->orderBy('name')
+                ->get()
+                ->map(function (User $user) {
+                    $account = trim((string) ($user->account ?? ''));
+                    $email = trim((string) ($user->email ?? ''));
+                    $suffix = $account !== '' ? $account : $email;
+                    $label = trim((string) $user->name);
+                    if ($suffix !== '') {
+                        $label .= " ({$suffix})";
+                    }
+
+                    return [
+                        'id' => $user->id,
+                        'label' => $label,
+                        'department_id' => $user->department_id,
+                    ];
+                })
+                ->values()
+                ->all();
+        } else {
+            // Regular user: only allow selecting self.
+            $employees = $actor
+                ? [[
+                    'id' => $actor->id,
+                    'label' => trim((string) $actor->name),
+                    'department_id' => $actor->department_id,
+                ]]
+                : [];
+        }
+
+        return Inertia::render('GMIHR/LeavePermission/Create', [
+            'employees' => $employees,
+            'canSelectEmployee' => $canSelectEmployee,
+            'canSubmitForOthers' => $canSubmitForOthers,
+            'defaultEmployeeId' => $userId,
+        ]);
     }
 
     /**
@@ -199,6 +245,7 @@ class LeavePermissionController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
+            'user_id' => 'nullable|integer|exists:users,id',
             'type' => 'required|in:cuti,izin,sakit,dinas_luar',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -206,7 +253,15 @@ class LeavePermissionController extends Controller
             'attachment_image' => 'nullable|image|max:5120',
         ]);
 
-        $data['user_id'] = Auth::id();
+        $actorId = Auth::id();
+        $targetUserId = $actorId;
+
+        $requestedUserId = $data['user_id'] ?? null;
+        if ($requestedUserId !== null && ($this->isAdmin($actorId) || $this->isManager($actorId))) {
+            $targetUserId = (int) $requestedUserId;
+        }
+
+        $data['user_id'] = $targetUserId;
         $data['days'] = LeavePermission::calculateDays($data['start_date'], $data['end_date']);
         $data['status'] = 'pending';
         $data['attachment_image'] = $request->hasFile('attachment_image')

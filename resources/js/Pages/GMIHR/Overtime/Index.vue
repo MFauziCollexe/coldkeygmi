@@ -224,7 +224,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import OvertimeForm from '@/Components/OvertimeForm.vue';
@@ -259,7 +259,7 @@ function fetchData() {
   if (filters.status) params.status = filters.status;
   if (filters.department_id) params.department_id = filters.department_id;
   
-  Inertia.get('/overtime', params, { 
+  router.get('/overtime', params, { 
     preserveState: true, 
     preserveScroll: true 
   });
@@ -271,7 +271,7 @@ function goToPage(pageNum) {
   if (filters.status) params.status = filters.status;
   if (filters.department_id) params.department_id = filters.department_id;
   
-  Inertia.get('/overtime', params, { 
+  router.get('/overtime', params, { 
     preserveState: true, 
     preserveScroll: true 
   });
@@ -311,7 +311,7 @@ function viewDetail(item) {
 function approveRequest(item) {
   if (!confirm('Apakah Anda yakin ingin menyetujui permintaan ini?')) return;
   
-  Inertia.put(`/overtime/${item.id}`, {
+  router.put(`/overtime/${item.id}`, {
     status: 'approved',
     review_notes: '',
   }, {
@@ -326,7 +326,7 @@ function rejectRequest(item) {
   const notes = prompt('Masukkan alasan penolakan:');
   if (!notes) return;
   
-  Inertia.put(`/overtime/${item.id}`, {
+  router.put(`/overtime/${item.id}`, {
     status: 'rejected',
     review_notes: notes,
   }, {

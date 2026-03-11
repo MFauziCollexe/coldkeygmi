@@ -93,7 +93,7 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
@@ -126,7 +126,7 @@ function fetch() {
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.department) params.department = filters.department;
-  Inertia.get('/master-data/user', params, { preserveState: true, preserveScroll: true });
+  router.get('/master-data/user', params, { preserveState: true, preserveScroll: true });
 }
 
 function goToPage(pageNum) {
@@ -134,7 +134,7 @@ function goToPage(pageNum) {
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.department) params.department = filters.department;
-  Inertia.get('/master-data/user', params, { preserveState: true, preserveScroll: true });
+  router.get('/master-data/user', params, { preserveState: true, preserveScroll: true });
 }
 
 function next() {
@@ -156,7 +156,7 @@ function formatDate(date) {
 
 function deleteUser(user) {
   if (confirm(`Are you sure you want to delete ${user.first_name} ${user.last_name}?`)) {
-    Inertia.delete(`/master-data/user/${user.id}`, {
+    router.delete(`/master-data/user/${user.id}`, {
       onSuccess: () => {
         // Reload to get updated list
       },

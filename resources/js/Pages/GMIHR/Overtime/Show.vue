@@ -113,7 +113,7 @@
 
 <script setup>
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -157,7 +157,7 @@ function approveRequest() {
   });
   return;
   
-  Inertia.put(`/overtime/${props.overtime.id}`, {
+  router.put(`/overtime/${props.overtime.id}`, {
     status: 'approved',
     review_notes: '',
   }, {
@@ -171,7 +171,7 @@ function rejectRequest() {
   const notes = prompt('Masukkan alasan penolakan:');
   if (!notes) return;
   
-  Inertia.put(`/overtime/${props.overtime.id}`, {
+  router.put(`/overtime/${props.overtime.id}`, {
     status: 'rejected',
     review_notes: notes,
   }, {

@@ -42,7 +42,7 @@
 <script setup>
 import { reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({ department: Object, errors: Object });
@@ -55,6 +55,6 @@ const form = reactive({
 });
 
 function submit() {
-  Inertia.put(`/master-data/department/${props.department.id}`, form);
+  router.put(`/master-data/department/${props.department.id}`, form);
 }
 </script>

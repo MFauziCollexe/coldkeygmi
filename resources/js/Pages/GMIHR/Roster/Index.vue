@@ -60,7 +60,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue';
 import axios from 'axios';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RosterFileDropzone from '@/Pages/GMIHR/Roster/Components/RosterFileDropzone.vue';
 import RosterActionBar from '@/Pages/GMIHR/Roster/Components/RosterActionBar.vue';
@@ -237,7 +237,7 @@ async function uploadPreview() {
 
     message.type = 'success';
     message.text = response.data.message || 'Upload berhasil.';
-    Inertia.reload({ only: ['recentBatches'] });
+    router.reload({ only: ['recentBatches'] });
     resetPreviewState();
   } catch (error) {
     message.type = 'error';

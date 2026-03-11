@@ -56,6 +56,12 @@
       <div v-if="!filteredOptions.length" class="px-3 py-2 text-xs text-slate-400">
         Tidak ada data yang cocok.
       </div>
+      <div
+        v-else-if="matchCount > filteredOptions.length"
+        class="px-3 py-2 text-[11px] text-slate-400 border-t border-slate-700"
+      >
+        Menampilkan {{ filteredOptions.length }} dari {{ matchCount }} data. Ketik untuk mempersempit.
+      </div>
     </div>
   </div>
 </template>
@@ -104,6 +110,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Prevent rendering huge lists in the DOM (can make click handlers slow).
+  maxOptions: {
+    type: Number,
+    default: 200,
+  },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -113,11 +124,26 @@ const menuRef = ref(null);
 const query = ref('');
 const open = ref(false);
 const openUp = ref(false);
+let rafId = null;
 
 const filteredOptions = computed(() => {
   const q = String(query.value || '').trim().toLowerCase();
-  if (!q) return props.options;
-  return props.options.filter((option) => String(getOptionLabel(option) || '').toLowerCase().includes(q));
+  const list = Array.isArray(props.options) ? props.options : [];
+  const filtered = !q
+    ? list
+    : list.filter((option) => String(getOptionLabel(option) || '').toLowerCase().includes(q));
+
+  const limit = Number.isFinite(props.maxOptions) ? Math.max(1, Math.floor(props.maxOptions)) : 200;
+  return filtered.slice(0, limit);
+});
+
+const matchCount = computed(() => {
+  const q = String(query.value || '').trim().toLowerCase();
+  const list = Array.isArray(props.options) ? props.options : [];
+  if (!q) return list.length;
+  return list.reduce((count, option) => {
+    return String(getOptionLabel(option) || '').toLowerCase().includes(q) ? count + 1 : count;
+  }, 0);
 });
 
 function getOptionValue(option) {
@@ -183,6 +209,16 @@ function updateDropdownDirection() {
   openUp.value = spaceBelow < actualMenuHeight && spaceAbove > spaceBelow;
 }
 
+function scheduleDropdownDirectionUpdate() {
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+  }
+  rafId = requestAnimationFrame(() => {
+    rafId = null;
+    updateDropdownDirection();
+  });
+}
+
 function handleOutsideClick(event) {
   const root = rootRef.value;
   if (!root) return;
@@ -196,18 +232,22 @@ watch(() => props.options, syncQueryFromModel, { deep: true });
 watch(open, async (isOpen) => {
   if (!isOpen) return;
   await nextTick();
-  updateDropdownDirection();
+  scheduleDropdownDirectionUpdate();
 });
 
 onMounted(() => {
   document.addEventListener('click', handleOutsideClick);
-  window.addEventListener('resize', updateDropdownDirection);
-  window.addEventListener('scroll', updateDropdownDirection, true);
+  window.addEventListener('resize', scheduleDropdownDirectionUpdate);
+  window.addEventListener('scroll', scheduleDropdownDirectionUpdate, true);
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleOutsideClick);
-  window.removeEventListener('resize', updateDropdownDirection);
-  window.removeEventListener('scroll', updateDropdownDirection, true);
+  window.removeEventListener('resize', scheduleDropdownDirectionUpdate);
+  window.removeEventListener('scroll', scheduleDropdownDirectionUpdate, true);
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
 });
 </script>

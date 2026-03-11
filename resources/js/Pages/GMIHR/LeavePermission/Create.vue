@@ -4,6 +4,31 @@
       <h2 class="text-2xl font-bold mb-4">Ajukan Permintaan Cuti/Izin</h2>
 
       <form @submit.prevent="submit" class="space-y-4 bg-slate-800 p-4 rounded">
+        <div v-if="canSelectEmployee" class="relative group">
+          <SearchableSelect
+            v-model="form.user_id"
+            :options="employees"
+            option-value="id"
+            option-label="label"
+            placeholder=" "
+            empty-label="Pilih Karyawan"
+            input-class="w-full h-[52px] pl-3 pr-10 pt-5 pb-2 !bg-slate-800 !border-slate-700 rounded-lg text-slate-100 placeholder-transparent"
+            button-class="h-[52px] border-0 border-l !border-slate-700 rounded-r-lg !bg-slate-800 text-slate-100"
+          />
+          <label
+            :class="[
+              'pointer-events-none absolute left-3 z-10 transition-all',
+              (form.user_id
+                ? 'px-1 text-xs text-slate-300 bg-slate-800 top-0 -translate-y-1/2'
+                : 'px-0 text-base text-slate-400 bg-transparent top-1/2 -translate-y-1/2'),
+              'group-focus-within:px-1 group-focus-within:text-xs group-focus-within:text-slate-200 group-focus-within:bg-slate-800 group-focus-within:top-0 group-focus-within:-translate-y-1/2',
+            ]"
+          >
+            Karyawan
+          </label>
+          <div v-if="form.errors.user_id" class="text-red-400 text-sm mt-1">{{ form.errors.user_id }}</div>
+        </div>
+
         <div class="relative group">
           <SearchableSelect
             v-model="form.type"
@@ -130,10 +155,17 @@
 <script setup>
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+
+const props = defineProps({
+  employees: { type: Array, default: () => [] },
+  canSelectEmployee: { type: Boolean, default: false },
+  canSubmitForOthers: { type: Boolean, default: false },
+  defaultEmployeeId: { type: [String, Number], default: '' },
+});
 
 const requestTypeOptions = [
   { value: 'cuti', label: 'Cuti' },
@@ -143,6 +175,9 @@ const requestTypeOptions = [
 ];
 
 const form = useForm({
+  user_id: props.canSelectEmployee
+    ? (props.canSubmitForOthers ? '' : (props.defaultEmployeeId || ''))
+    : '',
   type: '',
   start_date: '',
   end_date: '',
@@ -162,7 +197,7 @@ function submit() {
   form.post('/leave-permission', {
     forceFormData: true,
     onSuccess: () => {
-      Inertia.get('/leave-permission');
+      router.get('/leave-permission');
     },
     onError: () => {
       const firstError = Object.values(form.errors || {})[0];
@@ -200,6 +235,6 @@ function onDrop(event) {
 }
 
 function cancel() {
-  Inertia.get('/leave-permission');
+  router.get('/leave-permission');
 }
 </script>

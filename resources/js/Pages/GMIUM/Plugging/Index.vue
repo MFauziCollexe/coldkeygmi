@@ -152,7 +152,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
@@ -192,7 +192,7 @@ function fetch(page = 1) {
   if (filters.tanggal) params.tanggal = filters.tanggal;
   if (filters.customer) params.customer = filters.customer;
   if (page > 1) params.page = page;
-  Inertia.get('/gmium/plugging', params, { preserveState: true, preserveScroll: true });
+  router.get('/gmium/plugging', params, { preserveState: true, preserveScroll: true });
 }
 
 function next() {
@@ -211,7 +211,7 @@ function resetFilter() {
 
 function destroy(id) {
   if (!confirm('Delete data ini?')) return;
-  Inertia.delete(`/gmium/plugging/${id}`);
+  router.delete(`/gmium/plugging/${id}`);
 }
 
 function formatDate(value) {

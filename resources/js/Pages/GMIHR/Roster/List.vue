@@ -127,7 +127,7 @@
 <script setup>
 import { ref, reactive, computed } from 'vue';
 import axios from 'axios';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 import html2canvas from 'html2canvas';
 import { toPng, toJpeg } from 'html-to-image';
@@ -265,7 +265,7 @@ async function approveBatch(batch) {
     const response = await axios.post(`/roster/${batch.id}/approve`);
     message.type = 'success';
     message.text = response.data?.message || 'Roster berhasil di-approve.';
-    Inertia.reload({ only: ['batches'] });
+    router.reload({ only: ['batches'] });
   } catch (error) {
     message.type = 'error';
     message.text = error?.response?.data?.message || 'Approve roster gagal.';
@@ -309,7 +309,7 @@ async function rejectBatch(batch) {
     });
     message.type = 'success';
     message.text = response.data?.message || 'Roster berhasil di-reject.';
-    Inertia.reload({ only: ['batches'] });
+    router.reload({ only: ['batches'] });
   } catch (error) {
     message.type = 'error';
     message.text = error?.response?.data?.message || 'Reject roster gagal.';

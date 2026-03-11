@@ -265,6 +265,7 @@ async function checkData(pageNum = 1) {
     try {
         const response = await fetch('/fingerprint/preview', {
             method: 'POST',
+            credentials: 'same-origin',
             body: formData,
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -325,6 +326,7 @@ async function saveAllData() {
             
             const response = await fetch('/fingerprint/preview', {
                 method: 'POST',
+                credentials: 'same-origin',
                 body: formData,
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -342,6 +344,7 @@ async function saveAllData() {
         // Now save all data
         const saveResponse = await fetch('/fingerprint/confirm-save', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -388,6 +391,7 @@ async function saveData() {
     try {
         const response = await fetch('/fingerprint/confirm-save', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -455,6 +459,7 @@ async function clearData() {
         try {
             const response = await fetch('/fingerprint/clear', {
                 method: 'DELETE',
+                credentials: 'same-origin',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                 }

@@ -9,6 +9,75 @@
       </div>
 
       <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-semibold text-slate-200">Ringkasan</p>
+            <p class="text-xs text-slate-400">Jumlah per status berdasarkan hasil evaluasi attendance.</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[11px] text-slate-400">Total</p>
+            <p class="text-lg font-semibold text-slate-100">{{ summaryTotal }}</p>
+          </div>
+        </div>
+
+        <div v-if="!summaryBars.length" class="mt-4 text-sm text-slate-400">
+          Tidak ada ringkasan untuk filter ini.
+        </div>
+
+        <div v-else class="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div class="lg:col-span-8">
+            <div class="min-h-56 flex flex-wrap items-end gap-2">
+              <div
+                v-for="bar in summaryBars"
+                :key="bar.key"
+                class="w-14 flex flex-col items-center justify-end"
+                :title="`${bar.label}: ${bar.value}`"
+              >
+                <div class="text-[11px] text-slate-200 mb-1 tabular-nums">{{ bar.value }}</div>
+                <div
+                  class="w-full rounded-t border border-slate-700 shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
+                  :class="bar.colorClass"
+                  :style="{ height: `${barHeightPx(bar.value)}px` }"
+                ></div>
+                <div class="w-full text-[11px] text-slate-300 mt-1 text-center leading-tight truncate">
+                  {{ bar.shortLabel }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4 border border-slate-700 rounded-lg p-3 bg-slate-900/30">
+            <p class="text-sm font-semibold text-slate-200">Keterangan (Bulan Ini)</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">
+              Minimal {{ Number(props.monthlyInsights?.min_count || 5) }}x. Terlambat dan Tidak Masuk per bulan (top nama).
+            </p>
+
+            <div class="mt-3 space-y-3">
+              <div v-for="m in monthlyInsightsMonths" :key="m.month_key" class="border-t border-slate-700/60 pt-2 first:border-t-0 first:pt-0">
+                <p class="text-xs font-semibold text-slate-200">{{ m.month_label }}</p>
+
+                <div class="mt-1 text-[12px] text-slate-300">
+                  <span class="font-semibold text-amber-200">Terlambat:&nbsp;</span>
+                  <span class="text-slate-400">{{ Number(m?.late?.people || 0) }} orang</span>
+                </div>
+                <div class="text-[11px] text-slate-400 leading-snug">
+                  {{ formatPeopleList(m?.late?.top, m?.late?.others) }}
+                </div>
+
+                <div class="mt-2 text-[12px] text-slate-300">
+                  <span class="font-semibold text-rose-200">Tidak Masuk:&nbsp;</span>
+                  <span class="text-slate-400">{{ Number(m?.absent?.people || 0) }} orang</span>
+                </div>
+                <div class="text-[11px] text-slate-400 leading-snug">
+                  {{ formatPeopleList(m?.absent?.top, m?.absent?.others) }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
           <div class="md:col-span-2">
             <label class="text-xs text-slate-300">Bulan</label>
@@ -33,6 +102,10 @@
               <option value="tidak_masuk">Tidak Masuk</option>
               <option value="tidak_scan_masuk">Tidak Scan masuk</option>
               <option value="tidak_scan_pulang">Tidak Scan pulang</option>
+              <option value="izin">Izin</option>
+              <option value="sakit">Sakit</option>
+              <option value="cuti">Cuti</option>
+              <option value="dinas_luar">Dinas Luar</option>
               <option value="off">OFF</option>
               <option value="libur_nasional">Libur Nasional</option>
               <option value="cek_lagi">Cek Lagi</option>
@@ -53,17 +126,6 @@
               </button>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 md:grid-cols-8 gap-2">
-        <div
-          v-for="card in summaryCards"
-          :key="card.label"
-          class="bg-slate-800 border border-slate-700 rounded px-2 py-2"
-        >
-          <p class="text-[11px] leading-tight text-slate-400 truncate">{{ card.label }}</p>
-          <p class="text-lg leading-tight font-semibold" :class="card.valueClass || ''">{{ card.value }}</p>
         </div>
       </div>
 
@@ -190,29 +252,7 @@
           </div>
         </div>
 
-        <div v-if="employeeGroups.length" class="pt-4 mt-4 border-t border-slate-700 text-sm space-y-2">
-          <p class="text-slate-300 font-semibold">Keterangan:</p>
-          <p class="text-slate-300">
-            Terlambat (minimal 5x):
-            <span class="font-semibold text-amber-200">{{ topNamesText(topAttendanceInsights.terlambat) }}</span>
-            <span
-              v-if="topAttendanceInsights.terlambat.count > 0"
-              class="inline-flex min-w-[2rem] justify-center ml-2 px-2 py-0.5 rounded-md text-xs font-semibold border bg-amber-500/20 text-amber-200 border-amber-400/40"
-            >
-              {{ topAttendanceInsights.terlambat.count }} orang
-            </span>
-          </p>
-          <p class="text-slate-300">
-            Absen (minimal 5x):
-            <span class="font-semibold text-rose-200">{{ topNamesText(topAttendanceInsights.absen) }}</span>
-            <span
-              v-if="topAttendanceInsights.absen.count > 0"
-              class="inline-flex min-w-[2rem] justify-center ml-2 px-2 py-0.5 rounded-md text-xs font-semibold border bg-rose-600/20 text-rose-200 border-rose-500/40"
-            >
-              {{ topAttendanceInsights.absen.count }} orang
-            </span>
-          </p>
-        </div>
+
       </div>
     </div>
   </AppLayout>
@@ -237,6 +277,10 @@ const props = defineProps({
   summary: {
     type: Object,
     default: () => ({}),
+  },
+  monthlyInsights: {
+    type: Object,
+    default: () => ({ months: [] }),
   },
   filters: {
     type: Object,
@@ -275,38 +319,110 @@ const form = reactive({
 const canManageCorrections = props.canManageCorrections === true;
 const MIN_HIGHLIGHT_COUNT = 5;
 
-const summaryCards = computed(() => {
-  const ordered = [
-    { label: 'Total', key: 'total', valueClass: '' },
-    { label: 'Terlambat', key: 'terlambat', valueClass: 'text-amber-300' },
-    { label: 'Tidak Masuk', key: 'tidak_masuk', valueClass: 'text-rose-300' },
-    { label: 'Tidak Scan masuk', key: 'tidak_scan_masuk', valueClass: 'text-orange-300' },
-    { label: 'Tidak Scan pulang', key: 'tidak_scan_pulang', valueClass: 'text-orange-300' },
-    { label: 'OFF', key: 'off', valueClass: 'text-slate-300' },
-    { label: 'On Time', key: 'on_time', valueClass: 'text-emerald-300' },
-    { label: 'Cek Lagi', key: 'cek_lagi', valueClass: 'text-pink-300' },
-  ];
+const summaryTotal = computed(() => Number(props.summary?.total || 0));
 
-  const cards = ordered.map((item) => ({
-    label: item.label,
-    value: Number(props.summary?.[item.key] || 0),
-    valueClass: item.valueClass,
-  }));
+const monthlyInsightsMonths = computed(() => Array.isArray(props.monthlyInsights?.months) ? props.monthlyInsights.months : []);
 
-  const knownLabels = new Set(cards.map((c) => c.label.toLowerCase()));
+function formatPeopleList(items, others) {
+  const list = Array.isArray(items) ? items : [];
+  const text = list
+    .filter((it) => String(it?.name || '').trim() !== '')
+    .map((it) => `${it.name} (${Number(it.count || 0)}x)`)
+    .join(', ');
+  if (!text) return 'Belum ada';
+  if (Number(others || 0) > 0) return `${text} (+${others} orang lagi)`;
+  return text;
+}
+
+function summaryColorClass(label) {
+  const value = String(label || '').toLowerCase().trim();
+  if (value === 'on time') return 'bg-emerald-400 border-emerald-200';
+  if (value === 'terlambat') return 'bg-amber-400 border-amber-200';
+  if (value === 'tidak masuk') return 'bg-rose-500 border-rose-200';
+  if (value === 'tidak scan masuk') return 'bg-orange-400 border-orange-200';
+  if (value === 'tidak scan pulang') return 'bg-orange-400 border-orange-200';
+  if (value === 'off') return 'bg-slate-400 border-slate-200';
+  if (value === 'cek lagi') return 'bg-pink-400 border-pink-200';
+  if (value === 'libur nasional') return 'bg-slate-300 border-slate-200';
+  if (value === 'izin') return 'bg-violet-400 border-violet-200';
+  if (value === 'sakit') return 'bg-red-400 border-red-200';
+  if (value === 'cuti') return 'bg-sky-400 border-sky-200';
+  if (value === 'dinas luar') return 'bg-teal-400 border-teal-200';
+  return 'bg-indigo-400 border-indigo-200';
+}
+
+function shortLabel(label) {
+  const raw = String(label || '').trim();
+  if (raw.toLowerCase() === 'tidak scan masuk') return 'No In';
+  if (raw.toLowerCase() === 'tidak scan pulang') return 'No Out';
+  if (raw.toLowerCase() === 'libur nasional') return 'Libur';
+  if (raw.toLowerCase() === 'tidak masuk') return 'Absen';
+  if (raw.toLowerCase() === 'terlambat') return 'Late';
+  if (raw.toLowerCase() === 'on time') return 'On Time';
+  if (raw.toLowerCase() === 'cek lagi') return 'Cek';
+  if (raw.toLowerCase() === 'dinas luar') return 'DL';
+  return raw.length > 10 ? raw.slice(0, 10) + '…' : raw;
+}
+
+const summaryBars = computed(() => {
   const expectedCounts = props.summary?.expected_counts || {};
-  for (const [label, value] of Object.entries(expectedCounts)) {
-    const normalizedLabel = String(label || '').toLowerCase().trim();
-    if (!normalizedLabel || knownLabels.has(normalizedLabel) || normalizedLabel === 'libur nasional') continue;
-    cards.push({
-      label: String(label),
+  const entries = Object.entries(expectedCounts)
+    .map(([label, value]) => ({
+      label: String(label || '').trim(),
       value: Number(value || 0),
-      valueClass: '',
-    });
-  }
+    }))
+    .filter((item) => item.label !== '' && Number.isFinite(item.value) && item.value > 0)
+    // Hide OFF from graph (still kept in data/filters if needed elsewhere).
+    .filter((item) => item.label.toLowerCase().trim() !== 'off')
+    // Hide Libur Nasional from graph.
+    .filter((item) => item.label.toLowerCase().trim() !== 'libur nasional');
 
-  return cards;
+  const preferredOrder = [
+    'On Time',
+    'Terlambat',
+    'Tidak Masuk',
+    'Tidak Scan masuk',
+    'Tidak Scan pulang',
+    'Izin',
+    'Sakit',
+    'Cuti',
+    'Dinas Luar',
+    'Cek Lagi',
+  ].map((v) => v.toLowerCase());
+
+  entries.sort((a, b) => {
+    const ai = preferredOrder.indexOf(a.label.toLowerCase());
+    const bi = preferredOrder.indexOf(b.label.toLowerCase());
+    if (ai !== -1 || bi !== -1) {
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    }
+    if (b.value !== a.value) return b.value - a.value;
+    return a.label.localeCompare(b.label);
+  });
+
+  return entries.map((item) => ({
+    key: item.label.toLowerCase(),
+    label: item.label,
+    shortLabel: shortLabel(item.label),
+    value: item.value,
+    colorClass: summaryColorClass(item.label),
+  }));
 });
+
+const summaryMaxValue = computed(() => {
+  if (!summaryBars.value.length) return 0;
+  return Math.max(...summaryBars.value.map((b) => b.value));
+});
+
+function barHeightPx(value) {
+  const max = summaryMaxValue.value || 0;
+  if (max <= 0) return 2;
+  const chartHeight = 160; // px
+  const h = Math.round((Number(value || 0) / max) * chartHeight);
+  return Math.max(2, h);
+}
 
 const expandedGroups = reactive({});
 const hiddenEmployeeNames = new Set([
@@ -617,6 +733,10 @@ function statusPillClass(expected) {
   if (value === 'tidak masuk') return 'bg-rose-600/20 text-rose-200 border-rose-500/40';
   if (value === 'tidak scan pulang') return 'bg-orange-500/20 text-orange-200 border-orange-400/40';
   if (value === 'tidak scan masuk') return 'bg-orange-500/20 text-orange-200 border-orange-400/40';
+  if (value === 'izin') return 'bg-violet-500/20 text-violet-200 border-violet-400/40';
+  if (value === 'sakit') return 'bg-red-500/20 text-red-200 border-red-400/40';
+  if (value === 'cuti') return 'bg-sky-500/20 text-sky-200 border-sky-400/40';
+  if (value === 'dinas luar') return 'bg-teal-500/20 text-teal-200 border-teal-400/40';
   if (value === 'cek lagi') return 'bg-pink-500/20 text-pink-200 border-pink-400/40';
   if (value === 'off') return 'bg-slate-500/20 text-slate-200 border-slate-400/30';
   if (value === 'libur nasional') return 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40';
@@ -630,6 +750,10 @@ function statusDotClass(expected) {
   if (value === 'tidak masuk') return 'bg-rose-400';
   if (value === 'tidak scan pulang') return 'bg-orange-300';
   if (value === 'tidak scan masuk') return 'bg-orange-300';
+  if (value === 'izin') return 'bg-violet-300';
+  if (value === 'sakit') return 'bg-red-300';
+  if (value === 'cuti') return 'bg-sky-300';
+  if (value === 'dinas luar') return 'bg-teal-300';
   if (value === 'cek lagi') return 'bg-pink-300';
   if (value === 'off') return 'bg-slate-300';
   if (value === 'libur nasional') return 'bg-cyan-300';
@@ -641,6 +765,10 @@ function statusLabel(status) {
   if (status === 'missing_scan') return 'Belum Scan';
   if (status === 'missing_checkout') return 'Belum Scan Pulang';
   if (status === 'time_mismatch') return 'Jam Tidak Sesuai';
+  if (status === 'izin') return 'Izin';
+  if (status === 'sakit') return 'Sakit';
+  if (status === 'cuti') return 'Cuti';
+  if (status === 'dinas_luar') return 'Dinas Luar';
   if (status === 'offday') return 'OFF';
   if (status === 'holiday_national') return 'Libur Nasional';
   if (status === 'offday_scan') return 'OFF tapi Scan';
@@ -653,6 +781,10 @@ function statusClass(status) {
   if (status === 'missing_scan') return 'bg-rose-600/30 text-rose-200';
   if (status === 'missing_checkout') return 'bg-red-600/30 text-red-200';
   if (status === 'time_mismatch') return 'bg-orange-600/30 text-orange-200';
+  if (status === 'izin') return 'bg-violet-600/30 text-violet-200';
+  if (status === 'sakit') return 'bg-red-600/30 text-red-200';
+  if (status === 'cuti') return 'bg-sky-600/30 text-sky-200';
+  if (status === 'dinas_luar') return 'bg-teal-600/30 text-teal-200';
   if (status === 'offday') return 'bg-slate-600/30 text-slate-200';
   if (status === 'holiday_national') return 'bg-cyan-600/30 text-cyan-200';
   if (status === 'offday_scan') return 'bg-amber-600/30 text-amber-200';

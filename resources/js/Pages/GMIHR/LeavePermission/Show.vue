@@ -144,8 +144,9 @@
 <script setup>
 import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Swal from 'sweetalert2';
 
 const props = defineProps({
   leavePermission: Object,
@@ -182,8 +183,8 @@ function getStatusClass(status) {
   return classes[status] || 'bg-slate-600 text-white px-3 py-1 rounded text-sm';
 }
 
-function approveRequest() {
-  Swal.fire({
+async function approveRequest() {
+  const result = await Swal.fire({
     title: 'Konfirmasi',
     text: 'Apakah Anda yakin ingin menyetujui permintaan ini?',
     icon: 'question',
@@ -192,14 +193,11 @@ function approveRequest() {
     cancelButtonColor: '#6b7280',
     confirmButtonText: 'Ya, Setujui',
     cancelButtonText: 'Batal'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      approveRequest();
-    }
   });
-  return;
+
+  if (!result.isConfirmed) return;
   
-  Inertia.put(`/leave-permission/${props.leavePermission.id}`, {
+  router.put(`/leave-permission/${props.leavePermission.id}`, {
     status: 'approved',
     review_notes: '',
   }, {
@@ -213,7 +211,7 @@ function rejectRequest() {
   const notes = prompt('Masukkan alasan penolakan:');
   if (!notes) return;
   
-  Inertia.put(`/leave-permission/${props.leavePermission.id}`, {
+  router.put(`/leave-permission/${props.leavePermission.id}`, {
     status: 'rejected',
     review_notes: notes,
   }, {
@@ -234,9 +232,9 @@ function closeImage() {
 function deleteRequest() {
   if (!confirm('Yakin ingin menghapus data ini?')) return;
 
-  Inertia.delete(`/leave-permission/${props.leavePermission.id}`, {
+  router.delete(`/leave-permission/${props.leavePermission.id}`, {
     onSuccess: () => {
-      Inertia.get('/leave-permission');
+      router.get('/leave-permission');
     },
   });
 }

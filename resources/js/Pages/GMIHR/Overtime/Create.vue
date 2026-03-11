@@ -39,7 +39,7 @@
 
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 
@@ -58,12 +58,12 @@ function submit() {
   
   form.post('/overtime', {
     onSuccess: () => {
-      Inertia.get('/overtime');
+      router.get('/overtime');
     },
   });
 }
 
 function cancel() {
-  Inertia.get('/overtime');
+  router.get('/overtime');
 }
 </script>

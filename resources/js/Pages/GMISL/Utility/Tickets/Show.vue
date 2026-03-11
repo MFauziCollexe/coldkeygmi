@@ -275,7 +275,7 @@
 import { ref, reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 
@@ -300,7 +300,7 @@ const previewFile = ref('');
 const previewIsImage = ref(false);
 
 function changeStatus(status) {
-  Inertia.patch(`/tickets/${props.ticket.id}`, { status: status });
+  router.patch(`/tickets/${props.ticket.id}`, { status: status });
 }
 
 function getDeadlineClass(deadline) {
@@ -346,13 +346,13 @@ function deleteAttachment(fileId) {
     cancelButtonText: 'Cancel'
   }).then((result) => {
     if (result.isConfirmed) {
-      Inertia.delete(`/tickets/${props.ticket.id}/attachments/${fileId}`);
+      router.delete(`/tickets/${props.ticket.id}/attachments/${fileId}`);
     }
   });
 }
 
 function assignToEmployee(employee) {
-  Inertia.patch(`/tickets/${props.ticket.id}`, { assigned_to: employee.id });
+  router.patch(`/tickets/${props.ticket.id}`, { assigned_to: employee.id });
 }
 
 function requestDeadlineChange() {
@@ -366,7 +366,7 @@ function requestDeadlineChange() {
     return;
   }
   
-  Inertia.post(`/tickets/${props.ticket.id}/request-deadline`, {
+  router.post(`/tickets/${props.ticket.id}/request-deadline`, {
     deadline_request: newDeadline.value,
   }, {
     onSuccess: () => {
@@ -398,7 +398,7 @@ function resolveTicket() {
     formData.append('attachment', resolutionFile.value);
   }
   
-  Inertia.post(`/tickets/${props.ticket.id}/resolve`, formData, {
+  router.post(`/tickets/${props.ticket.id}/resolve`, formData, {
     forceFormData: true,
     onSuccess: () => {
       showResolveModal.value = false;
@@ -413,7 +413,7 @@ function approveResolution() {
 }
 
 function approveDeadlineChange(approve) {
-  Inertia.post(`/tickets/${props.ticket.id}/approve-deadline`, { approve: approve }, {
+  router.post(`/tickets/${props.ticket.id}/approve-deadline`, { approve: approve }, {
     onSuccess: () => {
       // Page will reload with updated ticket data
     },
@@ -432,7 +432,7 @@ function closeTicket() {
     cancelButtonText: 'Cancel'
   }).then((result) => {
     if (result.isConfirmed) {
-      Inertia.patch(`/tickets/${props.ticket.id}`, { status: 'Closed' });
+      router.patch(`/tickets/${props.ticket.id}`, { status: 'Closed' });
     }
   });
 }
@@ -449,7 +449,7 @@ function rejectResolution() {
     cancelButtonText: 'Cancel'
   }).then((result) => {
     if (result.isConfirmed) {
-      Inertia.patch(`/tickets/${props.ticket.id}`, { status: 'In Progress' });
+      router.patch(`/tickets/${props.ticket.id}`, { status: 'In Progress' });
     }
   });
 }
@@ -466,7 +466,7 @@ function reopenTicket() {
     cancelButtonText: 'Cancel'
   }).then((result) => {
     if (result.isConfirmed) {
-      Inertia.post(`/tickets/${props.ticket.id}/reopen`);
+      router.post(`/tickets/${props.ticket.id}/reopen`);
     }
   });
 }

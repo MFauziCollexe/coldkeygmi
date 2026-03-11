@@ -71,7 +71,7 @@
 import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import modules from '@/Config/modules.js';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 
 const props = defineProps({ users: Array, modules: Object });
 const users = props.users || [];
@@ -137,7 +137,7 @@ function save() {
   }
   // normalize keys (convert dot-separated keys to underscore format)
   const normalized = selectedPermissions.value.map(k => k.replace(/\./g, '_'));
-  Inertia.post('/control-panel/module-control/save', {
+  router.post('/control-panel/module-control/save', {
     user_id: selectedUser.value.id,
     permissions: normalized,
   });

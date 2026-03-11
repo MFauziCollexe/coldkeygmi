@@ -77,6 +77,12 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+        // Select inputs may send empty string; normalize so `nullable|exists` behaves as intended.
+        $request->merge([
+            'department_id' => $request->input('department_id') ?: null,
+            'position_id' => $request->input('position_id') ?: null,
+        ]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'account' => 'required|string|unique:users,account',
@@ -132,6 +138,12 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
+        // Select inputs may send empty string; normalize so `nullable|exists` behaves as intended.
+        $request->merge([
+            'department_id' => $request->input('department_id') ?: null,
+            'position_id' => $request->input('position_id') ?: null,
+        ]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'account' => 'required|string|unique:users,account,' . $user->id,

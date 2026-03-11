@@ -17,6 +17,13 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): ?string
     {
+        // In local dev with Vite HMR (`public/hot` present), asset version can churn and cause
+        // Inertia to respond 409 (Conflict) to force a reload. Returning null disables the
+        // version check so navigation doesn't get stuck on 409s while developing.
+        if (app()->environment('local') && file_exists(public_path('hot'))) {
+            return null;
+        }
+
         return parent::version($request);
     }
 

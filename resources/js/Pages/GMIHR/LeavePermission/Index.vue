@@ -249,7 +249,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
@@ -285,7 +285,7 @@ function fetchData() {
   if (filters.status) params.status = filters.status;
   if (filters.type) params.type = filters.type;
   if (filters.department_id) params.department_id = filters.department_id;
-  Inertia.get('/leave-permission', params, { 
+  router.get('/leave-permission', params, { 
     preserveState: true, 
     preserveScroll: true 
   });
@@ -299,7 +299,7 @@ function goToPage(pageNum) {
   if (filters.status) params.status = filters.status;
   if (filters.type) params.type = filters.type;
   if (filters.department_id) params.department_id = filters.department_id;
-  Inertia.get('/leave-permission', params, { 
+  router.get('/leave-permission', params, { 
     preserveState: true, 
     preserveScroll: true 
   });
@@ -349,7 +349,7 @@ function viewDetail(item) {
 function approveRequest(item) {
   if (!confirm('Apakah Anda yakin ingin menyetujui permintaan ini?')) return;
   
-  Inertia.put(`/leave-permission/${item.id}`, {
+  router.put(`/leave-permission/${item.id}`, {
     status: 'approved',
     review_notes: '',
   }, {
@@ -364,7 +364,7 @@ function rejectRequest(item) {
   const notes = prompt('Masukkan alasan penolakan:');
   if (!notes) return;
   
-  Inertia.put(`/leave-permission/${item.id}`, {
+  router.put(`/leave-permission/${item.id}`, {
     status: 'rejected',
     review_notes: notes,
   }, {
@@ -387,7 +387,7 @@ function deleteRequest(item) {
   if (!item?.id) return;
   if (!confirm('Yakin ingin menghapus data ini?')) return;
 
-  Inertia.delete(`/leave-permission/${item.id}`, {
+  router.delete(`/leave-permission/${item.id}`, {
     onSuccess: () => {
       fetchData();
     },

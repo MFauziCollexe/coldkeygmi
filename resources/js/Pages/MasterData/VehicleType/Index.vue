@@ -54,7 +54,7 @@
 <script setup>
 import { reactive } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -79,7 +79,7 @@ function fetch(page = 1) {
   if (filters.search) params.search = filters.search;
   if (filters.is_active !== '') params.is_active = filters.is_active;
   if (page > 1) params.page = page;
-  Inertia.get('/master-data/vehicle-type', params, { preserveState: true, preserveScroll: true });
+  router.get('/master-data/vehicle-type', params, { preserveState: true, preserveScroll: true });
 }
 
 function next() {
@@ -92,7 +92,7 @@ function prev() {
 
 function destroy(id) {
   if (!confirm('Hapus jenis kendaraan ini?')) return;
-  Inertia.delete(`/master-data/vehicle-type/${id}`);
+  router.delete(`/master-data/vehicle-type/${id}`);
 }
 </script>
 
