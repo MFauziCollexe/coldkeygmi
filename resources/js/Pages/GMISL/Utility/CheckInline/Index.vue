@@ -64,8 +64,7 @@
         </table>
 
         <div class="mt-4">
-          <button @click="prev" :disabled="!rows.prev_page_url" class="px-3 py-1 bg-slate-700 rounded mr-2">Prev</button>
-          <button @click="next" :disabled="!rows.next_page_url" class="px-3 py-1 bg-slate-700 rounded">Next</button>
+          <Pagination :paginator="rows" :onPageChange="fetch" />
         </div>
       </div>
 
@@ -83,17 +82,18 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
   rows: Object,
   filters: Object,
 });
 
-const rows = reactive(props.rows);
+const rows = computed(() => props.rows);
 const filters = reactive({
   search: props.filters?.search || '',
 });
@@ -114,11 +114,11 @@ function fetch(page = 1) {
 }
 
 function next() {
-  if (rows.next_page_url) fetch(rows.current_page + 1);
+  if (rows.value.next_page_url) fetch(rows.value.current_page + 1);
 }
 
 function prev() {
-  if (rows.prev_page_url) fetch(rows.current_page - 1);
+  if (rows.value.prev_page_url) fetch(rows.value.current_page - 1);
 }
 
 function formatDate(value) {

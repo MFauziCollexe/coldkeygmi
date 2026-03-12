@@ -15,6 +15,8 @@ class Employee extends Model
         'position_id',
         'nik',
         'name',
+        'employment_status',
+        'resigned_at',
         'work_group',
         'join_date',
         'phone',
@@ -32,6 +34,7 @@ class Employee extends Model
     protected $casts = [
         'join_date' => 'date',
         'birth_date' => 'date',
+        'resigned_at' => 'date',
     ];
 
     /**

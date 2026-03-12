@@ -43,8 +43,7 @@
         </table>
 
         <div class="mt-4">
-          <button @click="prev" :disabled="!vehicleTypes.prev_page_url" class="px-3 py-1 bg-slate-700 rounded mr-2">Prev</button>
-          <button @click="next" :disabled="!vehicleTypes.next_page_url" class="px-3 py-1 bg-slate-700 rounded">Next</button>
+          <Pagination :paginator="vehicleTypes" :onPageChange="fetch" />
         </div>
       </div>
     </div>
@@ -52,17 +51,19 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue';
+import { reactive, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   vehicleTypes: Object,
   filters: Object,
 });
 
-const vehicleTypes = reactive(props.vehicleTypes);
+const vehicleTypes = computed(() => props.vehicleTypes);
 const filters = reactive({
   search: props.filters?.search || '',
   is_active: props.filters?.is_active || '',
@@ -83,16 +84,21 @@ function fetch(page = 1) {
 }
 
 function next() {
-  if (vehicleTypes.next_page_url) fetch(vehicleTypes.current_page + 1);
+  if (vehicleTypes.value.next_page_url) fetch(vehicleTypes.value.current_page + 1);
 }
 
 function prev() {
-  if (vehicleTypes.prev_page_url) fetch(vehicleTypes.current_page - 1);
+  if (vehicleTypes.value.prev_page_url) fetch(vehicleTypes.value.current_page - 1);
 }
 
-function destroy(id) {
-  if (!confirm('Hapus jenis kendaraan ini?')) return;
+async function destroy(id) {
+  const ok = await swalConfirm({
+    title: 'Hapus Data',
+    text: 'Hapus jenis kendaraan ini?',
+    confirmButtonText: 'Hapus',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
   router.delete(`/master-data/vehicle-type/${id}`);
 }
 </script>
-

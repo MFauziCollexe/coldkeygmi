@@ -40,8 +40,7 @@
         </table>
 
         <div class="mt-4">
-          <button @click="prev" :disabled="!departments.prev_page_url" class="px-3 py-1 bg-slate-700 rounded mr-2">Prev</button>
-          <button @click="next" :disabled="!departments.next_page_url" class="px-3 py-1 bg-slate-700 rounded">Next</button>
+          <Pagination :paginator="departments" :onPageChange="goToPage" />
         </div>
       </div>
     </div>
@@ -49,36 +48,46 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue';
+import { reactive, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
-
-import Swal from 'sweetalert2';
+import Pagination from '@/Components/Pagination.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({ departments: Object });
 
-const departments = reactive(props.departments);
+const departments = computed(() => props.departments);
 
 function next() {
-  if (departments.next_page_url) {
-    router.get(departments.next_page_url, {}, { preserveState: true, preserveScroll: true });
+  if (departments.value.next_page_url) {
+    router.get(departments.value.next_page_url, {}, { preserveState: true, preserveScroll: true });
   }
 }
 
 function prev() {
-  if (departments.prev_page_url) {
-    router.get(departments.prev_page_url, {}, { preserveState: true, preserveScroll: true });
+  if (departments.value.prev_page_url) {
+    router.get(departments.value.prev_page_url, {}, { preserveState: true, preserveScroll: true });
   }
 }
 
-function deleteDepartment(id) {
-  if (confirm('Are you sure you want to delete this department?')) {
-    router.delete(`/master-data/department/${id}`, {
-      onSuccess: () => {
-        // Will refresh automatically
-      },
-    });
-  }
+async function deleteDepartment(id) {
+  const ok = await swalConfirm({
+    title: 'Delete Department',
+    text: 'Are you sure you want to delete this department?',
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
+
+  router.delete(`/master-data/department/${id}`, {
+    onSuccess: () => {
+      // Will refresh automatically
+    },
+  });
+}
+
+function goToPage(page) {
+  router.get('/master-data/department', { page }, { preserveState: true, preserveScroll: true });
 }
 </script>

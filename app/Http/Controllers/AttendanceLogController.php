@@ -8,6 +8,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -72,6 +73,21 @@ class AttendanceLogController extends Controller
                 }
                 return [$pin => trim((string) $name)];
             });
+
+        $employeeStatusByPin = collect();
+        if (Schema::hasColumn('employees', 'employment_status')) {
+            $employeeStatusByPin = DB::table('employees')
+                ->whereNotNull('nik')
+                ->where('nik', '<>', '')
+                ->pluck('employment_status', 'nik')
+                ->mapWithKeys(function ($status, $nik) {
+                    $pin = $this->normalizePin((string) $nik);
+                    if ($pin === '') {
+                        return [];
+                    }
+                    return [$pin => strtolower(trim((string) $status))];
+                });
+        }
 
         $scanGroups = $scanRows
             ->groupBy(fn($row) => $this->toDateString($row->log_date) . '|' . $this->normalizePin((string) $row->pin))
@@ -504,6 +520,38 @@ class AttendanceLogController extends Controller
                     ]);
                 }
             }
+        }
+
+        if ($employeeStatusByPin->isNotEmpty()) {
+            $isSpecificMonth = $year !== null && $month !== null;
+            $pinsWithScans = $isSpecificMonth
+                ? $scanRows
+                    ->pluck('pin')
+                    ->map(fn($pin) => $this->normalizePin((string) $pin))
+                    ->filter()
+                    ->unique()
+                    ->flip()
+                    ->all()
+                : [];
+
+            $rows = $rows->filter(function (array $row) use ($employeeStatusByPin, $isSpecificMonth, $pinsWithScans) {
+                $pin = $this->normalizePin((string) ($row['pin'] ?? ''));
+                if ($pin === '') {
+                    return true;
+                }
+
+                $status = (string) ($employeeStatusByPin->get($pin) ?? 'active');
+                $isNonActive = $status !== '' && $status !== 'active';
+                if (!$isNonActive) {
+                    return true;
+                }
+
+                if (!$isSpecificMonth) {
+                    return false;
+                }
+
+                return isset($pinsWithScans[$pin]);
+            })->values();
         }
 
         if ($q !== '') {

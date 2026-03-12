@@ -230,26 +230,8 @@
           </table>
         </div>
 
-        <div v-if="attendanceLogs.last_page > 1" class="pt-4 mt-4 border-t border-slate-700 flex items-center justify-between text-sm">
-          <p class="text-slate-400">
-            Halaman {{ attendanceLogs.current_page }} / {{ attendanceLogs.last_page }}
-          </p>
-          <div class="flex gap-2">
-            <button
-              class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-50"
-              :disabled="attendanceLogs.current_page <= 1"
-              @click="goToPage(attendanceLogs.current_page - 1)"
-            >
-              Prev
-            </button>
-            <button
-              class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-50"
-              :disabled="attendanceLogs.current_page >= attendanceLogs.last_page"
-              @click="goToPage(attendanceLogs.current_page + 1)"
-            >
-              Next
-            </button>
-          </div>
+        <div v-if="attendanceLogs.last_page > 1" class="pt-4 mt-4 border-t border-slate-700 flex items-center justify-end text-sm">
+          <Pagination :paginator="attendanceLogs" :onPageChange="goToPage" />
         </div>
 
 
@@ -263,6 +245,7 @@ import { computed, reactive } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
   attendanceLogs: {

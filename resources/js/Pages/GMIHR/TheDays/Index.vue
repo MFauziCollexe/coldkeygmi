@@ -134,24 +134,8 @@
           </table>
         </div>
 
-        <div v-if="holidays.last_page > 1" class="pt-4 mt-4 border-t border-slate-700 flex items-center justify-between text-sm">
-          <p class="text-slate-400">Halaman {{ holidays.current_page }} / {{ holidays.last_page }}</p>
-          <div class="flex gap-2">
-            <button
-              class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-50"
-              :disabled="holidays.current_page <= 1"
-              @click="goToPage(holidays.current_page - 1)"
-            >
-              Prev
-            </button>
-            <button
-              class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-50"
-              :disabled="holidays.current_page >= holidays.last_page"
-              @click="goToPage(holidays.current_page + 1)"
-            >
-              Next
-            </button>
-          </div>
+        <div v-if="holidays.last_page > 1" class="pt-4 mt-4 border-t border-slate-700 flex items-center justify-end text-sm">
+          <Pagination :paginator="holidays" :onPageChange="goToPage" />
         </div>
       </div>
     </div>
@@ -164,6 +148,7 @@ import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
   holidays: {

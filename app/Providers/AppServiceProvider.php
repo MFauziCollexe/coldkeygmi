@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Models\Employee;
 use App\Observers\UserObserver;
+use App\Observers\EmployeeObserver;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Register observers
         User::observe(UserObserver::class);
+        Employee::observe(EmployeeObserver::class);
         \App\Models\Ticket::observe(\App\Observers\TicketObserver::class);
 
         // Share module permissions and modules list with Inertia

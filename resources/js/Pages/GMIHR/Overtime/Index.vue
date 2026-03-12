@@ -128,22 +128,7 @@
           <div class="text-sm text-slate-400">
             Menampilkan {{ overtimes.data?.length || 0 }} dari {{ overtimes.total || 0 }} data
           </div>
-          <div class="flex gap-2">
-            <button 
-              @click="prevPage" 
-              :disabled="!overtimes.prev_page_url"
-              class="px-3 py-1 bg-slate-700 rounded text-sm disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button 
-              @click="nextPage" 
-              :disabled="!overtimes.next_page_url"
-              class="px-3 py-1 bg-slate-700 rounded text-sm disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
+          <Pagination :paginator="overtimes" :onPageChange="goToPage" />
         </div>
       </div>
 
@@ -229,6 +214,8 @@ import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import OvertimeForm from '@/Components/OvertimeForm.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import Pagination from '@/Components/Pagination.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   overtimes: Object,
@@ -308,8 +295,14 @@ function viewDetail(item) {
   showDetailModal.value = true;
 }
 
-function approveRequest(item) {
-  if (!confirm('Apakah Anda yakin ingin menyetujui permintaan ini?')) return;
+async function approveRequest(item) {
+  const ok = await swalConfirm({
+    title: 'Approve Request',
+    text: 'Apakah Anda yakin ingin menyetujui permintaan ini?',
+    confirmButtonText: 'Approve',
+    confirmButtonColor: '#16a34a',
+  });
+  if (!ok) return;
   
   router.put(`/overtime/${item.id}`, {
     status: 'approved',

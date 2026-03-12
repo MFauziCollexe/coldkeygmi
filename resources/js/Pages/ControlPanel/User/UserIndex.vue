@@ -78,10 +78,8 @@
           </tbody>
         </table>
 
-        <div class="mt-4 flex items-center justify-between">
-          <button @click="prev" :disabled="!users.prev_page_url" class="px-3 py-1 bg-slate-700 rounded mr-2 disabled:opacity-50">Prev</button>
-          <span class="text-sm text-slate-400">Page {{ users.current_page }} of {{ users.last_page }}</span>
-          <button @click="next" :disabled="!users.next_page_url" class="px-3 py-1 bg-slate-700 rounded disabled:opacity-50">Next</button>
+        <div class="mt-4">
+          <Pagination :paginator="users" :onPageChange="goToPage" />
         </div>
       </div>
     </div>
@@ -89,11 +87,13 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import Pagination from '@/Components/Pagination.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   users: Object,
@@ -101,7 +101,7 @@ const props = defineProps({
   departments: Array,
 });
 
-const users = reactive(props.users);
+const users = computed(() => props.users);
 
 const filters = reactive({
   search: props.filters.search || '',
@@ -134,11 +134,11 @@ function goToPage(pageNum) {
 }
 
 function next() {
-  if (users.next_page_url) goToPage(users.current_page + 1);
+  if (users.value.next_page_url) goToPage(users.value.current_page + 1);
 }
 
 function prev() {
-  if (users.prev_page_url) goToPage(users.current_page - 1);
+  if (users.value.prev_page_url) goToPage(users.value.current_page - 1);
 }
 
 function formatDate(date) {
@@ -150,13 +150,19 @@ function formatDate(date) {
   });
 }
 
-function deleteUser(user) {
-  if (confirm(`Are you sure you want to delete ${user.first_name} ${user.last_name}?`)) {
-    router.delete(`/control-panel/user/${user.id}`, {
-      onSuccess: () => {
-        // Reload to get updated list
-      },
-    });
-  }
+async function deleteUser(user) {
+  const ok = await swalConfirm({
+    title: 'Delete User',
+    text: `Are you sure you want to delete ${user.first_name} ${user.last_name}?`,
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
+
+  router.delete(`/control-panel/user/${user.id}`, {
+    onSuccess: () => {
+      // Reload to get updated list
+    },
+  });
 }
 </script>

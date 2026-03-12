@@ -9,6 +9,7 @@ use App\Models\Position;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
 
 class EmployeeController extends Controller
 {
@@ -18,6 +19,7 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
+        $status = $request->input('status');
         
         // Query from employees table with user relation
         $employees = Employee::with(['user.department', 'user.position', 'department', 'position'])
@@ -29,6 +31,12 @@ class EmployeeController extends Controller
                           $userQuery->where('name', 'like', "%{$search}%");
                       });
                 });
+            })
+            ->when($status, function ($query) use ($status) {
+                $normalized = trim((string) $status);
+                if (in_array($normalized, ['active', 'resigned'], true)) {
+                    $query->where('employment_status', $normalized);
+                }
             })
             ->orderBy('created_at', 'desc')
             ->paginate(20);
@@ -44,7 +52,8 @@ class EmployeeController extends Controller
             'departments' => $departments,
             'positions' => $positions,
             'filters' => [
-                'search' => $search
+                'search' => $search,
+                'status' => $status,
             ]
         ]);
     }
@@ -214,6 +223,44 @@ class EmployeeController extends Controller
             ->with('message', [
                 'type' => 'success',
                 'text' => 'Employee deleted successfully.'
+            ]);
+    }
+
+    public function resign(Request $request, Employee $employee)
+    {
+        $validated = $request->validate([
+            'resigned_at' => 'nullable|date',
+        ]);
+
+        $resignedAt = $validated['resigned_at'] ?? now()->toDateString();
+
+        DB::transaction(function () use ($employee, $resignedAt) {
+            $employee->update([
+                'employment_status' => 'resigned',
+                'resigned_at' => $resignedAt,
+            ]);
+        });
+
+        return redirect('/master-data/employee')
+            ->with('message', [
+                'type' => 'success',
+                'text' => 'Employee marked as resigned.',
+            ]);
+    }
+
+    public function cancelResign(Employee $employee)
+    {
+        DB::transaction(function () use ($employee) {
+            $employee->update([
+                'employment_status' => 'active',
+                'resigned_at' => null,
+            ]);
+        });
+
+        return redirect('/master-data/employee')
+            ->with('message', [
+                'type' => 'success',
+                'text' => 'Resign canceled. Employee marked as active.',
             ]);
     }
 }

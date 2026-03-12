@@ -135,8 +135,7 @@
         </table>
 
         <div class="mt-4">
-          <button @click="prev" :disabled="!pluggings.prev_page_url" class="px-3 py-1 bg-slate-700 rounded mr-2">Prev</button>
-          <button @click="next" :disabled="!pluggings.next_page_url" class="px-3 py-1 bg-slate-700 rounded">Next</button>
+          <Pagination :paginator="pluggings" :onPageChange="fetch" />
         </div>
       </div>
 
@@ -156,6 +155,8 @@ import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import Pagination from '@/Components/Pagination.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   pluggings: Object,
@@ -167,7 +168,7 @@ const props = defineProps({
   },
 });
 
-const pluggings = reactive(props.pluggings);
+const pluggings = computed(() => props.pluggings);
 const customers = props.customers || [];
 const filters = reactive({
   tanggal: props.filters?.tanggal || '',
@@ -196,11 +197,11 @@ function fetch(page = 1) {
 }
 
 function next() {
-  if (pluggings.next_page_url) fetch(pluggings.current_page + 1);
+  if (pluggings.value.next_page_url) fetch(pluggings.value.current_page + 1);
 }
 
 function prev() {
-  if (pluggings.prev_page_url) fetch(pluggings.current_page - 1);
+  if (pluggings.value.prev_page_url) fetch(pluggings.value.current_page - 1);
 }
 
 function resetFilter() {
@@ -209,8 +210,14 @@ function resetFilter() {
   fetch(1);
 }
 
-function destroy(id) {
-  if (!confirm('Delete data ini?')) return;
+async function destroy(id) {
+  const ok = await swalConfirm({
+    title: 'Delete Data',
+    text: 'Delete data ini?',
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
   router.delete(`/gmium/plugging/${id}`);
 }
 

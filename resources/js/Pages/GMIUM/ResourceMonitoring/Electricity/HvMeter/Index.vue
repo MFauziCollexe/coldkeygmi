@@ -194,12 +194,8 @@
           </tbody>
         </table>
 
-        <div v-if="logs.last_page > 1" class="pt-4 mt-4 border-t border-slate-700 flex items-center justify-between text-sm">
-          <p class="text-slate-400">Halaman {{ logs.current_page }} / {{ logs.last_page }}</p>
-          <div class="flex gap-2">
-            <button class="px-3 py-1 rounded bg-slate-700 disabled:opacity-50" :disabled="logs.current_page <= 1" @click="goToPage(logs.current_page - 1)">Prev</button>
-            <button class="px-3 py-1 rounded bg-slate-700 disabled:opacity-50" :disabled="logs.current_page >= logs.last_page" @click="goToPage(logs.current_page + 1)">Next</button>
-          </div>
+        <div v-if="logs.last_page > 1" class="pt-4 mt-4 border-t border-slate-700 flex items-center justify-end text-sm">
+          <Pagination :paginator="logs" :onPageChange="goToPage" />
         </div>
       </div>
     </div>
@@ -212,6 +208,7 @@ import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
   logs: { type: Object, default: () => ({ data: [] }) },

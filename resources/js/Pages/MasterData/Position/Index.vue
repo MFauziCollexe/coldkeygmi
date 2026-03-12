@@ -42,8 +42,7 @@
         </table>
 
         <div class="mt-4">
-          <button @click="prev" :disabled="!positions.prev_page_url" class="px-3 py-1 bg-slate-700 rounded mr-2">Prev</button>
-          <button @click="next" :disabled="!positions.next_page_url" class="px-3 py-1 bg-slate-700 rounded">Next</button>
+          <Pagination :paginator="positions" :onPageChange="goToPage" />
         </div>
       </div>
     </div>
@@ -51,36 +50,46 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue';
+import { reactive, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
-
-import Swal from 'sweetalert2';
+import Pagination from '@/Components/Pagination.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({ positions: Object });
 
-const positions = reactive(props.positions);
+const positions = computed(() => props.positions);
 
 function next() {
-  if (positions.next_page_url) {
-    router.get(positions.next_page_url, {}, { preserveState: true, preserveScroll: true });
+  if (positions.value.next_page_url) {
+    router.get(positions.value.next_page_url, {}, { preserveState: true, preserveScroll: true });
   }
 }
 
 function prev() {
-  if (positions.prev_page_url) {
-    router.get(positions.prev_page_url, {}, { preserveState: true, preserveScroll: true });
+  if (positions.value.prev_page_url) {
+    router.get(positions.value.prev_page_url, {}, { preserveState: true, preserveScroll: true });
   }
 }
 
-function deletePosition(id) {
-  if (confirm('Are you sure you want to delete this position?')) {
-    router.delete(`/master-data/position/${id}`, {
-      onSuccess: () => {
-        // Will refresh automatically
-      },
-    });
-  }
+async function deletePosition(id) {
+  const ok = await swalConfirm({
+    title: 'Delete Position',
+    text: 'Are you sure you want to delete this position?',
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
+
+  router.delete(`/master-data/position/${id}`, {
+    onSuccess: () => {
+      // Will refresh automatically
+    },
+  });
+}
+
+function goToPage(page) {
+  router.get('/master-data/position', { page }, { preserveState: true, preserveScroll: true });
 }
 </script>

@@ -150,35 +150,7 @@
 
                 <!-- Preview Pagination -->
                 <div v-if="previewData.last_page > 1" class="p-4 border-t border-gray-200 dark:border-gray-700">
-                    <div class="flex justify-center gap-2">
-                        <button
-                            @click="changePreviewPage(previewData.current_page - 1)"
-                            :disabled="previewData.current_page === 1"
-                            class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Previous
-                        </button>
-                        <button
-                            v-for="page in previewPaginationRange"
-                            :key="page"
-                            @click="changePreviewPage(page)"
-                            :class="[
-                                'px-3 py-1 rounded',
-                                page === previewData.current_page 
-                                    ? 'bg-blue-600 text-white' 
-                                    : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300'
-                            ]"
-                        >
-                            {{ page }}
-                        </button>
-                        <button
-                            @click="changePreviewPage(previewData.current_page + 1)"
-                            :disabled="previewData.current_page === previewData.last_page"
-                            class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Next
-                        </button>
-                    </div>
+                    <Pagination :paginator="previewData" :onPageChange="changePreviewPage" />
                 </div>
 
                 <div class="p-4 border-t border-gray-200 dark:border-gray-700">
@@ -237,22 +209,7 @@
                 </div>
 
                 <div v-if="fingerprints.last_page > 1" class="p-4 border-t border-gray-200 dark:border-gray-700">
-                    <div class="flex justify-center gap-2">
-                        <button
-                            @click="goToPage(fingerprints.current_page - 1)"
-                            :disabled="fingerprints.current_page === 1"
-                            class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Previous
-                        </button>
-                        <button
-                            @click="goToPage(fingerprints.current_page + 1)"
-                            :disabled="fingerprints.current_page === fingerprints.last_page"
-                            class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Next
-                        </button>
-                    </div>
+                    <Pagination :paginator="fingerprints" :onPageChange="goToPage" />
                 </div>
             </div>
         </div>
@@ -264,6 +221,8 @@ import { ref, computed, reactive } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
     fingerprints: {
@@ -574,9 +533,13 @@ function cancelPreview() {
 }
 
 async function clearData() {
-    if (!confirm('Apakah Anda yakin ingin menghapus semua data fingerprint?')) {
-        return;
-    }
+    const ok = await swalConfirm({
+        title: 'Hapus Data Fingerprint',
+        text: 'Apakah Anda yakin ingin menghapus semua data fingerprint?',
+        confirmButtonText: 'Hapus',
+        confirmButtonColor: '#dc2626',
+    });
+    if (!ok) return;
 
     clearing.value = true;
 

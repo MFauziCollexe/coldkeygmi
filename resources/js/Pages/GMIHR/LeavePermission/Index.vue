@@ -147,22 +147,7 @@
           <div class="text-sm text-slate-400">
             Menampilkan {{ leavePermissions.data?.length || 0 }} dari {{ leavePermissions.total || 0 }} data
           </div>
-          <div class="flex gap-2">
-            <button 
-              @click="prevPage" 
-              :disabled="!leavePermissions.prev_page_url"
-              class="px-3 py-1 bg-slate-700 rounded text-sm disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button 
-              @click="nextPage" 
-              :disabled="!leavePermissions.next_page_url"
-              class="px-3 py-1 bg-slate-700 rounded text-sm disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
+          <Pagination :paginator="leavePermissions" :onPageChange="goToPage" />
         </div>
       </div>
 
@@ -253,6 +238,8 @@ import { router } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
   leavePermissions: Object,
@@ -346,8 +333,14 @@ function viewDetail(item) {
   showDetailModal.value = true;
 }
 
-function approveRequest(item) {
-  if (!confirm('Apakah Anda yakin ingin menyetujui permintaan ini?')) return;
+async function approveRequest(item) {
+  const ok = await swalConfirm({
+    title: 'Approve Request',
+    text: 'Apakah Anda yakin ingin menyetujui permintaan ini?',
+    confirmButtonText: 'Approve',
+    confirmButtonColor: '#16a34a',
+  });
+  if (!ok) return;
   
   router.put(`/leave-permission/${item.id}`, {
     status: 'approved',
@@ -383,9 +376,16 @@ function closeImage() {
   previewImage.value = '';
 }
 
-function deleteRequest(item) {
+async function deleteRequest(item) {
   if (!item?.id) return;
-  if (!confirm('Yakin ingin menghapus data ini?')) return;
+
+  const ok = await swalConfirm({
+    title: 'Hapus Data',
+    text: 'Yakin ingin menghapus data ini?',
+    confirmButtonText: 'Hapus',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
 
   router.delete(`/leave-permission/${item.id}`, {
     onSuccess: () => {

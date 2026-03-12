@@ -78,8 +78,7 @@
         </div>
 
         <div class="mt-4">
-          <button @click="prev" :disabled="!requests.prev_page_url" class="px-3 py-1 bg-slate-700 rounded mr-2">Prev</button>
-          <button @click="next" :disabled="!requests.next_page_url" class="px-3 py-1 bg-slate-700 rounded">Next</button>
+          <Pagination :paginator="requests" :onPageChange="goToPage" />
         </div>
       </div>
     </div>
@@ -87,14 +86,15 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({ requests: Object, filters: Object });
 
-const requests = reactive(props.requests);
+const requests = computed(() => props.requests);
 
 const filters = reactive({
   search: props.filters.search || '',
@@ -125,11 +125,11 @@ function goToPage(pageNum) {
 }
 
 function next() {
-  if (requests.next_page_url) goToPage(requests.current_page + 1);
+  if (requests.value.next_page_url) goToPage(requests.value.current_page + 1);
 }
 
 function prev() {
-  if (requests.prev_page_url) goToPage(requests.current_page - 1);
+  if (requests.value.prev_page_url) goToPage(requests.value.current_page - 1);
 }
 
 function getTypeClass(type) {

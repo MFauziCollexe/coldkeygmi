@@ -86,47 +86,7 @@
           <div class="text-sm text-slate-400">
             Showing {{ tickets.from || 0 }} to {{ tickets.to || 0 }} of {{ tickets.total || 0 }} tickets
           </div>
-          <div class="flex items-center gap-1">
-            <button
-              @click="goToPage(1)"
-              :disabled="(tickets.current_page || 1) <= 1"
-              class="px-3 py-1 bg-slate-700 rounded disabled:opacity-50"
-            >
-              First
-            </button>
-            <button
-              @click="prev"
-              :disabled="!tickets.prev_page_url"
-              class="px-3 py-1 bg-slate-700 rounded disabled:opacity-50"
-            >
-              Prev
-            </button>
-            <button
-              v-for="page in pageNumbers"
-              :key="page"
-              @click="goToPage(page)"
-              :class="[
-                'px-3 py-1 rounded',
-                page === tickets.current_page ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-200'
-              ]"
-            >
-              {{ page }}
-            </button>
-            <button
-              @click="next"
-              :disabled="!tickets.next_page_url"
-              class="px-3 py-1 bg-slate-700 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-            <button
-              @click="goToPage(tickets.last_page || 1)"
-              :disabled="(tickets.current_page || 1) >= (tickets.last_page || 1)"
-              class="px-3 py-1 bg-slate-700 rounded disabled:opacity-50"
-            >
-              Last
-            </button>
-          </div>
+          <Pagination :paginator="tickets" :onPageChange="goToPage" />
         </div>
       </div>
 
@@ -146,6 +106,7 @@ import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({ 
   tickets: Object, 

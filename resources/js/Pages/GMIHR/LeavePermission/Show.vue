@@ -147,6 +147,7 @@ import { Link } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Swal from 'sweetalert2';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   leavePermission: Object,
@@ -229,8 +230,14 @@ function closeImage() {
   previewImage.value = '';
 }
 
-function deleteRequest() {
-  if (!confirm('Yakin ingin menghapus data ini?')) return;
+async function deleteRequest() {
+  const ok = await swalConfirm({
+    title: 'Hapus Data',
+    text: 'Yakin ingin menghapus data ini?',
+    confirmButtonText: 'Hapus',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
 
   router.delete(`/leave-permission/${props.leavePermission.id}`, {
     onSuccess: () => {

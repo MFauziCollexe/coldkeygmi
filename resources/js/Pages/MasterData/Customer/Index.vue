@@ -48,8 +48,7 @@
         </table>
 
         <div class="mt-4">
-          <button @click="prev" :disabled="!customers.prev_page_url" class="px-3 py-1 bg-slate-700 rounded mr-2">Prev</button>
-          <button @click="next" :disabled="!customers.next_page_url" class="px-3 py-1 bg-slate-700 rounded">Next</button>
+          <Pagination :paginator="customers" :onPageChange="fetch" />
         </div>
       </div>
     </div>
@@ -57,17 +56,19 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue';
+import { reactive, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   customers: Object,
   filters: Object,
 });
 
-const customers = reactive(props.customers);
+const customers = computed(() => props.customers);
 const filters = reactive({
   search: props.filters?.search || '',
   customer_type: props.filters?.customer_type || '',
@@ -88,15 +89,21 @@ function fetch(page = 1) {
 }
 
 function next() {
-  if (customers.next_page_url) fetch(customers.current_page + 1);
+  if (customers.value.next_page_url) fetch(customers.value.current_page + 1);
 }
 
 function prev() {
-  if (customers.prev_page_url) fetch(customers.current_page - 1);
+  if (customers.value.prev_page_url) fetch(customers.value.current_page - 1);
 }
 
-function destroy(id) {
-  if (!confirm('Delete customer ini?')) return;
+async function destroy(id) {
+  const ok = await swalConfirm({
+    title: 'Delete Customer',
+    text: 'Delete customer ini?',
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
   router.delete(`/master-data/customer/${id}`);
 }
 </script>

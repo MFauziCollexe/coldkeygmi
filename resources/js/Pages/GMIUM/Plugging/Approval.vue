@@ -86,8 +86,7 @@
         </table>
 
         <div class="mt-4">
-          <button @click="prev" :disabled="!pluggings.prev_page_url" class="px-3 py-1 bg-slate-700 rounded mr-2">Prev</button>
-          <button @click="next" :disabled="!pluggings.next_page_url" class="px-3 py-1 bg-slate-700 rounded">Next</button>
+          <Pagination :paginator="pluggings" :onPageChange="fetch" />
         </div>
       </div>
 
@@ -122,11 +121,12 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
   pluggings: Object,
@@ -137,7 +137,7 @@ const props = defineProps({
   },
 });
 
-const pluggings = reactive(props.pluggings);
+const pluggings = computed(() => props.pluggings);
 const filters = reactive({
   tanggal: props.filters?.tanggal || '',
   customer: props.filters?.customer || '',
@@ -161,11 +161,11 @@ function fetch(page = 1) {
 }
 
 function next() {
-  if (pluggings.next_page_url) fetch(pluggings.current_page + 1);
+  if (pluggings.value.next_page_url) fetch(pluggings.value.current_page + 1);
 }
 
 function prev() {
-  if (pluggings.prev_page_url) fetch(pluggings.current_page - 1);
+  if (pluggings.value.prev_page_url) fetch(pluggings.value.current_page - 1);
 }
 
 function resetFilter() {

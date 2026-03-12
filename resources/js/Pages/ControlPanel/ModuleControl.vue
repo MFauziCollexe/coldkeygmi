@@ -18,10 +18,8 @@
               <div class="text-xs text-slate-400">{{ u.email }}</div>
             </button>
           </div>
-          <div class="flex items-center justify-between mt-2">
-            <button @click="prevUsers" class="px-3 py-1 bg-slate-700 rounded text-sm" :disabled="userPage===1">Prev</button>
-            <div class="text-xs text-slate-400">Page {{ userPage }}</div>
-            <button @click="nextUsers" class="px-3 py-1 bg-slate-700 rounded text-sm" :disabled="(userPage * userPerPage) >= filteredUsers.length">Next</button>
+          <div class="mt-2">
+            <Pagination :paginator="userPaginator" :onPageChange="setUserPage" />
           </div>
         </div>
 
@@ -72,6 +70,7 @@ import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import modules from '@/Config/modules.js';
 import { router } from '@inertiajs/vue3';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({ users: Array, modules: Object });
 const users = props.users || [];
@@ -85,6 +84,8 @@ const selectedPermissions = ref([]);
 const userFilter = ref('');
 const userPage = ref(1);
 const userPerPage = 8;
+const userLastPage = computed(() => Math.max(1, Math.ceil(filteredUsers.value.length / userPerPage)));
+const userPaginator = computed(() => ({ current_page: userPage.value, last_page: userLastPage.value }));
 
 const filteredUsers = computed(() => {
   if (!userFilter.value) return users;
@@ -97,8 +98,10 @@ const pagedUsers = computed(() => {
   return filteredUsers.value.slice(start, start + userPerPage);
 });
 
-function nextUsers() { userPage.value++; }
-function prevUsers() { if (userPage.value>1) userPage.value--; }
+function setUserPage(page) {
+  const next = Math.min(Math.max(1, Number(page || 1)), userLastPage.value);
+  userPage.value = next;
+}
 
 async function selectUser(u) {
   selectedUser.value = u;

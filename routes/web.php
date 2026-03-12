@@ -220,6 +220,12 @@ Route::resource('master-data/position', PositionController::class)
     ->names('positions');
 
 // Master Data - Employee (route: /master-data/employee)
+Route::put('master-data/employee/{employee}/resign', [\App\Http\Controllers\EmployeeController::class, 'resign'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.employee'])
+    ->name('employees.resign');
+Route::put('master-data/employee/{employee}/cancel-resign', [\App\Http\Controllers\EmployeeController::class, 'cancelResign'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.employee'])
+    ->name('employees.cancel-resign');
 Route::resource('master-data/employee', \App\Http\Controllers\EmployeeController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.employee'])
     ->names('employees');

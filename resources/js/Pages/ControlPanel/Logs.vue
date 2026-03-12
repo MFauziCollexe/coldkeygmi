@@ -133,11 +133,7 @@
           <div class="text-sm text-slate-400">
             Showing {{ logs.from || 0 }} to {{ logs.to || 0 }} of {{ logs.total || 0 }} entries
           </div>
-          <div class="flex items-center gap-2">
-            <button @click="prev" :disabled="!logs.prev_page_url" class="px-3 py-1 bg-slate-700 rounded disabled:opacity-50">Prev</button>
-            <span class="text-sm text-slate-400">Page {{ logs.current_page }}</span>
-            <button @click="next" :disabled="!logs.next_page_url" class="px-3 py-1 bg-slate-700 rounded disabled:opacity-50">Next</button>
-          </div>
+          <Pagination :paginator="logs" :onPageChange="goToPage" />
         </div>
       </div>
     </div>
@@ -145,10 +141,11 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
   logs: Object,
@@ -158,7 +155,7 @@ const props = defineProps({
   users: Array,
 });
 
-const logs = reactive(props.logs);
+const logs = computed(() => props.logs);
 const tableNames = props.tableNames || [];
 const actions = props.actions || [];
 const users = props.users || [];
@@ -197,11 +194,11 @@ function goToPage(pageNum) {
 }
 
 function next() {
-  if (logs.next_page_url) goToPage(logs.current_page + 1);
+  if (logs.value.next_page_url) goToPage(logs.value.current_page + 1);
 }
 
 function prev() {
-  if (logs.prev_page_url) goToPage(logs.current_page - 1);
+  if (logs.value.prev_page_url) goToPage(logs.value.current_page - 1);
 }
 
 function viewDetails(log) {
