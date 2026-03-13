@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Department;
 use App\Models\Position;
 use App\Models\ActivityLog;
@@ -11,11 +12,15 @@ use Illuminate\Support\Facades\Auth;
 
 class PositionController extends Controller
 {
+    use RemembersIndexUrl;
+
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'positions');
+
         $positions = Position::with('department')->orderBy('name', 'asc')->paginate(10);
 
         return Inertia::render('MasterData/Position/Index', [
@@ -59,7 +64,8 @@ class PositionController extends Controller
             'Created position: ' . $data['name']
         );
 
-        return redirect()->route('positions.index')->with('success', 'Position created successfully');
+        return $this->redirectToRememberedIndex($request, 'positions', 'positions.index')
+            ->with('success', 'Position created successfully');
     }
 
     /**
@@ -110,13 +116,14 @@ class PositionController extends Controller
             'Updated position: ' . $data['name']
         );
 
-        return redirect()->route('positions.index')->with('success', 'Position updated successfully');
+        return $this->redirectToRememberedIndex($request, 'positions', 'positions.index')
+            ->with('success', 'Position updated successfully');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Position $position)
+    public function destroy(Request $request, Position $position)
     {
         $deletedName = $position->name;
         $oldData = $position->toArray();
@@ -132,7 +139,8 @@ class PositionController extends Controller
             'Deleted position: ' . $deletedName
         );
 
-        return redirect()->route('positions.index')->with('success', 'Position deleted successfully');
+        return $this->redirectToRememberedIndex($request, 'positions', 'positions.index')
+            ->with('success', 'Position deleted successfully');
     }
 
     /**

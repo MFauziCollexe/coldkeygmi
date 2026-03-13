@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Customer;
 use App\Models\Plugging;
 use App\Models\VehicleType;
@@ -14,8 +15,12 @@ use Inertia\Inertia;
 
 class PluggingController extends Controller
 {
+    use RemembersIndexUrl;
+
     public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'plugging.index');
+
         $query = Plugging::query()->with('user:id,name,email');
         $customers = Customer::query()
             ->where('is_active', true)
@@ -128,7 +133,8 @@ class PluggingController extends Controller
 
         Plugging::create($data);
 
-        return redirect()->route('plugging.index')->with('success', 'Data plugging berhasil dibuat.');
+        return $this->redirectToRememberedIndex($request, 'plugging.index', 'plugging.index')
+            ->with('success', 'Data plugging berhasil dibuat.');
     }
 
     public function edit(Plugging $plugging)
@@ -190,11 +196,14 @@ class PluggingController extends Controller
 
         $plugging->update($data);
 
-        return redirect()->route('plugging.index')->with('success', 'Data plugging berhasil diperbarui.');
+        return $this->redirectToRememberedIndex($request, 'plugging.index', 'plugging.index')
+            ->with('success', 'Data plugging berhasil diperbarui.');
     }
 
     public function approvalIndex(Request $request)
     {
+        $this->rememberIndexUrl($request, 'plugging.approval');
+
         $canApprove = $this->isOperationalManager(Auth::user());
 
         $query = Plugging::query()->with('user:id,name,email');
@@ -250,13 +259,15 @@ class PluggingController extends Controller
             'status' => 'selesai',
         ]);
 
-        return redirect()->route('plugging.approval.index')->with('success', 'Plugging berhasil di-approve.');
+        return $this->redirectToRememberedIndex($request, 'plugging.approval', 'plugging.approval.index')
+            ->with('success', 'Plugging berhasil di-approve.');
     }
 
-    public function destroy(Plugging $plugging)
+    public function destroy(Request $request, Plugging $plugging)
     {
         $plugging->delete();
-        return redirect()->route('plugging.index')->with('success', 'Data plugging berhasil dihapus.');
+        return $this->redirectToRememberedIndex($request, 'plugging.index', 'plugging.index')
+            ->with('success', 'Data plugging berhasil dihapus.');
     }
 
     public function export(Request $request)

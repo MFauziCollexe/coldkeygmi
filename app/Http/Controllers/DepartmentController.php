@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Department;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;
@@ -10,11 +11,15 @@ use Illuminate\Support\Facades\Auth;
 
 class DepartmentController extends Controller
 {
+    use RemembersIndexUrl;
+
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'departments');
+
         $departments = Department::orderBy('name', 'asc')->paginate(10);
 
         return Inertia::render('MasterData/Department/Index', [
@@ -54,7 +59,8 @@ class DepartmentController extends Controller
             'Created department: ' . $data['name']
         );
 
-        return redirect()->route('departments.index')->with('success', 'Department created successfully');
+        return $this->redirectToRememberedIndex($request, 'departments', 'departments.index')
+            ->with('success', 'Department created successfully');
     }
 
     /**
@@ -102,13 +108,14 @@ class DepartmentController extends Controller
             'Updated department: ' . $data['name']
         );
 
-        return redirect()->route('departments.index')->with('success', 'Department updated successfully');
+        return $this->redirectToRememberedIndex($request, 'departments', 'departments.index')
+            ->with('success', 'Department updated successfully');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Department $department)
+    public function destroy(Request $request, Department $department)
     {
         $deletedName = $department->name;
         $oldData = $department->toArray();
@@ -124,7 +131,8 @@ class DepartmentController extends Controller
             'Deleted department: ' . $deletedName
         );
 
-        return redirect()->route('departments.index')->with('success', 'Department deleted successfully');
+        return $this->redirectToRememberedIndex($request, 'departments', 'departments.index')
+            ->with('success', 'Department deleted successfully');
     }
 
     /**

@@ -193,6 +193,7 @@
                             <th class="text-left py-2 pr-3">Scan Pertama</th>
                             <th class="text-left py-2 pr-3">Scan Terakhir</th>
                             <th class="text-left py-2">Status / Overtime</th>
+                            <th class="text-left py-2">Koreksi</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -217,6 +218,51 @@
                                 >
                                   {{ row.overtime_label || '-' }}
                                 </span>
+                              </div>
+                            </td>
+                            <td class="py-2">
+                              <div class="flex flex-col gap-1.5">
+                                <div v-if="row.correction" class="flex flex-wrap items-center gap-2">
+                                  <span
+                                    :class="correctionPillClass(row.correction.status)"
+                                    class="inline-flex px-2 py-0.5 rounded-md text-xs font-semibold border"
+                                    :title="row.correction.rejection_reason || ''"
+                                  >
+                                    {{ correctionLabel(row.correction.status) }}
+                                  </span>
+                                  <span class="text-[11px] text-slate-400">
+                                    {{ formatTimeOnly(row.correction.first_scan) }} - {{ formatTimeOnly(row.correction.last_scan) }}
+                                  </span>
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-2">
+                                  <button
+                                    v-if="canManageCorrections"
+                                    type="button"
+                                    class="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-[12px] font-semibold"
+                                    @click="openCorrectionSwal(row)"
+                                  >
+                                    Koreksi
+                                  </button>
+                                  <template v-if="canManageCorrections && row.correction?.status === 'pending'">
+                                    <button
+                                      type="button"
+                                      class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-[12px] font-semibold"
+                                      @click="approveCorrection(row.correction.id)"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      class="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-[12px] font-semibold"
+                                      @click="rejectCorrection(row.correction.id)"
+                                    >
+                                      Reject
+                                    </button>
+                                  </template>
+
+                                  <span v-if="!canManageCorrections && !row.correction" class="text-[11px] text-slate-500">-</span>
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -707,6 +753,13 @@ function correctionLabel(status) {
   if (status === 'rejected') return 'Rejected';
   if (status === 'pending') return 'Pending';
   return '-';
+}
+
+function correctionPillClass(status) {
+  if (status === 'approved') return 'bg-emerald-600/20 text-emerald-200 border-emerald-500/40';
+  if (status === 'rejected') return 'bg-rose-600/20 text-rose-200 border-rose-500/40';
+  if (status === 'pending') return 'bg-amber-500/20 text-amber-200 border-amber-400/40';
+  return 'bg-slate-600/20 text-slate-200 border-slate-500/30';
 }
 
 function statusPillClass(expected) {

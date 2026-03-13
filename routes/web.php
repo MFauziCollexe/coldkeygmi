@@ -63,6 +63,26 @@ Route::resource('request-access', App\Http\Controllers\RequestAccessController::
 Route::get('gmisl/utility/date-code', [DateCodeController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.date_code']);
 
+// Berita Acara (GMISL > Utility > Berita Acara)
+Route::get('gmisl/utility/berita-acara', [App\Http\Controllers\BeritaAcaraController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
+    ->name('berita-acara.index');
+Route::get('gmisl/utility/berita-acara/create', [App\Http\Controllers\BeritaAcaraController::class, 'create'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
+    ->name('berita-acara.create');
+Route::post('gmisl/utility/berita-acara', [App\Http\Controllers\BeritaAcaraController::class, 'store'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
+    ->name('berita-acara.store');
+Route::get('gmisl/utility/berita-acara/{beritaAcara}', [App\Http\Controllers\BeritaAcaraController::class, 'show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
+    ->name('berita-acara.show');
+Route::get('gmisl/utility/berita-acara/{beritaAcara}/print', [App\Http\Controllers\BeritaAcaraController::class, 'print'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
+    ->name('berita-acara.print');
+Route::get('gmisl/utility/berita-acara/{beritaAcara}/pdf', [App\Http\Controllers\BeritaAcaraController::class, 'downloadPdf'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
+    ->name('berita-acara.pdf');
+
 // Check Inline (GMISL > Utility > Check Inline)
 Route::get('check-inline', [App\Http\Controllers\CheckInlineController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.check_inline'])

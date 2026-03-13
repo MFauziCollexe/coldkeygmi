@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\ExitPermit;
 use App\Models\Position;
 use App\Support\DepartmentScope;
@@ -10,8 +11,12 @@ use Inertia\Inertia;
 
 class ExitPermitController extends Controller
 {
+    use RemembersIndexUrl;
+
     public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'exit-permit');
+
         $filters = [
             'search' => trim((string) $request->input('search', '')),
             'date' => trim((string) $request->input('date', '')),
@@ -120,7 +125,8 @@ class ExitPermitController extends Controller
         $permit->permit_number = 'SIK-' . now()->format('Ymd') . '-' . str_pad((string) $permit->id, 4, '0', STR_PAD_LEFT);
         $permit->save();
 
-        return redirect()->route('gmi-visitor-permit.exit-permit.index')->with('success', 'Surat izin keluar berhasil diajukan.');
+        return $this->redirectToRememberedIndex($request, 'exit-permit', 'gmi-visitor-permit.exit-permit.index')
+            ->with('success', 'Surat izin keluar berhasil diajukan.');
     }
 
     public function approve(Request $request, ExitPermit $exitPermit)

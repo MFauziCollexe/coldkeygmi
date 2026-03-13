@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\User;
 use App\Models\Department;
 use App\Models\Position;
@@ -14,17 +15,21 @@ use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
+    use RemembersIndexUrl;
+
     /**
      * Display a listing of users.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'control.users');
+
         $query = User::query()->with(['department', 'position']);
 
         // Filters
-        $search = request('search');
-        $status = request('status');
-        $departmentId = request('department_id');
+        $search = $request->input('search');
+        $status = $request->input('status');
+        $departmentId = $request->input('department_id');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -52,7 +57,7 @@ class UserController extends Controller
 
         return Inertia::render('ControlPanel/User/UserIndex', [
             'users' => $users,
-            'filters' => request()->only(['search', 'status', 'department_id', 'page']),
+            'filters' => $request->only(['search', 'status', 'department_id', 'page']),
             'departments' => $departments,
             'positions' => $positions,
         ]);
@@ -111,7 +116,8 @@ class UserController extends Controller
             // Log activity
             $this->logActivity('users', $user->id, 'created', null, $user->toArray(), 'Created user: ' . $user->name);
 
-            return redirect('/control-panel/user')->with('success', 'User created successfully.');
+            return $this->redirectToRememberedIndex($request, 'control.users', 'control.users.index')
+                ->with('success', 'User created successfully.');
         } catch (\Exception $e) {
             Log::error('Error creating user', ['error' => $e->getMessage()]);
             return back()->withErrors(['error' => 'Failed to create user.'])->withInput();
@@ -179,7 +185,8 @@ class UserController extends Controller
             // Log activity
             $this->logActivity('users', $user->id, 'updated', $oldData, $user->fresh()->toArray(), 'Updated user: ' . $user->name);
 
-            return redirect('/control-panel/user')->with('success', 'User updated successfully.');
+            return $this->redirectToRememberedIndex($request, 'control.users', 'control.users.index')
+                ->with('success', 'User updated successfully.');
         } catch (\Exception $e) {
             Log::error('Error updating user', ['error' => $e->getMessage()]);
             return back()->withErrors(['error' => 'Failed to update user.'])->withInput();
@@ -189,7 +196,7 @@ class UserController extends Controller
     /**
      * Remove the specified user from storage.
      */
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
         try {
             $userName = $user->name;
@@ -200,7 +207,8 @@ class UserController extends Controller
             // Log activity
             $this->logActivity('users', null, 'deleted', $oldData, null, 'Deleted user: ' . $userName);
 
-            return redirect('/control-panel/user')->with('success', 'User deleted successfully.');
+            return $this->redirectToRememberedIndex($request, 'control.users', 'control.users.index')
+                ->with('success', 'User deleted successfully.');
         } catch (\Exception $e) {
             Log::error('Error deleting user', ['error' => $e->getMessage()]);
             return back()->withErrors(['error' => 'Failed to delete user.']);

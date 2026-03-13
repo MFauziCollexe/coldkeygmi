@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\User;
 use App\Models\VisitorForm;
 use Illuminate\Database\Eloquent\Builder;
@@ -10,6 +11,8 @@ use Inertia\Inertia;
 
 class VisitorFormController extends Controller
 {
+    use RemembersIndexUrl;
+
     public function create()
     {
         $hostUsers = User::query()
@@ -25,6 +28,8 @@ class VisitorFormController extends Controller
 
     public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'visitor-form');
+
         $filters = [
             'search' => trim((string) $request->input('search', '')),
             'date' => trim((string) $request->input('date', '')),
@@ -100,7 +105,8 @@ class VisitorFormController extends Controller
             }
         }
 
-        return redirect()->route('gmi-visitor-permit.visitor-form.index')->with('success', 'Visitor form berhasil disimpan. Menunggu approval Security dan user yang dituju.');
+        return $this->redirectToRememberedIndex($request, 'visitor-form', 'gmi-visitor-permit.visitor-form.index')
+            ->with('success', 'Visitor form berhasil disimpan. Menunggu approval Security dan user yang dituju.');
     }
 
     public function approve(Request $request, VisitorForm $visitorForm)

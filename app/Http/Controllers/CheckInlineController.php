@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\CheckInline;
 use App\Models\CheckInlineImage;
 use Illuminate\Http\Request;
@@ -11,8 +12,12 @@ use Inertia\Inertia;
 
 class CheckInlineController extends Controller
 {
+    use RemembersIndexUrl;
+
     public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'check-inline');
+
         $query = CheckInline::query()->with(['creator:id,name,email', 'updater:id,name,email', 'images:id,check_inline_id,image']);
 
         if ($request->filled('search')) {
@@ -118,7 +123,8 @@ class CheckInlineController extends Controller
             }
         }
 
-        return redirect()->route('check-inline.index')->with('success', 'Check Inline created successfully.');
+        return $this->redirectToRememberedIndex($request, 'check-inline', 'check-inline.index')
+            ->with('success', 'Check Inline created successfully.');
     }
 
     public function update(Request $request, CheckInline $checkInline)
@@ -178,6 +184,7 @@ class CheckInlineController extends Controller
         $firstImagePath = $checkInline->images()->value('image');
         $checkInline->update(['image' => $firstImagePath]);
 
-        return redirect()->route('check-inline.index')->with('success', 'Check Inline updated successfully.');
+        return $this->redirectToRememberedIndex($request, 'check-inline', 'check-inline.index')
+            ->with('success', 'Check Inline updated successfully.');
     }
 }

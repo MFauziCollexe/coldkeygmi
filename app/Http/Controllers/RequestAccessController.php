@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\RequestAccess;
 use App\Models\User;
 use App\Models\Department;
@@ -17,17 +18,21 @@ use Illuminate\Support\Facades\Mail;
 
 class RequestAccessController extends Controller
 {
+    use RemembersIndexUrl;
+
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'request-access');
+
         $query = RequestAccess::query()->with(['user', 'targetDepartment', 'creator', 'reviewer', 'processor']);
 
         // Filters
-        $search = request('search');
-        $status = request('status');
-        $type = request('type');
+        $search = $request->input('search');
+        $status = $request->input('status');
+        $type = $request->input('type');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -81,7 +86,7 @@ class RequestAccessController extends Controller
 
         return Inertia::render('GMISL/Utility/RequestAccess/Index', [
             'requests' => $requests,
-            'filters' => request()->only(['search', 'status', 'type', 'page']),
+            'filters' => $request->only(['search', 'status', 'type', 'page']),
         ]);
     }
 
@@ -188,7 +193,8 @@ class RequestAccessController extends Controller
             'Created request access: ' . $requestAccess->request_number
         );
 
-        return redirect()->route('request-access.index')->with('success', 'Request submitted successfully. Waiting for manager approval.');
+        return $this->redirectToRememberedIndex($request, 'request-access', 'request-access.index')
+            ->with('success', 'Request submitted successfully. Waiting for manager approval.');
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Employee;
 use App\Models\LeavePermission;
 use App\Models\User;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Storage;
 
 class LeavePermissionController extends Controller
 {
+    use RemembersIndexUrl;
+
     protected function getActorEmployee($userId): ?Employee
     {
         if (!$userId) {
@@ -178,8 +181,10 @@ class LeavePermissionController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'leave-permission');
+
         $userId = Auth::id();
         
         // Get visible department IDs
@@ -447,7 +452,8 @@ class LeavePermissionController extends Controller
             'Created leave permission request: ' . $data['type']
         );
 
-        return redirect()->route('leave-permission.index')->with('success', 'Permintaan berhasil diajukan. Menunggu persetujuan.');
+        return $this->redirectToRememberedIndex($request, 'leave-permission', 'leave-permission.index')
+            ->with('success', 'Permintaan berhasil diajukan. Menunggu persetujuan.');
     }
 
     /**
@@ -499,7 +505,7 @@ class LeavePermissionController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(LeavePermission $leavePermission)
+    public function destroy(Request $request, LeavePermission $leavePermission)
     {
         $userId = Auth::id();
 
@@ -526,7 +532,8 @@ class LeavePermissionController extends Controller
             'Deleted leave permission request'
         );
 
-        return redirect()->route('leave-permission.index')->with('success', 'Data berhasil dihapus.');
+        return $this->redirectToRememberedIndex($request, 'leave-permission', 'leave-permission.index')
+            ->with('success', 'Data berhasil dihapus.');
     }
 
     /**

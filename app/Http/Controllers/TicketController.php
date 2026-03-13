@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
 use App\Models\Department;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 
 class TicketController extends Controller
 {
+    use RemembersIndexUrl;
+
     /**
      * Get the department manager for a given department
      */
@@ -76,8 +79,10 @@ class TicketController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'tickets');
+
         $query = Ticket::query()->with(['creator', 'assignee', 'department', 'attachments']);
 
         // Filters
@@ -192,7 +197,8 @@ class TicketController extends Controller
             }
         }
 
-        return redirect()->route('tickets.index')->with('success', 'Ticket created successfully');
+        return $this->redirectToRememberedIndex($request, 'tickets', 'tickets.index')
+            ->with('success', 'Ticket created successfully');
     }
 
     /**
@@ -294,7 +300,8 @@ class TicketController extends Controller
             }
         }
 
-        return redirect()->route('tickets.index')->with('success', 'Ticket updated successfully');
+        return $this->redirectToRememberedIndex($request, 'tickets', 'tickets.index')
+            ->with('success', 'Ticket updated successfully');
     }
 
     /**
@@ -331,12 +338,13 @@ class TicketController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Ticket $ticket)
+    public function destroy(Request $request, Ticket $ticket)
     {
         $this->authorizeTicketVisibility($ticket);
 
         $ticket->delete();
-        return redirect()->route('tickets.index')->with('success', 'Ticket deleted');
+        return $this->redirectToRememberedIndex($request, 'tickets', 'tickets.index')
+            ->with('success', 'Ticket deleted');
     }
 
     /**

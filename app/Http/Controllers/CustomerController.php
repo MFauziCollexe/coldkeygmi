@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -9,8 +10,12 @@ use Inertia\Inertia;
 
 class CustomerController extends Controller
 {
+    use RemembersIndexUrl;
+
     public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'customers');
+
         $query = Customer::query();
 
         if ($request->filled('search')) {
@@ -56,7 +61,8 @@ class CustomerController extends Controller
 
         Customer::create($data);
 
-        return redirect()->route('customers.index')->with('success', 'Customer created successfully.');
+        return $this->redirectToRememberedIndex($request, 'customers', 'customers.index')
+            ->with('success', 'Customer created successfully.');
     }
 
     public function edit(Customer $customer)
@@ -82,16 +88,18 @@ class CustomerController extends Controller
 
         $customer->update($data);
 
-        return redirect()->route('customers.index')->with('success', 'Customer updated successfully.');
+        return $this->redirectToRememberedIndex($request, 'customers', 'customers.index')
+            ->with('success', 'Customer updated successfully.');
     }
 
-    public function destroy(Customer $customer)
+    public function destroy(Request $request, Customer $customer)
     {
         if ($customer->logo_image) {
             Storage::disk('public')->delete($customer->logo_image);
         }
         $customer->delete();
-        return redirect()->route('customers.index')->with('success', 'Customer deleted successfully.');
+        return $this->redirectToRememberedIndex($request, 'customers', 'customers.index')
+            ->with('success', 'Customer deleted successfully.');
     }
 
     private function validatePayload(Request $request, ?int $customerId = null): array

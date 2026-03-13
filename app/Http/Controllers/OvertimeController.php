@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Overtime;
 use App\Models\User;
 use App\Models\Department;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\Auth;
 
 class OvertimeController extends Controller
 {
+    use RemembersIndexUrl;
+
     /**
      * Check if user is admin (specific email or is_admin flag)
      */
@@ -78,8 +81,10 @@ class OvertimeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'overtime');
+
         $userId = Auth::id();
         
         // Get visible department IDs
@@ -190,7 +195,8 @@ class OvertimeController extends Controller
             'Created overtime request for ' . $data['overtime_date']
         );
 
-        return redirect()->route('overtime.index')->with('success', 'Permintaan overtime berhasil diajukan. Menunggu persetujuan.');
+        return $this->redirectToRememberedIndex($request, 'overtime', 'overtime.index')
+            ->with('success', 'Permintaan overtime berhasil diajukan. Menunggu persetujuan.');
     }
 
     /**

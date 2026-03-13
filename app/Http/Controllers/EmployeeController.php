@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Employee;
 use App\Models\Department;
 use App\Models\Position;
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
@@ -13,11 +14,15 @@ use Illuminate\Support\Facades\DB;
 
 class EmployeeController extends Controller
 {
+    use RemembersIndexUrl;
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'employees');
+
         $search = $request->search;
         $status = $request->input('status');
         
@@ -39,7 +44,8 @@ class EmployeeController extends Controller
                 }
             })
             ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         // Get departments and positions for filters/dropdowns
         $departments = Department::orderBy('name')->get();
@@ -121,10 +127,10 @@ class EmployeeController extends Controller
             ]);
         }
 
-        return redirect('/master-data/employee')
+        return $this->redirectToRememberedIndex($request, 'employees', 'employees.index')
             ->with('message', [
                 'type' => 'success',
-                'text' => 'Employee created successfully.'
+                'text' => 'Employee created successfully.',
             ]);
     }
 
@@ -205,24 +211,24 @@ class EmployeeController extends Controller
             ]);
         }
 
-        return redirect('/master-data/employee')
+        return $this->redirectToRememberedIndex($request, 'employees', 'employees.index')
             ->with('message', [
                 'type' => 'success',
-                'text' => 'Employee updated successfully.'
+                'text' => 'Employee updated successfully.',
             ]);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Employee $employee)
+    public function destroy(Request $request, Employee $employee)
     {
         $employee->delete();
 
-        return redirect('/master-data/employee')
+        return $this->redirectToRememberedIndex($request, 'employees', 'employees.index')
             ->with('message', [
                 'type' => 'success',
-                'text' => 'Employee deleted successfully.'
+                'text' => 'Employee deleted successfully.',
             ]);
     }
 
@@ -241,14 +247,14 @@ class EmployeeController extends Controller
             ]);
         });
 
-        return redirect('/master-data/employee')
+        return $this->redirectToRememberedIndex($request, 'employees', 'employees.index')
             ->with('message', [
                 'type' => 'success',
                 'text' => 'Employee marked as resigned.',
             ]);
     }
 
-    public function cancelResign(Employee $employee)
+    public function cancelResign(Request $request, Employee $employee)
     {
         DB::transaction(function () use ($employee) {
             $employee->update([
@@ -257,7 +263,7 @@ class EmployeeController extends Controller
             ]);
         });
 
-        return redirect('/master-data/employee')
+        return $this->redirectToRememberedIndex($request, 'employees', 'employees.index')
             ->with('message', [
                 'type' => 'success',
                 'text' => 'Resign canceled. Employee marked as active.',

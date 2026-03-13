@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\VehicleType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class VehicleTypeController extends Controller
 {
+    use RemembersIndexUrl;
+
     public function index(Request $request)
     {
+        $this->rememberIndexUrl($request, 'vehicle-types');
+
         $query = VehicleType::query();
 
         if ($request->filled('search')) {
@@ -49,7 +54,8 @@ class VehicleTypeController extends Controller
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);
 
-        return redirect()->route('vehicle-types.index')->with('success', 'Jenis kendaraan berhasil dibuat.');
+        return $this->redirectToRememberedIndex($request, 'vehicle-types', 'vehicle-types.index')
+            ->with('success', 'Jenis kendaraan berhasil dibuat.');
     }
 
     public function edit(VehicleType $vehicleType)
@@ -71,13 +77,14 @@ class VehicleTypeController extends Controller
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);
 
-        return redirect()->route('vehicle-types.index')->with('success', 'Jenis kendaraan berhasil diperbarui.');
+        return $this->redirectToRememberedIndex($request, 'vehicle-types', 'vehicle-types.index')
+            ->with('success', 'Jenis kendaraan berhasil diperbarui.');
     }
 
-    public function destroy(VehicleType $vehicleType)
+    public function destroy(Request $request, VehicleType $vehicleType)
     {
         $vehicleType->delete();
-        return redirect()->route('vehicle-types.index')->with('success', 'Jenis kendaraan berhasil dihapus.');
+        return $this->redirectToRememberedIndex($request, 'vehicle-types', 'vehicle-types.index')
+            ->with('success', 'Jenis kendaraan berhasil dihapus.');
     }
 }
-
