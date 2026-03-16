@@ -17,9 +17,14 @@
           >
             Download PDF
           </button>
-          <Link :href="`/gmisl/utility/berita-acara/${item.id}/print`" class="px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold text-white">
-            Cetak
-          </Link>
+          <button
+            v-if="canDelete"
+            type="button"
+            class="px-3 py-2 rounded bg-rose-600 hover:bg-rose-500 text-sm font-semibold text-white"
+            @click="deleteItem"
+          >
+            Hapus
+          </button>
         </div>
       </div>
 
@@ -54,15 +59,31 @@
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   item: { type: Object, required: true },
+  canDelete: { type: Boolean, default: false },
 });
 
 function downloadPdf() {
   window.open(`/gmisl/utility/berita-acara/${props.item.id}/pdf?ts=${Date.now()}`, '_blank', 'noopener');
+}
+
+async function deleteItem() {
+  const ok = await swalConfirm({
+    title: 'Hapus Berita Acara',
+    text: 'Hapus Berita Acara ini?',
+    confirmButtonText: 'Hapus',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
+
+  router.delete(`/gmisl/utility/berita-acara/${props.item.id}`, {
+    preserveScroll: true,
+  });
 }
 
 function formatDateLong(value) {

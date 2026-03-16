@@ -82,6 +82,9 @@ Route::get('gmisl/utility/berita-acara/{beritaAcara}/print', [App\Http\Controlle
 Route::get('gmisl/utility/berita-acara/{beritaAcara}/pdf', [App\Http\Controllers\BeritaAcaraController::class, 'downloadPdf'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
     ->name('berita-acara.pdf');
+Route::delete('gmisl/utility/berita-acara/{beritaAcara}', [App\Http\Controllers\BeritaAcaraController::class, 'destroy'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
+    ->name('berita-acara.destroy');
 
 // Check Inline (GMISL > Utility > Check Inline)
 Route::get('check-inline', [App\Http\Controllers\CheckInlineController::class, 'index'])

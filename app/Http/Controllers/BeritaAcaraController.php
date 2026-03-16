@@ -116,7 +116,7 @@ class BeritaAcaraController extends Controller
             ->with('success', 'Berita Acara berhasil dibuat.');
     }
 
-    public function show(BeritaAcara $beritaAcara)
+    public function show(Request $request, BeritaAcara $beritaAcara)
     {
         $beritaAcara->loadMissing([
             'customer:id,name',
@@ -125,6 +125,7 @@ class BeritaAcaraController extends Controller
 
         return Inertia::render('GMISL/Utility/BeritaAcara/Show', [
             'item' => $beritaAcara,
+            'canDelete' => $this->canDelete($request),
         ]);
     }
 
@@ -268,6 +269,38 @@ class BeritaAcaraController extends Controller
         }
 
         return sha1('ba_pdf_v2|' . $templateHash . '|' . $docxSignature . '|' . $kopHash);
+    }
+
+    public function destroy(Request $request, BeritaAcara $beritaAcara)
+    {
+        if (!$this->canDelete($request)) {
+            abort(403, 'Tidak punya akses hapus Berita Acara.');
+        }
+
+        if ($beritaAcara->pdf_path) {
+            Storage::disk('public')->delete($beritaAcara->pdf_path);
+        }
+        Storage::disk('public')->deleteDirectory('berita-acara/' . $beritaAcara->id);
+
+        $beritaAcara->delete();
+
+        return $this->redirectToRememberedIndex($request, 'berita-acara', 'berita-acara.index')
+            ->with('success', 'Berita Acara berhasil dihapus.');
+    }
+
+    private function canDelete(Request $request): bool
+    {
+        $user = $request->user();
+        if (!$user) {
+            return false;
+        }
+
+        if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
+            return true;
+        }
+
+        $user->loadMissing('department:id,code');
+        return strtoupper((string) optional($user->department)->code) === 'IT';
     }
 
     // Note: sementara input disederhanakan; field lain diisi default.
