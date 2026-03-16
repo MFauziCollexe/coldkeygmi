@@ -21,7 +21,7 @@ export default [
         children: [
             { key: "utility.tickets", label: "Tickets" },
             { key: "utility.request_access", label: "Request Access" },
-            { key: "utility.date_code", label: "Date Code" },
+            { key: "utility.date_code", label: "No Identity" },
             { key: "utility.check_inline", label: "Check Inline" },
             { key: "utility.berita_acara", label: "Berita Acara" },
         ],

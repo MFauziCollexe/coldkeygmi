@@ -523,18 +523,7 @@ class AttendanceLogController extends Controller
         }
 
         if ($employeeStatusByPin->isNotEmpty()) {
-            $isSpecificMonth = $year !== null && $month !== null;
-            $pinsWithScans = $isSpecificMonth
-                ? $scanRows
-                    ->pluck('pin')
-                    ->map(fn($pin) => $this->normalizePin((string) $pin))
-                    ->filter()
-                    ->unique()
-                    ->flip()
-                    ->all()
-                : [];
-
-            $rows = $rows->filter(function (array $row) use ($employeeStatusByPin, $isSpecificMonth, $pinsWithScans) {
+            $rows = $rows->filter(function (array $row) use ($employeeStatusByPin) {
                 $pin = $this->normalizePin((string) ($row['pin'] ?? ''));
                 if ($pin === '') {
                     return true;
@@ -542,15 +531,7 @@ class AttendanceLogController extends Controller
 
                 $status = (string) ($employeeStatusByPin->get($pin) ?? 'active');
                 $isNonActive = $status !== '' && $status !== 'active';
-                if (!$isNonActive) {
-                    return true;
-                }
-
-                if (!$isSpecificMonth) {
-                    return false;
-                }
-
-                return isset($pinsWithScans[$pin]);
+                return !$isNonActive;
             })->values();
         }
 

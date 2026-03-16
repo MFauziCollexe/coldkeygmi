@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="p-6">
-      <h2 class="text-2xl font-bold mb-4">Date Code</h2>
+      <h2 class="text-2xl font-bold mb-4">No Identity</h2>
 
       <div class="bg-slate-800 rounded p-6 space-y-6">
         <div class="flex gap-4 border-b border-slate-700">
@@ -364,7 +364,7 @@ function openPreviewWindow(rows) {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Date Code Preview</title>
+  <title>No Identity Preview</title>
   <style>
     @page { size: A5; margin: 8mm; }
     body { font-family: Arial, sans-serif; margin: 0; color: #000; }

@@ -27,7 +27,7 @@ export const sidebarMenuConfig = [
                     },
                     {
                         id: "date-code",
-                        label: "Date Code",
+                        label: "No Identity",
                         icon: "Calendar",
                         route: "/gmisl/utility/date-code",
                         module_key: "utility.date_code",
