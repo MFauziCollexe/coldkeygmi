@@ -53,6 +53,7 @@ class ExitPermitController extends Controller
         }
 
         $exitPermits = $query
+            ->orderByRaw("CASE WHEN status = 'pending' AND manager_status = 'pending' THEN 0 WHEN status = 'pending' THEN 1 ELSE 2 END")
             ->orderByDesc('request_date')
             ->orderByDesc('id')
             ->paginate(20)

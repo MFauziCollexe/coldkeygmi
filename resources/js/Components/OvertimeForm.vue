@@ -94,12 +94,12 @@
           <label class="block text-sm text-slate-300 mb-1">Attachment (Gambar)</label>
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf,.pdf"
             class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200"
             @change="onAttachmentChange"
           />
           <div v-if="form.errors.attachment" class="text-xs text-red-400 mt-1">{{ form.errors.attachment }}</div>
-          <div v-else class="text-xs text-slate-400 mt-1">Opsional, maksimal 5MB (jpg/png/webp).</div>
+          <div v-else class="text-xs text-slate-400 mt-1">Opsional, maksimal 5MB (jpg/png/webp/pdf).</div>
         </div>
       </div>
 

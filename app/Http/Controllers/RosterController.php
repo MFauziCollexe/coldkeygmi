@@ -60,8 +60,8 @@ class RosterController extends Controller
                         ->orWhere('uploaded_by', $user->id);
                 });
             })
-            ->orderByDesc('is_current')
             ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->orderByDesc('is_current')
             ->orderByDesc('id')
             ->get([
                 'id',

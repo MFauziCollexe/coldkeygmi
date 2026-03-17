@@ -3,9 +3,18 @@
     <div class="p-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-2xl font-bold">Overtime</h2>
-        <Link href="/overtime/create" class="bg-indigo-600 px-4 py-2 rounded text-white">
-          + Ajukan Permintaan
-        </Link>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="bg-emerald-600 px-4 py-2 rounded text-white"
+            @click="exportExcel"
+          >
+            Export Excel
+          </button>
+          <Link href="/overtime/create" class="bg-indigo-600 px-4 py-2 rounded text-white">
+            + Ajukan Permintaan
+          </Link>
+        </div>
       </div>
 
       <!-- Filters -->
@@ -182,10 +191,10 @@
                 rel="noopener"
                 class="text-indigo-400 hover:text-indigo-300 underline"
               >
-                Lihat Gambar
+                Lihat Attachment
               </a>
             </div>
-            <div v-if="selectedItem?.attachment_url" class="pt-2">
+            <div v-if="selectedItem?.attachment_url && !isPdfAttachment(selectedItem)" class="pt-2">
               <img
                 :src="selectedItem.attachment_url"
                 alt="Attachment lembur"
@@ -270,6 +279,17 @@ function fetchData() {
   });
 }
 
+function exportExcel() {
+  const params = {};
+  if (filters.search) params.search = filters.search;
+  if (filters.status) params.status = filters.status;
+  if (filters.department_id) params.department_id = filters.department_id;
+  params.export = 1;
+
+  const qs = new URLSearchParams(params).toString();
+  window.location.href = `/overtime?${qs}`;
+}
+
 function goToPage(pageNum) {
   const params = { page: pageNum };
   if (filters.search) params.search = filters.search;
@@ -311,6 +331,12 @@ function getStatusClass(status) {
 function viewDetail(item) {
   selectedItem.value = item;
   showDetailModal.value = true;
+}
+
+function isPdfAttachment(item) {
+  const name = String(item?.attachment_original_name || '').toLowerCase();
+  const url = String(item?.attachment_url || '').toLowerCase();
+  return name.endsWith('.pdf') || url.includes('.pdf');
 }
 
 async function approveRequest(item) {

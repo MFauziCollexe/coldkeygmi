@@ -82,7 +82,11 @@ class RequestAccessController extends Controller
         }
         // Admin and IT see all - no additional filter
 
-        $requests = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
+        $requests = $query
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('GMISL/Utility/RequestAccess/Index', [
             'requests' => $requests,

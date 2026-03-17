@@ -14,6 +14,11 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class OvertimeController extends Controller
 {
@@ -211,6 +216,7 @@ class OvertimeController extends Controller
         // Filters
         $search = request('search');
         $status = request('status');
+        $departmentId = (int) request('department_id');
         $startDate = request('start_date');
         $endDate = request('end_date');
 
@@ -235,6 +241,20 @@ class OvertimeController extends Controller
             $query->where('status', $status);
         }
 
+        if ($departmentId > 0) {
+            $query->where(function ($q) use ($departmentId) {
+                if (Schema::hasColumn('overtimes', 'employee_id')) {
+                    $q->whereHas('employee', function ($empQuery) use ($departmentId) {
+                        $empQuery->where('department_id', $departmentId);
+                    });
+                }
+
+                $q->orWhereHas('user', function ($userQuery) use ($departmentId) {
+                    $userQuery->where('department_id', $departmentId);
+                });
+            });
+        }
+
         if ($startDate) {
             $query->where('overtime_date', '>=', $startDate);
         }
@@ -243,8 +263,17 @@ class OvertimeController extends Controller
             $query->where('overtime_date', '<=', $endDate);
         }
 
-        $overtimes = $query->orderBy('overtime_date', 'desc')
-            ->orderBy('created_at', 'desc')
+        $orderedQuery = $query
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->orderBy('overtime_date', 'desc')
+            ->orderBy('created_at', 'desc');
+
+        if ($request->boolean('export')) {
+            $rows = (clone $orderedQuery)->get();
+            return $this->exportOvertimesToExcel($rows);
+        }
+
+        $overtimes = (clone $orderedQuery)
             ->paginate(10)
             ->withQueryString();
 
@@ -255,10 +284,78 @@ class OvertimeController extends Controller
 
         return Inertia::render('GMIHR/Overtime/Index', [
             'overtimes' => $overtimes,
-            'filters' => request()->only(['search', 'status', 'start_date', 'end_date', 'page']),
+            'filters' => request()->only(['search', 'status', 'department_id', 'start_date', 'end_date', 'page']),
             'departments' => $departments,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
+        ]);
+    }
+
+    private function exportOvertimesToExcel(Collection $rows)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Overtime');
+
+        $headers = [
+            'Tanggal Pengajuan',
+            'Karyawan',
+            'Department',
+            'Tanggal Lembur',
+            'Jam Mulai',
+            'Jam Selesai',
+            'Jumlah Jam',
+            'Alasan',
+            'Status',
+            'Reviewer',
+            'Reviewed At',
+            'Review Notes',
+            'Attachment',
+        ];
+
+        foreach ($headers as $index => $header) {
+            $cell = Coordinate::stringFromColumnIndex($index + 1) . '1';
+            $sheet->setCellValue($cell, $header);
+        }
+
+        $rowIndex = 2;
+        foreach ($rows as $row) {
+            $createdAt = $row->created_at instanceof Carbon ? $row->created_at->format('Y-m-d H:i:s') : (string) ($row->created_at ?? '');
+            $employeeName = (string) (optional($row->employee)->name ?? optional($row->user)->name ?? '-');
+            $departmentName = (string) (optional(optional($row->employee)->department)->name ?? optional(optional($row->user)->department)->name ?? '-');
+            $overtimeDate = $row->overtime_date instanceof Carbon ? $row->overtime_date->format('Y-m-d') : (string) ($row->overtime_date ?? '');
+            $reviewedAt = $row->reviewed_at instanceof Carbon ? $row->reviewed_at->format('Y-m-d H:i:s') : (string) ($row->reviewed_at ?? '');
+
+            $sheet->setCellValue('A' . $rowIndex, $createdAt);
+            $sheet->setCellValue('B' . $rowIndex, $employeeName);
+            $sheet->setCellValue('C' . $rowIndex, $departmentName);
+            $sheet->setCellValue('D' . $rowIndex, $overtimeDate);
+            $sheet->setCellValue('E' . $rowIndex, (string) ($row->start_time ?? '-'));
+            $sheet->setCellValue('F' . $rowIndex, (string) ($row->end_time ?? '-'));
+            $sheet->setCellValue('G' . $rowIndex, (string) ($row->hours ?? '-'));
+            $sheet->setCellValue('H' . $rowIndex, (string) ($row->reason ?? '-'));
+            $sheet->setCellValue('I' . $rowIndex, (string) ($row->status ?? '-'));
+            $sheet->setCellValue('J' . $rowIndex, (string) (optional($row->reviewer)->name ?? '-'));
+            $sheet->setCellValue('K' . $rowIndex, $reviewedAt !== '' ? $reviewedAt : '-');
+            $sheet->setCellValue('L' . $rowIndex, (string) ($row->review_notes ?? '-'));
+            $sheet->setCellValue('M' . $rowIndex, (string) ($row->attachment_url ?? '-'));
+            $rowIndex++;
+        }
+
+        foreach (range('A', 'M') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filename = 'overtime_' . now()->format('Ymd_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
         ]);
     }
 
@@ -406,7 +503,7 @@ class OvertimeController extends Controller
             'start_time' => 'required',
             'end_time' => 'required|after:start_time',
             'reason' => 'required|string|min:5',
-            'attachment' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ]);
 
         $actorId = Auth::id();

@@ -8,7 +8,8 @@ class DepartmentScope
 {
     /**
      * Business rule: Operational (OPS) manager can manage additional departments.
-     * This mirrors the roster approval behavior (OPS can approve INV, RSC, ADL).
+     * This mirrors the roster approval behavior (OPS can approve INV, RSC, ADL),
+     * plus HSE approvals are handled by OPS manager.
      */
     public static function expandManagedDepartmentIds(array $baseDepartmentIds): array
     {
@@ -30,7 +31,7 @@ class DepartmentScope
         }
 
         $extraIds = Department::query()
-            ->whereIn('code', ['INV', 'RSC', 'ADL'])
+            ->whereIn('code', ['INV', 'RSC', 'ADL', 'HSE'])
             ->pluck('id')
             ->map(fn($id) => (int) $id)
             ->all();
@@ -38,4 +39,3 @@ class DepartmentScope
         return array_values(array_unique(array_merge($baseIds, $extraIds)));
     }
 }
-

@@ -247,7 +247,9 @@ class LeavePermissionController extends Controller
             $query->where('end_date', '<=', $endDate);
         }
 
-        $leavePermissions = $query->orderBy('created_at', 'desc')
+        $leavePermissions = $query
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
             ->paginate(10)
             ->withQueryString();
 

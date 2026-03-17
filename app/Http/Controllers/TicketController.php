@@ -137,7 +137,11 @@ class TicketController extends Controller
             $query->whereRaw('0 = 1');
         }
 
-        $tickets = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
+        $tickets = $query
+            ->orderByRaw('CASE WHEN deadline_request IS NOT NULL AND deadline_approved IS NULL THEN 0 ELSE 1 END')
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
 
         // include departments for filter
         $departments = Department::active()->select('id', 'name', 'code')->get();

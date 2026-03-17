@@ -56,9 +56,10 @@
                     rel="noopener"
                     class="text-indigo-400 hover:text-indigo-300 underline"
                   >
-                    Lihat Gambar
+                    Lihat Attachment
                   </a>
                   <img
+                    v-if="!isPdfAttachment(overtime)"
                     :src="overtime.attachment_url"
                     alt="Attachment lembur"
                     class="max-h-72 rounded border border-slate-700 object-contain bg-slate-900/40"
@@ -140,6 +141,12 @@ const props = defineProps({
   isAdmin: Boolean,
   isManager: Boolean,
 });
+
+function isPdfAttachment(item) {
+  const name = String(item?.attachment_original_name || '').toLowerCase();
+  const url = String(item?.attachment_url || '').toLowerCase();
+  return name.endsWith('.pdf') || url.includes('.pdf');
+}
 
 function formatDate(date) {
   if (!date) return '-';

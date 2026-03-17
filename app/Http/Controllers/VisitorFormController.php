@@ -47,6 +47,7 @@ class VisitorFormController extends Controller
         $this->applyFilters($query, $filters);
 
         $visitors = $query
+            ->orderByRaw("CASE WHEN approval_status = 'pending' THEN 0 WHEN approval_status = 'partially_approved' THEN 1 ELSE 2 END")
             ->orderByDesc('visit_date')
             ->orderByDesc('id')
             ->paginate(20)
