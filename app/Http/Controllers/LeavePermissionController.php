@@ -414,18 +414,21 @@ class LeavePermissionController extends Controller
 
         $requestedEmployeeId = $data['employee_id'] ?? null;
         $canSubmitForOthers = $this->isAdmin($actorId) || $this->isManager($actorId) || $this->isSupervisor($actorId);
+        $selfEmployeeId = (int) (Employee::where('user_id', $actorId)->value('id') ?? 0);
 
         if ($requestedEmployeeId !== null) {
             if (!$canSubmitForOthers) {
-                return back()->withErrors([
-                    'employee_id' => 'Anda tidak memiliki izin untuk memilih karyawan lain.',
-                ]);
+                if ($selfEmployeeId <= 0 || (int) $requestedEmployeeId !== $selfEmployeeId) {
+                    return back()->withErrors([
+                        'employee_id' => 'Anda tidak memiliki izin untuk memilih karyawan lain.',
+                    ]);
+                }
             }
 
             $targetEmployeeId = (int) $requestedEmployeeId;
         } else {
             // No selection provided: default to actor's employee record.
-            $targetEmployeeId = (int) (Employee::where('user_id', $actorId)->value('id') ?? 0);
+            $targetEmployeeId = $selfEmployeeId;
         }
 
         if ($targetEmployeeId <= 0) {
