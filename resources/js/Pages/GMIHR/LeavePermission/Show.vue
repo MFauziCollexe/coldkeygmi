@@ -48,10 +48,10 @@
               </div>
 
               <div>
-                <div class="text-slate-400 text-sm">Gambar</div>
+                <div class="text-slate-400 text-sm">Attachment</div>
                 <div v-if="leavePermission.image_url">
                   <button type="button" @click="openImage(leavePermission.image_url)" class="text-indigo-400 hover:text-indigo-300">
-                    Lihat Gambar
+                    Lihat Attachment
                   </button>
                 </div>
                 <div v-else>-</div>
@@ -223,7 +223,15 @@ function rejectRequest() {
 }
 
 function openImage(url) {
-  previewImage.value = url || '';
+  const u = String(url || '');
+  if (!u) return;
+
+  if (u.toLowerCase().includes('.pdf')) {
+    window.open(u, '_blank', 'noopener');
+    return;
+  }
+
+  previewImage.value = u;
 }
 
 function closeImage() {

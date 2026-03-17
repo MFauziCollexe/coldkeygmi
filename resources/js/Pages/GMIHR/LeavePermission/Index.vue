@@ -89,7 +89,7 @@
               <th>Tanggal Selesai</th>
               <th>Jumlah Hari</th>
               <th>Alasan</th>
-              <th>Gambar</th>
+              <th>Attachment</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -333,6 +333,24 @@ function viewDetail(item) {
   showDetailModal.value = true;
 }
 
+function isPdfUrl(url) {
+  const u = String(url || '').toLowerCase();
+  return u.includes('.pdf');
+}
+
+function openImage(url) {
+  if (!url) return;
+  if (isPdfUrl(url)) {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  previewImage.value = url;
+}
+
+function closeImage() {
+  previewImage.value = '';
+}
+
 async function approveRequest(item) {
   const ok = await swalConfirm({
     title: 'Approve Request',
@@ -366,14 +384,6 @@ function rejectRequest(item) {
       fetchData();
     },
   });
-}
-
-function openImage(url) {
-  previewImage.value = url || '';
-}
-
-function closeImage() {
-  previewImage.value = '';
 }
 
 async function deleteRequest(item) {

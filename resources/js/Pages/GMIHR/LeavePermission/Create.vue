@@ -108,7 +108,7 @@
         </div>
 
         <div>
-          <label class="block text-sm text-slate-300">Attachments</label>
+          <label class="block text-sm text-slate-300">Attachment</label>
           <div
             class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition"
             :class="dragActive ? 'border-indigo-500 bg-slate-700/40' : 'border-slate-600'"
@@ -117,13 +117,13 @@
             @dragleave.prevent="onDragLeave"
             @drop.prevent="onDrop"
           >
-            <p class="text-slate-300 font-medium mb-2">Upload image attachment</p>
-            <p class="text-slate-500 text-sm mb-4">Format: image (JPG, PNG, WEBP)</p>
+            <p class="text-slate-300 font-medium mb-2">Upload attachment</p>
+            <p class="text-slate-500 text-sm mb-4">Format: JPG, PNG, WEBP, PDF (max 5MB)</p>
             <p class="text-indigo-300 text-sm">Klik area ini atau drag-and-drop file</p>
             <input
               ref="fileInput"
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf,.pdf"
               class="hidden"
               @change="onImageChange"
             />

@@ -406,7 +406,7 @@ class LeavePermissionController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'reason' => 'required|string|min:5',
-            'attachment_image' => 'nullable|image|max:5120',
+            'attachment_image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ]);
 
         $actorId = Auth::id();
