@@ -50,8 +50,16 @@
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ batch.saved_rows }}/{{ batch.total_rows }}</td>
                 <td class="py-2 pr-3 align-top truncate" :title="batch.uploader?.name || '-'">{{ batch.uploader?.name || '-' }}</td>
                 <td class="py-2 pr-3 align-top truncate" :title="batch.approver?.name || '-'">{{ batch.approver?.name || '-' }}</td>
-                <td class="py-2 pr-3 align-top">
-                  <div class="roster-note" :title="noteText(batch)">{{ noteText(batch) }}</div>
+                <td class="py-2 pr-3 align-top relative overflow-visible">
+                  <div class="roster-note">{{ noteText(batch) }}</div>
+                  <button
+                    v-if="shouldShowReadMore(noteText(batch))"
+                    type="button"
+                    class="mt-1 text-xs text-sky-300 hover:text-sky-200 underline decoration-dotted"
+                    @click.stop="showNoteTooltip(noteText(batch), $event)"
+                  >
+                    Read more
+                  </button>
                 </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ formatDate(batch.created_at) }}</td>
                 <td class="py-2 align-top">
@@ -125,12 +133,30 @@
           </div>
         </div>
       </div>
+
+      <div v-if="noteTooltip.visible" class="fixed inset-0 z-50" @click="hideNoteTooltip">
+        <div
+          class="fixed z-50 max-w-[320px] bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg shadow-xl p-3"
+          :style="{ top: `${noteTooltip.top}px`, left: `${noteTooltip.left}px` }"
+          @click.stop
+        >
+          <div class="font-semibold text-slate-200 mb-1">Catatan</div>
+          <div class="whitespace-pre-wrap">{{ noteTooltip.text }}</div>
+          <button
+            type="button"
+            class="mt-2 text-xs text-slate-300 hover:text-white"
+            @click="hideNoteTooltip"
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
@@ -173,6 +199,13 @@ const viewSummary = reactive({
   total_preview_rows: 0,
   valid_rows: 0,
   invalid_rows: 0,
+});
+
+const noteTooltip = reactive({
+  visible: false,
+  text: '',
+  top: 0,
+  left: 0,
 });
 
 const viewColumns = computed(() => {
@@ -224,6 +257,48 @@ function monthLabel(month) {
   return months.find((m) => Number(m.value) === Number(month))?.label || '';
 }
 
+function shouldShowReadMore(text) {
+  return String(text || '').trim().length > 80;
+}
+
+function showNoteTooltip(text, event) {
+  const note = String(text || '').trim();
+  if (!note) return;
+  const rect = event?.currentTarget?.getBoundingClientRect?.();
+  const padding = 12;
+  const tooltipWidth = 320;
+  const viewportWidth = window.innerWidth || 0;
+  const viewportHeight = window.innerHeight || 0;
+
+  let left = rect ? rect.left : padding;
+  let top = rect ? rect.bottom + 8 : padding;
+
+  if (left + tooltipWidth + padding > viewportWidth) {
+    left = Math.max(padding, viewportWidth - tooltipWidth - padding);
+  }
+
+  const estimatedHeight = 180;
+  if (top + estimatedHeight + padding > viewportHeight) {
+    top = Math.max(padding, (rect ? rect.top : viewportHeight - estimatedHeight) - estimatedHeight - 8);
+  }
+
+  noteTooltip.text = note;
+  noteTooltip.left = Math.round(left);
+  noteTooltip.top = Math.round(top);
+  noteTooltip.visible = true;
+}
+
+function hideNoteTooltip() {
+  noteTooltip.visible = false;
+  noteTooltip.text = '';
+}
+
+function handleEscape(event) {
+  if (event.key === 'Escape') {
+    hideNoteTooltip();
+  }
+}
+
 function goToPage(page) {
   const current = Number(props.batches?.current_page || 1);
   const last = Number(props.batches?.last_page || 1);
@@ -251,6 +326,14 @@ function noteText(batch) {
   if (batch.status === 'rejected') return batch.reject_reason || '-';
   return batch.change_reason || '-';
 }
+
+onMounted(() => {
+  window.addEventListener('keydown', handleEscape);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleEscape);
+});
 
 function closeViewModal() {
   showViewModal.value = false;
@@ -415,9 +498,11 @@ async function exportViewAsImage() {
 <style scoped>
 .roster-note {
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  line-height: 1.25rem;
+  min-height: calc(1.25rem * 2);
   word-break: break-word;
 }
 </style>
