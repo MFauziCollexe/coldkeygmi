@@ -63,7 +63,7 @@ class RosterController extends Controller
             ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
             ->orderByDesc('is_current')
             ->orderByDesc('id')
-            ->get([
+            ->paginate(8, [
                 'id',
                 'month',
                 'year',
@@ -82,12 +82,12 @@ class RosterController extends Controller
                 'change_reason',
                 'reject_reason',
                 'created_at',
-            ]);
-
-        $batches = $batches->map(function ($batch) use ($user) {
-            $batch->can_approve = $this->canApproveBatch($user, $batch);
-            return $batch;
-        });
+            ])
+            ->withQueryString()
+            ->through(function ($batch) use ($user) {
+                $batch->can_approve = $this->canApproveBatch($user, $batch);
+                return $batch;
+            });
 
         return Inertia::render('GMIHR/Roster/List', [
             'batches' => $batches,

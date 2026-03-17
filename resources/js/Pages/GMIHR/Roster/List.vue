@@ -9,81 +9,86 @@
       </div>
 
       <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
-        <div v-if="!batches.length" class="text-slate-400 text-sm">Belum ada data roster.</div>
+        <div v-if="!batches.data.length" class="text-slate-400 text-sm">Belum ada data roster.</div>
         <div v-else class="overflow-auto">
-          <table class="w-full text-sm">
+          <table class="w-full min-w-[1120px] text-sm table-fixed">
             <thead class="text-slate-400 border-b border-slate-700">
               <tr>
-                <th class="text-left py-2 pr-3">Periode</th>
-                <th class="text-left py-2 pr-3">Versi</th>
-                <th class="text-left py-2 pr-3">File</th>
-                <th class="text-left py-2 pr-3">Status</th>
-                <th class="text-left py-2 pr-3">Rows</th>
-                <th class="text-left py-2 pr-3">Uploader</th>
-                <th class="text-left py-2 pr-3">Approver</th>
-                <th class="text-left py-2 pr-3">Catatan</th>
-                <th class="text-left py-2 pr-3">Waktu</th>
-                <th class="text-left py-2">Aksi</th>
+                <th class="text-left py-2 pr-3 w-[96px]">Periode</th>
+                <th class="text-left py-2 pr-3 w-[96px]">Versi</th>
+                <th class="text-left py-2 pr-3 w-[280px]">File</th>
+                <th class="text-left py-2 pr-3 w-[124px]">Status</th>
+                <th class="text-left py-2 pr-3 w-[92px]">Rows</th>
+                <th class="text-left py-2 pr-3 w-[132px]">Uploader</th>
+                <th class="text-left py-2 pr-3 w-[132px]">Approver</th>
+                <th class="text-left py-2 pr-3 w-[320px]">Catatan</th>
+                <th class="text-left py-2 pr-3 w-[176px]">Waktu</th>
+                <th class="text-left py-2 w-[220px]">Aksi</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="batch in batches" :key="batch.id" class="border-b border-slate-700/60">
-                <td class="py-2 pr-3">{{ batch.month }}/{{ batch.year }}</td>
-                <td class="py-2 pr-3">
+              <tr v-for="batch in batches.data" :key="batch.id" class="border-b border-slate-700/60">
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ batch.month }}/{{ batch.year }}</td>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">
                   <span class="font-semibold">v{{ batch.version || 1 }}</span>
                   <span v-if="batch.is_current" class="ml-2 text-xs px-2 py-0.5 rounded bg-emerald-700/40 text-emerald-200">Current</span>
                 </td>
-                <td class="py-2 pr-3">
+                <td class="py-2 pr-3 align-top">
                   <a
                     :href="`/roster/${batch.id}/download`"
-                    class="text-sky-300 hover:text-sky-200 underline decoration-dotted"
+                    class="block truncate text-sky-300 hover:text-sky-200 underline decoration-dotted"
                     :title="`Download ${batch.filename || 'file roster'}`"
                   >
-                    {{ batch.filename }}
+                    {{ batch.filename || '-' }}
                   </a>
                 </td>
-                <td class="py-2 pr-3">
-                  <span :class="statusClass(batch.status)" class="px-2 py-1 rounded text-xs font-semibold">
+                <td class="py-2 pr-3 align-top whitespace-nowrap">
+                  <span :class="statusClass(batch.status)" class="inline-flex px-2 py-1 rounded text-xs font-semibold whitespace-nowrap">
                     {{ statusLabel(batch.status) }}
                   </span>
                 </td>
-                <td class="py-2 pr-3">{{ batch.saved_rows }}/{{ batch.total_rows }}</td>
-                <td class="py-2 pr-3">{{ batch.uploader?.name || '-' }}</td>
-                <td class="py-2 pr-3">{{ batch.approver?.name || '-' }}</td>
-                <td class="py-2 pr-3 max-w-[320px]">
-                  <span v-if="batch.status === 'rejected'">{{ batch.reject_reason || '-' }}</span>
-                  <span v-else>{{ batch.change_reason || '-' }}</span>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ batch.saved_rows }}/{{ batch.total_rows }}</td>
+                <td class="py-2 pr-3 align-top truncate" :title="batch.uploader?.name || '-'">{{ batch.uploader?.name || '-' }}</td>
+                <td class="py-2 pr-3 align-top truncate" :title="batch.approver?.name || '-'">{{ batch.approver?.name || '-' }}</td>
+                <td class="py-2 pr-3 align-top">
+                  <div class="roster-note" :title="noteText(batch)">{{ noteText(batch) }}</div>
                 </td>
-                <td class="py-2 pr-3">{{ formatDate(batch.created_at) }}</td>
-                <td class="py-2 flex items-center gap-2">
-                  <button
-                    class="px-3 py-1.5 rounded bg-sky-600 text-white hover:bg-sky-500 disabled:opacity-60"
-                    :disabled="viewLoadingId === batch.id"
-                    @click="viewBatch(batch)"
-                  >
-                    {{ viewLoadingId === batch.id ? 'Loading...' : 'View' }}
-                  </button>
-                  <button
-                    v-if="batch.can_approve && batch.status === 'pending'"
-                    class="px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
-                    :disabled="loadingId === batch.id"
-                    @click="approveBatch(batch)"
-                  >
-                    {{ loadingId === batch.id ? 'Approving...' : 'Approve' }}
-                  </button>
-                  <button
-                    v-if="batch.can_approve && batch.status === 'pending'"
-                    class="px-3 py-1.5 rounded bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-60"
-                    :disabled="rejectingId === batch.id"
-                    @click="rejectBatch(batch)"
-                  >
-                    {{ rejectingId === batch.id ? 'Rejecting...' : 'Reject' }}
-                  </button>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ formatDate(batch.created_at) }}</td>
+                <td class="py-2 align-top">
+                  <div class="flex items-center gap-2">
+                    <button
+                      class="px-3 py-1.5 rounded bg-sky-600 text-white hover:bg-sky-500 disabled:opacity-60"
+                      :disabled="viewLoadingId === batch.id"
+                      @click="viewBatch(batch)"
+                    >
+                      {{ viewLoadingId === batch.id ? 'Loading...' : 'View' }}
+                    </button>
+                    <button
+                      v-if="batch.can_approve && batch.status === 'pending'"
+                      class="px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
+                      :disabled="loadingId === batch.id"
+                      @click="approveBatch(batch)"
+                    >
+                      {{ loadingId === batch.id ? 'Approving...' : 'Approve' }}
+                    </button>
+                    <button
+                      v-if="batch.can_approve && batch.status === 'pending'"
+                      class="px-3 py-1.5 rounded bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-60"
+                      :disabled="rejectingId === batch.id"
+                      @click="rejectBatch(batch)"
+                    >
+                      {{ rejectingId === batch.id ? 'Rejecting...' : 'Reject' }}
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div v-if="batches.last_page > 1" class="flex items-center justify-end text-sm">
+        <Pagination :paginator="batches" :onPageChange="goToPage" />
       </div>
 
       <p v-if="message.text" :class="message.type === 'error' ? 'text-rose-300' : 'text-emerald-300'" class="text-sm">
@@ -133,11 +138,17 @@ import html2canvas from 'html2canvas';
 import { toPng, toJpeg } from 'html-to-image';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RosterPreviewMatrix from '@/Pages/GMIHR/Roster/Components/RosterPreviewMatrix.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
   batches: {
-    type: Array,
-    default: () => [],
+    type: Object,
+    default: () => ({
+      data: [],
+      current_page: 1,
+      last_page: 1,
+      per_page: 8,
+    }),
   },
   canApprove: {
     type: Boolean,
@@ -213,6 +224,14 @@ function monthLabel(month) {
   return months.find((m) => Number(m.value) === Number(month))?.label || '';
 }
 
+function goToPage(page) {
+  const current = Number(props.batches?.current_page || 1);
+  const last = Number(props.batches?.last_page || 1);
+  const target = Math.min(Math.max(1, Number(page || 1)), last);
+  if (target === current) return;
+  router.get('/roster/list', { page: target }, { preserveState: true, preserveScroll: true });
+}
+
 function statusClass(status) {
   if (status === 'approved') return 'bg-emerald-600/30 text-emerald-200';
   if (status === 'pending') return 'bg-amber-600/30 text-amber-200';
@@ -225,6 +244,12 @@ function statusLabel(status) {
   if (status === 'pending') return 'Pending Manager';
   if (status === 'rejected') return 'Rejected';
   return status || '-';
+}
+
+function noteText(batch) {
+  if (!batch) return '-';
+  if (batch.status === 'rejected') return batch.reject_reason || '-';
+  return batch.change_reason || '-';
 }
 
 function closeViewModal() {
@@ -386,3 +411,13 @@ async function exportViewAsImage() {
   }
 }
 </script>
+
+<style scoped>
+.roster-note {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+</style>
