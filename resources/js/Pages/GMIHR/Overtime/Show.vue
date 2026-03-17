@@ -46,6 +46,25 @@
                 <div class="text-slate-400 text-sm">Alasan</div>
                 <div>{{ overtime.reason }}</div>
               </div>
+
+              <div v-if="overtime.attachment_url">
+                <div class="text-slate-400 text-sm">Attachment</div>
+                <div class="mt-2 space-y-2">
+                  <a
+                    :href="overtime.attachment_url"
+                    target="_blank"
+                    rel="noopener"
+                    class="text-indigo-400 hover:text-indigo-300 underline"
+                  >
+                    Lihat Gambar
+                  </a>
+                  <img
+                    :src="overtime.attachment_url"
+                    alt="Attachment lembur"
+                    class="max-h-72 rounded border border-slate-700 object-contain bg-slate-900/40"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -56,7 +75,7 @@
             <div class="space-y-4">
               <div>
                 <div class="text-slate-400 text-sm">Nama Karyawan</div>
-                <div>{{ overtime.user?.name || '-' }}</div>
+                <div>{{ overtime.employee?.name || overtime.user?.name || '-' }}</div>
               </div>
               
               <div>
@@ -66,7 +85,7 @@
               
               <div>
                 <div class="text-slate-400 text-sm">Department</div>
-                <div>{{ overtime.user?.department?.name || '-' }}</div>
+                <div>{{ overtime.employee?.department?.name || overtime.user?.department?.name || '-' }}</div>
               </div>
               
               <div>

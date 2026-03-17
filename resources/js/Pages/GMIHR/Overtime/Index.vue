@@ -97,8 +97,8 @@
             <tr v-for="(item, index) in overtimes.data" :key="item.id" class="border-t border-slate-700">
               <td class="py-3">{{ index + 1 }}</td>
               <td>{{ formatDate(item.created_at) }}</td>
-              <td>{{ item.user?.name || '-' }}</td>
-              <td>{{ item.user?.department?.name || '-' }}</td>
+              <td>{{ item.employee?.name || item.user?.name || '-' }}</td>
+              <td>{{ item.employee?.department?.name || item.user?.department?.name || '-' }}</td>
               <td>{{ formatDate(item.overtime_date) }}</td>
               <td>{{ item.start_time }}</td>
               <td>{{ item.end_time }}</td>
@@ -148,11 +148,11 @@
           <div class="space-y-3">
             <div class="flex justify-between">
               <span class="text-slate-400">Karyawan:</span>
-              <span>{{ selectedItem?.user?.name }}</span>
+              <span>{{ selectedItem?.employee?.name || selectedItem?.user?.name }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Department:</span>
-              <span>{{ selectedItem?.user?.department?.name }}</span>
+              <span>{{ selectedItem?.employee?.department?.name || selectedItem?.user?.department?.name }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Tanggal Lembur:</span>
@@ -173,6 +173,24 @@
             <div class="flex justify-between">
               <span class="text-slate-400">Alasan:</span>
               <span>{{ selectedItem?.reason }}</span>
+            </div>
+            <div v-if="selectedItem?.attachment_url" class="flex justify-between">
+              <span class="text-slate-400">Attachment:</span>
+              <a
+                :href="selectedItem.attachment_url"
+                target="_blank"
+                rel="noopener"
+                class="text-indigo-400 hover:text-indigo-300 underline"
+              >
+                Lihat Gambar
+              </a>
+            </div>
+            <div v-if="selectedItem?.attachment_url" class="pt-2">
+              <img
+                :src="selectedItem.attachment_url"
+                alt="Attachment lembur"
+                class="max-h-56 rounded border border-slate-700 object-contain bg-slate-900/40"
+              />
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Status:</span>

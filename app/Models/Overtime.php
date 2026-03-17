@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Overtime extends Model
 {
@@ -11,15 +12,22 @@ class Overtime extends Model
 
     protected $fillable = [
         'user_id',
+        'employee_id',
         'overtime_date',
         'start_time',
         'end_time',
         'hours',
         'reason',
+        'attachment_path',
+        'attachment_original_name',
         'status',
         'reviewed_by',
         'reviewed_at',
         'review_notes',
+    ];
+
+    protected $appends = [
+        'attachment_url',
     ];
 
     protected $casts = [
@@ -28,6 +36,14 @@ class Overtime extends Model
         'end_time' => 'datetime:H:i',
         'reviewed_at' => 'datetime',
     ];
+
+    /**
+     * Get the employee associated with the overtime request.
+     */
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class);
+    }
 
     /**
      * Get the user who created this overtime request
@@ -43,6 +59,16 @@ class Overtime extends Model
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function getAttachmentUrlAttribute(): ?string
+    {
+        $path = trim((string) ($this->attachment_path ?? ''));
+        if ($path === '') {
+            return null;
+        }
+
+        return Storage::disk('public')->url($path);
     }
 
     /**
