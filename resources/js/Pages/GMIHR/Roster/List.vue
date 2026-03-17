@@ -50,8 +50,9 @@
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ batch.saved_rows }}/{{ batch.total_rows }}</td>
                 <td class="py-2 pr-3 align-top truncate" :title="batch.uploader?.name || '-'">{{ batch.uploader?.name || '-' }}</td>
                 <td class="py-2 pr-3 align-top truncate" :title="batch.approver?.name || '-'">{{ batch.approver?.name || '-' }}</td>
-                <td class="py-2 pr-3 align-top relative overflow-visible">
-                  <div class="roster-note">{{ noteText(batch) }}</div>
+                <td class="py-2 pr-3 align-top overflow-visible">
+                  <div class="roster-note-wrap">
+                    <div class="roster-note">{{ noteText(batch) }}</div>
                   <button
                     v-if="shouldShowReadMore(noteText(batch))"
                     type="button"
@@ -60,6 +61,7 @@
                   >
                     Read more
                   </button>
+                  </div>
                 </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ formatDate(batch.created_at) }}</td>
                 <td class="py-2 align-top">
@@ -496,6 +498,10 @@ async function exportViewAsImage() {
 </script>
 
 <style scoped>
+.roster-note-wrap {
+  position: relative;
+}
+
 .roster-note {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -503,6 +509,7 @@ async function exportViewAsImage() {
   overflow: hidden;
   line-height: 1.25rem;
   min-height: calc(1.25rem * 2);
+  padding-right: 3.75rem;
   word-break: break-word;
 }
 
@@ -510,7 +517,8 @@ async function exportViewAsImage() {
   position: absolute;
   bottom: 0.25rem;
   right: 0.5rem;
-  background: rgba(15, 23, 42, 0.9);
-  padding-left: 0.25rem;
+  background: rgba(15, 23, 42, 0.95);
+  padding: 0 0.25rem;
+  border-radius: 4px;
 }
 </style>
