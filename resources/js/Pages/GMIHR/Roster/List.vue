@@ -55,7 +55,7 @@
                   <button
                     v-if="shouldShowReadMore(noteText(batch))"
                     type="button"
-                    class="mt-1 text-xs text-sky-300 hover:text-sky-200 underline decoration-dotted"
+                    class="roster-readmore text-xs text-sky-300 hover:text-sky-200 underline decoration-dotted"
                     @click.stop="showNoteTooltip(noteText(batch), $event)"
                   >
                     Read more
@@ -504,5 +504,13 @@ async function exportViewAsImage() {
   line-height: 1.25rem;
   min-height: calc(1.25rem * 2);
   word-break: break-word;
+}
+
+.roster-readmore {
+  position: absolute;
+  bottom: 0.25rem;
+  right: 0.5rem;
+  background: rgba(15, 23, 42, 0.9);
+  padding-left: 0.25rem;
 }
 </style>
