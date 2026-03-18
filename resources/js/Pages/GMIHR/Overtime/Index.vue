@@ -122,9 +122,9 @@
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ item.hours }} jam</td>
                 <td class="py-2 pr-3 align-top overflow-visible">
                   <div class="overtime-reason-wrap">
-                    <div class="overtime-reason">{{ item.reason || '-' }}</div>
+                    <div :ref="(el) => setReasonElement(item.id, el)" class="overtime-reason">{{ item.reason || '-' }}</div>
                     <button
-                      v-if="shouldShowReasonMore(item.reason)"
+                      v-if="shouldShowReasonMore(item)"
                       type="button"
                       class="overtime-readmore text-xs text-sky-300 hover:text-sky-200 underline decoration-dotted"
                       @click.stop="showReasonTooltip(item.reason, $event)"
@@ -276,7 +276,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
+import { ref, reactive, nextTick, onMounted, onBeforeUnmount, onUpdated } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -302,6 +302,8 @@ const filters = reactive({
 const showCreateModal = ref(false);
 const showDetailModal = ref(false);
 const selectedItem = ref(null);
+const reasonElements = new Map();
+const reasonOverflow = reactive({});
 const reasonTooltip = reactive({
   visible: false,
   text: '',
@@ -386,8 +388,38 @@ function isPdfAttachment(item) {
   return name.endsWith('.pdf') || url.includes('.pdf');
 }
 
-function shouldShowReasonMore(text) {
-  return String(text || '').trim().length > 80;
+function setReasonElement(id, el) {
+  if (el) {
+    reasonElements.set(id, el);
+    return;
+  }
+
+  reasonElements.delete(id);
+  delete reasonOverflow[id];
+}
+
+function updateReasonOverflow() {
+  const activeIds = new Set();
+
+  reasonElements.forEach((el, id) => {
+    activeIds.add(String(id));
+    if (!el) {
+      reasonOverflow[id] = false;
+      return;
+    }
+
+    reasonOverflow[id] = (el.scrollHeight - el.clientHeight > 1) || (el.scrollWidth - el.clientWidth > 1);
+  });
+
+  Object.keys(reasonOverflow).forEach((key) => {
+    if (!activeIds.has(String(key))) {
+      delete reasonOverflow[key];
+    }
+  });
+}
+
+function shouldShowReasonMore(item) {
+  return Boolean(reasonOverflow[item?.id]);
 }
 
 function showReasonTooltip(text, event) {
@@ -466,10 +498,15 @@ function rejectRequest(item) {
 
 onMounted(() => {
   window.addEventListener('keydown', handleEscape);
+  nextTick(updateReasonOverflow);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleEscape);
+});
+
+onUpdated(() => {
+  nextTick(updateReasonOverflow);
 });
 </script>
 
