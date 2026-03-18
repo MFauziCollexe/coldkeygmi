@@ -335,6 +335,9 @@ Route::get('leave-permission', [App\Http\Controllers\LeavePermissionController::
 Route::get('leave-permission/create', [App\Http\Controllers\LeavePermissionController::class, 'create'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission'])
     ->name('leave-permission.create');
+Route::get('leave-permission/{leavePermission}/edit', [App\Http\Controllers\LeavePermissionController::class, 'edit'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission'])
+    ->name('leave-permission.edit');
 Route::post('leave-permission', [App\Http\Controllers\LeavePermissionController::class, 'store'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission'])
     ->name('leave-permission.store');
@@ -351,6 +354,8 @@ Route::get('leave-permission/{leavePermission}', [App\Http\Controllers\LeavePerm
 Route::get('gmihr/attendance/leave-permission', [App\Http\Controllers\LeavePermissionController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission']);
 Route::get('gmihr/attendance/leave-permission/create', [App\Http\Controllers\LeavePermissionController::class, 'create'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission']);
+Route::get('gmihr/attendance/leave-permission/{leavePermission}/edit', [App\Http\Controllers\LeavePermissionController::class, 'edit'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission']);
 Route::post('gmihr/attendance/leave-permission', [App\Http\Controllers\LeavePermissionController::class, 'store'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission']);

@@ -64,6 +64,48 @@ class LeavePermissionController extends Controller
     }
 
     /**
+     * Check if user belongs to IT department.
+     */
+    protected function isItUser($userId): bool
+    {
+        if (!$userId) {
+            return false;
+        }
+
+        $user = User::query()
+            ->with('department:id,code,name')
+            ->find($userId);
+
+        $department = $user?->department;
+
+        if (!$department) {
+            $employeeDepartmentId = (int) (Employee::where('user_id', $userId)->value('department_id') ?? 0);
+            if ($employeeDepartmentId > 0) {
+                $department = Department::query()
+                    ->select('id', 'code', 'name')
+                    ->find($employeeDepartmentId);
+            }
+        }
+
+        if (!$department) {
+            return false;
+        }
+
+        $code = strtoupper(trim((string) ($department->code ?? '')));
+        $name = strtoupper(trim((string) ($department->name ?? '')));
+
+        if ($code === 'IT') {
+            return true;
+        }
+
+        if (str_contains($name, 'INFORMATION TECHNOLOGY')) {
+            return true;
+        }
+
+        return preg_match('/\bIT\b/', $name) === 1;
+    }
+
+    /**
      * Check if user is a supervisor.
      *
      * This project currently doesn't have an explicit `is_supervisor` flag on positions,
@@ -162,20 +204,59 @@ class LeavePermissionController extends Controller
             return false;
         }
 
-        $targetDeptId = (int) optional($leavePermission->employee)->department_id;
-        if ($targetDeptId <= 0) {
-            $targetDeptId = (int) optional($leavePermission->user)->department_id;
-        }
-        if ($targetDeptId <= 0 && $leavePermission->user_id) {
-            // Legacy rows without employee_id: attempt to resolve via employee.user_id
-            $targetDeptId = (int) Employee::where('user_id', (int) $leavePermission->user_id)->value('department_id');
-        }
+        $targetDeptId = $this->resolveLeavePermissionDepartmentId($leavePermission);
         if ($targetDeptId <= 0) {
             return false;
         }
 
         $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
         return in_array($targetDeptId, $visibleDeptIds, true);
+    }
+
+    protected function resolveLeavePermissionDepartmentId(LeavePermission $leavePermission): int
+    {
+        $targetDeptId = (int) optional($leavePermission->employee)->department_id;
+        if ($targetDeptId <= 0) {
+            $targetDeptId = (int) optional($leavePermission->user)->department_id;
+        }
+        if ($targetDeptId <= 0 && $leavePermission->user_id) {
+            $targetDeptId = (int) Employee::where('user_id', (int) $leavePermission->user_id)->value('department_id');
+        }
+
+        return $targetDeptId;
+    }
+
+    protected function canAccessLeavePermission($userId, LeavePermission $leavePermission): bool
+    {
+        if ($this->isAdmin($userId)) {
+            return true;
+        }
+
+        $targetDeptId = $this->resolveLeavePermissionDepartmentId($leavePermission);
+        if ($targetDeptId <= 0) {
+            return false;
+        }
+
+        $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+        return in_array($targetDeptId, $visibleDeptIds, true);
+    }
+
+    protected function canEditRequestData($userId, LeavePermission $leavePermission): bool
+    {
+        if ($this->isAdmin($userId)) {
+            return true;
+        }
+
+        if (!$this->isItUser($userId)) {
+            return false;
+        }
+
+        return $this->canAccessLeavePermission($userId, $leavePermission);
+    }
+
+    protected function canEditCurrentStatus(LeavePermission $leavePermission): bool
+    {
+        return in_array((string) $leavePermission->status, ['pending', 'approved'], true);
     }
 
     /**
@@ -269,6 +350,7 @@ class LeavePermissionController extends Controller
             'departments' => $departments,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
+            'canEditLeavePermission' => $this->isAdmin($userId) || $this->isItUser($userId),
         ]);
     }
 
@@ -371,6 +453,35 @@ class LeavePermissionController extends Controller
     }
 
     /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit(LeavePermission $leavePermission)
+    {
+        $userId = Auth::id();
+
+        $leavePermission->load([
+            'employee',
+            'employee.department',
+            'user',
+            'user.department',
+        ]);
+
+        if (!$this->canEditRequestData($userId, $leavePermission)) {
+            abort(403, 'Hanya user IT yang dapat mengedit permintaan ini.');
+        }
+
+        if (!$this->canEditCurrentStatus($leavePermission)) {
+            abort(403, 'Hanya permintaan dengan status pending atau approved yang dapat diedit.');
+        }
+
+        $leavePermission->image_url = $leavePermission->attachment_image ? Storage::url($leavePermission->attachment_image) : null;
+
+        return Inertia::render('GMIHR/LeavePermission/Edit', [
+            'leavePermission' => $leavePermission,
+        ]);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(LeavePermission $leavePermission)
@@ -392,6 +503,7 @@ class LeavePermissionController extends Controller
             'leavePermission' => $leavePermission,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
+            'canEditLeavePermission' => $this->canEditRequestData($userId, $leavePermission),
         ]);
     }
 
@@ -472,39 +584,97 @@ class LeavePermissionController extends Controller
             'user:id,department_id',
         ]);
 
-        if (!$this->canReviewLeavePermission($userId, $leavePermission)) {
-            return response()->json([
-                'message' => 'Anda tidak memiliki izin untuk menyetujui/menolak permintaan ini.',
-            ], 403);
+        if ($request->has('status')) {
+            if (!$this->canReviewLeavePermission($userId, $leavePermission)) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki izin untuk menyetujui/menolak permintaan ini.',
+                ], 403);
+            }
+
+            $data = $request->validate([
+                'status' => 'required|in:approved,rejected',
+                'review_notes' => 'nullable|string',
+            ]);
+
+            $oldData = $leavePermission->toArray();
+            $data['reviewed_by'] = Auth::id();
+            $data['reviewed_at'] = now();
+
+            $leavePermission->update($data);
+
+            // Activity Log for Update (approve/reject)
+            $action = $data['status'] === 'approved' ? 'approved' : 'rejected';
+            $this->logActivity(
+                'leave_permissions',
+                $leavePermission->id,
+                $action,
+                $oldData,
+                $leavePermission->toArray(),
+                ucfirst($action) . ' leave permission request'
+            );
+
+            $message = $data['status'] === 'approved'
+                ? 'Permintaan telah disetujui.'
+                : 'Permintaan telah ditolak.';
+
+            return redirect()->back()->with('success', $message);
+        }
+
+        if (!$this->canEditRequestData($userId, $leavePermission)) {
+            abort(403, 'Hanya user IT yang dapat mengedit permintaan ini.');
+        }
+
+        if (!$this->canEditCurrentStatus($leavePermission)) {
+            return back()->withErrors([
+                'type' => 'Hanya permintaan dengan status pending atau approved yang dapat diedit.',
+            ]);
         }
 
         $data = $request->validate([
-            'status' => 'required|in:approved,rejected',
-            'review_notes' => 'nullable|string',
+            'type' => 'required|in:cuti,izin,sakit,dinas_luar',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'reason' => 'required|string|min:5',
+            'attachment_image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+            'remove_attachment' => 'nullable|boolean',
         ]);
 
         $oldData = $leavePermission->toArray();
-        $data['reviewed_by'] = Auth::id();
-        $data['reviewed_at'] = now();
+        $updateData = [
+            'type' => $data['type'],
+            'start_date' => $data['start_date'],
+            'end_date' => $data['end_date'],
+            'days' => LeavePermission::calculateDays($data['start_date'], $data['end_date']),
+            'reason' => $data['reason'],
+        ];
 
-        $leavePermission->update($data);
+        $removeAttachment = (bool) ($data['remove_attachment'] ?? false);
+        if ($removeAttachment && $leavePermission->attachment_image) {
+            Storage::disk('public')->delete($leavePermission->attachment_image);
+            $updateData['attachment_image'] = null;
+        }
 
-        // Activity Log for Update (approve/reject)
-        $action = $data['status'] === 'approved' ? 'approved' : 'rejected';
+        if ($request->hasFile('attachment_image')) {
+            if ($leavePermission->attachment_image) {
+                Storage::disk('public')->delete($leavePermission->attachment_image);
+            }
+
+            $updateData['attachment_image'] = $request->file('attachment_image')->store('leave-permission-images', 'public');
+        }
+
+        $leavePermission->update($updateData);
+
         $this->logActivity(
             'leave_permissions',
             $leavePermission->id,
-            $action,
+            'updated',
             $oldData,
             $leavePermission->toArray(),
-            ucfirst($action) . ' leave permission request'
+            'Updated leave permission request'
         );
 
-        $message = $data['status'] === 'approved' 
-            ? 'Permintaan telah disetujui.' 
-            : 'Permintaan telah ditolak.';
-
-        return redirect()->back()->with('success', $message);
+        return redirect()->route('leave-permission.show', $leavePermission)
+            ->with('success', 'Permintaan berhasil diperbarui.');
     }
 
     /**

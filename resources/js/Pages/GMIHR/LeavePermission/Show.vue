@@ -8,6 +8,13 @@
           </Link>
           <h2 class="text-2xl font-bold">Detail Permintaan</h2>
         </div>
+        <Link
+          v-if="canEditLeavePermission && ['pending', 'approved'].includes(leavePermission.status)"
+          :href="`/leave-permission/${leavePermission.id}/edit`"
+          class="px-4 py-2 rounded bg-amber-600 text-white hover:bg-amber-500"
+        >
+          Edit
+        </Link>
       </div>
 
       <div class="bg-slate-800 rounded p-6">
@@ -153,6 +160,7 @@ const props = defineProps({
   leavePermission: Object,
   isAdmin: Boolean,
   isManager: Boolean,
+  canEditLeavePermission: Boolean,
 });
 const previewImage = ref('');
 
