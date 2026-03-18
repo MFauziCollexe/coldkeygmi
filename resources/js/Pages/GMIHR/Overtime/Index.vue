@@ -85,52 +85,73 @@
       </div>
 
       <!-- Table -->
-      <div class="bg-slate-800 rounded p-4">
-        <table class="w-full table-auto">
-          <thead>
-            <tr class="text-left text-slate-400 border-b border-slate-700">
-              <th class="py-3">No</th>
-              <th>Tanggal Pengajuan</th>
-              <th>Karyawan</th>
-              <th>Department</th>
-              <th>Tanggal Lembur</th>
-              <th>Jam Mulai</th>
-              <th>Jam Selesai</th>
-              <th>Jumlah Jam</th>
-              <th>Alasan</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in overtimes.data" :key="item.id" class="border-t border-slate-700">
-              <td class="py-3">{{ index + 1 }}</td>
-              <td>{{ formatDate(item.created_at) }}</td>
-              <td>{{ item.employee?.name || item.user?.name || '-' }}</td>
-              <td>{{ item.employee?.department?.name || item.user?.department?.name || '-' }}</td>
-              <td>{{ formatDate(item.overtime_date) }}</td>
-              <td>{{ item.start_time }}</td>
-              <td>{{ item.end_time }}</td>
-              <td>{{ item.hours }} jam</td>
-              <td>{{ item.reason }}</td>
-              <td>
-                <span :class="getStatusClass(item.status)">
-                  {{ item.status }}
-                </span>
-              </td>
-              <td>
-                <Link :href="`/overtime/${item.id}`" class="text-indigo-400 hover:text-indigo-300">
-                  Detail
-                </Link>
-              </td>
-            </tr>
-            <tr v-if="!overtimes.data || overtimes.data.length === 0">
-              <td colspan="11" class="py-8 text-center text-slate-400">
-                Tidak ada data
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+        <div v-if="!overtimes.data || overtimes.data.length === 0" class="text-slate-400 text-sm">
+          Tidak ada data
+        </div>
+        <div v-else class="overflow-auto">
+          <table class="w-full min-w-[1220px] text-sm table-fixed">
+            <thead class="text-slate-400 border-b border-slate-700">
+              <tr>
+                <th class="text-left py-2 pr-3 w-[56px]">No</th>
+                <th class="text-left py-2 pr-3 w-[132px]">Tanggal Pengajuan</th>
+                <th class="text-left py-2 pr-3 w-[160px]">Karyawan</th>
+                <th class="text-left py-2 pr-3 w-[124px]">Department</th>
+                <th class="text-left py-2 pr-3 w-[110px]">Tanggal Lembur</th>
+                <th class="text-left py-2 pr-3 w-[92px]">Jam Mulai</th>
+                <th class="text-left py-2 pr-3 w-[92px]">Jam Selesai</th>
+                <th class="text-left py-2 pr-3 w-[92px]">Jumlah Jam</th>
+                <th class="text-left py-2 pr-3 w-[260px]">Alasan</th>
+                <th class="text-left py-2 pr-3 w-[110px]">Status</th>
+                <th class="text-left py-2 w-[120px]">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, index) in overtimes.data" :key="item.id" class="border-b border-slate-700/60">
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ index + 1 }}</td>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ formatDate(item.created_at) }}</td>
+                <td class="py-2 pr-3 align-top break-words" :title="item.employee?.name || item.user?.name || '-'">
+                  {{ item.employee?.name || item.user?.name || '-' }}
+                </td>
+                <td class="py-2 pr-3 align-top truncate" :title="item.employee?.department?.name || item.user?.department?.name || '-'">
+                  {{ item.employee?.department?.name || item.user?.department?.name || '-' }}
+                </td>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ formatDate(item.overtime_date) }}</td>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ item.start_time }}</td>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ item.end_time }}</td>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ item.hours }} jam</td>
+                <td class="py-2 pr-3 align-top overflow-visible">
+                  <div class="overtime-reason-wrap">
+                    <div class="overtime-reason">{{ item.reason || '-' }}</div>
+                    <button
+                      v-if="shouldShowReasonMore(item.reason)"
+                      type="button"
+                      class="overtime-readmore text-xs text-sky-300 hover:text-sky-200 underline decoration-dotted"
+                      @click.stop="showReasonTooltip(item.reason, $event)"
+                    >
+                      Read more
+                    </button>
+                  </div>
+                </td>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">
+                  <span :class="getStatusClass(item.status)" class="inline-flex px-2 py-1 rounded text-xs font-semibold whitespace-nowrap">
+                    {{ item.status }}
+                  </span>
+                </td>
+                <td class="py-2 align-top">
+                  <div class="flex items-center gap-3 whitespace-nowrap">
+                    <Link
+                      :href="`/overtime/${item.id}`"
+                      class="inline-flex items-center px-3 py-1.5 rounded bg-sky-600 text-white hover:bg-sky-500"
+                    >
+                      Detail
+                    </Link>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <!-- Pagination -->
         <div class="flex items-center justify-between mt-4">
@@ -203,7 +224,9 @@
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Status:</span>
-              <span :class="getStatusClass(selectedItem?.status)">{{ selectedItem?.status }}</span>
+              <span :class="getStatusClass(selectedItem?.status)" class="inline-flex px-2 py-1 rounded text-xs font-semibold">
+                {{ selectedItem?.status }}
+              </span>
             </div>
             <div v-if="selectedItem?.review_notes" class="flex justify-between">
               <span class="text-slate-400">Catatan:</span>
@@ -230,12 +253,30 @@
           </div>
         </div>
       </div>
+
+      <div v-if="reasonTooltip.visible" class="fixed inset-0 z-50" @click="hideReasonTooltip">
+        <div
+          class="fixed z-50 max-w-[320px] bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg shadow-xl p-3"
+          :style="{ top: `${reasonTooltip.top}px`, left: `${reasonTooltip.left}px` }"
+          @click.stop
+        >
+          <div class="font-semibold text-slate-200 mb-1">Alasan</div>
+          <div class="whitespace-pre-wrap">{{ reasonTooltip.text }}</div>
+          <button
+            type="button"
+            class="mt-2 text-xs text-slate-300 hover:text-white"
+            @click="hideReasonTooltip"
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -261,6 +302,12 @@ const filters = reactive({
 const showCreateModal = ref(false);
 const showDetailModal = ref(false);
 const selectedItem = ref(null);
+const reasonTooltip = reactive({
+  visible: false,
+  text: '',
+  top: 0,
+  left: 0,
+});
 const statusOptions = [
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
@@ -321,11 +368,11 @@ function formatDate(date) {
 
 function getStatusClass(status) {
   const classes = {
-    'pending': 'bg-yellow-600 text-white px-2 py-1 rounded text-xs',
-    'approved': 'bg-green-600 text-white px-2 py-1 rounded text-xs',
-    'rejected': 'bg-red-600 text-white px-2 py-1 rounded text-xs',
+    'pending': 'bg-amber-600/30 text-amber-200',
+    'approved': 'bg-emerald-600/30 text-emerald-200',
+    'rejected': 'bg-rose-600/30 text-rose-200',
   };
-  return classes[status] || 'bg-slate-600 text-white px-2 py-1 rounded text-xs';
+  return classes[status] || 'bg-slate-600/30 text-slate-200';
 }
 
 function viewDetail(item) {
@@ -337,6 +384,49 @@ function isPdfAttachment(item) {
   const name = String(item?.attachment_original_name || '').toLowerCase();
   const url = String(item?.attachment_url || '').toLowerCase();
   return name.endsWith('.pdf') || url.includes('.pdf');
+}
+
+function shouldShowReasonMore(text) {
+  return String(text || '').trim().length > 80;
+}
+
+function showReasonTooltip(text, event) {
+  const reason = String(text || '').trim();
+  if (!reason) return;
+
+  const rect = event?.currentTarget?.getBoundingClientRect?.();
+  const padding = 12;
+  const tooltipWidth = 320;
+  const viewportWidth = window.innerWidth || 0;
+  const viewportHeight = window.innerHeight || 0;
+
+  let left = rect ? rect.left : padding;
+  let top = rect ? rect.bottom + 8 : padding;
+
+  if (left + tooltipWidth + padding > viewportWidth) {
+    left = Math.max(padding, viewportWidth - tooltipWidth - padding);
+  }
+
+  const estimatedHeight = 180;
+  if (top + estimatedHeight + padding > viewportHeight) {
+    top = Math.max(padding, (rect ? rect.top : viewportHeight - estimatedHeight) - estimatedHeight - 8);
+  }
+
+  reasonTooltip.text = reason;
+  reasonTooltip.left = Math.round(left);
+  reasonTooltip.top = Math.round(top);
+  reasonTooltip.visible = true;
+}
+
+function hideReasonTooltip() {
+  reasonTooltip.visible = false;
+  reasonTooltip.text = '';
+}
+
+function handleEscape(event) {
+  if (event.key === 'Escape') {
+    hideReasonTooltip();
+  }
 }
 
 async function approveRequest(item) {
@@ -373,4 +463,38 @@ function rejectRequest(item) {
     },
   });
 }
+
+onMounted(() => {
+  window.addEventListener('keydown', handleEscape);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleEscape);
+});
 </script>
+
+<style scoped>
+.overtime-reason-wrap {
+  position: relative;
+}
+
+.overtime-reason {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.25rem;
+  min-height: calc(1.25rem * 2);
+  padding-right: 4.25rem;
+  word-break: break-word;
+}
+
+.overtime-readmore {
+  position: absolute;
+  bottom: 0.25rem;
+  right: 0.5rem;
+  background: rgba(15, 23, 42, 0.95);
+  padding: 0 0.25rem;
+  border-radius: 4px;
+}
+</style>
