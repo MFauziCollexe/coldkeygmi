@@ -146,6 +146,7 @@ class LeavePermissionController extends Controller
     /**
      * Get department IDs that user can view
      * - Admin: all departments
+     * - IT: all departments
      * - Manager: their managed department
      * - Regular user: their own department only
      */
@@ -161,6 +162,11 @@ class LeavePermissionController extends Controller
 
         // Admin can see all
         if ($this->isAdmin($userId)) {
+            return Department::pluck('id')->toArray();
+        }
+
+        // IT can see all
+        if ($this->isItUser($userId)) {
             return Department::pluck('id')->toArray();
         }
 
