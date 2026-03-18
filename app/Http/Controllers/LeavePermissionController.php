@@ -215,7 +215,7 @@ class LeavePermissionController extends Controller
             return false;
         }
 
-        $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+        $visibleDeptIds = $this->getLeavePermissionVisibleDepartmentIds($userId);
         return in_array($targetDeptId, $visibleDeptIds, true);
     }
 
@@ -243,7 +243,7 @@ class LeavePermissionController extends Controller
             return false;
         }
 
-        $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+        $visibleDeptIds = $this->getLeavePermissionVisibleDepartmentIds($userId);
         return in_array($targetDeptId, $visibleDeptIds, true);
     }
 
@@ -263,6 +263,58 @@ class LeavePermissionController extends Controller
     protected function canEditCurrentStatus(LeavePermission $leavePermission): bool
     {
         return in_array((string) $leavePermission->status, ['pending', 'approved'], true);
+    }
+
+    protected function isOperationalManager($userId): bool
+    {
+        if (!$this->isManager($userId)) {
+            return false;
+        }
+
+        $user = User::query()
+            ->with('department:id,code,name')
+            ->find($userId);
+
+        $department = $user?->department;
+
+        if (!$department) {
+            $employeeDepartmentId = (int) (Employee::where('user_id', $userId)->value('department_id') ?? 0);
+            if ($employeeDepartmentId > 0) {
+                $department = Department::query()
+                    ->select('id', 'code', 'name')
+                    ->find($employeeDepartmentId);
+            }
+        }
+
+        if (!$department) {
+            return false;
+        }
+
+        $departmentCode = strtoupper(trim((string) ($department->code ?? '')));
+        $departmentName = strtoupper(trim((string) ($department->name ?? '')));
+
+        return $departmentCode === 'OPS'
+            || str_contains($departmentName, 'OPPERATIONAL')
+            || str_contains($departmentName, 'OPERATIONAL');
+    }
+
+    protected function getLeavePermissionVisibleDepartmentIds($userId): array
+    {
+        $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+
+        if (!$this->isOperationalManager($userId)) {
+            return $visibleDeptIds;
+        }
+
+        $itDepartmentId = (int) Department::query()
+            ->where('code', 'IT')
+            ->value('id');
+
+        if ($itDepartmentId > 0) {
+            $visibleDeptIds[] = $itDepartmentId;
+        }
+
+        return array_values(array_unique(array_map('intval', $visibleDeptIds)));
     }
 
     protected function getAttachmentPaths(LeavePermission $leavePermission): array
@@ -354,7 +406,7 @@ class LeavePermissionController extends Controller
         $userId = Auth::id();
         
         // Get visible department IDs
-        $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+        $visibleDeptIds = $this->getLeavePermissionVisibleDepartmentIds($userId);
 
         $query = LeavePermission::query()
             ->with([
