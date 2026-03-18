@@ -56,10 +56,12 @@
 
               <div>
                 <div class="text-slate-400 text-sm">Attachment</div>
-                <div v-if="leavePermission.image_url">
-                  <button type="button" @click="openImage(leavePermission.image_url)" class="text-indigo-400 hover:text-indigo-300">
-                    Lihat Attachment
-                  </button>
+                <div v-if="leavePermission.attachments?.length" class="mt-2 space-y-2">
+                  <div v-for="attachment in leavePermission.attachments" :key="attachment.path">
+                    <button type="button" @click="openImage(attachment.url)" class="text-indigo-400 hover:text-indigo-300">
+                      {{ attachment.name }}
+                    </button>
+                  </div>
                 </div>
                 <div v-else>-</div>
               </div>

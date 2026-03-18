@@ -18,6 +18,7 @@ class LeavePermission extends Model
         'days',
         'reason',
         'attachment_image',
+        'attachment_images',
         'status',
         'reviewed_by',
         'reviewed_at',
@@ -27,6 +28,7 @@ class LeavePermission extends Model
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'attachment_images' => 'array',
         'reviewed_at' => 'datetime',
     ];
 

@@ -119,22 +119,27 @@
           >
             <p class="text-slate-300 font-medium mb-2">Upload attachment</p>
             <p class="text-slate-500 text-sm mb-4">Format: JPG, PNG, WEBP, PDF (max 5MB)</p>
-            <p class="text-indigo-300 text-sm">Klik area ini atau drag-and-drop file</p>
+            <p class="text-indigo-300 text-sm">Klik area ini atau drag-and-drop beberapa file</p>
             <input
               ref="fileInput"
               type="file"
               accept="image/*,application/pdf,.pdf"
+              multiple
               class="hidden"
               @change="onImageChange"
             />
           </div>
-          <div v-if="form.errors.attachment_image" class="text-red-400 text-sm mt-1">
-            {{ form.errors.attachment_image }}
+          <div v-if="form.errors.attachment_images" class="text-red-400 text-sm mt-1">
+            {{ form.errors.attachment_images }}
           </div>
-          <div v-if="form.attachment_image" class="mt-2">
-            <div class="flex items-center justify-between bg-slate-900 p-2 rounded mt-1">
-              <span class="text-sm">{{ form.attachment_image.name }}</span>
-              <button type="button" @click="removeImage" class="text-red-400">Remove</button>
+          <div v-if="form.attachment_images.length" class="mt-2 space-y-2">
+            <div
+              v-for="(file, index) in form.attachment_images"
+              :key="`${file.name}-${index}`"
+              class="flex items-center justify-between bg-slate-900 p-2 rounded"
+            >
+              <span class="text-sm truncate pr-3">{{ file.name }}</span>
+              <button type="button" @click="removeImage(index)" class="text-red-400">Remove</button>
             </div>
           </div>
         </div>
@@ -182,7 +187,7 @@ const form = useForm({
   start_date: '',
   end_date: '',
   reason: '',
-  attachment_image: null,
+  attachment_images: [],
 });
 
 const fileInput = ref(null);
@@ -206,12 +211,21 @@ function submit() {
   });
 }
 
-function onImageChange(event) {
-  form.attachment_image = event.target.files?.[0] || null;
+function addFiles(fileList) {
+  const nextFiles = Array.from(fileList || []);
+  if (!nextFiles.length) return;
+  form.attachment_images = [...form.attachment_images, ...nextFiles];
 }
 
-function removeImage() {
-  form.attachment_image = null;
+function onImageChange(event) {
+  addFiles(event.target.files);
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+}
+
+function removeImage(index) {
+  form.attachment_images = form.attachment_images.filter((_, fileIndex) => fileIndex !== index);
 }
 
 function clickFileInput() {
@@ -230,8 +244,7 @@ function onDragLeave() {
 
 function onDrop(event) {
   dragActive.value = false;
-  const files = Array.from(event.dataTransfer?.files || []);
-  form.attachment_image = files.length > 0 ? files[0] : null;
+  addFiles(event.dataTransfer?.files || []);
 }
 
 function cancel() {

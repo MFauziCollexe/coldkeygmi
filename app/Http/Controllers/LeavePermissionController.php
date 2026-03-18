@@ -265,6 +265,85 @@ class LeavePermissionController extends Controller
         return in_array((string) $leavePermission->status, ['pending', 'approved'], true);
     }
 
+    protected function getAttachmentPaths(LeavePermission $leavePermission): array
+    {
+        $paths = $leavePermission->attachment_images;
+
+        if (is_string($paths) && $paths !== '') {
+            $decoded = json_decode($paths, true);
+            $paths = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($paths)) {
+            $paths = [];
+        }
+
+        $paths = array_values(array_filter($paths, fn ($path) => is_string($path) && trim($path) !== ''));
+
+        if (empty($paths) && !empty($leavePermission->attachment_image)) {
+            $paths = [(string) $leavePermission->attachment_image];
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    protected function buildAttachmentFiles(LeavePermission $leavePermission): array
+    {
+        return collect($this->getAttachmentPaths($leavePermission))
+            ->map(function (string $path) {
+                $name = basename($path);
+                $lowerName = strtolower($name);
+
+                return [
+                    'path' => $path,
+                    'url' => Storage::url($path),
+                    'name' => $name,
+                    'is_pdf' => str_ends_with($lowerName, '.pdf'),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function attachmentColumnsFromPaths(array $paths): array
+    {
+        $normalized = array_values(array_filter($paths, fn ($path) => is_string($path) && trim($path) !== ''));
+
+        return [
+            'attachment_images' => !empty($normalized) ? $normalized : null,
+            'attachment_image' => $normalized[0] ?? null,
+        ];
+    }
+
+    protected function storeUploadedAttachments(Request $request): array
+    {
+        $paths = [];
+
+        foreach ($request->file('attachment_images', []) as $file) {
+            if ($file) {
+                $paths[] = $file->store('leave-permission-images', 'public');
+            }
+        }
+
+        if (empty($paths) && $request->hasFile('attachment_image')) {
+            $file = $request->file('attachment_image');
+            if ($file) {
+                $paths[] = $file->store('leave-permission-images', 'public');
+            }
+        }
+
+        return $paths;
+    }
+
+    protected function deleteStoredAttachments(array $paths): void
+    {
+        foreach (array_values(array_unique($paths)) as $path) {
+            if (is_string($path) && trim($path) !== '') {
+                Storage::disk('public')->delete($path);
+            }
+        }
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -341,7 +420,9 @@ class LeavePermissionController extends Controller
             ->withQueryString();
 
         $leavePermissions->getCollection()->transform(function ($item) {
-            $item->image_url = $item->attachment_image ? Storage::url($item->attachment_image) : null;
+            $item->attachments = $this->buildAttachmentFiles($item);
+            $item->attachments_count = count($item->attachments);
+            $item->image_url = $item->attachments[0]['url'] ?? null;
             return $item;
         });
 
@@ -480,7 +561,9 @@ class LeavePermissionController extends Controller
             abort(403, 'Hanya permintaan dengan status pending atau approved yang dapat diedit.');
         }
 
-        $leavePermission->image_url = $leavePermission->attachment_image ? Storage::url($leavePermission->attachment_image) : null;
+        $leavePermission->attachments = $this->buildAttachmentFiles($leavePermission);
+        $leavePermission->attachments_count = count($leavePermission->attachments);
+        $leavePermission->image_url = $leavePermission->attachments[0]['url'] ?? null;
 
         return Inertia::render('GMIHR/LeavePermission/Edit', [
             'leavePermission' => $leavePermission,
@@ -503,7 +586,9 @@ class LeavePermissionController extends Controller
             'user.department',
             'reviewer',
         ]);
-        $leavePermission->image_url = $leavePermission->attachment_image ? Storage::url($leavePermission->attachment_image) : null;
+        $leavePermission->attachments = $this->buildAttachmentFiles($leavePermission);
+        $leavePermission->attachments_count = count($leavePermission->attachments);
+        $leavePermission->image_url = $leavePermission->attachments[0]['url'] ?? null;
 
         return Inertia::render('GMIHR/LeavePermission/Show', [
             'leavePermission' => $leavePermission,
@@ -525,6 +610,8 @@ class LeavePermissionController extends Controller
             'end_date' => 'required|date|after_or_equal:start_date',
             'reason' => 'required|string|min:5',
             'attachment_image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+            'attachment_images' => 'nullable|array',
+            'attachment_images.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ]);
 
         $actorId = Auth::id();
@@ -559,9 +646,7 @@ class LeavePermissionController extends Controller
         $data['user_id'] = null; // employee-based, user is optional
         $data['days'] = LeavePermission::calculateDays($data['start_date'], $data['end_date']);
         $data['status'] = 'pending';
-        $data['attachment_image'] = $request->hasFile('attachment_image')
-            ? $request->file('attachment_image')->store('leave-permission-images', 'public')
-            : null;
+        $data = array_merge($data, $this->attachmentColumnsFromPaths($this->storeUploadedAttachments($request)));
 
         $leavePermission = LeavePermission::create($data);
 
@@ -642,7 +727,10 @@ class LeavePermissionController extends Controller
             'end_date' => 'required|date|after_or_equal:start_date',
             'reason' => 'required|string|min:5',
             'attachment_image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
-            'remove_attachment' => 'nullable|boolean',
+            'attachment_images' => 'nullable|array',
+            'attachment_images.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+            'retained_attachments' => 'nullable|array',
+            'retained_attachments.*' => 'string',
         ]);
 
         $oldData = $leavePermission->toArray();
@@ -654,19 +742,18 @@ class LeavePermissionController extends Controller
             'reason' => $data['reason'],
         ];
 
-        $removeAttachment = (bool) ($data['remove_attachment'] ?? false);
-        if ($removeAttachment && $leavePermission->attachment_image) {
-            Storage::disk('public')->delete($leavePermission->attachment_image);
-            $updateData['attachment_image'] = null;
-        }
+        $existingPaths = $this->getAttachmentPaths($leavePermission);
+        $retainedPaths = array_values(array_intersect(
+            $existingPaths,
+            array_values($data['retained_attachments'] ?? $existingPaths)
+        ));
 
-        if ($request->hasFile('attachment_image')) {
-            if ($leavePermission->attachment_image) {
-                Storage::disk('public')->delete($leavePermission->attachment_image);
-            }
+        $removedPaths = array_values(array_diff($existingPaths, $retainedPaths));
+        $this->deleteStoredAttachments($removedPaths);
 
-            $updateData['attachment_image'] = $request->file('attachment_image')->store('leave-permission-images', 'public');
-        }
+        $newPaths = $this->storeUploadedAttachments($request);
+        $allPaths = array_values(array_unique(array_merge($retainedPaths, $newPaths)));
+        $updateData = array_merge($updateData, $this->attachmentColumnsFromPaths($allPaths));
 
         $leavePermission->update($updateData);
 
@@ -696,9 +783,7 @@ class LeavePermissionController extends Controller
             ], 403);
         }
 
-        if ($leavePermission->attachment_image) {
-            Storage::disk('public')->delete($leavePermission->attachment_image);
-        }
+        $this->deleteStoredAttachments($this->getAttachmentPaths($leavePermission));
 
         $oldData = $leavePermission->toArray();
         $id = $leavePermission->id;

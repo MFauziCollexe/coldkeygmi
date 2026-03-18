@@ -126,13 +126,20 @@
                 </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">
                 <button
-                  v-if="item.image_url"
+                  v-if="item.attachments_count === 1 && item.image_url"
                   type="button"
                   @click="openImage(item.image_url)"
                   class="text-indigo-400 hover:text-indigo-300"
                 >
                   Lihat
                 </button>
+                  <Link
+                    v-else-if="item.attachments_count > 1"
+                    :href="`/leave-permission/${item.id}`"
+                    class="text-indigo-400 hover:text-indigo-300"
+                  >
+                    {{ item.attachments_count }} File
+                  </Link>
                   <span v-else>-</span>
                 </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">
