@@ -216,10 +216,13 @@ class AttendanceLogController extends Controller
                 $rosterPinIndex[$rosterPinCandidate] = true;
             }
             $scans = collect();
+            $isOff = (bool) ($row->is_off ?? false);
             $startTime = $this->normalizeTime($row->start_time);
             $endTime = $this->normalizeTime($row->end_time);
             $nextDayStartTime = $this->resolveNextDayStartTime($rosterScheduleIndex, $pin, $logDate);
-            $lookupDates = $this->scanLookupDatesForSchedule($logDate, $startTime, $endTime, $nextDayStartTime);
+            $lookupDates = $isOff
+                ? array_values(array_filter([$logDate]))
+                : $this->scanLookupDatesForSchedule($logDate, $startTime, $endTime, $nextDayStartTime);
 
             foreach ($scanLookupKeys as $lookupPin) {
                 foreach ($lookupDates as $lookupDate) {
@@ -231,12 +234,14 @@ class AttendanceLogController extends Controller
                 }
             }
             $scans = $scans->sortBy('scan_date')->values();
-            $isOff = (bool) ($row->is_off ?? false);
             if ($isOff) {
                 $scans = $this->filterOffdayBoundaryScans($scans);
+                [$firstScan, $lastScan] = $this->resolveOffdayScanWindow($scans, $logDate);
+                $scanCount = ($firstScan !== null && $lastScan !== null) ? $scans->count() : 0;
+            } else {
+                $scanCount = $scans->count();
+                [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate, $nextDayStartTime);
             }
-            $scanCount = $scans->count();
-            [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate, $nextDayStartTime);
             $correction = $correctionMap->get($logDate . '|' . $pin);
             if ($correction && $correction->status === 'approved') {
                 if ($correction->corrected_first_scan !== null) {
@@ -244,6 +249,15 @@ class AttendanceLogController extends Controller
                 }
                 if ($correction->corrected_last_scan !== null) {
                     $lastScan = $correction->corrected_last_scan->format('Y-m-d H:i:s');
+                }
+            }
+            if ($isOff) {
+                if ($firstScan === null || $lastScan === null) {
+                    $firstScan = null;
+                    $lastScan = null;
+                    $scanCount = 0;
+                } else {
+                    $scanCount = max($scanCount, 2);
                 }
             }
             $firstScanTime = $this->normalizeTime($firstScan);
@@ -1502,6 +1516,26 @@ class AttendanceLogController extends Controller
             // to adjacent scheduled shifts (previous/next day).
             return $time >= '06:00:00' && $time < '21:00:00';
         })->values();
+    }
+
+    private function resolveOffdayScanWindow(Collection $scans, ?string $logDate): array
+    {
+        if ($logDate === null) {
+            return [null, null];
+        }
+
+        $sameDayScans = $scans->filter(function ($scan) use ($logDate) {
+            return $this->toDateString($scan->scan_date ?? null) === $logDate;
+        })->sortBy('scan_date')->values();
+
+        if ($sameDayScans->count() < 2) {
+            return [null, null];
+        }
+
+        return [
+            $this->toDateTimeString(optional($sameDayScans->first())->scan_date ?? null),
+            $this->toDateTimeString(optional($sameDayScans->last())->scan_date ?? null),
+        ];
     }
 
     private function paginateCollection(Collection $rows, int $perPage, Request $request): LengthAwarePaginator
