@@ -18,6 +18,14 @@ class AttendanceLogController extends Controller
 {
     // Easy rollback switch for scan pairing logic.
     private const USE_SCHEDULE_WINDOWS = true;
+    private const EXPORT_EXCLUDED_PINS = [
+        '2251001006',
+        '2250209004',
+        '22511170005',
+        '2251117007',
+        '2251215002',
+        '2251117003',
+    ];
 
     public function index(Request $request)
     {
@@ -41,6 +49,8 @@ class AttendanceLogController extends Controller
             $perPage = 2000;
         }
 
+        [$scanRangeStart, $scanRangeEnd] = $this->resolveScanDateRange($year, $month);
+
         $corrections = AttendanceLogCorrection::query()
             ->when($year !== null, fn($query) => $query->whereYear('log_date', $year))
             ->when($month !== null, fn($query) => $query->whereMonth('log_date', $month))
@@ -51,8 +61,8 @@ class AttendanceLogController extends Controller
         });
 
         $scanRows = DB::table('fingerprints')
-            ->when($year !== null, fn($query) => $query->whereYear('scan_date_only', $year))
-            ->when($month !== null, fn($query) => $query->whereMonth('scan_date_only', $month))
+            ->when($scanRangeStart !== null, fn($query) => $query->whereDate('scan_date_only', '>=', $scanRangeStart))
+            ->when($scanRangeEnd !== null, fn($query) => $query->whereDate('scan_date_only', '<=', $scanRangeEnd))
             ->whereNotNull('pin')
             ->where('pin', '<>', '')
             ->get([
@@ -110,6 +120,8 @@ class AttendanceLogController extends Controller
                 're.start_time',
                 're.end_time',
             ]);
+
+        $rosterScheduleIndex = $this->buildRosterScheduleIndex($rosterRows);
 
         $pinsInScope = $scanRows
             ->pluck('pin')
@@ -206,7 +218,8 @@ class AttendanceLogController extends Controller
             $scans = collect();
             $startTime = $this->normalizeTime($row->start_time);
             $endTime = $this->normalizeTime($row->end_time);
-            $lookupDates = $this->scanLookupDatesForSchedule($logDate, $startTime, $endTime);
+            $nextDayStartTime = $this->resolveNextDayStartTime($rosterScheduleIndex, $pin, $logDate);
+            $lookupDates = $this->scanLookupDatesForSchedule($logDate, $startTime, $endTime, $nextDayStartTime);
 
             foreach ($scanLookupKeys as $lookupPin) {
                 foreach ($lookupDates as $lookupDate) {
@@ -223,7 +236,7 @@ class AttendanceLogController extends Controller
                 $scans = $this->filterOffdayBoundaryScans($scans);
             }
             $scanCount = $scans->count();
-            [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate);
+            [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate, $nextDayStartTime);
             $correction = $correctionMap->get($logDate . '|' . $pin);
             if ($correction && $correction->status === 'approved') {
                 if ($correction->corrected_first_scan !== null) {
@@ -413,10 +426,17 @@ class AttendanceLogController extends Controller
 
                 for ($day = 1; $day <= $daysInMonth; $day++) {
                     $logDate = $monthStart->copy()->day($day)->format('Y-m-d');
-                    $scans = collect($dateMap[$logDate] ?? []);
+                    $lookupDates = $this->scanLookupDatesForSchedule($logDate, '08:00:00', '16:00:00', '08:00:00');
+                    $scans = collect();
+                    foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
+                        foreach ($lookupDates as $lookupDate) {
+                            $scans = $scans->merge($scanGroups->get($lookupDate . '|' . $candidatePin, collect()));
+                        }
+                    }
+                    $scans = $scans->sortBy('scan_date')->values();
 
                     $scanCount = $scans->count();
-                    [$firstScan, $lastScan] = $this->resolveScanWindow($scans, '08:00:00', '16:00:00', $logDate);
+                    [$firstScan, $lastScan] = $this->resolveScanWindow($scans, '08:00:00', '16:00:00', $logDate, '08:00:00');
                     $correction = $correctionMap->get($logDate . '|' . $pin);
                     if ($correction && $correction->status === 'approved') {
                         if ($correction->corrected_first_scan !== null) {
@@ -574,7 +594,7 @@ class AttendanceLogController extends Controller
             ->values();
 
         if ($request->boolean('export')) {
-            return $this->exportRowsToExcel($rows);
+            return $this->exportRowsToExcel($rows, $year, $month);
         }
 
         $expectedCounts = $summaryRows
@@ -706,6 +726,8 @@ class AttendanceLogController extends Controller
 
     private function buildLateAbsentCountsByNameForMonth(int $year, int $month): array
     {
+        [$scanRangeStart, $scanRangeEnd] = $this->resolveScanDateRange($year, $month);
+
         $corrections = AttendanceLogCorrection::query()
             ->whereYear('log_date', $year)
             ->whereMonth('log_date', $month)
@@ -716,8 +738,8 @@ class AttendanceLogController extends Controller
         });
 
         $scanRows = DB::table('fingerprints')
-            ->whereYear('scan_date_only', $year)
-            ->whereMonth('scan_date_only', $month)
+            ->when($scanRangeStart !== null, fn($query) => $query->whereDate('scan_date_only', '>=', $scanRangeStart))
+            ->when($scanRangeEnd !== null, fn($query) => $query->whereDate('scan_date_only', '<=', $scanRangeEnd))
             ->whereNotNull('pin')
             ->where('pin', '<>', '')
             ->get([
@@ -759,6 +781,8 @@ class AttendanceLogController extends Controller
                 're.start_time',
                 're.end_time',
             ]);
+
+        $rosterScheduleIndex = $this->buildRosterScheduleIndex($rosterRows);
 
         $pinsInScope = $scanRows
             ->pluck('pin')
@@ -851,7 +875,8 @@ class AttendanceLogController extends Controller
             $isOff = (bool) ($row->is_off ?? false);
 
             $scanLookupKeys = $this->pinCandidatesForMatch($pin);
-            $lookupDates = $this->scanLookupDatesForSchedule($logDate, $startTime, $endTime);
+            $nextDayStartTime = $this->resolveNextDayStartTime($rosterScheduleIndex, $pin, $logDate);
+            $lookupDates = $this->scanLookupDatesForSchedule($logDate, $startTime, $endTime, $nextDayStartTime);
             $scans = collect();
             foreach ($scanLookupKeys as $lookupPin) {
                 foreach ($lookupDates as $lookupDate) {
@@ -863,7 +888,7 @@ class AttendanceLogController extends Controller
                 $scans = $this->filterOffdayBoundaryScans($scans);
             }
 
-            [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate);
+            [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate, $nextDayStartTime);
             $correction = $correctionMap->get($logDate . '|' . $pin);
             if ($correction && $correction->status === 'approved') {
                 if ($correction->corrected_first_scan !== null) {
@@ -987,12 +1012,15 @@ class AttendanceLogController extends Controller
 
                 // Merge scans across known pin variants.
                 $scans = collect();
+                $lookupDates = $this->scanLookupDatesForSchedule($logDate, '08:00:00', '16:00:00', '08:00:00');
                 foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
-                    $scans = $scans->merge($scanGroups->get($logDate . '|' . $candidatePin, collect()));
+                    foreach ($lookupDates as $lookupDate) {
+                        $scans = $scans->merge($scanGroups->get($lookupDate . '|' . $candidatePin, collect()));
+                    }
                 }
                 $scans = $scans->sortBy('scan_date')->values();
 
-                [$firstScan, $lastScan] = $this->resolveScanWindow($scans, '08:00:00', '16:00:00', $logDate);
+                [$firstScan, $lastScan] = $this->resolveScanWindow($scans, '08:00:00', '16:00:00', $logDate, '08:00:00');
                 $correction = $correctionMap->get($logDate . '|' . $pin);
                 if ($correction && $correction->status === 'approved') {
                     if ($correction->corrected_first_scan !== null) {
@@ -1119,16 +1147,28 @@ class AttendanceLogController extends Controller
         return redirect()->back()->with('success', 'Koreksi attendance ditolak.');
     }
 
-    private function resolveScanWindow(Collection $scans, ?string $startTime, ?string $endTime, ?string $logDate = null): array
+    private function resolveScanWindow(
+        Collection $scans,
+        ?string $startTime,
+        ?string $endTime,
+        ?string $logDate = null,
+        ?string $nextDayStartTime = null
+    ): array
     {
         if (self::USE_SCHEDULE_WINDOWS && $logDate !== null && $startTime !== null && $endTime !== null) {
-            return $this->resolveByScheduleWindows($scans, $startTime, $endTime, $logDate);
+            return $this->resolveByScheduleWindows($scans, $startTime, $endTime, $logDate, $nextDayStartTime);
         }
 
         return $this->resolveScanWindowLegacy($scans, $startTime, $endTime, $logDate);
     }
 
-    private function resolveByScheduleWindows(Collection $scans, string $startTime, string $endTime, string $logDate): array
+    private function resolveByScheduleWindows(
+        Collection $scans,
+        string $startTime,
+        string $endTime,
+        string $logDate,
+        ?string $nextDayStartTime = null
+    ): array
     {
         if ($scans->isEmpty()) {
             return [null, null];
@@ -1142,46 +1182,31 @@ class AttendanceLogController extends Controller
                 $anchorEnd->addDay();
             }
 
-            $inBeforeHours = substr($startTime, 0, 8) === '00:00:00' ? 6 : 4;
-            $inFrom = $anchorStart->copy()->subHours($inBeforeHours);
-            $inTo = $anchorStart->copy()->addHours(3);
-            $outFrom = $anchorEnd->copy()->subHours(3);
-            $outTo = $anchorEnd->copy()->addHours(8);
+            $inFrom = $anchorStart->copy()->subHours(2);
+            $inTo = $anchorEnd->copy();
+            $outFrom = $anchorEnd->copy();
+            $outTo = $this->resolveCheckoutWindowEnd($logDate, $nextDayStartTime);
 
             $checkinCandidates = $sorted->filter(function ($scan) use ($inFrom, $inTo) {
                 try {
                     $scanAt = Carbon::parse($scan->scan_date);
-                    return $scanAt->betweenIncluded($inFrom, $inTo);
+                    return $scanAt->greaterThanOrEqualTo($inFrom) && $scanAt->lt($inTo);
                 } catch (\Throwable $e) {
                     return false;
                 }
-            })->values();
+            })->sortBy('scan_date')->values();
 
             $checkoutCandidates = $sorted->filter(function ($scan) use ($outFrom, $outTo) {
                 try {
                     $scanAt = Carbon::parse($scan->scan_date);
-                    return $scanAt->betweenIncluded($outFrom, $outTo);
+                    return $scanAt->greaterThanOrEqualTo($outFrom) && $scanAt->lt($outTo);
                 } catch (\Throwable $e) {
                     return false;
                 }
-            })->values();
+            })->sortByDesc('scan_date')->values();
 
-            $checkinScan = $this->pickClosestScan($checkinCandidates, $anchorStart, 'before');
-            $checkoutScan = $this->pickClosestScan($checkoutCandidates, $anchorEnd, 'after');
-
-            if ($checkinScan && $checkoutScan) {
-                $inTs = $this->toDateTimeString($checkinScan->scan_date ?? null);
-                $outTs = $this->toDateTimeString($checkoutScan->scan_date ?? null);
-                if ($inTs !== null && $inTs === $outTs) {
-                    $inDiff = abs(Carbon::parse($inTs)->diffInMinutes($anchorStart, false));
-                    $outDiff = abs(Carbon::parse($outTs)->diffInMinutes($anchorEnd, false));
-                    if ($inDiff <= $outDiff) {
-                        $checkoutScan = null;
-                    } else {
-                        $checkinScan = null;
-                    }
-                }
-            }
+            $checkinScan = $checkinCandidates->first();
+            $checkoutScan = $checkoutCandidates->first();
 
             return [
                 $this->toDateTimeString(optional($checkinScan)->scan_date ?? null),
@@ -1319,7 +1344,12 @@ class AttendanceLogController extends Controller
         return $endTime <= $startTime;
     }
 
-    private function scanLookupDatesForSchedule(?string $logDate, ?string $startTime, ?string $endTime): array
+    private function scanLookupDatesForSchedule(
+        ?string $logDate,
+        ?string $startTime,
+        ?string $endTime,
+        ?string $nextDayStartTime = null
+    ): array
     {
         if ($logDate === null) {
             return [];
@@ -1327,17 +1357,118 @@ class AttendanceLogController extends Controller
 
         $dates = [$logDate];
         try {
-            if ($startTime !== null && substr($startTime, 0, 8) === '00:00:00') {
-                $dates[] = Carbon::parse($logDate)->subDay()->format('Y-m-d');
+            if ($startTime !== null) {
+                $checkinStart = Carbon::parse($logDate . ' ' . $startTime)->subHours(2);
+                if ($checkinStart->toDateString() !== $logDate) {
+                    $dates[] = $checkinStart->format('Y-m-d');
+                }
             }
-            if ($this->isOvernightShift($startTime, $endTime)) {
-                $dates[] = Carbon::parse($logDate)->addDay()->format('Y-m-d');
+
+            $checkoutEnd = $this->resolveCheckoutWindowEnd($logDate, $nextDayStartTime);
+            if ($checkoutEnd->toDateString() !== $logDate) {
+                $dates[] = $checkoutEnd->format('Y-m-d');
             }
         } catch (\Throwable $e) {
             // keep base log date only
         }
 
         return array_values(array_unique($dates));
+    }
+
+    private function resolveCheckoutWindowEnd(string $logDate, ?string $nextDayStartTime = null): Carbon
+    {
+        $nextStart = $this->normalizeTime($nextDayStartTime) ?? '08:00:00';
+        $checkoutEnd = Carbon::parse($logDate . ' ' . $nextStart)->addDay()->subHours(2);
+        return $checkoutEnd;
+    }
+
+    private function buildRosterScheduleIndex(Collection $rosterRows): array
+    {
+        $index = [];
+
+        foreach ($rosterRows as $row) {
+            $logDate = $this->toDateString($row->log_date);
+            $pin = $this->normalizePin((string) $row->pin);
+            if ($logDate === null || $pin === '') {
+                continue;
+            }
+
+            foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
+                $index[$candidatePin][$logDate] = [
+                    'is_off' => (bool) ($row->is_off ?? false),
+                    'start_time' => $this->normalizeTime($row->start_time),
+                ];
+            }
+        }
+
+        return $index;
+    }
+
+    private function resolveNextDayStartTime(array $rosterScheduleIndex, string $pin, ?string $logDate): ?string
+    {
+        if ($logDate === null) {
+            return '08:00:00';
+        }
+
+        try {
+            $baseDate = Carbon::parse($logDate);
+        } catch (\Throwable $e) {
+            return '08:00:00';
+        }
+
+        foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
+            $scheduleByDate = $rosterScheduleIndex[$candidatePin] ?? null;
+            if (!$scheduleByDate || !is_array($scheduleByDate)) {
+                continue;
+            }
+
+            $nextScheduledDates = collect($scheduleByDate)
+                ->keys()
+                ->filter(function ($date) use ($baseDate) {
+                    try {
+                        return Carbon::parse((string) $date)->greaterThan($baseDate);
+                    } catch (\Throwable $e) {
+                        return false;
+                    }
+                })
+                ->sort()
+                ->values();
+
+            foreach ($nextScheduledDates as $nextScheduledDate) {
+                $nextDaySchedule = $scheduleByDate[$nextScheduledDate] ?? null;
+                if (!$nextDaySchedule || ($nextDaySchedule['is_off'] ?? false) === true) {
+                    continue;
+                }
+
+                $startTime = $this->normalizeTime($nextDaySchedule['start_time'] ?? null);
+                if ($startTime !== null) {
+                    return $startTime;
+                }
+            }
+        }
+
+        return '08:00:00';
+    }
+
+    private function resolveScanDateRange(?int $year, ?int $month): array
+    {
+        if ($year === null) {
+            return [null, null];
+        }
+
+        try {
+            $rangeStart = $month === null
+                ? Carbon::create($year, 1, 1)->subDay()->toDateString()
+                : Carbon::create($year, $month, 1)->startOfMonth()->subDay()->toDateString();
+
+            $rangeEnd = $month === null
+                ? Carbon::create($year, 12, 31)->addDay()->toDateString()
+                : Carbon::create($year, $month, 1)->endOfMonth()->addDay()->toDateString();
+
+            return [$rangeStart, $rangeEnd];
+        } catch (\Throwable $e) {
+            return [null, null];
+        }
     }
 
     private function requiresPreviousDayWindow(?string $startTime, ?string $endTime): bool
@@ -1772,48 +1903,208 @@ class AttendanceLogController extends Controller
         ];
     }
 
-    private function exportRowsToExcel(Collection $rows)
+    private function exportRowsToExcel(Collection $rows, ?int $year = null, ?int $month = null)
     {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Attendance Logs');
+        $dateColumns = $this->buildExportDateColumns($rows, $year, $month);
+        $title = $this->buildAttendanceExportTitle($year, $month, $rows);
+        $headerStartRow = 2;
+        $subHeaderRow = 3;
+        $bodyStartRow = 4;
 
-        $headers = [
-            'Tanggal',
-            'PIN',
-            'Nama',
-            'Shift',
-            'Hari',
-            'Jadwal',
-            'Scan Pertama',
-            'Scan Terakhir',
-            'Overtime',
-            'Status',
-        ];
+        $lastColumn = Coordinate::stringFromColumnIndex(max(2, count($dateColumns) + 2));
 
-        foreach ($headers as $index => $header) {
-            $cell = Coordinate::stringFromColumnIndex($index + 1) . '1';
-            $sheet->setCellValue($cell, $header);
+        $sheet->mergeCells('A1:' . $lastColumn . '1');
+        $sheet->setCellValue('A1', $title);
+        $sheet->getStyle('A1:' . $lastColumn . '1')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 14,
+                'color' => ['rgb' => '111827'],
+            ],
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical' => 'center',
+            ],
+            'fill' => [
+                'fillType' => 'solid',
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(26);
+
+        $sheet->mergeCells('A' . $headerStartRow . ':A' . $subHeaderRow);
+        $sheet->mergeCells('B' . $headerStartRow . ':B' . $subHeaderRow);
+        $sheet->setCellValue('A' . $headerStartRow, 'No');
+        $sheet->setCellValue('B' . $headerStartRow, 'Nama');
+
+        $gridColor = '6AA84F';
+        $headerFill = 'FFFFFF';
+        $headerText = '111827';
+        $dateNumberText = '7C3AED';
+        $subHeaderText = '4B5563';
+        $leftBodyFill = 'E5E7EB';
+        $filledCellFill = 'D1D5DB';
+        $lateCellFill = 'FDE047';
+        $dangerCellFill = 'FCA5A5';
+        $blankCellFill = 'FFFFFF';
+        $textColor = '111827';
+
+        foreach ($dateColumns as $index => $logDate) {
+            $column = Coordinate::stringFromColumnIndex($index + 3);
+            $sheet->setCellValue($column . $headerStartRow, Carbon::parse($logDate)->format('j'));
+            $sheet->setCellValue($column . $subHeaderRow, $this->exportDayShortName($logDate));
         }
 
-        $rowIndex = 2;
-        foreach ($rows as $row) {
-            $sheet->setCellValue('A' . $rowIndex, (string) ($row['log_date'] ?? '-'));
-            $sheet->setCellValue('B' . $rowIndex, (string) ($row['pin'] ?? '-'));
-            $sheet->setCellValue('C' . $rowIndex, (string) ($row['name'] ?? '-'));
-            $sheet->setCellValue('D' . $rowIndex, (string) ($row['shift_code'] ?? (($row['is_off'] ?? false) ? 'OFF' : '-')));
-            $sheet->setCellValue('E' . $rowIndex, $this->exportDayName((string) ($row['log_date'] ?? '')));
-            $sheet->setCellValue('F' . $rowIndex, $this->exportSchedule($row['start_time'] ?? null, $row['end_time'] ?? null));
-            $sheet->setCellValue('G' . $rowIndex, $this->exportTimeOnly($row['first_scan'] ?? null));
-            $sheet->setCellValue('H' . $rowIndex, $this->exportTimeOnly($row['last_scan'] ?? null));
-            $sheet->setCellValue('I' . $rowIndex, (string) ($row['overtime_label'] ?? '-'));
-            $sheet->setCellValue('J' . $rowIndex, (string) ($row['expected'] ?? '-'));
+        $sheet->getStyle('A' . $headerStartRow . ':' . $lastColumn . $subHeaderRow)->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => $headerText],
+                'size' => 11,
+            ],
+            'fill' => [
+                'fillType' => 'solid',
+                'color' => ['rgb' => $headerFill],
+            ],
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical' => 'center',
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => 'thin',
+                    'color' => ['rgb' => $gridColor],
+                ],
+            ],
+        ]);
+
+        if (!empty($dateColumns)) {
+            $sheet->getStyle('C' . $headerStartRow . ':' . $lastColumn . $headerStartRow)->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'color' => ['rgb' => $dateNumberText],
+                    'size' => 12,
+                ],
+            ]);
+            $sheet->getStyle('C' . $subHeaderRow . ':' . $lastColumn . $subHeaderRow)->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'color' => ['rgb' => $subHeaderText],
+                    'size' => 9,
+                ],
+            ]);
+        }
+
+        $sheet->getRowDimension($headerStartRow)->setRowHeight(24);
+        $sheet->getRowDimension($subHeaderRow)->setRowHeight(20);
+        $sheet->getColumnDimension('A')->setWidth(11);
+        $sheet->getColumnDimension('B')->setWidth(18);
+        foreach ($dateColumns as $index => $logDate) {
+            $column = Coordinate::stringFromColumnIndex($index + 3);
+            $sheet->getColumnDimension($column)->setWidth(7.5);
+        }
+
+        $groupedRows = $rows
+            ->groupBy(function (array $row) {
+                $pin = trim((string) ($row['pin'] ?? ''));
+                $name = trim((string) ($row['name'] ?? '-'));
+                return $pin . '|' . $name;
+            })
+            ->map(function (Collection $group) {
+                $first = $group->first();
+                return [
+                    'name' => trim((string) ($first['name'] ?? '-')) ?: '-',
+                    'pin' => trim((string) ($first['pin'] ?? '')),
+                    'rows' => $group->keyBy(fn(array $row) => (string) ($row['log_date'] ?? '')),
+                ];
+            })
+            ->filter(fn(array $group) => !$this->shouldExcludeFromAttendanceExport((string) ($group['pin'] ?? '')))
+            ->sortBy([
+                ['name', 'asc'],
+                ['pin', 'asc'],
+            ])
+            ->values();
+
+        $rowIndex = $bodyStartRow;
+        foreach ($groupedRows as $group) {
+            $sheet->setCellValueExplicit('A' . $rowIndex, (string) ($group['pin'] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('B' . $rowIndex, (string) ($group['name'] ?? '-'));
+
+            $sheet->getStyle('A' . $rowIndex . ':B' . $rowIndex)->applyFromArray([
+                'font' => [
+                    'bold' => false,
+                    'color' => ['rgb' => $textColor],
+                    'size' => 10,
+                ],
+                'fill' => [
+                    'fillType' => 'solid',
+                    'color' => ['rgb' => $leftBodyFill],
+                ],
+                'alignment' => [
+                    'horizontal' => 'center',
+                    'vertical' => 'center',
+                    'wrapText' => true,
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => 'thin',
+                        'color' => ['rgb' => $gridColor],
+                    ],
+                ],
+            ]);
+            $sheet->getStyle('B' . $rowIndex)->getAlignment()->setHorizontal('left');
+
+            foreach ($dateColumns as $dateIndex => $logDate) {
+                $column = Coordinate::stringFromColumnIndex($dateIndex + 3);
+                /** @var Collection $employeeRows */
+                $employeeRows = $group['rows'];
+                $row = $employeeRows->get($logDate);
+                $sheet->setCellValue($column . $rowIndex, $this->exportScanSummaryCell($row));
+
+                $fillColor = $blankCellFill;
+                if (is_array($row)) {
+                    $category = $this->exportCellCategory($row);
+                    $cellText = $this->exportScanSummaryCell($row);
+
+                    if ($category === 'danger') {
+                        $fillColor = $dangerCellFill;
+                    } elseif ($cellText !== '') {
+                        $fillColor = $category === 'late' ? $lateCellFill : $filledCellFill;
+                    }
+                }
+
+                $sheet->getStyle($column . $rowIndex)->applyFromArray([
+                    'font' => [
+                        'bold' => false,
+                        'color' => ['rgb' => $textColor],
+                        'size' => 8.5,
+                    ],
+                    'fill' => [
+                        'fillType' => 'solid',
+                        'color' => ['rgb' => $fillColor],
+                    ],
+                    'alignment' => [
+                        'horizontal' => 'center',
+                        'vertical' => 'center',
+                        'wrapText' => true,
+                    ],
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => 'thin',
+                            'color' => ['rgb' => $gridColor],
+                        ],
+                    ],
+                ]);
+            }
+
+            $sheet->getRowDimension($rowIndex)->setRowHeight(28);
             $rowIndex++;
         }
 
-        foreach (range('A', 'J') as $column) {
-            $sheet->getColumnDimension($column)->setAutoSize(true);
-        }
+        $bodyLastRow = max($bodyStartRow, $rowIndex - 1);
+        $sheet->freezePane('C' . $bodyStartRow);
 
         $filename = 'attendance_logs_' . now()->format('Ymd_His') . '.xlsx';
         $writer = new Xlsx($spreadsheet);
@@ -1826,6 +2117,136 @@ class AttendanceLogController extends Controller
             'Pragma' => 'no-cache',
             'Expires' => '0',
         ]);
+    }
+
+    private function buildExportDateColumns(Collection $rows, ?int $year = null, ?int $month = null): array
+    {
+        try {
+            if ($year !== null && $month !== null) {
+                $start = Carbon::create($year, $month, 1)->startOfMonth();
+                $end = $start->copy()->endOfMonth();
+            } else {
+                $dates = $rows
+                    ->pluck('log_date')
+                    ->map(fn($date) => $this->toDateString($date))
+                    ->filter()
+                    ->unique()
+                    ->sort()
+                    ->values();
+
+                if ($dates->isEmpty()) {
+                    return [];
+                }
+
+                $start = Carbon::parse((string) $dates->first());
+                $end = Carbon::parse((string) $dates->last());
+            }
+
+            $result = [];
+            for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+                $result[] = $cursor->format('Y-m-d');
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    private function buildAttendanceExportTitle(?int $year, ?int $month, Collection $rows): string
+    {
+        $monthLabel = 'Semua Bulan';
+        $yearLabel = $year !== null ? (string) $year : 'Semua Tahun';
+
+        try {
+            if ($year !== null && $month !== null) {
+                $monthLabel = Carbon::create($year, $month, 1)->locale('id')->translatedFormat('F');
+            } elseif ($month !== null) {
+                $monthLabel = Carbon::create(2000, $month, 1)->locale('id')->translatedFormat('F');
+            } else {
+                $firstDate = $rows
+                    ->pluck('log_date')
+                    ->map(fn($date) => $this->toDateString($date))
+                    ->filter()
+                    ->sort()
+                    ->first();
+
+                if ($firstDate) {
+                    $parsed = Carbon::parse($firstDate);
+                    $monthLabel = $parsed->locale('id')->translatedFormat('F');
+                    if ($year === null) {
+                        $yearLabel = $parsed->format('Y');
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Use defaults above.
+        }
+
+        return sprintf('ABSENSI %s - %s Golden Multi Indotama', $monthLabel, $yearLabel);
+    }
+
+    private function exportDayShortName(string $logDate): string
+    {
+        if ($logDate === '') {
+            return '-';
+        }
+
+        try {
+            return Carbon::parse($logDate)->locale('id')->translatedFormat('D');
+        } catch (\Throwable $e) {
+            return '-';
+        }
+    }
+
+    private function exportScanSummaryCell($row): string
+    {
+        if (!is_array($row)) {
+            return '';
+        }
+
+        $firstScan = $this->exportTimeOnly($row['first_scan'] ?? null);
+        $lastScan = $this->exportTimeOnly($row['last_scan'] ?? null);
+
+        if ($firstScan === '-' && $lastScan === '-') {
+            return '';
+        }
+
+        $top = $firstScan === '-' ? '' : $firstScan;
+        $bottom = $lastScan === '-' ? '' : $lastScan;
+
+        return $top . "\n" . $bottom;
+    }
+
+    private function exportCellCategory(array $row): string
+    {
+        $expected = strtolower(trim((string) ($row['expected'] ?? '')));
+
+        if ($expected === 'terlambat') {
+            return 'late';
+        }
+
+        if (in_array($expected, ['off', 'tidak masuk'], true)) {
+            return 'danger';
+        }
+
+        return 'normal';
+    }
+
+    private function shouldExcludeFromAttendanceExport(string $pin): bool
+    {
+        $normalizedPin = $this->normalizePin($pin);
+        if ($normalizedPin === '') {
+            return false;
+        }
+
+        foreach (self::EXPORT_EXCLUDED_PINS as $excludedPin) {
+            if ($normalizedPin === $this->normalizePin($excludedPin)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function exportTimeOnly($value): string
@@ -1900,10 +2321,7 @@ class AttendanceLogController extends Controller
                     $lastScanAt->addDay();
                 }
             }
-            // Overtime starts after 1 hour grace from scheduled end time.
             $minutes = (int) $scheduledEnd
-                ->copy()
-                ->addHour()
                 ->diffInMinutes($lastScanAt, false);
 
             return max(0, $minutes);
@@ -1958,10 +2376,10 @@ class AttendanceLogController extends Controller
             $scanHm = substr($firstScanTime, 0, 5);
             $startHm = substr($startTime, 0, 5);
 
-            if ($diffMinutes > 10) {
+            if ($diffMinutes >= 10) {
                 return [
                     'Terlambat',
-                    "{$scanHm} masuk telat. Telat kalau lebih dari 10 menit dari jadwal {$startHm}.",
+                    "{$scanHm} masuk telat. Telat jika 10 menit atau lebih dari jadwal {$startHm}.",
                 ];
             }
 
