@@ -258,6 +258,8 @@ class BeritaAcaraController extends Controller
 
     private function renderPdfBytes(BeritaAcara $beritaAcara): string
     {
+        $this->assertDompdfAvailable();
+
         $letterheadDataUri = BeritaAcaraLetterhead::getDataUri();
 
         $html = view('pdf.berita_acara', [
@@ -279,6 +281,15 @@ class BeritaAcaraController extends Controller
         $dompdf->render();
 
         return $dompdf->output();
+    }
+
+    private function assertDompdfAvailable(): void
+    {
+        if (!class_exists(Dompdf::class) || !class_exists(Options::class)) {
+            throw new \RuntimeException(
+                'dompdf/dompdf is not available. Run composer install on the server and refresh Composer autoload.'
+            );
+        }
     }
 
     private function ensureDompdfWorkDir(string $segment): string
