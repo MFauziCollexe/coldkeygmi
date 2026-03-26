@@ -174,6 +174,12 @@ Route::get('gmium/utility-report', [App\Http\Controllers\UtilityReportController
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.utility_report'])
     ->name('gmium.utility-report.index');
 
+// GMIIC - Checklist
+Route::get('gmiic/checklist', function () {
+    return Inertia::render('GMIIC/Checklist/Index');
+})->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.index');
+
 // GMIVP - Visitor Form
 Route::get('gmi-visitor-permit/visitor-form', [App\Http\Controllers\VisitorFormController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.visitor_form'])

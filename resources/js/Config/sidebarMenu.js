@@ -137,6 +137,21 @@ export const sidebarMenuConfig = [
         ],
     },
     {
+        id: "gmiic",
+        label: "GMIIC ( Inspection & Checklist )",
+        icon: "Clipboard",
+        color: "text-white",
+        children: [
+            {
+                id: "gmiic-checklist",
+                label: "Checklist",
+                icon: "CheckSquare",
+                route: "/gmiic/checklist",
+                module_key: "gmiic.checklist",
+            },
+        ],
+    },
+    {
         id: "gmihr",
         label: "GMIHR ( Human Resources )",
         icon: "Users",

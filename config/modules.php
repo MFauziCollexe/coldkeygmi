@@ -45,6 +45,13 @@ return [
         ],
     ],
     [
+        'key' => 'gmiic',
+        'label' => 'GMIIC',
+        'children' => [
+            ['key' => 'gmiic.checklist', 'label' => 'Checklist'],
+        ],
+    ],
+    [
         'key' => 'gmi_visitor_permit',
         'label' => 'Leave Permit',
         'children' => [
