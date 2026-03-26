@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
@@ -25,6 +26,11 @@ class BeritaAcaraLetterhead
         }
 
         if ($sourceSignature === null) {
+            return null;
+        }
+
+        if (!class_exists(ZipArchive::class)) {
+            Log::warning('Berita acara letterhead skipped because ZipArchive is not available.');
             return null;
         }
 
@@ -127,6 +133,10 @@ class BeritaAcaraLetterhead
      */
     private static function extractBestImageFromDocx(string $docxPath): ?array
     {
+        if (!class_exists(ZipArchive::class)) {
+            return null;
+        }
+
         $zip = new ZipArchive();
         if ($zip->open($docxPath) !== true) {
             return null;
