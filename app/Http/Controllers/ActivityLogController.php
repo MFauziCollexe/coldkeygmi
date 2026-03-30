@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Auth;
 
 class ActivityLogController extends Controller
 {
@@ -76,5 +75,17 @@ class ActivityLogController extends Controller
         return Inertia::render('ControlPanel/LogShow', [
             'log' => $log,
         ]);
+    }
+
+    /**
+     * Remove all activity logs.
+     */
+    public function clear()
+    {
+        ActivityLog::query()->delete();
+
+        return redirect()
+            ->route('control.logs')
+            ->with('success', 'Semua activity log berhasil dihapus.');
     }
 }

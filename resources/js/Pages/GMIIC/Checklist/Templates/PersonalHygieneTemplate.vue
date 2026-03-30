@@ -133,7 +133,7 @@
               v-for="day in days"
               :key="day.key"
               class="border border-white px-2 py-2 text-center"
-              :class="day.isSunday || day.isHoliday ? 'bg-red-600 text-white' : ''"
+              :class="day.isSunday || day.isHoliday || day.isLeave ? 'bg-red-600 text-white' : ''"
             >
               {{ day.day }}
             </th>
@@ -151,12 +151,12 @@
               v-for="day in days"
               :key="`${row.id}-${day.day}`"
               class="border border-black p-0 text-center"
-              :class="day.isSunday || day.isHoliday ? 'bg-red-100' : ''"
+              :class="day.isSunday || day.isHoliday || day.isLeave ? 'bg-red-100' : ''"
             >
               <button
                 type="button"
                 class="flex h-10 w-full items-center justify-center text-sm font-semibold"
-                :class="day.isSunday || day.isHoliday ? 'text-red-700' : 'text-slate-900'"
+                :class="day.isSunday || day.isHoliday || day.isLeave ? 'text-red-700' : 'text-slate-900'"
                 @click="$emit('toggle-day', row, day.day)"
               >
                 <span v-if="row.days?.[day.day] === 'yes'">✓</span>

@@ -1,20 +1,30 @@
 <template>
   <div class="rounded border border-slate-300 bg-white p-4 text-black shadow-sm">
-    <div class="mb-4 flex items-start gap-4">
-      <div class="flex h-16 w-16 items-center justify-center rounded border border-slate-300 bg-white">
-        <img
-          src="/image/logo-gmi-clean.png"
-          alt="PT. Golden Multi Indotama"
-          class="h-12 w-12 object-contain"
-        />
+    <div class="mb-4 flex items-start justify-between gap-4">
+      <div class="flex items-start gap-4">
+        <div class="flex h-16 w-16 items-center justify-center rounded border border-slate-300 bg-white">
+          <img
+            src="/image/logo-gmi-clean.png"
+            alt="PT. Golden Multi Indotama"
+            class="h-12 w-12 object-contain"
+          />
+        </div>
+        <div class="space-y-1">
+          <div class="text-base font-semibold">PT. GOLDEN MULTI INDOTAMA</div>
+          <div class="text-xs text-slate-600">Checklist kebersihan dan sanitasi warehouse area</div>
+        </div>
       </div>
-      <div class="space-y-1">
-        <div class="text-base font-semibold">PT. GOLDEN MULTI INDOTAMA</div>
-        <div class="text-xs text-slate-600">Checklist kebersihan dan sanitasi warehouse area</div>
+
+      <div class="text-sm">
+        <div class="grid grid-cols-[auto_auto_auto] gap-x-2">
+          <span>No. Dokumen</span>
+          <span>:</span>
+          <span>FRM.HSE.06.03</span>
+        </div>
       </div>
     </div>
 
-    <div class="mb-4 flex items-center justify-between gap-4">
+    <div class="mb-4 flex items-start justify-between gap-4">
       <div>
         <div class="text-2xl font-bold">Checklist Kebersihan dan Sanitasi (Warehouse Area)</div>
         <div class="text-sm text-slate-600">Form warehouse dalam satu template dengan section A sampai E.</div>
@@ -339,7 +349,7 @@
             </td>
           </tr>
           <tr>
-            <td class="border border-black px-2 py-2 text-center">Supervisor</td>
+            <td class="border border-black px-2 py-2 text-center">Manager/HSE</td>
             <td class="border border-black px-2 py-2">
               <input
                 :value="entry.form.verification.verified_name"

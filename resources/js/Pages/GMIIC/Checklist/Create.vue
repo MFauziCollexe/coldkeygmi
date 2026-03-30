@@ -265,6 +265,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  leaveDatesByNik: {
+    type: Object,
+    default: () => ({}),
+  },
   employees: {
     type: Array,
     default: () => [],
@@ -519,10 +523,17 @@ const personalHygieneDays = computed(() => {
   }
 
   const holidayDates = new Set((props.holidayDates || []).map((value) => String(value)));
+  const employeeNik = String(entry.value.form.nik || '').trim();
+  const leaveDates = new Set(
+    Array.isArray(props.leaveDatesByNik?.[employeeNik])
+      ? props.leaveDatesByNik[employeeNik].map((value) => String(value))
+      : []
+  );
 
   return getDaysInPeriod(entry.value.form.period).map((day) => ({
     ...day,
     isHoliday: holidayDates.has(day.date),
+    isLeave: leaveDates.has(day.date),
   }));
 });
 

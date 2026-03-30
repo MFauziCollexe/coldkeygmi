@@ -86,6 +86,10 @@ class LogModuleAction
             return false;
         }
 
+        if ((string) ($request->route()?->getName() ?? '') === 'control.logs.clear') {
+            return false;
+        }
+
         if ((int) $response->getStatusCode() >= 400) {
             return false;
         }

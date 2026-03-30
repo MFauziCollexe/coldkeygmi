@@ -2,6 +2,7 @@
 
 use App\Models\AttendanceHoliday;
 use App\Models\Employee;
+use App\Models\LeavePermission;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -182,6 +183,41 @@ Route::get('gmiic/checklist', function () {
 })->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.index');
 Route::get('gmiic/checklist/create', function (Request $request) {
+    $employees = Employee::query()
+        ->with(['position:id,name'])
+        ->orderBy('name')
+        ->get();
+
+    $employeeNikById = $employees
+        ->filter(fn (Employee $employee) => !empty($employee->nik))
+        ->mapWithKeys(fn (Employee $employee) => [$employee->id => $employee->nik]);
+
+    $employeeNikByUserId = $employees
+        ->filter(fn (Employee $employee) => !empty($employee->nik) && !empty($employee->user_id))
+        ->mapWithKeys(fn (Employee $employee) => [$employee->user_id => $employee->nik]);
+
+    $leaveDatesByNik = LeavePermission::query()
+        ->where('status', 'approved')
+        ->where('type', 'cuti')
+        ->get(['employee_id', 'user_id', 'start_date', 'end_date'])
+        ->reduce(function ($carry, LeavePermission $leave) use ($employeeNikById, $employeeNikByUserId) {
+            $nik = $employeeNikById->get($leave->employee_id) ?: $employeeNikByUserId->get($leave->user_id);
+            if (!$nik || !$leave->start_date || !$leave->end_date) {
+                return $carry;
+            }
+
+            $cursor = \Illuminate\Support\Carbon::parse($leave->start_date)->startOfDay();
+            $end = \Illuminate\Support\Carbon::parse($leave->end_date)->startOfDay();
+
+            while ($cursor->lte($end)) {
+                $carry[$nik] = $carry[$nik] ?? [];
+                $carry[$nik][] = $cursor->format('Y-m-d');
+                $cursor->addDay();
+            }
+
+            return $carry;
+        }, []);
+
     return Inertia::render('GMIIC/Checklist/Create', [
         'selectedTemplate' => $request->string('template')->toString(),
         'entryId' => $request->string('entry_id')->toString(),
@@ -190,10 +226,10 @@ Route::get('gmiic/checklist/create', function (Request $request) {
             ->pluck('holiday_date')
             ->map(fn ($date) => \Illuminate\Support\Carbon::parse($date)->format('Y-m-d'))
             ->values(),
-        'employees' => Employee::query()
-            ->with(['position:id,name'])
-            ->orderBy('name')
-            ->get()
+        'leaveDatesByNik' => collect($leaveDatesByNik)
+            ->map(fn ($dates) => array_values(array_unique($dates)))
+            ->all(),
+        'employees' => $employees
             ->map(fn (Employee $employee) => [
                 'id' => $employee->id,
                 'nik' => $employee->nik,
@@ -304,6 +340,9 @@ Route::get('control-panel/module-control/user/{userId}', [App\Http\Controllers\M
 Route::get('control-panel/logs', [App\Http\Controllers\ActivityLogController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.logs'])
     ->name('control.logs');
+Route::delete('control-panel/logs/clear', [App\Http\Controllers\ActivityLogController::class, 'clear'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.logs'])
+    ->name('control.logs.clear');
 
 // GMIHR - Device Integration - Fingerprint
 Route::get('fingerprint', [App\Http\Controllers\FingerprintController::class, 'index'])

@@ -4,6 +4,13 @@
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-2xl font-bold">Activity Logs</h2>
         <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-3 py-2 rounded bg-rose-600 text-sm font-semibold text-white hover:bg-rose-500"
+            @click="clearLogs"
+          >
+            Hapus Semua Log
+          </button>
           <input v-model="filters.search" @input="onSearchInput" placeholder="Search logs..." class="px-3 py-2 rounded bg-slate-800 text-sm" />
           <div class="w-44">
             <SearchableSelect
@@ -203,6 +210,16 @@ function prev() {
 
 function viewDetails(log) {
   selectedLog.value = log;
+}
+
+function clearLogs() {
+  if (!window.confirm('Yakin ingin menghapus semua activity log?')) {
+    return;
+  }
+
+  router.delete('/control-panel/logs/clear', {
+    preserveScroll: true,
+  });
 }
 
 function actionClass(action) {
