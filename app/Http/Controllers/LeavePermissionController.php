@@ -105,6 +105,37 @@ class LeavePermissionController extends Controller
         return preg_match('/\bIT\b/', $name) === 1;
     }
 
+    protected function isHumanResourceUser($userId): bool
+    {
+        if (!$userId) {
+            return false;
+        }
+
+        $user = User::query()
+            ->with('department:id,code,name')
+            ->find($userId);
+
+        $department = $user?->department;
+
+        if (!$department) {
+            $employeeDepartmentId = (int) (Employee::where('user_id', $userId)->value('department_id') ?? 0);
+            if ($employeeDepartmentId > 0) {
+                $department = Department::query()
+                    ->select('id', 'code', 'name')
+                    ->find($employeeDepartmentId);
+            }
+        }
+
+        if (!$department) {
+            return false;
+        }
+
+        $code = strtoupper(trim((string) ($department->code ?? '')));
+        $name = strtoupper(trim((string) ($department->name ?? '')));
+
+        return $code === 'HRD' || str_contains($name, 'HRD');
+    }
+
     /**
      * Check if user is a supervisor.
      *
@@ -165,8 +196,8 @@ class LeavePermissionController extends Controller
             return Department::pluck('id')->toArray();
         }
 
-        // IT can see all
-        if ($this->isItUser($userId)) {
+        // IT and HRD can see all
+        if ($this->isItUser($userId) || $this->isHumanResourceUser($userId)) {
             return Department::pluck('id')->toArray();
         }
 
