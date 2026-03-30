@@ -39,6 +39,10 @@ class AppServiceProvider extends ServiceProvider
             'auth' => function () {
                 $user = Auth::user();
                 if (!$user) return ['user' => null, 'module_permissions' => [], 'is_admin' => false];
+                $user->loadMissing([
+                    'position:id,name,code,is_manager',
+                    'department:id,name,code',
+                ]);
 
                 $perms = ModulePermission::where('user_id', $user->id)->pluck('module_key')->toArray();
                 return [

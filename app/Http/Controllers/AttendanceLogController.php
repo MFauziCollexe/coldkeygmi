@@ -440,7 +440,8 @@ class AttendanceLogController extends Controller
 
                 for ($day = 1; $day <= $daysInMonth; $day++) {
                     $logDate = $monthStart->copy()->day($day)->format('Y-m-d');
-                    $lookupDates = $this->scanLookupDatesForSchedule($logDate, '08:00:00', '16:00:00', '08:00:00');
+                    ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime, 'label' => $defaultScheduleLabel] = $this->resolveNoRosterSchedule($logDate);
+                    $lookupDates = $this->scanLookupDatesForSchedule($logDate, $defaultStartTime, $defaultEndTime, $defaultNextDayStartTime);
                     $scans = collect();
                     foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
                         foreach ($lookupDates as $lookupDate) {
@@ -450,7 +451,7 @@ class AttendanceLogController extends Controller
                     $scans = $scans->sortBy('scan_date')->values();
 
                     $scanCount = $scans->count();
-                    [$firstScan, $lastScan] = $this->resolveScanWindow($scans, '08:00:00', '16:00:00', $logDate, '08:00:00');
+                    [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
                     $correction = $correctionMap->get($logDate . '|' . $pin);
                     if ($correction && $correction->status === 'approved') {
                         if ($correction->corrected_first_scan !== null) {
@@ -474,7 +475,7 @@ class AttendanceLogController extends Controller
 
                     $rowStatus = 'no_roster';
                     $expected = 'Cek Lagi';
-                    $reason = 'Tidak ada roster, jadwal default 08:00 - 16:00.';
+                    $reason = 'Tidak ada roster, jadwal default ' . $defaultScheduleLabel . '.';
 
                     if ($isNationalHoliday) {
                         $rowStatus = 'holiday_national';
@@ -489,7 +490,7 @@ class AttendanceLogController extends Controller
                         $expected = 'Tidak Masuk';
                         $reason = 'Tidak ada scan masuk pada tanggal jadwal.';
                     } elseif ($hasFirstScan && !$hasLastScan) {
-                        [$evaluationExpected, $evaluationReason] = $this->evaluateCheckIn('08:00:00', $firstScanTime, $firstScan, $logDate);
+                        [$evaluationExpected, $evaluationReason] = $this->evaluateCheckIn($defaultStartTime, $firstScanTime, $firstScan, $logDate);
                         if ($evaluationExpected === 'Terlambat') {
                             $rowStatus = 'time_mismatch';
                             $expected = 'Terlambat';
@@ -504,7 +505,7 @@ class AttendanceLogController extends Controller
                         $expected = 'Tidak Scan masuk';
                         $reason = 'Scan masuk tidak ditemukan.';
                     } else {
-                        [$evaluationExpected, $evaluationReason] = $this->evaluateCheckIn('08:00:00', $firstScanTime, $firstScan, $logDate);
+                        [$evaluationExpected, $evaluationReason] = $this->evaluateCheckIn($defaultStartTime, $firstScanTime, $firstScan, $logDate);
                         if ($evaluationExpected === 'Terlambat') {
                             $rowStatus = 'time_mismatch';
                             $expected = 'Terlambat';
@@ -516,9 +517,9 @@ class AttendanceLogController extends Controller
                         }
                     }
 
-                    $hasOvertime = $this->hasOvertime($logDate, '08:00:00', '16:00:00', $lastScan, $isSunday || $isNationalHoliday);
-                    $overtimeMinutes = $this->overtimeMinutes($logDate, '08:00:00', '16:00:00', $lastScan, $isSunday || $isNationalHoliday);
-                    $overtimeLabel = $this->overtimeLabel($logDate, '08:00:00', '16:00:00', $lastScan, $isSunday || $isNationalHoliday);
+                    $hasOvertime = $this->hasOvertime($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday || $isNationalHoliday);
+                    $overtimeMinutes = $this->overtimeMinutes($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday || $isNationalHoliday);
+                    $overtimeLabel = $this->overtimeLabel($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday || $isNationalHoliday);
 
                     $leaveType = $approvedLeaveTypeByPinDate[$pin][$logDate] ?? null;
                     if ($leaveType !== null) {
@@ -538,8 +539,8 @@ class AttendanceLogController extends Controller
                         'fingerprint_name' => $displayName !== '-' ? $displayName : null,
                         'shift_code' => null,
                         'is_off' => false,
-                        'start_time' => '08:00:00',
-                        'end_time' => '16:00:00',
+                        'start_time' => $defaultStartTime,
+                        'end_time' => $defaultEndTime,
                         'first_scan' => $firstScan,
                         'last_scan' => $lastScan,
                         'scan_time' => $firstScanTime,
@@ -1025,8 +1026,9 @@ class AttendanceLogController extends Controller
                 }
 
                 // Merge scans across known pin variants.
+                ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime] = $this->resolveNoRosterSchedule($logDate);
                 $scans = collect();
-                $lookupDates = $this->scanLookupDatesForSchedule($logDate, '08:00:00', '16:00:00', '08:00:00');
+                $lookupDates = $this->scanLookupDatesForSchedule($logDate, $defaultStartTime, $defaultEndTime, $defaultNextDayStartTime);
                 foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
                     foreach ($lookupDates as $lookupDate) {
                         $scans = $scans->merge($scanGroups->get($lookupDate . '|' . $candidatePin, collect()));
@@ -1034,7 +1036,7 @@ class AttendanceLogController extends Controller
                 }
                 $scans = $scans->sortBy('scan_date')->values();
 
-                [$firstScan, $lastScan] = $this->resolveScanWindow($scans, '08:00:00', '16:00:00', $logDate, '08:00:00');
+                [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
                 $correction = $correctionMap->get($logDate . '|' . $pin);
                 if ($correction && $correction->status === 'approved') {
                     if ($correction->corrected_first_scan !== null) {
@@ -1053,12 +1055,12 @@ class AttendanceLogController extends Controller
                 if (!$hasFirstScan && !$hasLastScan) {
                     $expected = 'Tidak Masuk';
                 } elseif ($hasFirstScan && !$hasLastScan) {
-                    [$evaluationExpected] = $this->evaluateCheckIn('08:00:00', $firstScanTime, $firstScan, $logDate);
+                    [$evaluationExpected] = $this->evaluateCheckIn($defaultStartTime, $firstScanTime, $firstScan, $logDate);
                     $expected = $evaluationExpected === 'Terlambat' ? 'Terlambat' : 'Tidak Scan pulang';
                 } elseif (!$hasFirstScan && $hasLastScan) {
                     $expected = 'Tidak Scan masuk';
                 } else {
-                    [$expected] = $this->evaluateCheckIn('08:00:00', $firstScanTime, $firstScan, $logDate);
+                    [$expected] = $this->evaluateCheckIn($defaultStartTime, $firstScanTime, $firstScan, $logDate);
                 }
 
                 if ($expected === 'Terlambat') {
@@ -1921,6 +1923,20 @@ class AttendanceLogController extends Controller
         }
     }
 
+    private function resolveNoRosterSchedule(string $logDate): array
+    {
+        $date = Carbon::parse($logDate);
+        $startTime = '08:00:00';
+        $endTime = $date->isSaturday() ? '13:00:00' : '16:00:00';
+
+        return [
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'next_day_start_time' => $startTime,
+            'label' => substr($startTime, 0, 5) . ' - ' . substr($endTime, 0, 5),
+        ];
+    }
+
     private function formatCorrection(?AttendanceLogCorrection $correction): ?array
     {
         if (!$correction) {
@@ -2410,10 +2426,10 @@ class AttendanceLogController extends Controller
             $scanHm = substr($firstScanTime, 0, 5);
             $startHm = substr($startTime, 0, 5);
 
-            if ($diffMinutes >= 10) {
+            if ($diffMinutes > 10) {
                 return [
                     'Terlambat',
-                    "{$scanHm} masuk telat. Telat jika 10 menit atau lebih dari jadwal {$startHm}.",
+                    "{$scanHm} masuk telat. Telat jika lebih dari 10 menit dari jadwal {$startHm}.",
                 ];
             }
 

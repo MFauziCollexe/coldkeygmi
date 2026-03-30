@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\AttendanceHoliday;
+use App\Models\Employee;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -179,6 +181,30 @@ Route::get('gmiic/checklist', function () {
     return Inertia::render('GMIIC/Checklist/Index');
 })->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.index');
+Route::get('gmiic/checklist/create', function (Request $request) {
+    return Inertia::render('GMIIC/Checklist/Create', [
+        'selectedTemplate' => $request->string('template')->toString(),
+        'entryId' => $request->string('entry_id')->toString(),
+        'holidayDates' => AttendanceHoliday::query()
+            ->orderBy('holiday_date')
+            ->pluck('holiday_date')
+            ->map(fn ($date) => \Illuminate\Support\Carbon::parse($date)->format('Y-m-d'))
+            ->values(),
+        'employees' => Employee::query()
+            ->with(['position:id,name'])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Employee $employee) => [
+                'id' => $employee->id,
+                'nik' => $employee->nik,
+                'name' => $employee->name,
+                'gender' => $employee->gender,
+                'position' => $employee->position?->name,
+            ])
+            ->values(),
+    ]);
+})->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.create');
 
 // GMIVP - Visitor Form
 Route::get('gmi-visitor-permit/visitor-form', [App\Http\Controllers\VisitorFormController::class, 'index'])

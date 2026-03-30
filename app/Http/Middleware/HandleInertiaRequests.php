@@ -33,6 +33,12 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        if ($user) {
+            $user->loadMissing([
+                'position:id,name,code,is_manager',
+                'department:id,name,code',
+            ]);
+        }
         
         // Get module permissions for the user
         $modulePermissions = [];
