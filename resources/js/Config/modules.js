@@ -106,7 +106,6 @@ export default [
                 label: "Device Integration",
                 children: [
                     { key: "gmihr.device.fingerprint", label: "Fingerprint" },
-                    { key: "gmihr.device.download_fingerprint", label: "Download FingerPrint" },
                 ],
             },
         ],

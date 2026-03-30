@@ -240,22 +240,15 @@ export const sidebarMenuConfig = [
                 label: "Device Integration",
                 icon: "Monitor",
                 children: [
-                    {
-                        id: "fingerprint",
-                        label: "Fingerprint",
-                        icon: "Fingerprint",
-                        route: "/fingerprint",
-                        module_key: "gmihr.device.fingerprint",
-                    },
-                    {
-                        id: "download-fingerprint",
-                        label: "Download FingerPrint",
-                        icon: "FileText",
-                        route: "/download-fingerprint",
-                        module_key: "gmihr.device.download_fingerprint",
-                    },
-                ],
-            },
+                      {
+                          id: "fingerprint",
+                          label: "Fingerprint",
+                          icon: "Fingerprint",
+                          route: "/fingerprint",
+                          module_key: "gmihr.device.fingerprint",
+                      },
+                  ],
+              },
         ],
     },
     {

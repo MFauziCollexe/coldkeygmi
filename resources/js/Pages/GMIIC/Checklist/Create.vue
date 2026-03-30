@@ -111,11 +111,14 @@
         :entry="entry"
         :rows="personalHygieneRows"
         :days="personalHygieneDays"
+        :generated-employees="generatedPersonalHygieneEmployees"
         :employees="props.employees"
         :can-approve-entry="canApproveEntry"
         @approve="approveChecklist"
         @update-general-field="updatePersonalHygieneField"
         @toggle-day="togglePersonalHygieneDay"
+        @toggle-generated-day="toggleGeneratedPersonalHygieneDay"
+        @generate-full-month="generatePersonalHygieneFullMonth"
       />
 
       <div
@@ -240,6 +243,7 @@ import {
   getLocationLabel,
   kotakP3KMonths,
   locationOptions,
+  personalHygieneRows as personalHygieneRowTemplates,
   rebuildPersonalHygieneRows,
   rebuildAllSanitationRowsByArea,
   rebuildSanitationRows,
@@ -248,7 +252,7 @@ import {
   toPeriodValue,
   warehouseAreaOptions,
 } from './checklistConfig';
-import { findChecklistEntry, upsertChecklistEntry } from './checklistStorage';
+import { findChecklistEntry, loadChecklistEntries, upsertChecklistEntry } from './checklistStorage';
 
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan'];
 
@@ -517,6 +521,14 @@ const personalHygieneRows = computed(() => {
   return Array.isArray(entry.value.form.rows) ? entry.value.form.rows : [];
 });
 
+const generatedPersonalHygieneEmployees = computed(() => {
+  if (!isPersonalHygiene.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.generated_employees) ? entry.value.form.generated_employees : [];
+});
+
 const personalHygieneDays = computed(() => {
   if (!isPersonalHygiene.value || !entry.value) {
     return [];
@@ -704,6 +716,10 @@ const canApproveEntry = computed(() => {
   }
 
   if (isPersonalHygiene.value) {
+    if (generatedPersonalHygieneEmployees.value.length > 0) {
+      return true;
+    }
+
     const generalCompleted = Boolean(
       String(entry.value.form.year || '').trim()
       && String(entry.value.form.period || '').trim()
@@ -749,12 +765,39 @@ function createEntryByTemplate(templateId) {
   return null;
 }
 
+function resolvePersonalHygieneBagianByNik(nik) {
+  const normalizedNik = String(nik || '').trim();
+  if (!normalizedNik) {
+    return '';
+  }
+
+  const matchedEmployee = (props.employees || []).find((employee) => String(employee?.nik || '').trim() === normalizedNik);
+  return matchedEmployee?.bagian || matchedEmployee?.position || '';
+}
+
+function hydratePersonalHygieneEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'personal_hygiene_karyawan') {
+    return savedEntry;
+  }
+
+  const nextBagian = String(savedEntry?.form?.bagian || '').trim() || resolvePersonalHygieneBagianByNik(savedEntry?.form?.nik);
+
+  return {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      bagian: nextBagian,
+    },
+  };
+}
+
 function createInitialEntry() {
   if (props.entryId) {
     const savedEntry = findChecklistEntry(props.entryId);
     if (savedEntry) {
-      selectedChecklist.value = savedEntry.template_id;
-      return savedEntry;
+      const hydratedEntry = hydratePersonalHygieneEntry(savedEntry);
+      selectedChecklist.value = hydratedEntry.template_id;
+      return hydratedEntry;
     }
   }
 
@@ -930,6 +973,168 @@ function updatePersonalHygieneField(field, value) {
   entry.value.form[field] = value;
 }
 
+function createGeneratedPersonalHygieneEmployees(periodValue, existingEmployees = []) {
+  const days = getDaysInPeriod(periodValue);
+  const holidayDates = new Set((props.holidayDates || []).map((value) => String(value)));
+  const sourceEmployees = existingEmployees.length
+    ? existingEmployees.map((employee) => ({
+        id: employee.employee_id,
+        nik: employee.nik,
+        name: employee.name,
+        gender: employee.gender,
+        position: employee.position,
+      }))
+    : (props.employees || []);
+
+  return sourceEmployees.map((employee, employeeIndex) => {
+    const employeeNik = String(employee?.nik || '').trim();
+    const leaveDates = new Set(
+      Array.isArray(props.leaveDatesByNik?.[employeeNik])
+        ? props.leaveDatesByNik[employeeNik].map((value) => String(value))
+        : []
+    );
+
+    const leaveDays = days
+      .filter((day) => leaveDates.has(day.date))
+      .map((day) => day.day);
+
+    const existingEmployee = existingEmployees.find((item) => String(item.employee_id) === String(employee?.id));
+
+    return {
+      employee_id: employee?.id ?? `generated-${employeeIndex + 1}`,
+      nik: employeeNik,
+      name: employee?.name || '-',
+      gender: employee?.gender || '-',
+      bagian: employee?.bagian || '-',
+      position: employee?.position || '-',
+      leave_days: leaveDays,
+      rows: personalHygieneRowTemplates.map((rowTemplate, rowIndex) => {
+        const existingRow = existingEmployee?.rows?.find((row) => row.id === rowTemplate.id);
+        const nextDays = days.reduce((result, day) => {
+          const isRedDay = day.isSunday || holidayDates.has(day.date) || leaveDates.has(day.date);
+          const defaultValue = ['plester_perban_in', 'plester_perban_out'].includes(rowTemplate.id) ? 'no' : 'yes';
+          result[day.day] = isRedDay
+            ? ''
+            : (existingRow?.days?.[day.day] || defaultValue);
+          return result;
+        }, {});
+
+        return {
+          no: rowIndex + 1,
+          id: rowTemplate.id,
+          name: rowTemplate.name,
+          days: nextDays,
+        };
+      }),
+    };
+  });
+}
+
+function normalizePersonalHygieneGender(value) {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+
+  if (['male', 'laki-laki', 'laki laki', 'pria'].includes(normalizedValue)) {
+    return 'male';
+  }
+
+  if (['female', 'perempuan', 'wanita'].includes(normalizedValue)) {
+    return 'female';
+  }
+
+  return '';
+}
+
+function createGeneratedPersonalHygieneRows(periodValue, employeeNik, existingRows = []) {
+  const days = getDaysInPeriod(periodValue);
+  const holidayDates = new Set((props.holidayDates || []).map((value) => String(value)));
+  const normalizedNik = String(employeeNik || '').trim();
+  const leaveDates = new Set(
+    Array.isArray(props.leaveDatesByNik?.[normalizedNik])
+      ? props.leaveDatesByNik[normalizedNik].map((value) => String(value))
+      : []
+  );
+
+  return personalHygieneRowTemplates.map((rowTemplate, rowIndex) => {
+    const existingRow = existingRows.find((row) => row.id === rowTemplate.id);
+    const nextDays = days.reduce((result, day) => {
+      const isRedDay = day.isSunday || holidayDates.has(day.date) || leaveDates.has(day.date);
+      const defaultValue = ['plester_perban_in', 'plester_perban_out'].includes(rowTemplate.id) ? 'no' : 'yes';
+      result[day.day] = isRedDay
+        ? ''
+        : (existingRow?.days?.[day.day] || defaultValue);
+      return result;
+    }, {});
+
+    return {
+      no: rowIndex + 1,
+      id: rowTemplate.id,
+      name: rowTemplate.name,
+      days: nextDays,
+    };
+  });
+}
+
+function generatePersonalHygieneFullMonth() {
+  if (!entry.value || !isPersonalHygiene.value) {
+    return;
+  }
+
+  const targetPeriod = entry.value.form.period || toPeriodValue(new Date());
+  const targetYear = String(targetPeriod || '').split('-')[0] || String(new Date().getFullYear());
+  const existingEntries = loadChecklistEntries().filter((savedEntry) => {
+    return savedEntry?.template_id === 'personal_hygiene_karyawan'
+      && String(savedEntry?.form?.period || '') === targetPeriod;
+  });
+  let createdCount = 0;
+  let skippedCount = 0;
+
+  (props.employees || []).forEach((employee, index) => {
+    const employeeNik = String(employee?.nik || '').trim();
+    const existingEntry = existingEntries.find((savedEntry) => {
+      return String(savedEntry?.form?.nik || '').trim() === employeeNik;
+    });
+
+    if (existingEntry) {
+      skippedCount += 1;
+      return;
+    }
+
+    const nextEntry = createPersonalHygieneEntry(currentUser.value?.name || 'User Login');
+    nextEntry.id = `personal_hygiene_karyawan-${Date.now()}-${index + 1}`;
+    nextEntry.created_at = formatDateTimeDisplay(new Date());
+    nextEntry.form.year = targetYear;
+    nextEntry.form.period = targetPeriod;
+    nextEntry.form.employee_name = employee?.name || '';
+    nextEntry.form.gender = normalizePersonalHygieneGender(employee?.gender);
+    nextEntry.form.nik = employeeNik;
+    nextEntry.form.bagian = employee?.bagian || employee?.position || '';
+    nextEntry.form.approved = true;
+    nextEntry.form.generated_at = formatDateTimeDisplay(new Date());
+    nextEntry.form.rows = createGeneratedPersonalHygieneRows(
+      targetPeriod,
+      employeeNik,
+      []
+    );
+    nextEntry.form.generated_employees = [];
+
+    upsertChecklistEntry(nextEntry);
+    createdCount += 1;
+  });
+
+  if (typeof window !== 'undefined') {
+    if (createdCount === 0 && skippedCount > 0) {
+      window.alert(`Semua checklist personal hygiene periode ${targetPeriod} sudah tersedia. Tidak ada data baru yang digenerate.`);
+      return;
+    }
+
+    if (skippedCount > 0) {
+      window.alert(`${createdCount} checklist berhasil digenerate. ${skippedCount} checklist dilewati karena sudah ada di periode yang sama.`);
+    }
+  }
+
+  router.visit('/gmiic/checklist');
+}
+
 function togglePersonalHygieneDay(row, day) {
   if (!row?.days || !isPersonalHygiene.value) {
     return;
@@ -937,6 +1142,38 @@ function togglePersonalHygieneDay(row, day) {
 
   const currentValue = row.days[day] || '';
   row.days[day] = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : '';
+}
+
+function toggleGeneratedPersonalHygieneDay(employeeId, rowId, day) {
+  if (!entry.value || !isPersonalHygiene.value) {
+    return;
+  }
+
+  entry.value.form.generated_employees = generatedPersonalHygieneEmployees.value.map((employee) => {
+    if (String(employee.employee_id) !== String(employeeId)) {
+      return employee;
+    }
+
+    return {
+      ...employee,
+      rows: (employee.rows || []).map((row) => {
+        if (row.id !== rowId) {
+          return row;
+        }
+
+        const currentValue = row.days?.[day] || '';
+        const nextValue = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : '';
+
+        return {
+          ...row,
+          days: {
+            ...(row.days || {}),
+            [day]: nextValue,
+          },
+        };
+      }),
+    };
+  });
 }
 
 function toggleWarehouseArea(areaId) {
@@ -1342,6 +1579,13 @@ function rebuildPersonalHygieneEntryRows() {
     entry.value.form.period,
     entry.value.form.rows || []
   );
+
+  if (generatedPersonalHygieneEmployees.value.length > 0) {
+    entry.value.form.generated_employees = createGeneratedPersonalHygieneEmployees(
+      entry.value.form.period,
+      generatedPersonalHygieneEmployees.value
+    );
+  }
 }
 
 function syncWarehouseAreaRows() {

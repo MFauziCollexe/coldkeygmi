@@ -36,10 +36,39 @@
       </div>
 
       <div class="rounded bg-slate-800 p-4">
+        <div
+          v-if="isCurrentUserIT && checklistEntries.length"
+          class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="text-sm text-slate-400">
+            {{ selectedEntryIds.length ? `${selectedEntryIds.length} checklist dipilih.` : 'Centang checklist yang ingin dihapus.' }}
+          </div>
+
+          <button
+            type="button"
+            class="rounded px-4 py-2 text-sm font-semibold transition"
+            :class="hasSelectedEntries
+              ? 'bg-rose-600 text-white hover:bg-rose-500'
+              : 'cursor-not-allowed bg-slate-700 text-slate-400'"
+            :disabled="!hasSelectedEntries"
+            @click="removeSelectedChecklists"
+          >
+            Hapus Checklist Terpilih
+          </button>
+        </div>
+
         <div v-if="checklistEntries.length" class="overflow-x-auto">
           <table class="w-full table-auto">
             <thead>
               <tr class="text-left text-slate-400">
+                <th v-if="isCurrentUserIT" class="w-12 py-2">
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-500 bg-slate-900 text-rose-500 focus:ring-rose-500"
+                    :checked="areAllEntriesSelected"
+                    @change="toggleSelectAll($event.target.checked)"
+                  />
+                </th>
                 <th class="py-2">#</th>
                 <th>Checklist</th>
                 <th>Lokasi / Area</th>
@@ -55,6 +84,14 @@
                 :key="entry.id"
                 class="border-t border-slate-700"
               >
+                <td v-if="isCurrentUserIT" class="py-3">
+                  <input
+                    :checked="selectedEntryIds.includes(entry.id)"
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-500 bg-slate-900 text-rose-500 focus:ring-rose-500"
+                    @change="toggleEntrySelection(entry.id, $event.target.checked)"
+                  />
+                </td>
                 <td class="py-3">{{ index + 1 }}</td>
                 <td>{{ entry.name }}</td>
                 <td>{{ getChecklistEntryAreaLabel(entry) }}</td>
@@ -71,17 +108,10 @@
                 <td class="text-right">
                   <Link
                     :href="`/gmiic/checklist/create?template=${encodeURIComponent(entry.template_id)}&entry_id=${encodeURIComponent(entry.id)}`"
-                    class="mr-3 text-indigo-400 hover:text-indigo-300"
+                    class="text-indigo-400 hover:text-indigo-300"
                   >
                     View
                   </Link>
-                  <button
-                    type="button"
-                    class="text-rose-400 hover:text-rose-300"
-                    @click="removeChecklist(entry.id)"
-                  >
-                    Remove
-                  </button>
                 </td>
               </tr>
             </tbody>
@@ -102,15 +132,28 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 import { checklistOptions, getChecklistEntryAreaLabel } from './checklistConfig';
-import { loadChecklistEntries, saveChecklistEntries } from './checklistStorage';
+import { loadChecklistEntries, removeChecklistEntries } from './checklistStorage';
 
+const page = usePage();
 const selectedChecklist = ref('');
 const checklistEntries = ref([]);
+const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan'];
+const currentUser = computed(() => page.props.auth?.user || null);
+const isCurrentUserIT = computed(() => {
+  const departmentCode = String(currentUser.value?.department?.code || '').trim().toUpperCase();
+  const departmentName = String(currentUser.value?.department?.name || '').trim().toUpperCase();
+  const positionCode = String(currentUser.value?.position?.code || '').trim().toUpperCase();
+  const positionName = String(currentUser.value?.position?.name || '').trim().toUpperCase();
+
+  return departmentCode === 'IT'
+    || [departmentName, positionCode, positionName].some((value) => value.includes('IT'));
+});
 
 const canOpenCreatePage = computed(() => {
   return !selectedChecklist.value || supportedTemplates.includes(selectedChecklist.value);
@@ -124,14 +167,53 @@ const createChecklistHref = computed(() => {
   return '/gmiic/checklist/create';
 });
 
-function removeChecklist(id) {
-  checklistEntries.value = checklistEntries.value.filter((entry) => entry.id !== id);
-  saveChecklistEntries(checklistEntries.value);
+const hasSelectedEntries = computed(() => selectedEntryIds.value.length > 0);
+const areAllEntriesSelected = computed(() => {
+  return checklistEntries.value.length > 0 && selectedEntryIds.value.length === checklistEntries.value.length;
+});
+
+function toggleEntrySelection(id, checked) {
+  if (checked) {
+    selectedEntryIds.value = Array.from(new Set([...selectedEntryIds.value, id]));
+    return;
+  }
+
+  selectedEntryIds.value = selectedEntryIds.value.filter((entryId) => entryId !== id);
+}
+
+function toggleSelectAll(checked) {
+  selectedEntryIds.value = checked ? checklistEntries.value.map((entry) => entry.id) : [];
+}
+
+async function removeSelectedChecklists() {
+  const totalSelected = selectedEntryIds.value.length;
+
+  if (!totalSelected) {
+    return;
+  }
+
+  const ok = await swalConfirm({
+    title: 'Hapus Checklist?',
+    text: `Hapus ${totalSelected} checklist terpilih?`,
+    confirmButtonText: 'Hapus',
+    confirmButtonColor: '#dc2626',
+  });
+
+  if (!ok) {
+    return;
+  }
+
+  checklistEntries.value = removeChecklistEntries(selectedEntryIds.value);
+  selectedEntryIds.value = [];
 }
 
 function getChecklistStatusLabel(entry) {
   if (entry?.template_id === 'kotak_p3k' && Array.isArray(entry?.form?.submitted_months) && entry.form.submitted_months.length) {
     return 'Waiting HSE';
+  }
+
+  if (entry?.template_id === 'personal_hygiene_karyawan' && entry?.form?.generated_at && !entry?.form?.approved) {
+    return 'Generated';
   }
 
   if (entry?.form?.approved) {
@@ -150,6 +232,10 @@ function getChecklistStatusClass(entry) {
     return 'bg-sky-600 text-white';
   }
 
+  if (entry?.template_id === 'personal_hygiene_karyawan' && entry?.form?.generated_at && !entry?.form?.approved) {
+    return 'bg-indigo-600 text-white';
+  }
+
   if (entry?.form?.approved) {
     return 'bg-emerald-600 text-white';
   }
@@ -163,5 +249,6 @@ function getChecklistStatusClass(entry) {
 
 onMounted(() => {
   checklistEntries.value = loadChecklistEntries();
+  selectedEntryIds.value = [];
 });
 </script>

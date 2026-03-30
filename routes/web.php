@@ -13,6 +13,7 @@ use App\Http\Controllers\PositionController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\VehicleTypeController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -184,7 +185,17 @@ Route::get('gmiic/checklist', function () {
     ->name('gmiic.checklist.index');
 Route::get('gmiic/checklist/create', function (Request $request) {
     $employees = Employee::query()
-        ->with(['position:id,name'])
+        ->with([
+            'position:id,name,department_id',
+            'position.department:id,name',
+            'department:id,name',
+            'user:id,position_id',
+            'user.position:id,name,department_id',
+            'user.position.department:id,name',
+        ])
+        ->when(Schema::hasColumn('employees', 'employment_status'), function ($query) {
+            $query->where('employment_status', 'active');
+        })
         ->orderBy('name')
         ->get();
 
@@ -230,13 +241,18 @@ Route::get('gmiic/checklist/create', function (Request $request) {
             ->map(fn ($dates) => array_values(array_unique($dates)))
             ->all(),
         'employees' => $employees
-            ->map(fn (Employee $employee) => [
-                'id' => $employee->id,
-                'nik' => $employee->nik,
-                'name' => $employee->name,
-                'gender' => $employee->gender,
-                'position' => $employee->position?->name,
-            ])
+            ->map(function (Employee $employee) {
+                $positionName = $employee->position?->name ?: $employee->user?->position?->name;
+
+                return [
+                    'id' => $employee->id,
+                    'nik' => $employee->nik,
+                    'name' => $employee->name,
+                    'gender' => $employee->gender,
+                    'bagian' => $positionName,
+                    'position' => $positionName,
+                ];
+            })
             ->values(),
     ]);
 })->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
@@ -366,14 +382,6 @@ Route::post('gmihr/device/fingerprint/confirm-save', [App\Http\Controllers\Finge
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.device.fingerprint']);
 Route::delete('gmihr/device/fingerprint/clear', [App\Http\Controllers\FingerprintController::class, 'clear'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.device.fingerprint']);
-
-Route::get('download-fingerprint', function () {
-    return Inertia::render('GMIHR/DownloadFingerprint/Index');
-})->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.device.download_fingerprint'])
-    ->name('download-fingerprint.index');
-Route::get('download-fingerprint/scanlog', [App\Http\Controllers\FingerprintController::class, 'downloadScanlog'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.device.download_fingerprint'])
-    ->name('download-fingerprint.scanlog');
 
 // GMIHR - Time & Attendance - Attendance Log
 Route::get('attendance-log', [App\Http\Controllers\AttendanceLogController::class, 'index'])

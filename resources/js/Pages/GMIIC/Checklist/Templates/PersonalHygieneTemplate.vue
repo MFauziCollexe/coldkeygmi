@@ -121,7 +121,7 @@
       </table>
     </div>
 
-    <div class="mt-4 overflow-x-auto border border-black">
+    <div v-if="!generatedEmployees.length" class="mt-4 overflow-x-auto border border-black">
       <table class="min-w-full border-collapse text-sm">
         <thead>
           <tr class="bg-black text-white">
@@ -157,6 +157,7 @@
                 type="button"
                 class="flex h-10 w-full items-center justify-center text-sm font-semibold"
                 :class="day.isSunday || day.isHoliday || day.isLeave ? 'text-red-700' : 'text-slate-900'"
+                :disabled="day.isSunday || day.isHoliday || day.isLeave"
                 @click="$emit('toggle-day', row, day.day)"
               >
                 <span v-if="row.days?.[day.day] === 'yes'">✓</span>
@@ -180,6 +181,72 @@
       >
         Approval
       </button>
+    </div>
+
+    <div v-if="generatedEmployees.length" class="mt-4 space-y-6">
+      <div class="rounded border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+        Generate bulanan sudah dibuat untuk <span class="font-semibold">{{ generatedEmployees.length }}</span> karyawan aktif.
+        Kotak merah untuk Minggu, tanggal merah, dan cuti dibiarkan kosong.
+      </div>
+
+      <div
+        v-for="employee in generatedEmployees"
+        :key="employee.employee_id"
+        class="overflow-x-auto border border-black"
+      >
+        <div class="grid gap-2 border-b border-black bg-slate-100 px-3 py-2 text-sm font-semibold md:grid-cols-4">
+          <div>Nama: {{ employee.name || '-' }}</div>
+          <div>NIK: {{ employee.nik || '-' }}</div>
+          <div>Gender: {{ employee.gender || '-' }}</div>
+          <div>Position: {{ employee.position || '-' }}</div>
+        </div>
+
+        <table class="min-w-full border-collapse text-sm">
+          <thead>
+            <tr class="bg-black text-white">
+              <th rowspan="2" class="min-w-[220px] border border-white px-3 py-2 text-center">PARAMETER</th>
+              <th :colspan="days.length" class="border border-white px-3 py-2 text-center">TANGGAL</th>
+            </tr>
+            <tr class="bg-black text-white">
+              <th
+                v-for="day in days"
+                :key="`${employee.employee_id}-${day.key}`"
+                class="border border-white px-2 py-2 text-center"
+                :class="isGeneratedRedDay(day, employee) ? 'bg-red-600 text-white' : ''"
+              >
+                {{ day.day }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="row in employee.rows"
+              :key="`${employee.employee_id}-${row.id}`"
+            >
+              <td class="border border-black px-3 py-2 font-semibold">
+                {{ row.name }}
+              </td>
+              <td
+                v-for="day in days"
+                :key="`${employee.employee_id}-${row.id}-${day.day}`"
+                class="border border-black p-0 text-center"
+                :class="isGeneratedRedDay(day, employee) ? 'bg-red-100' : ''"
+              >
+                <button
+                  type="button"
+                  class="flex h-10 w-full items-center justify-center text-sm font-semibold"
+                  :class="isGeneratedRedDay(day, employee) ? 'text-red-700' : 'text-slate-900'"
+                  :disabled="isGeneratedRedDay(day, employee)"
+                  @click="$emit('toggle-generated-day', employee.employee_id, row.id, day.day)"
+                >
+                  <span v-if="row.days?.[day.day] === 'yes'">âœ“</span>
+                  <span v-else-if="row.days?.[day.day] === 'no'" class="text-rose-600">âœ•</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div
@@ -234,6 +301,23 @@
             </tbody>
           </table>
         </div>
+
+        <div class="mt-4 flex justify-end gap-3">
+          <button
+            type="button"
+            class="rounded bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-300"
+            @click="employeeModalOpen = false"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500"
+            @click="handleGenerateFullMonth"
+          >
+            Generate
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -243,6 +327,15 @@
 import { ref } from 'vue';
 
 const employeeModalOpen = ref(false);
+
+function handleGenerateFullMonth() {
+  employeeModalOpen.value = false;
+  emit('generate-full-month');
+}
+
+function isGeneratedRedDay(day, employee) {
+  return Boolean(day?.isSunday || day?.isHoliday || employee?.leave_days?.includes(day?.day));
+}
 
 defineProps({
   entry: {
@@ -265,11 +358,17 @@ defineProps({
     type: Array,
     default: () => [],
   },
+  generatedEmployees: {
+    type: Array,
+    default: () => [],
+  },
 });
 
-defineEmits([
+const emit = defineEmits([
   'approve',
   'update-general-field',
   'toggle-day',
+  'toggle-generated-day',
+  'generate-full-month',
 ]);
 </script>

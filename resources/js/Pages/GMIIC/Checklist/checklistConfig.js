@@ -257,7 +257,9 @@ export function createPersonalHygieneEntry(userName) {
       nik: '',
       bagian: '',
       approved: false,
+      generated_at: '',
       rows: createPersonalHygieneRows(period),
+      generated_employees: [],
     },
   };
 }

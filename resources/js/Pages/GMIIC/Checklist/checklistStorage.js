@@ -56,3 +56,16 @@ export function upsertChecklistEntry(entry) {
   saveChecklistEntries(updatedEntries);
   return updatedEntries;
 }
+
+export function removeChecklistEntry(entryId) {
+  const updatedEntries = loadChecklistEntries().filter((entry) => entry.id !== entryId);
+  saveChecklistEntries(updatedEntries);
+  return updatedEntries;
+}
+
+export function removeChecklistEntries(entryIds = []) {
+  const idsToRemove = new Set(entryIds.map((entryId) => String(entryId)));
+  const updatedEntries = loadChecklistEntries().filter((entry) => !idsToRemove.has(String(entry.id)));
+  saveChecklistEntries(updatedEntries);
+  return updatedEntries;
+}

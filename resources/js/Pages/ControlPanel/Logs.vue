@@ -153,6 +153,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 import Pagination from '@/Components/Pagination.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   logs: Object,
@@ -212,8 +213,15 @@ function viewDetails(log) {
   selectedLog.value = log;
 }
 
-function clearLogs() {
-  if (!window.confirm('Yakin ingin menghapus semua activity log?')) {
+async function clearLogs() {
+  const ok = await swalConfirm({
+    title: 'Hapus Semua Log?',
+    text: 'Yakin ingin menghapus semua activity log?',
+    confirmButtonText: 'Hapus',
+    confirmButtonColor: '#dc2626',
+  });
+
+  if (!ok) {
     return;
   }
 
