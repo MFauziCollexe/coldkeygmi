@@ -127,8 +127,8 @@ class OvertimeController extends Controller
 
         $emp = $this->getActorEmployee($userId);
 
-        // Admin can see all
-        if ($this->isAdmin($userId)) {
+        // Admin and HRD can see all
+        if ($this->isAdmin($userId) || $this->isHumanResource($userId)) {
             return Department::pluck('id')->toArray();
         }
 
@@ -155,6 +155,19 @@ class OvertimeController extends Controller
         }
 
         return [];
+    }
+
+    protected function isHumanResource($userId)
+    {
+        $user = User::find($userId);
+        if (!$user) {
+            return false;
+        }
+
+        $departmentCode = strtoupper(trim((string) ($user->department?->code ?? '')));
+        $departmentName = strtoupper(trim((string) ($user->department?->name ?? '')));
+
+        return $departmentCode === 'HRD' || str_contains($departmentName, 'HRD');
     }
 
     /**

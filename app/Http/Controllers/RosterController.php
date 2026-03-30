@@ -1310,7 +1310,11 @@ class RosterController extends Controller
         }
 
         $departmentCode = strtoupper((string) optional($user->department)->code);
-        return $departmentCode === 'IT';
+        $departmentName = strtoupper((string) optional($user->department)->name);
+
+        return $departmentCode === 'IT'
+            || $departmentCode === 'HRD'
+            || str_contains($departmentName, 'HRD');
     }
 
     private function visibleDepartmentIdsForList($user): array
@@ -1411,6 +1415,10 @@ class RosterController extends Controller
         }
 
         $departmentCode = strtoupper((string) optional($user->department)->code);
-        return $departmentCode === 'IT';
+        $departmentName = strtoupper((string) optional($user->department)->name);
+
+        return $departmentCode === 'IT'
+            || $departmentCode === 'HRD'
+            || str_contains($departmentName, 'HRD');
     }
 }
