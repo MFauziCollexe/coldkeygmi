@@ -246,22 +246,6 @@
                                   >
                                     Koreksi
                                   </button>
-                                  <template v-if="canManageCorrections && row.correction?.status === 'pending'">
-                                    <button
-                                      type="button"
-                                      class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-[12px] font-semibold"
-                                      @click="approveCorrection(row.correction.id)"
-                                    >
-                                      Approve
-                                    </button>
-                                    <button
-                                      type="button"
-                                      class="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-[12px] font-semibold"
-                                      @click="rejectCorrection(row.correction.id)"
-                                    >
-                                      Reject
-                                    </button>
-                                  </template>
 
                                   <span v-if="!canManageCorrections && !row.correction" class="text-[11px] text-slate-500">-</span>
                                 </div>
@@ -695,42 +679,6 @@ async function openCorrectionSwal(row) {
     corrected_first_time: result.value.first,
     corrected_last_time: result.value.last,
     note: result.value.note || null,
-  }, {
-    preserveScroll: true,
-  });
-}
-
-async function approveCorrection(id) {
-  if (!id) return;
-  const result = await Swal.fire({
-    title: 'Approve koreksi?',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Approve',
-    cancelButtonText: 'Batal',
-    confirmButtonColor: '#059669',
-  });
-  if (!result.isConfirmed) return;
-  router.post(`/attendance-log/corrections/${id}/approve`, {}, {
-    preserveScroll: true,
-  });
-}
-
-async function rejectCorrection(id) {
-  if (!id) return;
-  const result = await Swal.fire({
-    title: 'Reject koreksi',
-    input: 'textarea',
-    inputLabel: 'Alasan reject (opsional)',
-    inputPlaceholder: 'Tulis alasan reject...',
-    showCancelButton: true,
-    confirmButtonText: 'Reject',
-    cancelButtonText: 'Batal',
-    confirmButtonColor: '#dc2626',
-  });
-  if (!result.isConfirmed) return;
-  router.post(`/attendance-log/corrections/${id}/reject`, {
-    rejection_reason: String(result.value || '').trim() || null,
   }, {
     preserveScroll: true,
   });

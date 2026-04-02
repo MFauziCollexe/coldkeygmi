@@ -1142,16 +1142,16 @@ class AttendanceLogController extends Controller
                 'corrected_first_scan' => $firstScan,
                 'corrected_last_scan' => $lastScan,
                 'note' => $validated['note'] ?? null,
-                'status' => 'pending',
+                'status' => 'approved',
                 'requested_by' => optional($request->user())->id,
-                'approved_by' => null,
-                'approved_at' => null,
+                'approved_by' => optional($request->user())->id,
+                'approved_at' => now(),
                 'rejected_at' => null,
                 'rejection_reason' => null,
             ]
         );
 
-        return redirect()->back()->with('success', 'Koreksi attendance berhasil diajukan. Menunggu approval IT/HRD.');
+        return redirect()->back()->with('success', 'Koreksi attendance berhasil disimpan dan langsung diterapkan.');
     }
 
     public function approveCorrection(Request $request, AttendanceLogCorrection $correction)

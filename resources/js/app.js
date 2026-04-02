@@ -6,6 +6,7 @@ import axios from "axios";
 
 let globalLoadingCount = 0;
 let isHandlingSessionExpiry = false;
+const LOGIN_PAGE_PATH = "/";
 
 function redirectToLoginOnSessionExpired() {
     if (isHandlingSessionExpiry) {
@@ -15,7 +16,7 @@ function redirectToLoginOnSessionExpired() {
     isHandlingSessionExpiry = true;
     globalLoadingCount = 0;
     closeGlobalLoading();
-    window.location.replace("/login");
+    window.location.replace(LOGIN_PAGE_PATH);
 }
 
 function isGlobalLoadingPopup() {

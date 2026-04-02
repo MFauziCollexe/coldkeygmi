@@ -23,6 +23,7 @@ const sidebarOpen = ref(true);
 const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 let idleTimer = null;
 let isLoggingOut = false;
+const LOGIN_PAGE_PATH = '/';
 
 const activityEvents = [
   'mousemove',
@@ -44,7 +45,16 @@ function clearIdleTimer() {
 function triggerLogout() {
   if (isLoggingOut) return;
   isLoggingOut = true;
-  router.post('/logout', {}, { preserveState: false, preserveScroll: false });
+  router.post('/logout', {}, {
+    preserveState: false,
+    preserveScroll: false,
+    onError: () => {
+      window.location.replace(LOGIN_PAGE_PATH);
+    },
+    onFinish: () => {
+      isLoggingOut = false;
+    },
+  });
 }
 
 function resetIdleTimer() {
