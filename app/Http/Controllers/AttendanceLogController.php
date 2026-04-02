@@ -1111,9 +1111,9 @@ class AttendanceLogController extends Controller
 
         $validated = $request->validate([
             'log_date' => ['required', 'date'],
-            'pin' => ['required', 'string', 'max:32'],
-            'start_time' => ['nullable', 'date_format:H:i:s'],
-            'end_time' => ['nullable', 'date_format:H:i:s'],
+            'pin' => ['required'],
+            'start_time' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
+            'end_time' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'corrected_first_time' => ['nullable', 'date_format:H:i'],
             'corrected_last_time' => ['nullable', 'date_format:H:i'],
             'note' => ['nullable', 'string', 'max:1000'],
@@ -1126,9 +1126,15 @@ class AttendanceLogController extends Controller
         }
 
         $pin = $this->normalizePin((string) $validated['pin']);
+        if ($pin === '' || strlen($pin) > 32) {
+            return redirect()->back()->withErrors([
+                'pin' => 'PIN tidak valid.',
+            ]);
+        }
+
         $logDate = Carbon::parse($validated['log_date'])->format('Y-m-d');
-        $startTime = $validated['start_time'] ?? null;
-        $endTime = $validated['end_time'] ?? null;
+        $startTime = $this->normalizeScheduleTimeInput($validated['start_time'] ?? null);
+        $endTime = $this->normalizeScheduleTimeInput($validated['end_time'] ?? null);
 
         $firstScan = $this->buildCorrectionDateTime($logDate, $validated['corrected_first_time'] ?? null, $startTime, $endTime, false);
         $lastScan = $this->buildCorrectionDateTime($logDate, $validated['corrected_last_time'] ?? null, $startTime, $endTime, true);
@@ -2043,6 +2049,24 @@ class AttendanceLogController extends Controller
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    private function normalizeScheduleTimeInput(?string $value): ?string
+    {
+        $time = trim((string) $value);
+        if ($time === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{2}:\d{2}$/', $time)) {
+            return $time . ':00';
+        }
+
+        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $time)) {
+            return $time;
+        }
+
+        return null;
     }
 
     private function resolveNoRosterSchedule(string $logDate): array

@@ -273,7 +273,7 @@
 </template>
 
 <script setup>
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -331,6 +331,16 @@ const form = reactive({
   q: String(props.filters.q || ''),
   per_page: Number(props.filters.per_page || 2000),
 });
+
+const attendanceRows = ref(cloneAttendanceRows(props.attendanceLogs?.data || []));
+
+watch(
+  () => props.attendanceLogs?.data,
+  (rows) => {
+    attendanceRows.value = cloneAttendanceRows(rows || []);
+  },
+  { immediate: true }
+);
 
 const canManageCorrections = props.canManageCorrections === true;
 const MIN_HIGHLIGHT_COUNT = 5;
@@ -470,7 +480,7 @@ function shouldHideEmployee(name) {
 
 const employeeGroups = computed(() => {
   const grouped = new Map();
-  const rows = props.attendanceLogs?.data || [];
+  const rows = attendanceRows.value || [];
 
   for (const row of rows) {
     const pin = String(row?.pin || '-');
@@ -681,6 +691,21 @@ async function openCorrectionSwal(row) {
     note: result.value.note || null,
   }, {
     preserveScroll: true,
+    onSuccess: () => {
+      applyLocalCorrection(row, result.value);
+    },
+    onError: (errors) => {
+      const messages = Object.values(errors || {})
+        .flat()
+        .map((message) => String(message || '').trim())
+        .filter(Boolean);
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Koreksi Gagal',
+        text: messages[0] || 'Data koreksi belum berhasil disimpan.',
+      });
+    },
   });
 }
 
@@ -689,6 +714,119 @@ function normalizePromptTime(value) {
   if (!v) return null;
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.test(v);
   return match ? v : null;
+}
+
+function cloneAttendanceRows(rows) {
+  return Array.isArray(rows)
+    ? rows.map((row) => ({
+      ...row,
+      correction: row?.correction ? { ...row.correction } : null,
+    }))
+    : [];
+}
+
+function applyLocalCorrection(targetRow, payload) {
+  const row = attendanceRows.value.find((item) =>
+    String(item?.log_date || '') === String(targetRow?.log_date || '')
+      && String(item?.pin || '') === String(targetRow?.pin || '')
+  );
+
+  if (!row) {
+    return;
+  }
+
+  const firstScan = payload.first
+    ? buildClientCorrectionDateTime(row.log_date, payload.first, row.start_time, false)
+    : null;
+  const lastScan = payload.last
+    ? buildClientCorrectionDateTime(row.log_date, payload.last, row.start_time, true)
+    : null;
+
+  row.first_scan = firstScan;
+  row.last_scan = lastScan;
+  row.scan_time = firstScan ? String(firstScan).split(' ')[1] || null : null;
+  row.correction = {
+    ...(row.correction || {}),
+    status: 'approved',
+    first_scan: firstScan,
+    last_scan: lastScan,
+    note: payload.note || null,
+    rejection_reason: null,
+  };
+
+  const evaluation = evaluateCorrectedRowStatus(row, firstScan, lastScan);
+  row.expected = evaluation.expected;
+  row.status = evaluation.status;
+  row.reason = 'Koreksi attendance diterapkan.';
+}
+
+function buildClientCorrectionDateTime(logDate, timeHm, startTime, isLastScan) {
+  if (!logDate || !timeHm) return null;
+
+  const base = `${logDate} ${timeHm}:00`;
+  if (!isLastScan || !startTime) {
+    return base;
+  }
+
+  const startHm = String(startTime).slice(0, 5);
+  if (timeHm >= startHm) {
+    return base;
+  }
+
+  const date = new Date(`${logDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return base;
+  }
+
+  date.setDate(date.getDate() + 1);
+  return `${formatDateInputValue(date)} ${timeHm}:00`;
+}
+
+function evaluateCorrectedRowStatus(row, firstScan, lastScan) {
+  const lockedExpected = String(row?.expected || '').toLowerCase();
+  if (['off', 'libur nasional', 'izin', 'sakit', 'cuti', 'dinas luar'].includes(lockedExpected)) {
+    return {
+      expected: row.expected,
+      status: row.status || 'matched',
+    };
+  }
+
+  if (!firstScan && !lastScan) {
+    return { expected: 'Tidak Masuk', status: 'missing_scan' };
+  }
+
+  if (!firstScan && lastScan) {
+    return { expected: 'Tidak Scan masuk', status: 'missing_checkin' };
+  }
+
+  if (firstScan && !lastScan) {
+    if (isLateBeyondTolerance(row?.start_time, firstScan)) {
+      return { expected: 'Terlambat', status: 'time_mismatch' };
+    }
+
+    return { expected: 'Tidak Scan pulang', status: 'missing_checkout' };
+  }
+
+  if (isLateBeyondTolerance(row?.start_time, firstScan)) {
+    return { expected: 'Terlambat', status: 'time_mismatch' };
+  }
+
+  return { expected: 'On Time', status: 'matched' };
+}
+
+function isLateBeyondTolerance(startTime, scanDateTime) {
+  if (!startTime || !scanDateTime) return false;
+
+  const startHm = String(startTime).slice(0, 5);
+  const scanHm = formatTimeOnly(scanDateTime);
+  if (startHm === '-' || scanHm === '-') return false;
+
+  const [startHour, startMinute] = startHm.split(':').map(Number);
+  const [scanHour, scanMinute] = scanHm.split(':').map(Number);
+  const startTotal = (startHour * 60) + startMinute;
+  const scanTotal = (scanHour * 60) + scanMinute;
+
+  return (scanTotal - startTotal) > 10;
 }
 
 function escapeHtmlValue(value) {
