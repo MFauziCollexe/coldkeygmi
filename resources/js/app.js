@@ -5,6 +5,18 @@ import Swal from "sweetalert2";
 import axios from "axios";
 
 let globalLoadingCount = 0;
+let isHandlingSessionExpiry = false;
+
+function redirectToLoginOnSessionExpired() {
+    if (isHandlingSessionExpiry) {
+        return;
+    }
+
+    isHandlingSessionExpiry = true;
+    globalLoadingCount = 0;
+    closeGlobalLoading();
+    window.location.replace("/login");
+}
 
 function isGlobalLoadingPopup() {
     const popup = Swal.getPopup();
@@ -73,6 +85,11 @@ axios.interceptors.response.use(
     },
     (error) => {
         endGlobalLoading();
+
+        if (error?.response?.status === 419) {
+            redirectToLoginOnSessionExpired();
+        }
+
         return Promise.reject(error);
     },
 );
@@ -82,6 +99,23 @@ document.addEventListener("inertia:finish", endGlobalLoading);
 document.addEventListener("inertia:error", endGlobalLoading);
 document.addEventListener("inertia:invalid", endGlobalLoading);
 document.addEventListener("inertia:exception", endGlobalLoading);
+document.addEventListener("inertia:error", (event) => {
+    if (event?.detail?.response?.status === 419) {
+        redirectToLoginOnSessionExpired();
+    }
+});
+document.addEventListener("inertia:invalid", (event) => {
+    if (event?.detail?.response?.status === 419) {
+        event.preventDefault?.();
+        redirectToLoginOnSessionExpired();
+    }
+});
+document.addEventListener("inertia:exception", (event) => {
+    if (event?.detail?.response?.status === 419) {
+        event.preventDefault?.();
+        redirectToLoginOnSessionExpired();
+    }
+});
 
 const pages = import.meta.glob("./Pages/**/*.vue", { eager: true });
 

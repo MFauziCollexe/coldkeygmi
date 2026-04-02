@@ -322,6 +322,13 @@ export const sidebarMenuConfig = [
                 route: "/control-panel/logs",
                 module_key: "control.logs",
             },
+            {
+                id: "access-rules",
+                label: "Access Rules",
+                icon: "Shield",
+                route: "/control-panel/access-rules",
+                module_key: "control.access_rules",
+            },
         ],
     },
 ];

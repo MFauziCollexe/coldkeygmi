@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Support\AccessRuleService;
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
 
@@ -179,11 +180,24 @@ Route::get('gmium/utility-report', [App\Http\Controllers\UtilityReportController
     ->name('gmium.utility-report.index');
 
 // GMIIC - Checklist
-Route::get('gmiic/checklist', function () {
-    return Inertia::render('GMIIC/Checklist/Index');
+$resolveChecklistAbilities = static function (Request $request): array {
+    $accessRules = app(AccessRuleService::class);
+    $user = $request->user();
+
+    return [
+        'delete_entries' => $accessRules->allows($user, 'gmiic_checklist', 'delete_entries'),
+        'kotak_p3k_hse_approve' => $accessRules->allows($user, 'gmiic_checklist', 'kotak_p3k_hse_approve'),
+        'warehouse_final_approve' => $accessRules->allows($user, 'gmiic_checklist', 'warehouse_final_approve'),
+    ];
+};
+
+Route::get('gmiic/checklist', function (Request $request) use ($resolveChecklistAbilities) {
+    return Inertia::render('GMIIC/Checklist/Index', [
+        'checklistAbilities' => $resolveChecklistAbilities($request),
+    ]);
 })->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.index');
-Route::get('gmiic/checklist/create', function (Request $request) {
+Route::get('gmiic/checklist/create', function (Request $request) use ($resolveChecklistAbilities) {
     $employees = Employee::query()
         ->with([
             'position:id,name,department_id',
@@ -232,6 +246,7 @@ Route::get('gmiic/checklist/create', function (Request $request) {
     return Inertia::render('GMIIC/Checklist/Create', [
         'selectedTemplate' => $request->string('template')->toString(),
         'entryId' => $request->string('entry_id')->toString(),
+        'checklistAbilities' => $resolveChecklistAbilities($request),
         'holidayDates' => AttendanceHoliday::query()
             ->orderBy('holiday_date')
             ->pluck('holiday_date')
@@ -351,6 +366,20 @@ Route::post('control-panel/module-control/save', [App\Http\Controllers\ModuleCon
     ->name('control.module.save');
 Route::get('control-panel/module-control/user/{userId}', [App\Http\Controllers\ModuleControlController::class, 'forUser'])
     ->middleware(['auth']);
+
+// Control Panel - Access Rules
+Route::get('control-panel/access-rules', [App\Http\Controllers\AccessRuleController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.access_rules'])
+    ->name('control.access-rules');
+Route::post('control-panel/access-rules/save', [App\Http\Controllers\AccessRuleController::class, 'save'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.access_rules'])
+    ->name('control.access-rules.save');
+Route::post('control-panel/access-rules/rollback', [App\Http\Controllers\AccessRuleController::class, 'rollback'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.access_rules'])
+    ->name('control.access-rules.rollback');
+Route::delete('control-panel/access-rules/reset', [App\Http\Controllers\AccessRuleController::class, 'reset'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.access_rules'])
+    ->name('control.access-rules.reset');
 
 // Control Panel - Logs
 Route::get('control-panel/logs', [App\Http\Controllers\ActivityLogController::class, 'index'])

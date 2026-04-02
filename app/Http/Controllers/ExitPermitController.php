@@ -4,14 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\ExitPermit;
-use App\Models\Position;
-use App\Support\DepartmentScope;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ExitPermitController extends Controller
 {
     use RemembersIndexUrl;
+
+    private const ACCESS_MODULE = 'exit_permit';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
 
     public function index(Request $request)
     {
@@ -147,7 +153,7 @@ class ExitPermitController extends Controller
         }
 
         if ($validated['role'] === 'security') {
-            if (!$this->isSecurityUser($authUser)) {
+            if (!$this->canApproveSecurity($authUser)) {
                 abort(403, 'Hanya user Security yang dapat approve/reject Security.');
             }
             $exitPermit->security_status = $validated['decision'];
@@ -156,7 +162,7 @@ class ExitPermitController extends Controller
         }
 
         if ($validated['role'] === 'hrd') {
-            if (!$this->isHrdUser($authUser)) {
+            if (!$this->canApproveHrd($authUser)) {
                 abort(403, 'Hanya user HRD yang dapat approve/reject HRD.');
             }
             $exitPermit->hrd_status = $validated['decision'];
@@ -165,7 +171,7 @@ class ExitPermitController extends Controller
         }
 
         if ($validated['role'] === 'manager') {
-            if (!$this->isDepartmentManager($authUser, (int) $exitPermit->department_id)) {
+            if (!$this->canApproveManager($authUser, (int) $exitPermit->department_id)) {
                 abort(403, 'Hanya Manager/Supervisor departemen terkait yang dapat approve/reject.');
             }
             $exitPermit->manager_status = $validated['decision'];
@@ -196,52 +202,31 @@ class ExitPermitController extends Controller
 
     private function isSecurityUser($user): bool
     {
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        $user->loadMissing('department:id,code');
-        return strtoupper((string) optional($user->department)->code) === 'SEC';
+        return $this->canApproveSecurity($user);
     }
 
     private function isHrdUser($user): bool
     {
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        $user->loadMissing('department:id,code');
-        return strtoupper((string) optional($user->department)->code) === 'HRD';
+        return $this->canApproveHrd($user);
     }
 
     private function isDepartmentManager($user, int $departmentId): bool
     {
-        if (!$user || !$departmentId) {
-            return false;
-        }
+        return $this->canApproveManager($user, $departmentId);
+    }
 
-        if ($user->isAdmin()) {
-            return true;
-        }
+    private function canApproveSecurity($user): bool
+    {
+        return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'security_approve');
+    }
 
-        if (!$user->position_id) {
-            return false;
-        }
+    private function canApproveHrd($user): bool
+    {
+        return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'hrd_approve');
+    }
 
-        $position = Position::query()->select('department_id', 'is_manager')->find($user->position_id);
-        if (!$position || !$position->is_manager) {
-            return false;
-        }
-
-        $managedDeptIds = DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
-        return in_array((int) $departmentId, $managedDeptIds, true);
+    private function canApproveManager($user, int $departmentId): bool
+    {
+        return $this->accessRules()->canAccessDepartment($user, self::ACCESS_MODULE, 'manager_approve', $departmentId);
     }
 }

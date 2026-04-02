@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLogCorrection;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -17,6 +18,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class AttendanceLogController extends Controller
 {
     // Easy rollback switch for scan pairing logic.
+    private const ACCESS_MODULE = 'attendance_log';
     private const USE_SCHEDULE_WINDOWS = true;
     private const EXPORT_EXCLUDED_PINS = [
         '2251001006',
@@ -26,6 +28,11 @@ class AttendanceLogController extends Controller
         '2251215002',
         '2251117003',
     ];
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
 
     public function index(Request $request)
     {
@@ -49,11 +56,18 @@ class AttendanceLogController extends Controller
             $perPage = 2000;
         }
 
-        [$scanRangeStart, $scanRangeEnd] = $this->resolveScanDateRange($year, $month);
+        [$dateFrom, $dateTo] = $this->resolveAttendanceFilterDates(
+            $request->input('date_from'),
+            $request->input('date_to'),
+            $year,
+            $month
+        );
+
+        [$scanRangeStart, $scanRangeEnd] = $this->resolveScanDateRangeForDates($dateFrom, $dateTo);
 
         $corrections = AttendanceLogCorrection::query()
-            ->when($year !== null, fn($query) => $query->whereYear('log_date', $year))
-            ->when($month !== null, fn($query) => $query->whereMonth('log_date', $month))
+            ->when($dateFrom !== null, fn($query) => $query->whereDate('log_date', '>=', $dateFrom))
+            ->when($dateTo !== null, fn($query) => $query->whereDate('log_date', '<=', $dateTo))
             ->get();
 
         $correctionMap = $corrections->keyBy(function (AttendanceLogCorrection $correction) {
@@ -105,8 +119,8 @@ class AttendanceLogController extends Controller
 
         $rosterRows = DB::table('roster_entries as re')
             ->join('roster_upload_batches as rub', 'rub.id', '=', 're.batch_id')
-            ->when($year !== null, fn($query) => $query->whereYear('re.roster_date', $year))
-            ->when($month !== null, fn($query) => $query->whereMonth('re.roster_date', $month))
+            ->when($dateFrom !== null, fn($query) => $query->whereDate('re.roster_date', '>=', $dateFrom))
+            ->when($dateTo !== null, fn($query) => $query->whereDate('re.roster_date', '<=', $dateTo))
             ->where('rub.status', 'approved')
             ->where('rub.is_current', true)
             ->whereNotNull('re.employee_nrp')
@@ -143,16 +157,16 @@ class AttendanceLogController extends Controller
         $rangeEndDate = $rangeDates->max();
 
         $approvedLeaveTypeByPinDate = $this->buildApprovedLeaveTypesByPinDate(
-            $year,
-            $month,
+            null,
+            null,
             $pinsInScope,
             $rangeStartDate,
             $rangeEndDate
         );
 
         $holidaysByDate = DB::table('attendance_holidays')
-            ->when($year !== null, fn($query) => $query->whereYear('holiday_date', $year))
-            ->when($month !== null, fn($query) => $query->whereMonth('holiday_date', $month))
+            ->when($dateFrom !== null, fn($query) => $query->whereDate('holiday_date', '>=', $dateFrom))
+            ->when($dateTo !== null, fn($query) => $query->whereDate('holiday_date', '<=', $dateTo))
             ->get(['holiday_date', 'name', 'scope_type'])
             ->groupBy(function ($row) {
                 $date = $this->toDateString($row->holiday_date);
@@ -407,17 +421,13 @@ class AttendanceLogController extends Controller
 
             $monthKeys = collect(array_keys($dateMap))
                 ->map(fn($date) => Carbon::parse($date)->format('Y-m'))
-                ->filter(function ($ym) use ($year, $month) {
-                    [$y, $m] = array_map('intval', explode('-', $ym));
-                    if ($year !== null && $y !== (int) $year) return false;
-                    if ($month !== null && $m !== (int) $month) return false;
-                    return true;
-                })
                 ->unique()
                 ->values()
                 ->all();
 
-            if (empty($monthKeys) && $year !== null && $month !== null) {
+            if ($dateFrom !== null && $dateTo !== null) {
+                $monthKeys = $this->buildMonthKeysWithinDateRange($dateFrom, $dateTo);
+            } elseif (empty($monthKeys) && $year !== null && $month !== null) {
                 $monthKeys = [sprintf('%04d-%02d', $year, $month)];
             }
 
@@ -570,6 +580,22 @@ class AttendanceLogController extends Controller
             })->values();
         }
 
+        if ($dateFrom !== null || $dateTo !== null) {
+            $rows = $rows->filter(function (array $row) use ($dateFrom, $dateTo) {
+                $logDate = $this->toDateString($row['log_date'] ?? null);
+                if ($logDate === null) {
+                    return false;
+                }
+                if ($dateFrom !== null && $logDate < $dateFrom) {
+                    return false;
+                }
+                if ($dateTo !== null && $logDate > $dateTo) {
+                    return false;
+                }
+                return true;
+            })->values();
+        }
+
         if ($q !== '') {
             $needle = mb_strtolower($q);
             $rows = $rows->filter(function (array $row) use ($needle) {
@@ -609,7 +635,7 @@ class AttendanceLogController extends Controller
             ->values();
 
         if ($request->boolean('export')) {
-            return $this->exportRowsToExcel($rows, $year, $month);
+            return $this->exportRowsToExcel($rows, $dateFrom, $dateTo);
         }
 
         $expectedCounts = $summaryRows
@@ -632,7 +658,7 @@ class AttendanceLogController extends Controller
             'expected_counts' => $expectedCounts,
         ];
 
-        $monthlyInsights = $this->buildMonthlyLateAbsentInsights($year, $month);
+        $monthlyInsights = $this->buildMonthlyLateAbsentInsights($dateFrom, $dateTo);
 
         $attendanceLogs = $this->paginateCollection($rows, $perPage, $request);
 
@@ -642,8 +668,8 @@ class AttendanceLogController extends Controller
             'monthlyInsights' => $monthlyInsights,
             'canManageCorrections' => $canManageCorrections,
             'filters' => [
-                'month' => $month ?? 'all',
-                'year' => $year ?? 'all',
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
                 'status' => $status,
                 'q' => $q,
                 'per_page' => $perPage,
@@ -651,22 +677,25 @@ class AttendanceLogController extends Controller
         ]);
     }
 
-    private function buildMonthlyLateAbsentInsights(?int $year, ?int $month): array
+    private function buildMonthlyLateAbsentInsights(?string $dateFrom, ?string $dateTo): array
     {
         $now = Carbon::now();
         $minCount = 5;
 
-        // Decide the target month (single month only).
-        // Requirement:
-        // - Only follow filters when BOTH month and year are selected (not "all").
-        // - If month OR year is "all", always show current month.
-        if ($year !== null && $month !== null) {
-            $target = Carbon::create($year, $month, 1);
-        } else {
-            $target = $now->copy();
-        }
+        $target = $dateFrom !== null
+            ? Carbon::parse($dateFrom)->startOfMonth()
+            : $now->copy()->startOfMonth();
 
-        $target = $target->copy()->startOfMonth();
+        if ($dateTo !== null) {
+            try {
+                $rangeEnd = Carbon::parse($dateTo)->startOfMonth();
+                if (!$target->isSameMonth($rangeEnd)) {
+                    $target = Carbon::parse($dateFrom ?? $dateTo)->startOfMonth();
+                }
+            } catch (\Throwable $e) {
+                // Use target from dateFrom/current month.
+            }
+        }
 
         $monthNames = [
             1 => 'Januari',
@@ -1487,6 +1516,99 @@ class AttendanceLogController extends Controller
         }
     }
 
+    private function resolveAttendanceFilterDates($dateFromInput, $dateToInput, ?int $year = null, ?int $month = null): array
+    {
+        $dateFrom = $this->normalizeFilterDate($dateFromInput);
+        $dateTo = $this->normalizeFilterDate($dateToInput);
+
+        if ($dateFrom === null && $dateTo === null && $year !== null) {
+            try {
+                $base = $month !== null
+                    ? Carbon::create($year, $month, 1)
+                    : Carbon::create($year, 1, 1);
+                $dateFrom = $base->copy()->startOfMonth()->toDateString();
+                $dateTo = ($month !== null
+                    ? $base->copy()->endOfMonth()
+                    : Carbon::create($year, 12, 31)
+                )->toDateString();
+            } catch (\Throwable $e) {
+                $dateFrom = null;
+                $dateTo = null;
+            }
+        }
+
+        if ($dateFrom === null && $dateTo !== null) {
+            $dateFrom = $dateTo;
+        }
+        if ($dateTo === null && $dateFrom !== null) {
+            $dateTo = $dateFrom;
+        }
+
+        if ($dateFrom === null || $dateTo === null) {
+            $now = Carbon::now();
+            $dateFrom = $now->copy()->startOfMonth()->toDateString();
+            $dateTo = $now->copy()->endOfMonth()->toDateString();
+        }
+
+        if ($dateFrom > $dateTo) {
+            [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
+        }
+
+        return [$dateFrom, $dateTo];
+    }
+
+    private function normalizeFilterDate($value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->toDateString();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function resolveScanDateRangeForDates(?string $dateFrom, ?string $dateTo): array
+    {
+        if ($dateFrom === null || $dateTo === null) {
+            return [null, null];
+        }
+
+        try {
+            return [
+                Carbon::parse($dateFrom)->subDay()->toDateString(),
+                Carbon::parse($dateTo)->addDay()->toDateString(),
+            ];
+        } catch (\Throwable $e) {
+            return [null, null];
+        }
+    }
+
+    private function buildMonthKeysWithinDateRange(?string $dateFrom, ?string $dateTo): array
+    {
+        if ($dateFrom === null || $dateTo === null) {
+            return [];
+        }
+
+        try {
+            $cursor = Carbon::parse($dateFrom)->startOfMonth();
+            $end = Carbon::parse($dateTo)->startOfMonth();
+            $result = [];
+
+            while ($cursor->lte($end)) {
+                $result[] = $cursor->format('Y-m');
+                $cursor->addMonth();
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     private function requiresPreviousDayWindow(?string $startTime, ?string $endTime): bool
     {
         if ($startTime === null || $endTime === null) {
@@ -1953,13 +2075,13 @@ class AttendanceLogController extends Controller
         ];
     }
 
-    private function exportRowsToExcel(Collection $rows, ?int $year = null, ?int $month = null)
+    private function exportRowsToExcel(Collection $rows, ?string $dateFrom = null, ?string $dateTo = null)
     {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Attendance Logs');
-        $dateColumns = $this->buildExportDateColumns($rows, $year, $month);
-        $title = $this->buildAttendanceExportTitle($year, $month, $rows);
+        $dateColumns = $this->buildExportDateColumns($rows, $dateFrom, $dateTo);
+        $title = $this->buildAttendanceExportTitle($dateFrom, $dateTo, $rows);
         $headerStartRow = 2;
         $subHeaderRow = 3;
         $bodyStartRow = 4;
@@ -2169,12 +2291,12 @@ class AttendanceLogController extends Controller
         ]);
     }
 
-    private function buildExportDateColumns(Collection $rows, ?int $year = null, ?int $month = null): array
+    private function buildExportDateColumns(Collection $rows, ?string $dateFrom = null, ?string $dateTo = null): array
     {
         try {
-            if ($year !== null && $month !== null) {
-                $start = Carbon::create($year, $month, 1)->startOfMonth();
-                $end = $start->copy()->endOfMonth();
+            if ($dateFrom !== null && $dateTo !== null) {
+                $start = Carbon::parse($dateFrom)->startOfDay();
+                $end = Carbon::parse($dateTo)->startOfDay();
             } else {
                 $dates = $rows
                     ->pluck('log_date')
@@ -2203,16 +2325,17 @@ class AttendanceLogController extends Controller
         }
     }
 
-    private function buildAttendanceExportTitle(?int $year, ?int $month, Collection $rows): string
+    private function buildAttendanceExportTitle(?string $dateFrom, ?string $dateTo, Collection $rows): string
     {
-        $monthLabel = 'Semua Bulan';
-        $yearLabel = $year !== null ? (string) $year : 'Semua Tahun';
+        $periodLabel = 'Semua Periode';
 
         try {
-            if ($year !== null && $month !== null) {
-                $monthLabel = Carbon::create($year, $month, 1)->locale('id')->translatedFormat('F');
-            } elseif ($month !== null) {
-                $monthLabel = Carbon::create(2000, $month, 1)->locale('id')->translatedFormat('F');
+            if ($dateFrom !== null && $dateTo !== null) {
+                $start = Carbon::parse($dateFrom);
+                $end = Carbon::parse($dateTo);
+                $periodLabel = $start->isSameDay($end)
+                    ? $start->locale('id')->translatedFormat('d F Y')
+                    : $start->locale('id')->translatedFormat('d F Y') . ' s/d ' . $end->locale('id')->translatedFormat('d F Y');
             } else {
                 $firstDate = $rows
                     ->pluck('log_date')
@@ -2223,17 +2346,14 @@ class AttendanceLogController extends Controller
 
                 if ($firstDate) {
                     $parsed = Carbon::parse($firstDate);
-                    $monthLabel = $parsed->locale('id')->translatedFormat('F');
-                    if ($year === null) {
-                        $yearLabel = $parsed->format('Y');
-                    }
+                    $periodLabel = $parsed->locale('id')->translatedFormat('F Y');
                 }
             }
         } catch (\Throwable $e) {
             // Use defaults above.
         }
 
-        return sprintf('ABSENSI %s - %s Golden Multi Indotama', $monthLabel, $yearLabel);
+        return sprintf('ABSENSI %s Golden Multi Indotama', $periodLabel);
     }
 
     private function exportDayShortName(string $logDate): string
@@ -2382,30 +2502,7 @@ class AttendanceLogController extends Controller
 
     private function canManageCorrections($user): bool
     {
-        if (!$user) {
-            return false;
-        }
-
-        $department = DB::table('departments')
-            ->where('id', $user->department_id)
-            ->first(['code', 'name']);
-
-        if (!$department) {
-            return false;
-        }
-
-        $code = strtoupper(trim((string) ($department->code ?? '')));
-        $name = strtoupper(trim((string) ($department->name ?? '')));
-
-        if ($code === 'IT') {
-            return true;
-        }
-
-        if (str_contains($name, 'IT')) {
-            return true;
-        }
-
-        return false;
+        return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'manage_corrections');
     }
 
     private function evaluateCheckIn(?string $startTime, ?string $firstScanTime, ?string $firstScanDateTime = null, ?string $logDate = null): array

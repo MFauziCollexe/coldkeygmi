@@ -89,6 +89,7 @@ return [
             ['key' => 'control.users', 'label' => 'Users'],
             ['key' => 'control.module', 'label' => 'Modul Control'],
             ['key' => 'control.logs', 'label' => 'Logs'],
+            ['key' => 'control.access_rules', 'label' => 'Access Rules'],
         ],
     ],
 ];

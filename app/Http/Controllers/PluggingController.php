@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Customer;
 use App\Models\Plugging;
 use App\Models\VehicleType;
+use App\Support\AccessRuleService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,13 @@ use Inertia\Inertia;
 class PluggingController extends Controller
 {
     use RemembersIndexUrl;
+
+    private const ACCESS_MODULE = 'plugging';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
 
     public function index(Request $request)
     {
@@ -364,19 +372,6 @@ class PluggingController extends Controller
 
     private function isOperationalManager($user): bool
     {
-        if (!$user) {
-            return false;
-        }
-
-        $user->loadMissing(['department:id,name,code', 'position:id,is_manager']);
-
-        $isManager = (bool) optional($user->position)->is_manager;
-        $departmentCode = strtoupper((string) optional($user->department)->code);
-        $departmentName = strtoupper((string) optional($user->department)->name);
-        $isOperationalDept = $departmentCode === 'OPS'
-            || str_contains($departmentName, 'OPPERATIONAL')
-            || str_contains($departmentName, 'OPERATIONAL');
-
-        return $isManager && $isOperationalDept;
+        return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'approve');
     }
 }

@@ -110,5 +110,15 @@ export default [
             },
         ],
     },
+    {
+        key: "control",
+        label: "Control Panel",
+        children: [
+            { key: "control.users", label: "Users" },
+            { key: "control.module", label: "Modul Control" },
+            { key: "control.logs", label: "Logs" },
+            { key: "control.access_rules", label: "Access Rules" },
+        ],
+    },
 ];
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ElectricityHvLog;
+use App\Support\AccessRuleService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,6 +13,13 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ElectricityHvMeterController extends Controller
 {
+    private const ACCESS_MODULE = 'electricity_hv_meter';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
+
     public function index(Request $request)
     {
         $filters = [
@@ -46,6 +54,7 @@ class ElectricityHvMeterController extends Controller
             'meterOptions' => $meterOptions,
             'trendData' => $this->buildDailyTrend($filters),
             'canEditList' => $this->canEditList($request),
+            'canExportLogs' => $this->canExportLogs($request),
         ]);
     }
 
@@ -119,6 +128,10 @@ class ElectricityHvMeterController extends Controller
 
     public function export(Request $request)
     {
+        if (!$this->canExportLogs($request)) {
+            abort(403, 'Anda tidak memiliki akses export data HV meter.');
+        }
+
         $filters = [
             'meter_id' => trim((string) $request->input('meter_id', '')),
             'start_date' => trim((string) $request->input('start_date', '')),
@@ -260,13 +273,12 @@ class ElectricityHvMeterController extends Controller
 
     private function canEditList(Request $request): bool
     {
-        $user = $request->user();
-        if (!$user) {
-            return false;
-        }
+        return $this->accessRules()->allows($request->user(), self::ACCESS_MODULE, 'edit_list');
+    }
 
-        $user->loadMissing('department:id,code');
-        return strtoupper((string) optional($user->department)->code) === 'IT';
+    private function canExportLogs(Request $request): bool
+    {
+        return $this->accessRules()->allows($request->user(), self::ACCESS_MODULE, 'export_logs');
     }
 
     private function normalizeNumericInput($value)

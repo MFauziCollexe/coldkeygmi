@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Support\AccessRuleService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class RequestAccess extends Model
 {
     use HasFactory;
+
+    private const ACCESS_MODULE = 'request_access';
 
     protected $fillable = [
         'request_number',
@@ -108,24 +111,12 @@ class RequestAccess extends Model
      */
     public function canReview($userId)
     {
-        // Get the department of the request creator
-        $creator = User::find($this->created_by);
-        if (!$creator || !$creator->department_id) {
-            return false;
+        $targetDepartmentId = (int) optional($this->creator)->department_id;
+        if ($targetDepartmentId <= 0 && $this->created_by) {
+            $targetDepartmentId = (int) User::where('id', $this->created_by)->value('department_id');
         }
 
-        $reviewer = User::find($userId);
-        if (!$reviewer || !$reviewer->position_id) {
-            return false;
-        }
-
-        $position = \App\Models\Position::find($reviewer->position_id);
-        if (!$position || !$position->is_manager) {
-            return false;
-        }
-
-        $managedDeptIds = \App\Support\DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
-        return in_array((int) $creator->department_id, $managedDeptIds, true);
+        return app(AccessRuleService::class)->canAccessDepartment($userId, self::ACCESS_MODULE, 'review', $targetDepartmentId);
     }
 
     /**
@@ -133,22 +124,11 @@ class RequestAccess extends Model
      */
     public function canProcess($userId)
     {
-        // Only approved requests can be processed
         if ($this->status !== 'approved') {
             return false;
         }
 
-        $user = User::find($userId);
-        if (!$user) {
-            return false;
-        }
-
-        $itDepartmentId = Department::where('code', 'IT')->value('id');
-        if (!$itDepartmentId) {
-            return false;
-        }
-
-        return (int) $user->department_id === (int) $itDepartmentId;
+        return app(AccessRuleService::class)->allows($userId, self::ACCESS_MODULE, 'process');
     }
 
     /**

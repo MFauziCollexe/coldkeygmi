@@ -8,7 +8,7 @@ use App\Models\Overtime;
 use App\Models\User;
 use App\Models\Department;
 use App\Models\ActivityLog;
-use App\Support\DepartmentScope;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +23,13 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class OvertimeController extends Controller
 {
     use RemembersIndexUrl;
+
+    private const ACCESS_MODULE = 'overtime';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
 
     protected function getActorEmployee($userId): ?Employee
     {
@@ -41,12 +48,7 @@ class OvertimeController extends Controller
      */
     protected function isAdmin($userId)
     {
-        $user = User::find($userId);
-        if (!$user) {
-            return false;
-        }
-        // Specific admin email or is_admin flag
-        return $user->email === 'admin@coldkeygmi.com' || $user->isAdmin();
+        return $this->accessRules()->isAdmin($userId);
     }
 
     /**
@@ -54,23 +56,7 @@ class OvertimeController extends Controller
      */
     protected function isManager($userId)
     {
-        $user = User::find($userId);
-        if (!$user) {
-            return false;
-        }
-
-        $positionId = (int) ($user->position_id ?? 0);
-        if ($positionId <= 0) {
-            $emp = $this->getActorEmployee($userId);
-            $positionId = (int) ($emp?->position_id ?? 0);
-        }
-
-        if ($positionId <= 0) {
-            return false;
-        }
-
-        $position = \App\Models\Position::find($positionId);
-        return $position && $position->is_manager;
+        return $this->accessRules()->isManager($userId);
     }
 
     /**
@@ -81,34 +67,7 @@ class OvertimeController extends Controller
      */
     protected function isSupervisor($userId)
     {
-        $user = User::find($userId);
-        if (!$user) {
-            return false;
-        }
-
-        $positionId = (int) ($user->position_id ?? 0);
-        if ($positionId <= 0) {
-            $emp = $this->getActorEmployee($userId);
-            $positionId = (int) ($emp?->position_id ?? 0);
-        }
-
-        if ($positionId <= 0) {
-            return false;
-        }
-
-        $position = \App\Models\Position::find($positionId);
-        if (!$position) {
-            return false;
-        }
-
-        $code = strtoupper(trim((string) ($position->code ?? '')));
-        $name = strtoupper(trim((string) ($position->name ?? '')));
-
-        if ($code === 'SPV' || str_ends_with($code, '-SPV') || str_contains($code, 'SPV')) {
-            return true;
-        }
-
-        return str_contains($name, 'SUPERVISOR') || str_contains($name, 'SPV');
+        return $this->accessRules()->isSupervisor($userId);
     }
 
     /**
@@ -119,55 +78,17 @@ class OvertimeController extends Controller
      */
     protected function getVisibleDepartmentIds($userId)
     {
-        $user = User::find($userId);
-        
-        if (!$user) {
-            return [];
-        }
-
-        $emp = $this->getActorEmployee($userId);
-
-        // Admin and HRD can see all
-        if ($this->isAdmin($userId) || $this->isHumanResource($userId)) {
-            return Department::pluck('id')->toArray();
-        }
-
-        // Manager can see their department
-        if ($this->isManager($userId)) {
-            $positionId = (int) ($user->position_id ?? 0);
-            if ($positionId <= 0) {
-                $positionId = (int) ($emp?->position_id ?? 0);
-            }
-
-            $position = $positionId > 0 ? \App\Models\Position::find($positionId) : null;
-            if ($position && $position->department_id) {
-                return DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
-            }
-        }
-
-        // Regular user can only see their own department
-        $deptId = (int) ($user->department_id ?? 0);
-        if ($deptId <= 0) {
-            $deptId = (int) ($emp?->department_id ?? 0);
-        }
-        if ($deptId > 0) {
-            return [$deptId];
-        }
-
-        return [];
+        return $this->accessRules()->visibleDepartmentIds($userId, self::ACCESS_MODULE, 'view_list');
     }
 
-    protected function isHumanResource($userId)
+    protected function canSubmitForOthers($userId): bool
     {
-        $user = User::find($userId);
-        if (!$user) {
-            return false;
-        }
+        return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'submit_for_others');
+    }
 
-        $departmentCode = strtoupper(trim((string) ($user->department?->code ?? '')));
-        $departmentName = strtoupper(trim((string) ($user->department?->name ?? '')));
-
-        return $departmentCode === 'HRD' || str_contains($departmentName, 'HRD');
+    protected function canApproveDepartment($userId, int $departmentId): bool
+    {
+        return $this->accessRules()->canAccessDepartment($userId, self::ACCESS_MODULE, 'approve', $departmentId);
     }
 
     /**
@@ -378,7 +299,7 @@ class OvertimeController extends Controller
     public function create()
     {
         $userId = Auth::id();
-        $canSubmitForOthers = $this->isAdmin($userId) || $this->isManager($userId) || $this->isSupervisor($userId);
+        $canSubmitForOthers = $this->canSubmitForOthers($userId);
 
         $employees = [];
 
@@ -527,7 +448,7 @@ class OvertimeController extends Controller
             ->unique()
             ->values()
             ->all();
-        $canSubmitForOthers = $this->isAdmin($actorId) || $this->isManager($actorId) || $this->isSupervisor($actorId);
+        $canSubmitForOthers = $this->canSubmitForOthers($actorId);
 
         if ($requestedEmployeeId === null && empty($requestedEmployeeIds)) {
             $requestedEmployeeId = (int) (Employee::where('user_id', $actorId)->value('id') ?? 0);
@@ -651,15 +572,8 @@ class OvertimeController extends Controller
         }
 
         // Only admin or manager of the requester's department can approve/reject.
-        if (!$this->isAdmin($userId)) {
-            if (!$this->isManager($userId)) {
-                abort(403, 'Anda tidak memiliki izin untuk menyetujui/menolak overtime ini.');
-            }
-
-            $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
-            if ($targetDeptId <= 0 || !in_array($targetDeptId, $visibleDeptIds, true)) {
-                abort(403, 'Anda tidak memiliki izin untuk menyetujui/menolak overtime departemen ini.');
-            }
+        if (!$this->canApproveDepartment($userId, $targetDeptId)) {
+            abort(403, 'Anda tidak memiliki izin untuk menyetujui/menolak overtime ini.');
         }
 
         $data = $request->validate([

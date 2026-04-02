@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Support\AccessRuleService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Ticket extends Model
 {
     use HasFactory;
+
+    private const ACCESS_MODULE = 'tickets';
 
     public $timestamps = true;
 
@@ -123,12 +126,12 @@ class Ticket extends Model
         }
 
         $user = User::find($userId);
-        if (!$user || !$user->position_id) {
+        if (!$user) {
             return false;
         }
 
-        $position = Position::find($user->position_id);
-        return $position && $position->is_manager && $position->department_id == $this->department_id;
+        return app(AccessRuleService::class)
+            ->canAccessDepartment($user, self::ACCESS_MODULE, 'manage_department', (int) $this->department_id);
     }
 
     /**
@@ -137,12 +140,6 @@ class Ticket extends Model
     public function canView($userId)
     {
         $user = \App\Models\User::find($userId);
-        
-        // Admins can view all tickets
-        if ($user && $user->is_admin) {
-            return true;
-        }
-        
         return $this->isCreator($userId) || $this->isAssignee($userId) || $this->isDepartmentManager($userId);
     }
 
@@ -151,13 +148,6 @@ class Ticket extends Model
      */
     public function canDistribute($userId)
     {
-        $user = \App\Models\User::find($userId);
-        
-        // Admins can distribute all tickets
-        if ($user && $user->is_admin) {
-            return true;
-        }
-        
         return $this->isDepartmentManager($userId);
     }
 }

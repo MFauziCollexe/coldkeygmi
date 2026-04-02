@@ -8,6 +8,7 @@ use App\Models\TicketAttachment;
 use App\Models\Department;
 use App\Models\User;
 use App\Models\Position;
+use App\Support\AccessRuleService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -17,6 +18,13 @@ use Illuminate\Support\Facades\Auth;
 class TicketController extends Controller
 {
     use RemembersIndexUrl;
+
+    private const ACCESS_MODULE = 'tickets';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
 
     /**
      * Get the department manager for a given department
@@ -41,21 +49,16 @@ class TicketController extends Controller
      */
     protected function isDepartmentManager($userId, $departmentId = null)
     {
-        $user = User::find($userId);
-        if (!$user || !$user->position_id) {
-            return false;
-        }
-
-        $position = Position::find($user->position_id);
-        if (!$position || !$position->is_manager) {
+        $user = $userId instanceof User ? $userId : User::find($userId);
+        if (!$user) {
             return false;
         }
 
         if ($departmentId !== null) {
-            return $position->department_id == $departmentId;
+            return $this->accessRules()->canAccessDepartment($user, self::ACCESS_MODULE, 'manage_department', (int) $departmentId);
         }
 
-        return true;
+        return !empty($this->getManagedDepartmentIds($user));
     }
 
     /**
@@ -63,17 +66,12 @@ class TicketController extends Controller
      */
     protected function getManagedDepartmentIds($userId)
     {
-        $user = User::find($userId);
-        if (!$user || !$user->position_id) {
+        $user = $userId instanceof User ? $userId : User::find($userId);
+        if (!$user) {
             return [];
         }
 
-        $position = Position::find($user->position_id);
-        if (!$position || !$position->is_manager) {
-            return [];
-        }
-
-        return [$position->department_id];
+        return $this->accessRules()->visibleDepartmentIds($user, self::ACCESS_MODULE, 'manage_department');
     }
 
     /**
@@ -117,10 +115,10 @@ class TicketController extends Controller
 
         $currentUserId = Auth::id();
         $currentUser = Auth::user();
+        $canViewAllManagedDepartments = $this->accessRules()->canViewAllDepartments($currentUser, self::ACCESS_MODULE, 'manage_department');
 
         // Restrict visibility: creator OR assignee OR department manager (except for admins)
-        // Admins can see all tickets
-        if ($currentUserId && !($currentUser && $currentUser->is_admin)) {
+        if ($currentUserId && !$canViewAllManagedDepartments) {
             $managedDeptIds = $this->getManagedDepartmentIds($currentUserId);
             
             $query->where(function ($q) use ($currentUserId, $managedDeptIds) {
@@ -221,7 +219,7 @@ class TicketController extends Controller
         }
 
         // Check if current user is a manager of this ticket's department
-        $isManager = $ticket->canDistribute(Auth::id());
+        $isManager = $this->canManageTicketDepartment(Auth::user(), $ticket);
         
         // Check if current user is the assignee
         $isAssignee = $ticket->isAssignee(Auth::id());
@@ -649,13 +647,35 @@ class TicketController extends Controller
      */
     protected function authorizeTicketVisibility(Ticket $ticket)
     {
-        $userId = Auth::id();
-        if (!$userId) {
+        $user = Auth::user();
+        if (!$user) {
             abort(403);
         }
 
-        if (!$ticket->canView($userId)) {
+        if (!$this->canViewTicket($ticket, $user)) {
             abort(403);
         }
+    }
+
+    protected function canManageTicketDepartment(?User $user, Ticket $ticket): bool
+    {
+        if (!$user || !$ticket->department_id) {
+            return false;
+        }
+
+        return $this->accessRules()->canAccessDepartment($user, self::ACCESS_MODULE, 'manage_department', (int) $ticket->department_id);
+    }
+
+    protected function canViewTicket(Ticket $ticket, ?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ((int) $ticket->created_by === (int) $user->id || (int) $ticket->assigned_to === (int) $user->id) {
+            return true;
+        }
+
+        return $this->canManageTicketDepartment($user, $ticket);
     }
 }

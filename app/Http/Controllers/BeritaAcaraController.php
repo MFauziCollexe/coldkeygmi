@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\BeritaAcara;
 use App\Models\Customer;
 use App\Models\Department;
+use App\Support\AccessRuleService;
 use App\Support\BeritaAcaraLetterhead;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -19,6 +20,13 @@ use Dompdf\Options;
 class BeritaAcaraController extends Controller
 {
     use RemembersIndexUrl;
+
+    private const ACCESS_MODULE = 'berita_acara';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
 
     public function index(Request $request)
     {
@@ -365,17 +373,7 @@ class BeritaAcaraController extends Controller
 
     private function canDelete(Request $request): bool
     {
-        $user = $request->user();
-        if (!$user) {
-            return false;
-        }
-
-        if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
-            return true;
-        }
-
-        $user->loadMissing('department:id,code');
-        return strtoupper((string) optional($user->department)->code) === 'IT';
+        return $this->accessRules()->allows($request->user(), self::ACCESS_MODULE, 'delete');
     }
 
     // Note: sementara input disederhanakan; field lain diisi default.

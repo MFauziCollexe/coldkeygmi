@@ -58,7 +58,13 @@
           <div class="md:col-span-4 flex gap-2">
             <button class="h-[52px] px-5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white" @click="applyFilters">Filter</button>
             <button class="h-[52px] px-5 rounded-lg bg-slate-600 hover:bg-slate-500 text-white" @click="resetFilters">Reset</button>
-            <a :href="exportUrl" class="inline-flex h-[52px] items-center px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">Export Excel</a>
+            <a
+              v-if="canExportLogs"
+              :href="exportUrl"
+              class="inline-flex h-[52px] items-center px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white"
+            >
+              Export Excel
+            </a>
           </div>
         </div>
       </div>
@@ -156,6 +162,7 @@ const props = defineProps({
   trendData: { type: Array, default: () => [] },
   averageUsage: { type: Number, default: 0 },
   canEditList: { type: Boolean, default: false },
+  canExportLogs: { type: Boolean, default: false },
 });
 
 const form = useForm({
@@ -165,6 +172,7 @@ const form = useForm({
   meter_value: 0,
 });
 const canEditList = computed(() => !!props.canEditList);
+const canExportLogs = computed(() => !!props.canExportLogs);
 const editingId = ref(null);
 const savingEdit = ref(false);
 const editForm = reactive({

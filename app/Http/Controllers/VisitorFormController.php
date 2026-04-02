@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\User;
 use App\Models\VisitorForm;
+use App\Support\AccessRuleService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,6 +13,13 @@ use Inertia\Inertia;
 class VisitorFormController extends Controller
 {
     use RemembersIndexUrl;
+
+    private const ACCESS_MODULE = 'visitor_form';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
 
     public function create()
     {
@@ -213,15 +221,6 @@ class VisitorFormController extends Controller
 
     private function isSecurityUser(?User $user): bool
     {
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        $user->loadMissing('department:id,code');
-        return strtoupper((string) optional($user->department)->code) === 'SEC';
+        return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'security_approve');
     }
 }

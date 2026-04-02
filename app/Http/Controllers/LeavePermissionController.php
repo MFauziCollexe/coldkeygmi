@@ -5,10 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Employee;
 use App\Models\LeavePermission;
-use App\Models\User;
 use App\Models\Department;
 use App\Models\ActivityLog;
-use App\Support\DepartmentScope;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +16,13 @@ use Illuminate\Support\Facades\Storage;
 class LeavePermissionController extends Controller
 {
     use RemembersIndexUrl;
+
+    private const ACCESS_MODULE = 'leave_permission';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
 
     protected function getActorEmployee($userId): ?Employee
     {
@@ -35,8 +41,7 @@ class LeavePermissionController extends Controller
      */
     protected function isAdmin($userId)
     {
-        $user = User::find($userId);
-        return $user && $user->isAdmin();
+        return $this->accessRules()->isAdmin($userId);
     }
 
     /**
@@ -44,96 +49,7 @@ class LeavePermissionController extends Controller
      */
     protected function isManager($userId)
     {
-        $user = User::find($userId);
-        if (!$user) {
-            return false;
-        }
-
-        $positionId = (int) ($user->position_id ?? 0);
-        if ($positionId <= 0) {
-            $emp = $this->getActorEmployee($userId);
-            $positionId = (int) ($emp?->position_id ?? 0);
-        }
-
-        if ($positionId <= 0) {
-            return false;
-        }
-
-        $position = \App\Models\Position::find($positionId);
-        return $position && $position->is_manager;
-    }
-
-    /**
-     * Check if user belongs to IT department.
-     */
-    protected function isItUser($userId): bool
-    {
-        if (!$userId) {
-            return false;
-        }
-
-        $user = User::query()
-            ->with('department:id,code,name')
-            ->find($userId);
-
-        $department = $user?->department;
-
-        if (!$department) {
-            $employeeDepartmentId = (int) (Employee::where('user_id', $userId)->value('department_id') ?? 0);
-            if ($employeeDepartmentId > 0) {
-                $department = Department::query()
-                    ->select('id', 'code', 'name')
-                    ->find($employeeDepartmentId);
-            }
-        }
-
-        if (!$department) {
-            return false;
-        }
-
-        $code = strtoupper(trim((string) ($department->code ?? '')));
-        $name = strtoupper(trim((string) ($department->name ?? '')));
-
-        if ($code === 'IT') {
-            return true;
-        }
-
-        if (str_contains($name, 'INFORMATION TECHNOLOGY')) {
-            return true;
-        }
-
-        return preg_match('/\bIT\b/', $name) === 1;
-    }
-
-    protected function isHumanResourceUser($userId): bool
-    {
-        if (!$userId) {
-            return false;
-        }
-
-        $user = User::query()
-            ->with('department:id,code,name')
-            ->find($userId);
-
-        $department = $user?->department;
-
-        if (!$department) {
-            $employeeDepartmentId = (int) (Employee::where('user_id', $userId)->value('department_id') ?? 0);
-            if ($employeeDepartmentId > 0) {
-                $department = Department::query()
-                    ->select('id', 'code', 'name')
-                    ->find($employeeDepartmentId);
-            }
-        }
-
-        if (!$department) {
-            return false;
-        }
-
-        $code = strtoupper(trim((string) ($department->code ?? '')));
-        $name = strtoupper(trim((string) ($department->name ?? '')));
-
-        return $code === 'HRD' || str_contains($name, 'HRD');
+        return $this->accessRules()->isManager($userId);
     }
 
     /**
@@ -144,34 +60,7 @@ class LeavePermissionController extends Controller
      */
     protected function isSupervisor($userId)
     {
-        $user = User::find($userId);
-        if (!$user) {
-            return false;
-        }
-
-        $positionId = (int) ($user->position_id ?? 0);
-        if ($positionId <= 0) {
-            $emp = $this->getActorEmployee($userId);
-            $positionId = (int) ($emp?->position_id ?? 0);
-        }
-
-        if ($positionId <= 0) {
-            return false;
-        }
-
-        $position = \App\Models\Position::find($positionId);
-        if (!$position) {
-            return false;
-        }
-
-        $code = strtoupper(trim((string) ($position->code ?? '')));
-        $name = strtoupper(trim((string) ($position->name ?? '')));
-
-        if ($code === 'SPV' || str_ends_with($code, '-SPV') || str_contains($code, 'SPV')) {
-            return true;
-        }
-
-        return str_contains($name, 'SUPERVISOR') || str_contains($name, 'SPV');
+        return $this->accessRules()->isSupervisor($userId);
     }
 
     /**
@@ -183,47 +72,12 @@ class LeavePermissionController extends Controller
      */
     protected function getVisibleDepartmentIds($userId)
     {
-        $user = User::find($userId);
-        
-        if (!$user) {
-            return [];
-        }
+        return $this->accessRules()->visibleDepartmentIds($userId, self::ACCESS_MODULE, 'view_list');
+    }
 
-        $emp = $this->getActorEmployee($userId);
-
-        // Admin can see all
-        if ($this->isAdmin($userId)) {
-            return Department::pluck('id')->toArray();
-        }
-
-        // IT and HRD can see all
-        if ($this->isItUser($userId) || $this->isHumanResourceUser($userId)) {
-            return Department::pluck('id')->toArray();
-        }
-
-        // Manager can see their department
-        if ($this->isManager($userId)) {
-            $positionId = (int) ($user->position_id ?? 0);
-            if ($positionId <= 0) {
-                $positionId = (int) ($emp?->position_id ?? 0);
-            }
-
-            $position = $positionId > 0 ? \App\Models\Position::find($positionId) : null;
-            if ($position && $position->department_id) {
-                return DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
-            }
-        }
-
-        // Regular user can only see their own department
-        $deptId = (int) ($user->department_id ?? 0);
-        if ($deptId <= 0) {
-            $deptId = (int) ($emp?->department_id ?? 0);
-        }
-        if ($deptId > 0) {
-            return [$deptId];
-        }
-
-        return [];
+    protected function canSubmitForOthers($userId): bool
+    {
+        return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'submit_for_others');
     }
 
     /**
@@ -233,20 +87,12 @@ class LeavePermissionController extends Controller
      */
     protected function canReviewLeavePermission($userId, LeavePermission $leavePermission): bool
     {
-        if ($this->isAdmin($userId)) {
-            return true;
-        }
-
-        if (!$this->isManager($userId)) {
-            return false;
-        }
-
         $targetDeptId = $this->resolveLeavePermissionDepartmentId($leavePermission);
         if ($targetDeptId <= 0) {
             return false;
         }
 
-        $visibleDeptIds = $this->getLeavePermissionVisibleDepartmentIds($userId);
+        $visibleDeptIds = $this->getScopedLeavePermissionDepartmentIds($userId, 'review');
         return in_array($targetDeptId, $visibleDeptIds, true);
     }
 
@@ -265,30 +111,27 @@ class LeavePermissionController extends Controller
 
     protected function canAccessLeavePermission($userId, LeavePermission $leavePermission): bool
     {
-        if ($this->isAdmin($userId)) {
-            return true;
-        }
-
         $targetDeptId = $this->resolveLeavePermissionDepartmentId($leavePermission);
         if ($targetDeptId <= 0) {
             return false;
         }
 
-        $visibleDeptIds = $this->getLeavePermissionVisibleDepartmentIds($userId);
+        $visibleDeptIds = $this->getScopedLeavePermissionDepartmentIds($userId, 'view_list');
         return in_array($targetDeptId, $visibleDeptIds, true);
     }
 
     protected function canEditRequestData($userId, LeavePermission $leavePermission): bool
     {
-        if ($this->isAdmin($userId)) {
-            return true;
-        }
-
-        if (!$this->isItUser($userId)) {
+        if (!$this->accessRules()->allows($userId, self::ACCESS_MODULE, 'edit_request_data')) {
             return false;
         }
 
         return $this->canAccessLeavePermission($userId, $leavePermission);
+    }
+
+    protected function canEditAnyLeavePermission($userId): bool
+    {
+        return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'edit_request_data');
     }
 
     protected function canEditCurrentStatus(LeavePermission $leavePermission): bool
@@ -296,56 +139,14 @@ class LeavePermissionController extends Controller
         return in_array((string) $leavePermission->status, ['pending', 'approved'], true);
     }
 
-    protected function isOperationalManager($userId): bool
+    protected function getScopedLeavePermissionDepartmentIds($userId, string $scope = 'view_list'): array
     {
-        if (!$this->isManager($userId)) {
-            return false;
-        }
-
-        $user = User::query()
-            ->with('department:id,code,name')
-            ->find($userId);
-
-        $department = $user?->department;
-
-        if (!$department) {
-            $employeeDepartmentId = (int) (Employee::where('user_id', $userId)->value('department_id') ?? 0);
-            if ($employeeDepartmentId > 0) {
-                $department = Department::query()
-                    ->select('id', 'code', 'name')
-                    ->find($employeeDepartmentId);
-            }
-        }
-
-        if (!$department) {
-            return false;
-        }
-
-        $departmentCode = strtoupper(trim((string) ($department->code ?? '')));
-        $departmentName = strtoupper(trim((string) ($department->name ?? '')));
-
-        return $departmentCode === 'OPS'
-            || str_contains($departmentName, 'OPPERATIONAL')
-            || str_contains($departmentName, 'OPERATIONAL');
+        return $this->accessRules()->visibleDepartmentIds($userId, self::ACCESS_MODULE, $scope);
     }
 
     protected function getLeavePermissionVisibleDepartmentIds($userId): array
     {
-        $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
-
-        if (!$this->isOperationalManager($userId)) {
-            return $visibleDeptIds;
-        }
-
-        $itDepartmentId = (int) Department::query()
-            ->where('code', 'IT')
-            ->value('id');
-
-        if ($itDepartmentId > 0) {
-            $visibleDeptIds[] = $itDepartmentId;
-        }
-
-        return array_values(array_unique(array_map('intval', $visibleDeptIds)));
+        return $this->getScopedLeavePermissionDepartmentIds($userId, 'view_list');
     }
 
     protected function getAttachmentPaths(LeavePermission $leavePermission): array
@@ -520,7 +321,7 @@ class LeavePermissionController extends Controller
             'departments' => $departments,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
-            'canEditLeavePermission' => $this->isAdmin($userId) || $this->isItUser($userId),
+            'canEditLeavePermission' => $this->canEditAnyLeavePermission($userId),
         ]);
     }
 
@@ -530,7 +331,7 @@ class LeavePermissionController extends Controller
     public function create()
     {
         $userId = Auth::id();
-        $canSubmitForOthers = $this->isAdmin($userId) || $this->isManager($userId) || $this->isSupervisor($userId);
+        $canSubmitForOthers = $this->canSubmitForOthers($userId);
 
         $employees = [];
         if ($canSubmitForOthers) {
@@ -701,7 +502,7 @@ class LeavePermissionController extends Controller
         $targetEmployeeId = null;
 
         $requestedEmployeeId = $data['employee_id'] ?? null;
-        $canSubmitForOthers = $this->isAdmin($actorId) || $this->isManager($actorId) || $this->isSupervisor($actorId);
+        $canSubmitForOthers = $this->canSubmitForOthers($actorId);
         $selfEmployeeId = (int) (Employee::where('user_id', $actorId)->value('id') ?? 0);
 
         if ($requestedEmployeeId !== null) {

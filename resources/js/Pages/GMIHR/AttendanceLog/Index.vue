@@ -47,7 +47,7 @@
           </div>
 
           <div class="lg:col-span-4 border border-slate-700 rounded-lg p-3 bg-slate-900/30">
-            <p class="text-sm font-semibold text-slate-200">Keterangan (Bulan Ini)</p>
+            <p class="text-sm font-semibold text-slate-200">Keterangan (Periode)</p>
             <p class="text-[11px] text-slate-400 mt-0.5">
               Minimal {{ Number(props.monthlyInsights?.min_count || 5) }}x. Terlambat dan Tidak Masuk per bulan (top nama).
             </p>
@@ -80,18 +80,20 @@
       <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
           <div class="md:col-span-2">
-            <label class="text-xs text-slate-300">Bulan</label>
-            <select v-model="form.month" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
-              <option value="all">Semua Bulan</option>
-              <option v-for="m in months" :key="m.value" :value="m.value">{{ m.label }}</option>
-            </select>
+            <label class="text-xs text-slate-300">Tanggal Dari</label>
+            <input
+              v-model="form.date_from"
+              type="date"
+              class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm"
+            />
           </div>
           <div class="md:col-span-2">
-            <label class="text-xs text-slate-300">Tahun</label>
-            <select v-model="form.year" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
-              <option value="all">Semua Tahun</option>
-              <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
-            </select>
+            <label class="text-xs text-slate-300">Sampai</label>
+            <input
+              v-model="form.date_to"
+              type="date"
+              class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm"
+            />
           </div>
           <div class="md:col-span-2">
             <label class="text-xs text-slate-300">Status</label>
@@ -314,8 +316,8 @@ const props = defineProps({
   filters: {
     type: Object,
     default: () => ({
-      month: new Date().getMonth() + 1,
-      year: new Date().getFullYear(),
+      date_from: '',
+      date_to: '',
       status: 'all',
       q: '',
       per_page: 50,
@@ -327,19 +329,20 @@ const props = defineProps({
   },
 });
 
-const months = [
-  { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' }, { value: 3, label: 'Maret' },
-  { value: 4, label: 'April' }, { value: 5, label: 'Mei' }, { value: 6, label: 'Juni' },
-  { value: 7, label: 'Juli' }, { value: 8, label: 'Agustus' }, { value: 9, label: 'September' },
-  { value: 10, label: 'Oktober' }, { value: 11, label: 'November' }, { value: 12, label: 'Desember' },
-];
+const today = new Date();
+const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 8 }, (_, i) => currentYear - 3 + i);
+function formatDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 const form = reactive({
-  month: String(props.filters.month || 'all'),
-  year: String(props.filters.year || 'all'),
+  date_from: String(props.filters.date_from || formatDateInputValue(currentMonthStart)),
+  date_to: String(props.filters.date_to || formatDateInputValue(currentMonthEnd)),
   status: String(props.filters.status || 'all'),
   q: String(props.filters.q || ''),
   per_page: Number(props.filters.per_page || 2000),
@@ -575,8 +578,8 @@ function toggleGroup(key) {
 
 function applyFilters() {
   router.get('/attendance-log', {
-    month: form.month,
-    year: form.year,
+    date_from: form.date_from,
+    date_to: form.date_to,
     status: form.status,
     q: form.q,
     per_page: form.per_page,
@@ -589,8 +592,8 @@ function applyFilters() {
 
 function goToPage(page) {
   router.get('/attendance-log', {
-    month: form.month,
-    year: form.year,
+    date_from: form.date_from,
+    date_to: form.date_to,
     status: form.status,
     q: form.q,
     per_page: form.per_page,
@@ -603,8 +606,8 @@ function goToPage(page) {
 
 function exportExcel() {
   const params = new URLSearchParams({
-    month: String(form.month || 'all'),
-    year: String(form.year || 'all'),
+    date_from: String(form.date_from || ''),
+    date_to: String(form.date_to || ''),
     status: String(form.status || 'all'),
     q: String(form.q || ''),
     per_page: String(form.per_page || 2000),

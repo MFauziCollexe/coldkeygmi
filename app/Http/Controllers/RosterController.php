@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\RosterEntry;
 use App\Models\RosterUploadBatch;
 use App\Models\Department;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,13 @@ use Illuminate\Support\Facades\Log;
 
 class RosterController extends Controller
 {
+    private const ACCESS_MODULE = 'roster';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
+
     public function index()
     {
         return redirect()->route('roster.upload.index');
@@ -38,8 +46,7 @@ class RosterController extends Controller
         $departmentIds = $this->visibleDepartmentIdsForList($user);
         $canViewAllDepartments = $this->canViewAllRosterDepartments($user);
         $canApproveAllDepartments = $this->canApproveAllRosterDepartments($user);
-        $isManager = $this->isDepartmentManager($user);
-        $canSpecialApprove = $this->isOpperationalManager($user);
+        $canApproveAnyBatch = $this->canApproveAnyRosterBatch($user);
 
         $batches = RosterUploadBatch::query()
             ->with([
@@ -53,7 +60,7 @@ class RosterController extends Controller
             }, function ($query) {
                 $query->whereRaw('1 = 0');
             })
-            ->when(!$isManager && !$canSpecialApprove && !$canApproveAllDepartments, function ($query) use ($user) {
+            ->when(!$canApproveAnyBatch && !$canApproveAllDepartments, function ($query) use ($user) {
                 $query->where(function ($nested) use ($user) {
                     $nested
                         ->where('status', 'approved')
@@ -91,7 +98,7 @@ class RosterController extends Controller
 
         return Inertia::render('GMIHR/Roster/List', [
             'batches' => $batches,
-            'canApprove' => $isManager || $canSpecialApprove || $canApproveAllDepartments,
+            'canApprove' => $canApproveAnyBatch || $canApproveAllDepartments,
             'departmentName' => $canViewAllDepartments ? 'Semua Departemen' : optional($user->department)->name,
         ]);
     }
@@ -1275,7 +1282,7 @@ class RosterController extends Controller
             return false;
         }
 
-        return (bool) optional($user->position)->is_manager;
+        return $this->accessRules()->isManager($user);
     }
 
     private function canApproveBatch($user, RosterUploadBatch $batch): bool
@@ -1288,7 +1295,20 @@ class RosterController extends Controller
             return true;
         }
 
-        if ($this->isOpperationalManagerForBatch($user, $batch)) {
+        if (!$this->isDepartmentManager($user)) {
+            return false;
+        }
+
+        return $this->accessRules()->canAccessDepartment($user, self::ACCESS_MODULE, 'approve', (int) $batch->department_id);
+    }
+
+    private function canApproveAnyRosterBatch($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ($this->canApproveAllRosterDepartments($user)) {
             return true;
         }
 
@@ -1296,7 +1316,7 @@ class RosterController extends Controller
             return false;
         }
 
-        return (int) $user->department_id === (int) $batch->department_id;
+        return !empty($this->accessRules()->visibleDepartmentIds($user, self::ACCESS_MODULE, 'approve'));
     }
 
     private function canApproveAllRosterDepartments($user): bool
@@ -1305,16 +1325,7 @@ class RosterController extends Controller
             return false;
         }
 
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        $departmentCode = strtoupper((string) optional($user->department)->code);
-        $departmentName = strtoupper((string) optional($user->department)->name);
-
-        return $departmentCode === 'IT'
-            || $departmentCode === 'HRD'
-            || str_contains($departmentName, 'HRD');
+        return $this->accessRules()->canViewAllDepartments($user, self::ACCESS_MODULE, 'approve');
     }
 
     private function visibleDepartmentIdsForList($user): array
@@ -1323,59 +1334,7 @@ class RosterController extends Controller
             return [];
         }
 
-        if ($this->canViewAllRosterDepartments($user)) {
-            return Department::query()
-                ->pluck('id')
-                ->map(fn($id) => (int) $id)
-                ->all();
-        }
-
-        $ids = [];
-        if (!empty($user->department_id)) {
-            $ids[] = (int) $user->department_id;
-        }
-
-        if ($this->isOpperationalManager($user)) {
-            $specialIds = Department::query()
-                ->whereIn('code', ['INV', 'RSC', 'ADL'])
-                ->pluck('id')
-                ->map(fn($id) => (int) $id)
-                ->all();
-            $ids = array_merge($ids, $specialIds);
-        }
-
-        return array_values(array_unique(array_filter($ids)));
-    }
-
-    private function isOpperationalManager($user): bool
-    {
-        if (!$user) {
-            return false;
-        }
-
-        if (!$this->isDepartmentManager($user)) {
-            return false;
-        }
-
-        $departmentCode = strtoupper((string) optional($user->department)->code);
-        return $departmentCode === 'OPS';
-    }
-
-    private function isOpperationalManagerForBatch($user, RosterUploadBatch $batch): bool
-    {
-        if (!$this->isOpperationalManager($user)) {
-            return false;
-        }
-
-        $allowedDepartmentCodes = ['INV', 'RSC', 'ADL'];
-        $batchDepartmentCode = strtoupper((string) optional($batch->department)->code);
-
-        if ($batchDepartmentCode === '') {
-            $batch->loadMissing('department:id,code');
-            $batchDepartmentCode = strtoupper((string) optional($batch->department)->code);
-        }
-
-        return in_array($batchDepartmentCode, $allowedDepartmentCodes, true);
+        return $this->accessRules()->visibleDepartmentIds($user, self::ACCESS_MODULE, 'view_list');
     }
 
     private function canViewBatch($user, RosterUploadBatch $batch): bool
@@ -1410,15 +1369,6 @@ class RosterController extends Controller
             return false;
         }
 
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        $departmentCode = strtoupper((string) optional($user->department)->code);
-        $departmentName = strtoupper((string) optional($user->department)->name);
-
-        return $departmentCode === 'IT'
-            || $departmentCode === 'HRD'
-            || str_contains($departmentName, 'HRD');
+        return $this->accessRules()->canViewAllDepartments($user, self::ACCESS_MODULE, 'view_list');
     }
 }

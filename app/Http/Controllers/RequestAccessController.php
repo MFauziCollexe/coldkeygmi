@@ -8,7 +8,7 @@ use App\Models\User;
 use App\Models\Department;
 use App\Models\ModulePermission;
 use App\Models\ActivityLog;
-use App\Support\DepartmentScope;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
@@ -19,6 +19,13 @@ use Illuminate\Support\Facades\Mail;
 class RequestAccessController extends Controller
 {
     use RemembersIndexUrl;
+
+    private const ACCESS_MODULE = 'request_access';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
 
     /**
      * Display a listing of the resource.
@@ -58,7 +65,6 @@ class RequestAccessController extends Controller
 
         $currentUserId = Auth::id();
         $currentUser = User::find($currentUserId);
-        $itDepartmentId = Department::where('code', 'IT')->value('id');
 
         // Role-based visibility:
         // - Regular users see only their own requests
@@ -68,12 +74,12 @@ class RequestAccessController extends Controller
         
         $isManager = $this->isDepartmentManager($currentUserId);
         $isAdmin = $currentUser && $currentUser->isAdmin();
-        $isIT = $itDepartmentId && (int) $currentUser->department_id === (int) $itDepartmentId; // IT department
+        $canViewAll = $this->canViewAllRequests($currentUser);
 
-        if (!$isAdmin && !$isManager && !$isIT) {
+        if (!$isAdmin && !$isManager && !$canViewAll) {
             // Regular user - see only their own requests
             $query->where('created_by', $currentUserId);
-        } elseif ($isManager && !$isAdmin && !$isIT) {
+        } elseif ($isManager && !$isAdmin && !$canViewAll) {
             // Manager - see requests from their department
             $managedDeptIds = $this->getManagedDepartmentIds($currentUserId);
             $query->whereHas('creator', function ($q) use ($managedDeptIds) {
@@ -112,7 +118,7 @@ class RequestAccessController extends Controller
         $departments = Department::active()->select('id', 'name', 'code')->get();
 
         // If manager/admin, they can request for new users (Flow 2)
-        $canRequestNewUser = $isManager || $isAdmin;
+        $canRequestNewUser = $this->canCreateNewUser($currentUser);
 
         // Get users for existing user request:
         // - Admin: all active users
@@ -121,7 +127,7 @@ class RequestAccessController extends Controller
         $usersQuery = User::select('id', 'name', 'email', 'department_id')
             ->where('status', 'active');
 
-        if ($isAdmin) {
+        if ($isAdmin || $this->canViewAllRequests($currentUser)) {
             // no extra filter
         } elseif ($isManager) {
             $managedDeptIds = $this->getManagedDepartmentIds($currentUser->id);
@@ -210,9 +216,8 @@ class RequestAccessController extends Controller
         $currentUser = User::find($currentUserId);
         
         $isAdmin = $currentUser && $currentUser->isAdmin();
-        $canReview = $requestAccess->canReview($currentUserId);
-        // Only IT department (department_id = 3) can process, admin cannot process
-        $canProcess = $requestAccess->canProcess($currentUserId);
+        $canReview = $this->canReviewRequest($currentUserId, $requestAccess);
+        $canProcess = $this->canProcessRequest($currentUserId, $requestAccess);
 
         // Load relationships
         $requestAccess->load(['user', 'targetDepartment', 'creator', 'reviewer', 'processor']);
@@ -246,7 +251,7 @@ class RequestAccessController extends Controller
         $currentUserId = Auth::id();
 
         // Check if user can review
-        if (!$requestAccess->canReview($currentUserId) && !Auth::user()->isAdmin()) {
+        if (!$this->canReviewRequest($currentUserId, $requestAccess)) {
             return redirect()->back()->withErrors(['error' => 'You are not authorized to approve this request.']);
         }
 
@@ -281,14 +286,10 @@ class RequestAccessController extends Controller
     public function reject(Request $request, RequestAccess $requestAccess)
     {
         $currentUserId = Auth::id();
-        $currentUser = Auth::user();
-        $itDepartmentId = Department::where('code', 'IT')->value('id');
-        
-        // Check if user can review (manager) or is IT department
-        $isIT = $itDepartmentId && (int) $currentUser->department_id === (int) $itDepartmentId;
-        $canReview = $requestAccess->canReview($currentUserId);
-        
-        if (!$canReview && !$isIT && !$currentUser->isAdmin()) {
+        $canReview = $this->canReviewRequest($currentUserId, $requestAccess);
+        $canProcess = $this->canProcessRequest($currentUserId, $requestAccess);
+
+        if (!$canReview && !$canProcess) {
             return redirect()->back()->withErrors(['error' => 'You are not authorized to reject this request.']);
         }
 
@@ -325,7 +326,7 @@ class RequestAccessController extends Controller
         $currentUserId = Auth::id();
 
         // Check if user can process
-        if (!$requestAccess->canProcess($currentUserId) && !Auth::user()->isAdmin()) {
+        if (!$this->canProcessRequest($currentUserId, $requestAccess)) {
             return redirect()->back()->withErrors(['error' => 'You are not authorized to process this request.']);
         }
 
@@ -426,13 +427,7 @@ class RequestAccessController extends Controller
      */
     protected function isDepartmentManager($userId)
     {
-        $user = User::find($userId);
-        if (!$user || !$user->position_id) {
-            return false;
-        }
-
-        $position = \App\Models\Position::find($user->position_id);
-        return $position && $position->is_manager;
+        return $this->accessRules()->isManager($userId);
     }
 
     /**
@@ -440,17 +435,36 @@ class RequestAccessController extends Controller
      */
     protected function getManagedDepartmentIds($userId)
     {
-        $user = User::find($userId);
-        if (!$user || !$user->position_id) {
-            return [];
+        return $this->accessRules()->visibleDepartmentIds($userId, self::ACCESS_MODULE, 'review');
+    }
+
+    protected function canViewAllRequests($user): bool
+    {
+        return $this->accessRules()->canViewAllDepartments($user, self::ACCESS_MODULE, 'view_list');
+    }
+
+    protected function canCreateNewUser($user): bool
+    {
+        return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'create_new_user');
+    }
+
+    protected function canReviewRequest($userId, RequestAccess $requestAccess): bool
+    {
+        $targetDepartmentId = (int) optional($requestAccess->creator)->department_id;
+        if ($targetDepartmentId <= 0 && $requestAccess->created_by) {
+            $targetDepartmentId = (int) User::where('id', $requestAccess->created_by)->value('department_id');
         }
 
-        $position = \App\Models\Position::find($user->position_id);
-        if (!$position || !$position->is_manager) {
-            return [];
+        return $this->accessRules()->canAccessDepartment($userId, self::ACCESS_MODULE, 'review', $targetDepartmentId);
+    }
+
+    protected function canProcessRequest($userId, RequestAccess $requestAccess): bool
+    {
+        if ($requestAccess->status !== 'approved') {
+            return false;
         }
 
-        return DepartmentScope::expandManagedDepartmentIds([(int) $position->department_id]);
+        return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'process');
     }
 
     protected function normalizeModuleKeys(array $keys): array

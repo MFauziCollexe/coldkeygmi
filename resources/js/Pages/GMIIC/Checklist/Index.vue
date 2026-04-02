@@ -37,7 +37,7 @@
 
       <div class="rounded bg-slate-800 p-4">
         <div
-          v-if="isCurrentUserIT && checklistEntries.length"
+          v-if="canDeleteChecklistEntries && checklistEntries.length"
           class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <div class="text-sm text-slate-400">
@@ -61,7 +61,7 @@
           <table class="w-full table-auto">
             <thead>
               <tr class="text-left text-slate-400">
-                <th v-if="isCurrentUserIT" class="w-12 py-2">
+                <th v-if="canDeleteChecklistEntries" class="w-12 py-2">
                   <input
                     type="checkbox"
                     class="h-4 w-4 rounded border-slate-500 bg-slate-900 text-rose-500 focus:ring-rose-500"
@@ -84,7 +84,7 @@
                 :key="entry.id"
                 class="border-t border-slate-700"
               >
-                <td v-if="isCurrentUserIT" class="py-3">
+                <td v-if="canDeleteChecklistEntries" class="py-3">
                   <input
                     :checked="selectedEntryIds.includes(entry.id)"
                     type="checkbox"
@@ -144,16 +144,8 @@ const selectedChecklist = ref('');
 const checklistEntries = ref([]);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan'];
-const currentUser = computed(() => page.props.auth?.user || null);
-const isCurrentUserIT = computed(() => {
-  const departmentCode = String(currentUser.value?.department?.code || '').trim().toUpperCase();
-  const departmentName = String(currentUser.value?.department?.name || '').trim().toUpperCase();
-  const positionCode = String(currentUser.value?.position?.code || '').trim().toUpperCase();
-  const positionName = String(currentUser.value?.position?.name || '').trim().toUpperCase();
-
-  return departmentCode === 'IT'
-    || [departmentName, positionCode, positionName].some((value) => value.includes('IT'));
-});
+const checklistAbilities = computed(() => page.props.checklistAbilities || {});
+const canDeleteChecklistEntries = computed(() => Boolean(checklistAbilities.value.delete_entries));
 
 const canOpenCreatePage = computed(() => {
   return !selectedChecklist.value || supportedTemplates.includes(selectedChecklist.value);

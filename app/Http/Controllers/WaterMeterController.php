@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WaterLog;
+use App\Support\AccessRuleService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,6 +13,13 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class WaterMeterController extends Controller
 {
+    private const ACCESS_MODULE = 'water_meter';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
+
     public function index(Request $request)
     {
         $filters = [
@@ -50,6 +58,7 @@ class WaterMeterController extends Controller
             'trendData' => $trendData,
             'averageUsage' => $avgUsage,
             'canEditList' => $this->canEditList($request),
+            'canExportLogs' => $this->canExportLogs($request),
         ]);
     }
 
@@ -109,6 +118,10 @@ class WaterMeterController extends Controller
 
     public function export(Request $request)
     {
+        if (!$this->canExportLogs($request)) {
+            abort(403, 'Anda tidak memiliki akses export data water meter.');
+        }
+
         $filters = [
             'meter_id' => trim((string) $request->input('meter_id', '')),
             'start_date' => trim((string) $request->input('start_date', '')),
@@ -274,13 +287,12 @@ class WaterMeterController extends Controller
 
     private function canEditList(Request $request): bool
     {
-        $user = $request->user();
-        if (!$user) {
-            return false;
-        }
+        return $this->accessRules()->allows($request->user(), self::ACCESS_MODULE, 'edit_list');
+    }
 
-        $user->loadMissing('department:id,code');
-        return strtoupper((string) optional($user->department)->code) === 'IT';
+    private function canExportLogs(Request $request): bool
+    {
+        return $this->accessRules()->allows($request->user(), self::ACCESS_MODULE, 'export_logs');
     }
 
     private function normalizeNumericInput($value)

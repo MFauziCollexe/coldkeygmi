@@ -277,6 +277,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  checklistAbilities: {
+    type: Object,
+    default: () => ({}),
+  },
 });
 
 const page = usePage();
@@ -299,25 +303,9 @@ let scannerFinishing = false;
 let photoStream = null;
 
 const currentUser = computed(() => page.props.auth?.user || null);
-const isCurrentUserManager = computed(() => {
-  return Boolean(page.props.auth?.is_admin || currentUser.value?.position?.is_manager);
-});
-const isCurrentUserHSE = computed(() => {
-  if (page.props.auth?.is_admin) {
-    return true;
-  }
-
-  const departmentCode = String(currentUser.value?.department?.code || '').toUpperCase();
-  const departmentName = String(currentUser.value?.department?.name || '').toUpperCase();
-  const positionCode = String(currentUser.value?.position?.code || '').toUpperCase();
-  const positionName = String(currentUser.value?.position?.name || '').toUpperCase();
-
-  return [departmentCode, departmentName, positionCode, positionName].some((value) => value.includes('HSE'));
-});
-
-const isCurrentUserWarehouseFinalApprover = computed(() => {
-  return isCurrentUserManager.value || isCurrentUserHSE.value;
-});
+const checklistAbilities = computed(() => props.checklistAbilities || page.props.checklistAbilities || {});
+const canApproveKotakP3KHse = computed(() => Boolean(checklistAbilities.value.kotak_p3k_hse_approve));
+const canApproveWarehouseFinal = computed(() => Boolean(checklistAbilities.value.warehouse_final_approve));
 
 const isKotakP3K = computed(() => selectedChecklist.value === 'kotak_p3k');
 const isSanitation = computed(() => selectedChecklist.value === 'non_warehouse_sanitation');
@@ -411,7 +399,7 @@ const kotakP3KApprovalButtonLabel = computed(() => {
   }
 
   if (isActiveKotakP3KMonthSubmitted.value) {
-    return isCurrentUserHSE.value ? 'Approval HSE' : 'Menunggu HSE';
+    return canApproveKotakP3KHse.value ? 'Approval HSE' : 'Menunggu HSE';
   }
 
   return 'Approval';
@@ -631,7 +619,7 @@ const warehouseApprovalButtonLabel = computed(() => {
     return 'Approval Petugas';
   }
 
-  return isCurrentUserWarehouseFinalApprover.value ? 'Approval Manager / HSE' : 'Menunggu Manager / HSE';
+  return canApproveWarehouseFinal.value ? 'Approval Manager / HSE' : 'Menunggu Manager / HSE';
 });
 
 const canApproveEntry = computed(() => {
@@ -645,7 +633,7 @@ const canApproveEntry = computed(() => {
     }
 
     if (isActiveKotakP3KMonthSubmitted.value) {
-      return isCurrentUserHSE.value;
+      return canApproveKotakP3KHse.value;
     }
 
     return kotakP3KMonthValidation.value.canScan && String(currentKotakP3KBarcode.value || '').trim() !== '';
@@ -712,7 +700,7 @@ const canApproveEntry = computed(() => {
       return true;
     }
 
-    return isCurrentUserWarehouseFinalApprover.value;
+    return canApproveWarehouseFinal.value;
   }
 
   if (isPersonalHygiene.value) {

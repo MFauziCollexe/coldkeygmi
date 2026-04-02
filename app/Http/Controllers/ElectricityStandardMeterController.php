@@ -3,12 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\ElectricityStandardLog;
+use App\Support\AccessRuleService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ElectricityStandardMeterController extends Controller
 {
+    private const ACCESS_MODULE = 'electricity_standard_meter';
+
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
+
     public function index(Request $request)
     {
         $filters = [
@@ -231,13 +239,7 @@ class ElectricityStandardMeterController extends Controller
 
     private function canEditList(Request $request): bool
     {
-        $user = $request->user();
-        if (!$user) {
-            return false;
-        }
-
-        $user->loadMissing('department:id,code');
-        return strtoupper((string) optional($user->department)->code) === 'IT';
+        return $this->accessRules()->allows($request->user(), self::ACCESS_MODULE, 'edit_list');
     }
 
     private function normalizeNumericInput($value)
