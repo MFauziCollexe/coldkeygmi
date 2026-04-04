@@ -101,6 +101,9 @@ Route::post('gmisl/utility/stock-card/stock-in', [App\Http\Controllers\StockCard
 Route::post('gmisl/utility/stock-card/requests', [App\Http\Controllers\StockCardController::class, 'storeRequest'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
     ->name('stock-card.requests.store');
+Route::post('gmisl/utility/stock-card/requests/{stockCardRequest}/approve', [App\Http\Controllers\StockCardController::class, 'approveRequest'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
+    ->name('stock-card.requests.approve');
 
 // Check Inline (GMISL > Utility > Check Inline)
 Route::get('check-inline', [App\Http\Controllers\CheckInlineController::class, 'index'])
@@ -354,6 +357,9 @@ Route::get('master-data/stock-card', [App\Http\Controllers\StockCardController::
 Route::post('master-data/stock-card', [App\Http\Controllers\StockCardController::class, 'storeItem'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card'])
     ->name('stock-card.master.store');
+Route::put('master-data/stock-card/{stockCardItem}', [App\Http\Controllers\StockCardController::class, 'updateItem'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card'])
+    ->name('stock-card.master.update');
 Route::resource('master-data/stock-card-item-type', \App\Http\Controllers\StockCardItemTypeController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card_item_type'])
     ->names('stock-card-item-types');

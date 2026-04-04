@@ -19,7 +19,7 @@
             v-if="canManageMaster"
             type="button"
             class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-            @click="showCreateModal = true"
+            @click="openCreateModal"
           >
             Add Barang
           </button>
@@ -56,6 +56,7 @@
               <th>Current Stock</th>
               <th>Min. Stock</th>
               <th>Status</th>
+              <th v-if="canManageMaster" class="text-right">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -75,9 +76,18 @@
                   {{ item.is_active ? 'Active' : 'Inactive' }}
                 </span>
               </td>
+              <td v-if="canManageMaster" class="text-right">
+                <button
+                  type="button"
+                  class="text-indigo-400 hover:text-indigo-300"
+                  @click="openEditModal(item)"
+                >
+                  Edit
+                </button>
+              </td>
             </tr>
             <tr v-if="!items.length" class="border-t border-slate-700">
-              <td colspan="7" class="py-8 text-center text-slate-400">Belum ada master barang.</td>
+              <td :colspan="canManageMaster ? 8 : 7" class="py-8 text-center text-slate-400">Belum ada master barang.</td>
             </tr>
           </tbody>
         </table>
@@ -87,7 +97,7 @@
         v-if="!canManageMaster"
         class="rounded border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-300"
       >
-        Anda dapat melihat daftar master barang, tetapi tombol tambah barang hanya muncul untuk user yang memiliki ability
+        Anda dapat melihat daftar master barang, tetapi tombol tambah dan edit barang hanya muncul untuk user yang memiliki ability
         <span class="font-semibold text-slate-100">manage_master</span> di Access Rules.
       </div>
 
@@ -101,16 +111,18 @@
     </div>
 
     <div
-      v-if="showCreateModal && canManageMaster"
+      v-if="showItemModal && canManageMaster"
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
     >
       <div class="w-full max-w-xl rounded border border-slate-700 bg-slate-900 p-6 shadow-xl">
         <div class="mb-4 flex items-center justify-between">
           <div>
-            <div class="text-lg font-semibold text-slate-100">Add Barang</div>
-            <div class="text-sm text-slate-400">Tambahkan master barang untuk kartu stock.</div>
+            <div class="text-lg font-semibold text-slate-100">{{ isEditing ? 'Edit Barang' : 'Add Barang' }}</div>
+            <div class="text-sm text-slate-400">
+              {{ isEditing ? 'Perbarui master barang untuk kartu stock.' : 'Tambahkan master barang untuk kartu stock.' }}
+            </div>
           </div>
-          <button type="button" class="text-slate-400 hover:text-slate-200" @click="showCreateModal = false">Tutup</button>
+          <button type="button" class="text-slate-400 hover:text-slate-200" @click="closeItemModal">Tutup</button>
         </div>
 
         <form class="space-y-4" @submit.prevent="submitMaster">
@@ -151,7 +163,7 @@
               v-model="masterForm.minimum_stock"
               type="number"
               min="0"
-              step="0.01"
+              step="1"
               placeholder="Min. Stock"
               class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
             />
@@ -163,11 +175,16 @@
             class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
           ></textarea>
 
+          <label v-if="isEditing" class="inline-flex items-center gap-2 text-sm text-slate-200">
+            <input v-model="masterForm.is_active" type="checkbox" />
+            <span>Aktif</span>
+          </label>
+
           <div class="flex justify-end gap-2">
             <button
               type="button"
               class="rounded border border-slate-700 px-4 py-2 text-sm text-slate-200"
-              @click="showCreateModal = false"
+              @click="closeItemModal"
             >
               Batal
             </button>
@@ -176,7 +193,7 @@
               class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
               :disabled="masterForm.processing"
             >
-              Simpan
+              {{ isEditing ? 'Update' : 'Simpan' }}
             </button>
           </div>
         </form>
@@ -230,7 +247,8 @@ const filters = reactive({
   q: props.filters?.q || '',
 });
 
-const showCreateModal = ref(false);
+const showItemModal = ref(false);
+const editingItemId = ref(null);
 
 const masterForm = useForm({
   name: '',
@@ -238,7 +256,10 @@ const masterForm = useForm({
   unit: '',
   minimum_stock: '',
   description: '',
+  is_active: true,
 });
+
+const isEditing = computed(() => editingItemId.value !== null);
 
 let searchTimer = null;
 
@@ -257,13 +278,44 @@ function onSearchInput() {
   searchTimer = setTimeout(() => fetchList(), 300);
 }
 
+function openCreateModal() {
+  editingItemId.value = null;
+  masterForm.reset();
+  masterForm.is_active = true;
+  showItemModal.value = true;
+}
+
+function openEditModal(item) {
+  editingItemId.value = item.id;
+  masterForm.name = item.name || '';
+  masterForm.item_type = item.item_type || '';
+  masterForm.unit = item.unit || '';
+  masterForm.minimum_stock = item.minimum_stock || '';
+  masterForm.description = item.description || '';
+  masterForm.is_active = item.is_active !== false;
+  showItemModal.value = true;
+}
+
+function closeItemModal() {
+  showItemModal.value = false;
+  editingItemId.value = null;
+  masterForm.reset();
+  masterForm.is_active = true;
+}
+
 function submitMaster() {
-  masterForm.post('/master-data/stock-card', {
+  const options = {
     preserveScroll: true,
     onSuccess: () => {
-      masterForm.reset();
-      showCreateModal.value = false;
+      closeItemModal();
     },
-  });
+  };
+
+  if (isEditing.value) {
+    masterForm.put(`/master-data/stock-card/${editingItemId.value}`, options);
+    return;
+  }
+
+  masterForm.post('/master-data/stock-card', options);
 }
 </script>

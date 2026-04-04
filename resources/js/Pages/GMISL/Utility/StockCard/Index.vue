@@ -51,31 +51,64 @@
         </div>
       </div>
 
+      <div
+        v-if="pendingRequests.length"
+        class="rounded border border-slate-700 bg-slate-800 p-4"
+      >
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <div class="text-lg font-semibold text-slate-100">Pending Request</div>
+            <div class="text-xs text-slate-400">Permintaan stock belum mengurangi stock sampai disetujui.</div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full table-auto text-sm">
+            <thead>
+              <tr class="text-left text-slate-400">
+                <th class="py-2">Tanggal</th>
+                <th>Barang</th>
+                <th>Qty</th>
+                <th>Peminta</th>
+                <th>Keterangan</th>
+                <th v-if="abilities.approve_request" class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="requestItem in pendingRequests"
+                :key="requestItem.id"
+                class="border-t border-slate-700"
+              >
+                <td class="py-3">{{ requestItem.request_date }}</td>
+                <td>{{ requestItem.item_name }}</td>
+                <td>{{ requestItem.quantity }}</td>
+                <td>{{ requestItem.requested_by_name }}</td>
+                <td>{{ requestItem.notes || requestItem.creator_name || '-' }}</td>
+                <td v-if="abilities.approve_request" class="text-right">
+                  <button
+                    type="button"
+                    class="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-indigo-500"
+                    @click="approveRequest(requestItem.id)"
+                  >
+                    Approve
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div class="rounded border border-slate-700 bg-slate-800 p-4">
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-            <input
-              v-model="filters.q"
-              type="text"
-              placeholder="Cari nama barang / tipe / code..."
-              class="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              @input="onSearchInput"
-            />
-            <select
-              v-model="filters.item_id"
-              class="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              @change="fetchList"
-            >
-              <option value="">Pilih Barang</option>
-              <option
-                v-for="item in items"
-                :key="item.id"
-                :value="String(item.id)"
-              >
-                {{ item.name }}
-              </option>
-            </select>
-          </div>
+          <input
+            v-model="filters.q"
+            type="text"
+            placeholder="Cari nama barang / tipe / code..."
+            class="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+            @input="onSearchInput"
+          />
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -90,25 +123,6 @@
         </div>
       </div>
 
-      <div v-if="selectedItem" class="rounded border border-slate-700 bg-slate-800 p-4">
-        <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div class="text-lg font-semibold text-slate-100">{{ selectedItem.name }}</div>
-            <div class="text-sm text-slate-400">
-              {{ selectedItem.item_type }} | {{ selectedItem.unit }} | Code: {{ selectedItem.item_code }}
-            </div>
-          </div>
-          <div class="flex flex-wrap items-center gap-2 text-sm">
-            <span class="inline-flex rounded bg-slate-700 px-3 py-1 font-semibold text-slate-100">
-              Stock: {{ selectedItem.current_stock }} {{ selectedItem.unit }}
-            </span>
-            <span class="inline-flex rounded bg-slate-700 px-3 py-1 font-semibold text-slate-100">
-              Min: {{ selectedItem.minimum_stock }} {{ selectedItem.unit }}
-            </span>
-          </div>
-        </div>
-      </div>
-
       <div
         v-if="!abilities.view_history"
         class="rounded border border-slate-700 bg-slate-800 p-6 text-sm text-slate-300"
@@ -117,141 +131,112 @@
         <span class="font-semibold text-slate-100">view_history</span> bisa diatur lewat menu Access Rules.
       </div>
 
-      <div v-else class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <div class="rounded border border-slate-700 bg-slate-800 p-4">
-          <div class="mb-4">
-            <div class="text-lg font-semibold text-slate-100">Daftar Barang</div>
-            <div class="text-xs text-slate-400">Pilih barang untuk melihat histori penambahan dan permintaan stock.</div>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full table-auto text-sm">
-              <thead>
-                <tr class="text-left text-slate-400">
-                  <th class="py-2">Barang</th>
-                  <th class="py-2">Stock</th>
-                  <th class="py-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="item in items"
-                  :key="item.id"
-                  class="border-t border-slate-700"
-                >
-                  <td class="py-3">
-                    <div class="font-medium text-slate-100">{{ item.name }}</div>
-                    <div class="text-xs text-slate-400">{{ item.item_type }} | {{ item.unit }}</div>
-                  </td>
-                  <td class="py-3">
-                    <span
-                      class="inline-flex rounded px-2 py-1 text-xs font-semibold"
-                      :class="Number(item.current_stock) <= Number(item.minimum_stock)
-                        ? 'bg-rose-600 text-white'
-                        : 'bg-emerald-600 text-white'"
-                    >
-                      {{ item.current_stock }}
-                    </span>
-                  </td>
-                  <td class="py-3 text-right">
-                    <button
-                      type="button"
-                      class="text-indigo-400 hover:text-indigo-300"
-                      @click="selectItem(item.id)"
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-                <tr v-if="!items.length">
-                  <td colspan="3" class="py-6 text-center text-slate-500">Belum ada master barang aktif.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+      <div v-else class="rounded border border-slate-300 bg-white p-4 text-black shadow-sm">
+        <div class="overflow-x-auto border border-black">
+          <table class="min-w-full border-collapse text-sm">
+            <tbody>
+              <tr>
+                <td rowspan="2" class="w-40 border border-black px-3 py-3 text-center">
+                  <img
+                    src="/image/logo-gmi-clean.png"
+                    alt="PT. Golden Multi Indotama"
+                    class="mx-auto h-16 w-16 object-contain"
+                  />
+                </td>
+                <td class="border border-black px-3 py-2 text-center text-2xl font-bold">FORMULIR</td>
+                <td class="border border-black p-0 align-top" rowspan="2">
+                  <table class="min-w-full border-collapse text-sm">
+                    <tbody>
+                      <tr><td class="border border-black px-2 py-1">No Dokumen</td><td class="border border-black px-2 py-1">{{ meta.document_no }}</td></tr>
+                      <tr><td class="border border-black px-2 py-1">Revision No.</td><td class="border border-black px-2 py-1">{{ meta.revision_no }}</td></tr>
+                      <tr><td class="border border-black px-2 py-1">Effective date</td><td class="border border-black px-2 py-1">{{ meta.effective_date }}</td></tr>
+                      <tr><td class="border border-black px-2 py-1">Page</td><td class="border border-black px-2 py-1">{{ meta.page }}</td></tr>
+                      <tr><td class="border border-black px-2 py-1">Classification</td><td class="border border-black px-2 py-1">{{ meta.classification }}</td></tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td class="border border-black px-3 py-4 text-center text-xl font-semibold">KARTU STOCK BARANG - NON PRODUK</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <div class="rounded border border-slate-300 bg-white p-4 text-black shadow-sm">
-          <div class="overflow-x-auto border border-black">
-            <table class="min-w-full border-collapse text-sm">
-              <tbody>
-                <tr>
-                  <td rowspan="2" class="w-40 border border-black px-3 py-3 text-center">
-                    <img
-                      src="/image/logo-gmi-clean.png"
-                      alt="PT. Golden Multi Indotama"
-                      class="mx-auto h-16 w-16 object-contain"
-                    />
-                  </td>
-                  <td class="border border-black px-3 py-2 text-center text-2xl font-bold">FORMULIR</td>
-                  <td class="border border-black p-0 align-top" rowspan="2">
-                    <table class="min-w-full border-collapse text-sm">
-                      <tbody>
-                        <tr><td class="border border-black px-2 py-1">No Dokumen</td><td class="border border-black px-2 py-1">{{ meta.document_no }}</td></tr>
-                        <tr><td class="border border-black px-2 py-1">Revision No.</td><td class="border border-black px-2 py-1">{{ meta.revision_no }}</td></tr>
-                        <tr><td class="border border-black px-2 py-1">Effective date</td><td class="border border-black px-2 py-1">{{ meta.effective_date }}</td></tr>
-                        <tr><td class="border border-black px-2 py-1">Page</td><td class="border border-black px-2 py-1">{{ meta.page }}</td></tr>
-                        <tr><td class="border border-black px-2 py-1">Classification</td><td class="border border-black px-2 py-1">{{ meta.classification }}</td></tr>
-                      </tbody>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="border border-black px-3 py-4 text-center text-xl font-semibold">KARTU STOCK BARANG - NON PRODUK</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="mt-4 overflow-x-auto border border-black">
+          <table class="min-w-full border-collapse text-sm">
+            <tbody>
+              <tr>
+                <td class="border border-black px-3 py-2 font-semibold">Nama Barang</td>
+                <td class="border border-black px-3 py-2">
+                  :
+                  <select
+                    v-model="filters.item_id"
+                    class="ml-2 min-w-[240px] border-none bg-transparent px-1 py-0 text-sm text-black focus:outline-none"
+                    @change="fetchList"
+                  >
+                    <option value="all">All</option>
+                    <option
+                      v-for="item in items"
+                      :key="item.id"
+                      :value="String(item.id)"
+                    >
+                      {{ item.name }}
+                    </option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td class="border border-black px-3 py-2 font-semibold">Jenis / Tipe Barang</td>
+                <td class="border border-black px-3 py-2">
+                  :
+                  <template v-if="selectedItem">
+                    {{ selectedItem.item_type }} <span class="ml-8 font-semibold">Satuan:</span> {{ selectedItem.unit }}
+                  </template>
+                  <template v-else>
+                    Semua Barang <span class="ml-8 font-semibold">Satuan:</span> -
+                  </template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-          <div v-if="selectedItem" class="mt-4 overflow-x-auto border border-black">
-            <table class="min-w-full border-collapse text-sm">
-              <tbody>
-                <tr>
-                  <td class="border border-black px-3 py-2 font-semibold">Nama Barang</td>
-                  <td class="border border-black px-3 py-2">: {{ selectedItem.name }}</td>
-                </tr>
-                <tr>
-                  <td class="border border-black px-3 py-2 font-semibold">Jenis / Tipe Barang</td>
-                  <td class="border border-black px-3 py-2">: {{ selectedItem.item_type }} <span class="ml-8 font-semibold">Satuan:</span> {{ selectedItem.unit }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div v-if="selectedItem" class="mt-4 overflow-x-auto border border-black">
-            <table class="min-w-full border-collapse text-sm">
-              <thead>
-                <tr class="bg-slate-100">
-                  <th class="border border-black px-3 py-2 text-center">Tanggal</th>
-                  <th class="border border-black px-3 py-2 text-center">Masuk</th>
-                  <th class="border border-black px-3 py-2 text-center">Dipakai</th>
-                  <th class="border border-black px-3 py-2 text-center">Sisa Stock</th>
-                  <th class="border border-black px-3 py-2 text-center">Keterangan</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(row, index) in cardRows"
-                  :key="`row-${index}`"
-                >
-                  <td class="border border-black px-3 py-2">{{ row.date }}</td>
-                  <td class="border border-black px-3 py-2 text-center">{{ row.incoming }}</td>
-                  <td class="border border-black px-3 py-2 text-center">{{ row.outgoing }}</td>
-                  <td class="border border-black px-3 py-2 text-center">{{ row.balance }}</td>
-                  <td class="border border-black px-3 py-2">{{ row.note }}</td>
-                </tr>
-                <tr v-if="!cardRows.length">
-                  <td colspan="5" class="border border-black px-3 py-6 text-center text-slate-500">
-                    Belum ada histori penambahan atau permintaan untuk barang ini.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div v-else class="mt-6 rounded border border-dashed border-slate-300 p-8 text-center text-slate-500">
-            Pilih salah satu barang untuk melihat histori kartu stock.
-          </div>
+        <div class="mt-4 overflow-x-auto border border-black">
+          <table class="min-w-full border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-100">
+                <th class="border border-black px-3 py-2 text-center">Tanggal</th>
+                <th class="border border-black px-3 py-2 text-center">Nama Barang</th>
+                <th class="border border-black px-3 py-2 text-center">Masuk</th>
+                <th class="border border-black px-3 py-2 text-center">Dipakai</th>
+                <th class="border border-black px-3 py-2 text-center">Sisa Stock</th>
+                <th class="border border-black px-3 py-2 text-center">Keterangan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(row, index) in cardRows"
+                :key="`row-${index}`"
+                :class="row.is_latest_balance ? 'bg-sky-100' : ''"
+              >
+                <td class="border border-black px-3 py-2">{{ row.date }}</td>
+                <td class="border border-black px-3 py-2">{{ row.item_name }}</td>
+                <td class="border border-black px-3 py-2 text-center">{{ row.incoming }}</td>
+                <td class="border border-black px-3 py-2 text-center">{{ row.outgoing }}</td>
+                <td class="border border-black px-3 py-2 text-center font-semibold">
+                  {{ row.balance }}
+                </td>
+                <td class="border border-black px-3 py-2">{{ row.note }}</td>
+              </tr>
+              <tr v-if="!cardRows.length">
+                <td colspan="6" class="border border-black px-3 py-6 text-center text-slate-500">
+                  <span v-if="selectedItem">Belum ada histori penambahan atau permintaan untuk barang ini.</span>
+                  <span v-else>Belum ada histori penambahan atau permintaan untuk semua barang.</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -292,8 +277,8 @@
             <input
               v-model="stockInForm.quantity"
               type="number"
-              min="0.01"
-              step="0.01"
+              min="1"
+              step="1"
               placeholder="Qty Masuk"
               class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
             />
@@ -361,8 +346,8 @@
             <input
               v-model="requestForm.quantity"
               type="number"
-              min="0.01"
-              step="0.01"
+              min="1"
+              step="1"
               placeholder="Qty Dipakai"
               class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
             />
@@ -424,7 +409,7 @@ const props = defineProps({
     type: Object,
     default: () => ({
       q: '',
-      item_id: '',
+      item_id: 'all',
     }),
   },
   meta: {
@@ -436,8 +421,13 @@ const props = defineProps({
     default: () => ({
       add_stock: false,
       request_stock: false,
+      approve_request: false,
       view_history: false,
     }),
+  },
+  pendingRequests: {
+    type: Array,
+    default: () => [],
   },
 });
 
@@ -448,6 +438,7 @@ const selectedItem = computed(() => props.selectedItem || null);
 const cardRows = computed(() => props.cardRows || []);
 const meta = computed(() => props.meta || {});
 const abilities = computed(() => props.abilities || {});
+const pendingRequests = computed(() => props.pendingRequests || []);
 const errorSummary = computed(() => {
   const errors = page.props.errors || {};
   return Object.values(errors).flat().filter(Boolean);
@@ -460,22 +451,26 @@ const showRequestModal = ref(false);
 
 const filters = reactive({
   q: props.filters?.q || '',
-  item_id: props.filters?.item_id ? String(props.filters.item_id) : '',
+  item_id: props.filters?.item_id || 'all',
 });
 
 const stockInForm = useForm({
-  stock_card_item_id: props.filters?.item_id ? String(props.filters.item_id) : '',
+  stock_card_item_id: props.selectedItem?.id ? String(props.selectedItem.id) : '',
   transaction_date: today,
   quantity: '',
   notes: '',
+  return_item_id: props.filters?.item_id || 'all',
+  return_q: props.filters?.q || '',
 });
 
 const requestForm = useForm({
-  stock_card_item_id: props.filters?.item_id ? String(props.filters.item_id) : '',
+  stock_card_item_id: props.selectedItem?.id ? String(props.selectedItem.id) : '',
   request_date: today,
   quantity: '',
   requested_by_name: currentUserName.value,
   notes: '',
+  return_item_id: props.filters?.item_id || 'all',
+  return_q: props.filters?.q || '',
 });
 
 let searchTimer = null;
@@ -483,7 +478,7 @@ let searchTimer = null;
 function currentQuery() {
   const query = {};
   if (filters.q) query.q = filters.q;
-  if (filters.item_id) query.item_id = filters.item_id;
+  if (filters.item_id && filters.item_id !== 'all') query.item_id = filters.item_id;
   return query;
 }
 
@@ -499,19 +494,18 @@ function onSearchInput() {
   searchTimer = setTimeout(() => fetchList(), 300);
 }
 
-function selectItem(itemId) {
-  filters.item_id = String(itemId);
-  stockInForm.stock_card_item_id = String(itemId);
-  requestForm.stock_card_item_id = String(itemId);
-  fetchList();
-}
-
 function preferredItemId() {
-  return filters.item_id || (items.value[0] ? String(items.value[0].id) : '');
+  if (filters.item_id && filters.item_id !== 'all') {
+    return filters.item_id;
+  }
+
+  return items.value[0] ? String(items.value[0].id) : '';
 }
 
 function openStockInModal() {
   stockInForm.stock_card_item_id = preferredItemId();
+  stockInForm.return_item_id = filters.item_id || 'all';
+  stockInForm.return_q = filters.q || '';
   showStockInModal.value = true;
 }
 
@@ -522,6 +516,8 @@ function closeStockInModal() {
 function openRequestModal() {
   requestForm.stock_card_item_id = preferredItemId();
   requestForm.requested_by_name = requestForm.requested_by_name || currentUserName.value;
+  requestForm.return_item_id = filters.item_id || 'all';
+  requestForm.return_q = filters.q || '';
   showRequestModal.value = true;
 }
 
@@ -548,6 +544,15 @@ function submitRequest() {
       requestForm.notes = '';
       closeRequestModal();
     },
+  });
+}
+
+function approveRequest(requestId) {
+  router.post(`/gmisl/utility/stock-card/requests/${requestId}/approve`, {
+    return_item_id: filters.item_id || 'all',
+    return_q: filters.q || '',
+  }, {
+    preserveScroll: true,
   });
 }
 </script>

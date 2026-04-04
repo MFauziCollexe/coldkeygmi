@@ -310,6 +310,9 @@ return [
                 'request_stock' => [
                     ['type' => 'admin'],
                 ],
+                'approve_request' => [
+                    ['type' => 'admin'],
+                ],
                 'view_history' => [
                     ['type' => 'admin'],
                 ],
