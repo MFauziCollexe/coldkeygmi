@@ -195,7 +195,7 @@
                             <th class="text-left py-2 pr-3">Scan Pertama</th>
                             <th class="text-left py-2 pr-3">Scan Terakhir</th>
                             <th class="text-left py-2">Status / Overtime</th>
-                            <th class="text-left py-2">Koreksi</th>
+                            <th v-if="canShowCorrectionColumn" class="text-left py-2">Koreksi</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -222,7 +222,7 @@
                                 </span>
                               </div>
                             </td>
-                            <td class="py-2">
+                            <td v-if="canShowCorrectionColumn" class="py-2">
                               <div class="flex flex-col gap-1.5">
                                 <div v-if="row.correction" class="flex flex-wrap items-center gap-2">
                                   <span
@@ -239,7 +239,7 @@
 
                                 <div class="flex flex-wrap items-center gap-2">
                                   <button
-                                    v-if="canManageCorrections"
+                                    v-if="canShowCorrectionColumn"
                                     type="button"
                                     class="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-[12px] font-semibold"
                                     @click="openCorrectionSwal(row)"
@@ -247,7 +247,7 @@
                                     Koreksi
                                   </button>
 
-                                  <span v-if="!canManageCorrections && !row.correction" class="text-[11px] text-slate-500">-</span>
+                                  <span v-if="!canShowCorrectionColumn && !row.correction" class="text-[11px] text-slate-500">-</span>
                                 </div>
                               </div>
                             </td>
@@ -274,7 +274,7 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
@@ -313,6 +313,8 @@ const props = defineProps({
   },
 });
 
+const page = usePage();
+
 const today = new Date();
 const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -343,6 +345,26 @@ watch(
 );
 
 const canManageCorrections = props.canManageCorrections === true;
+const currentUser = computed(() => page.props.auth?.user || {});
+const isCurrentUserItDepartment = computed(() => {
+  const departmentCode = String(
+    currentUser.value?.department?.code
+    || currentUser.value?.department_code
+    || currentUser.value?.departmentCode
+    || ''
+  ).trim().toUpperCase();
+  const departmentName = String(
+    currentUser.value?.department?.name
+    || currentUser.value?.department_name
+    || currentUser.value?.departmentName
+    || ''
+  ).trim().toUpperCase();
+
+  return departmentCode === 'IT'
+    || departmentName === 'IT'
+    || departmentName.includes('INFORMATION TECHNOLOGY');
+});
+const canShowCorrectionColumn = computed(() => canManageCorrections && isCurrentUserItDepartment.value);
 const MIN_HIGHLIGHT_COUNT = 5;
 
 const summaryTotal = computed(() => Number(props.summary?.total || 0));

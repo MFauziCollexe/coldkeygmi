@@ -25,7 +25,7 @@
         v-if="selectedChecklist && !supportedTemplates.includes(selectedChecklist)"
         class="rounded bg-slate-800 p-4 text-sm text-amber-300"
       >
-        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, dan `Personal Hygiene Karyawan`.
+        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, dan `Sarana dan Prasarana`.
       </div>
 
       <div
@@ -59,6 +59,29 @@
         @set-active-month="setKotakP3KActiveMonth"
         @cycle-month-answer="cycleKotakP3KMonthAnswer"
         @update-month-note="updateKotakP3KMonthNote"
+      />
+
+      <FireSafetyTemplate
+        v-else-if="entry && isFireSafety"
+        :entry="entry"
+        :card-options="fireSafetyCardOptions"
+        :card-title="fireSafetyCardTitle"
+        :location-options="fireSafetyLocationOptions"
+        :months="kotakP3KMonths"
+        :active-month="activeFireSafetyMonth"
+        :active-month-label="getKotakP3KMonthLabel(activeFireSafetyMonth)"
+        :month-note="fireSafetyMonthNote"
+        :current-barcode="currentFireSafetyBarcode"
+        :can-scan-barcode="canScanFireSafety"
+        :can-approve-entry="canApproveEntry"
+        :is-active-month-approved="isActiveFireSafetyMonthApproved"
+        @approve="approveChecklist"
+        @scan-barcode="scanFireSafetyBarcode"
+        @update-card-type="updateFireSafetyCardType"
+        @update-location="updateFireSafetyLocation"
+        @set-active-month="setFireSafetyActiveMonth"
+        @cycle-month-answer="cycleFireSafetyMonthAnswer"
+        @update-month-note="updateFireSafetyMonthNote"
       />
 
       <NonWarehouseSanitationTemplate
@@ -104,6 +127,21 @@
         @set-ice-control-status="setWarehouseIceControlStatus"
         @set-ice-control-note="setWarehouseIceControlNote"
         @set-cleaning-material-field="setWarehouseCleaningMaterialField"
+      />
+
+      <SaranaPrasaranaTemplate
+        v-else-if="entry && isSaranaPrasarana"
+        :entry="entry"
+        :area-options="saranaPrasaranaAreaOptions"
+        :current-section="currentSaranaPrasaranaSection"
+        :days="saranaPrasaranaDays"
+        :approved-days="saranaPrasaranaApprovedDays"
+        :next-pending-day="nextPendingSaranaPrasaranaDay"
+        :can-approve-entry="canApproveEntry"
+        @approve="approveChecklist"
+        @update-period="updateSaranaPrasaranaPeriod"
+        @update-area="updateSaranaPrasaranaArea"
+        @cycle-day="cycleSaranaPrasaranaDay"
       />
 
       <PersonalHygieneTemplate
@@ -221,40 +259,53 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import FireSafetyTemplate from './Templates/FireSafetyTemplate.vue';
 import KotakP3KTemplate from './Templates/KotakP3KTemplate.vue';
 import NonWarehouseSanitationTemplate from './Templates/NonWarehouseSanitationTemplate.vue';
+import SaranaPrasaranaTemplate from './Templates/SaranaPrasaranaTemplate.vue';
 import WasteTransportTemplate from './Templates/WasteTransportTemplate.vue';
 import WarehouseSanitationTemplate from './Templates/WarehouseSanitationTemplate.vue';
 import PersonalHygieneTemplate from './Templates/PersonalHygieneTemplate.vue';
 import {
   buildWarehouseAreaRows,
   checklistOptions,
+  createFireSafetyEntry,
+  createFireSafetyLocationState,
   createKotakP3KEntry,
   createNonWarehouseSanitationEntry,
   createPersonalHygieneEntry,
+  createSaranaPrasaranaEntry,
   createWasteTransportEntry,
   createWarehouseSanitationEntry,
+  fireSafetyCardOptions,
+  formatDayMonthDisplay,
   formatDateDisplay,
   formatDateTimeDisplay,
   formatMonthYearDisplay,
   formatShortDateDisplay,
+  getFireSafetyCardTitle,
+  getFireSafetyLocationOptions,
+  getFireSafetyRecordKey,
   getDaysInPeriod,
   getKotakP3KMonthLabel,
   getLocationLabel,
   kotakP3KMonths,
   locationOptions,
   personalHygieneRows as personalHygieneRowTemplates,
+  rebuildFireSafetyRows,
   rebuildPersonalHygieneRows,
   rebuildAllSanitationRowsByArea,
+  rebuildSaranaPrasaranaSections,
   rebuildSanitationRows,
   rebuildWasteTransportRows,
+  saranaPrasaranaAreaOptions,
   sanitationAreaOptions,
   toPeriodValue,
   warehouseAreaOptions,
 } from './checklistConfig';
 import { findChecklistEntry, loadChecklistEntries, upsertChecklistEntry } from './checklistStorage';
 
-const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan'];
+const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana'];
 
 const props = defineProps({
   selectedTemplate: {
@@ -309,9 +360,47 @@ const canApproveWarehouseFinal = computed(() => Boolean(checklistAbilities.value
 
 const isKotakP3K = computed(() => selectedChecklist.value === 'kotak_p3k');
 const isSanitation = computed(() => selectedChecklist.value === 'non_warehouse_sanitation');
+const isFireSafety = computed(() => selectedChecklist.value === 'apar_smoke_detector_fire_alarm');
 const isWasteTransport = computed(() => selectedChecklist.value === 'pengangkutan_sampah_pt_sier');
 const isWarehouseSanitation = computed(() => selectedChecklist.value === 'warehouse_sanitation_1');
 const isPersonalHygiene = computed(() => selectedChecklist.value === 'personal_hygiene_karyawan');
+const isSaranaPrasarana = computed(() => selectedChecklist.value === 'sarana_dan_prasarana');
+
+const saranaPrasaranaDays = computed(() => {
+  if (!isSaranaPrasarana.value || !entry.value) {
+    return [];
+  }
+
+  return getDaysInPeriod(entry.value.form.period);
+});
+
+const saranaPrasaranaApprovedDays = computed(() => {
+  if (!isSaranaPrasarana.value || !entry.value) {
+    return [];
+  }
+
+  const areaId = String(entry.value.form.selected_area || '').trim();
+  const approvedDaysByArea = entry.value.form.approved_days_by_area || {};
+
+  return Array.isArray(approvedDaysByArea?.[areaId]) ? approvedDaysByArea[areaId] : [];
+});
+
+const currentSaranaPrasaranaSection = computed(() => {
+  if (!isSaranaPrasarana.value || !entry.value) {
+    return null;
+  }
+
+  const areaId = String(entry.value.form.selected_area || '').trim();
+  return (entry.value.form.sections || []).find((section) => section.id === areaId) || null;
+});
+
+const nextPendingSaranaPrasaranaDay = computed(() => {
+  if (!isSaranaPrasarana.value || !entry.value) {
+    return null;
+  }
+
+  return saranaPrasaranaDays.value.find((day) => !day.isSunday && !saranaPrasaranaApprovedDays.value.includes(day.day)) || null;
+});
 
 const activeKotakP3KMonth = computed(() => {
   if (!isKotakP3K.value || !entry.value) {
@@ -319,6 +408,101 @@ const activeKotakP3KMonth = computed(() => {
   }
 
   return entry.value.form.active_month || 'jan';
+});
+
+const activeFireSafetyMonth = computed(() => {
+  if (!isFireSafety.value || !entry.value) {
+    return 'jan';
+  }
+
+  return entry.value.form.active_month || 'jan';
+});
+
+const fireSafetyCardTitle = computed(() => {
+  if (!isFireSafety.value || !entry.value) {
+    return 'KARTU PEMELIHARAAN';
+  }
+
+  return getFireSafetyCardTitle(entry.value.form.card_type);
+});
+
+const fireSafetyLocationOptions = computed(() => {
+  if (!isFireSafety.value || !entry.value) {
+    return [];
+  }
+
+  return getFireSafetyLocationOptions(entry.value.form.card_type);
+});
+
+const fireSafetyMonthNote = computed({
+  get() {
+    if (!isFireSafety.value || !entry.value) {
+      return '';
+    }
+
+    return entry.value.form.monthly_notes?.[activeFireSafetyMonth.value] || '';
+  },
+  set(value) {
+    if (!isFireSafety.value || !entry.value) {
+      return;
+    }
+
+    entry.value.form.monthly_notes = {
+      ...(entry.value.form.monthly_notes || {}),
+      [activeFireSafetyMonth.value]: value,
+    };
+  },
+});
+
+const currentFireSafetyBarcode = computed(() => {
+  if (!isFireSafety.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.monthly_barcodes?.[activeFireSafetyMonth.value] || '';
+});
+
+const fireSafetyApprovedMonths = computed(() => {
+  if (!isFireSafety.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.approved_months) ? entry.value.form.approved_months : [];
+});
+
+const isActiveFireSafetyMonthApproved = computed(() => {
+  return fireSafetyApprovedMonths.value.includes(activeFireSafetyMonth.value);
+});
+
+const fireSafetyMonthValidation = computed(() => {
+  if (!isFireSafety.value || !entry.value) {
+    return {
+      allAnswersFilled: false,
+      hasNoAnswer: false,
+      hasRequiredNote: false,
+    };
+  }
+
+  const answers = (entry.value.form.rows || []).map((row) => row.months?.[activeFireSafetyMonth.value] || '');
+  const allAnswersFilled = answers.length > 0 && answers.every((answer) => answer === 'yes' || answer === 'no');
+  const hasNoAnswer = answers.includes('no');
+  const hasRequiredNote = String(fireSafetyMonthNote.value || '').trim() !== '';
+
+  return {
+    allAnswersFilled,
+    hasNoAnswer,
+    hasRequiredNote,
+  };
+});
+
+const canScanFireSafety = computed(() => {
+  if (!isFireSafety.value || !entry.value || isActiveFireSafetyMonthApproved.value) {
+    return false;
+  }
+
+  return fireSafetyMonthValidation.value.allAnswersFilled
+    && (!fireSafetyMonthValidation.value.hasNoAnswer || fireSafetyMonthValidation.value.hasRequiredNote)
+    && !String(currentFireSafetyBarcode.value || '').trim();
 });
 
 const kotakP3KMonthNote = computed({
@@ -653,6 +837,19 @@ const canApproveEntry = computed(() => {
     return allAreasScanned && sanitationCompletedDays.value.some((day) => day.day === pendingDay);
   }
 
+  if (isFireSafety.value) {
+    if (isActiveFireSafetyMonthApproved.value) {
+      return false;
+    }
+
+    return Boolean(
+      String(entry.value.form.card_type || '').trim()
+      && String(entry.value.form.location || '').trim()
+    ) && fireSafetyMonthValidation.value.allAnswersFilled
+      && String(currentFireSafetyBarcode.value || '').trim() !== ''
+      && (!fireSafetyMonthValidation.value.hasNoAnswer || fireSafetyMonthValidation.value.hasRequiredNote);
+  }
+
   if (isWasteTransport.value) {
     if (!nextPendingWasteTransportDay.value) {
       return false;
@@ -724,6 +921,16 @@ const canApproveEntry = computed(() => {
     return generalCompleted && hasAnyCheckedDay;
   }
 
+  if (isSaranaPrasarana.value) {
+    if (!nextPendingSaranaPrasaranaDay.value) {
+      return false;
+    }
+
+    return Boolean(String(entry.value.form.period || '').trim())
+      && Boolean(String(entry.value.form.selected_area || '').trim())
+      && (currentSaranaPrasaranaSection.value?.items || []).every((item) => Boolean(item.days?.[nextPendingSaranaPrasaranaDay.value.day]));
+  }
+
   return false;
 });
 
@@ -738,6 +945,10 @@ function createEntryByTemplate(templateId) {
     return createNonWarehouseSanitationEntry(userName);
   }
 
+  if (templateId === 'apar_smoke_detector_fire_alarm') {
+    return createFireSafetyEntry(userName);
+  }
+
   if (templateId === 'pengangkutan_sampah_pt_sier') {
     return createWasteTransportEntry(userName);
   }
@@ -748,6 +959,10 @@ function createEntryByTemplate(templateId) {
 
   if (templateId === 'personal_hygiene_karyawan') {
     return createPersonalHygieneEntry(userName);
+  }
+
+  if (templateId === 'sarana_dan_prasarana') {
+    return createSaranaPrasaranaEntry(userName);
   }
 
   return null;
@@ -761,6 +976,100 @@ function resolvePersonalHygieneBagianByNik(nik) {
 
   const matchedEmployee = (props.employees || []).find((employee) => String(employee?.nik || '').trim() === normalizedNik);
   return matchedEmployee?.bagian || matchedEmployee?.position || '';
+}
+
+function persistCurrentFireSafetyState() {
+  if (!entry.value || !isFireSafety.value) {
+    return;
+  }
+
+  const cardType = String(entry.value.form.card_type || '').trim();
+  const locationId = String(entry.value.form.location || '').trim();
+  if (!cardType || !locationId) {
+    return;
+  }
+
+  const recordKey = getFireSafetyRecordKey(cardType, locationId);
+  entry.value.form.location_records = {
+    ...(entry.value.form.location_records || {}),
+    [recordKey]: createFireSafetyLocationState(cardType, {
+      approved_months: entry.value.form.approved_months || [],
+      monthly_notes: entry.value.form.monthly_notes || {},
+      monthly_barcodes: entry.value.form.monthly_barcodes || {},
+      monthly_check_dates: entry.value.form.monthly_check_dates || {},
+      rows: entry.value.form.rows || [],
+    }),
+  };
+}
+
+function loadFireSafetyState(cardType, locationId) {
+  if (!entry.value || !isFireSafety.value) {
+    return;
+  }
+
+  const recordKey = getFireSafetyRecordKey(cardType, locationId);
+  const currentState = entry.value.form.location_records?.[recordKey] || createFireSafetyLocationState(cardType);
+
+  entry.value.form.approved_months = [...(currentState.approved_months || [])];
+  entry.value.form.monthly_notes = {
+    ...(currentState.monthly_notes || {}),
+  };
+  entry.value.form.monthly_barcodes = {
+    ...(currentState.monthly_barcodes || {}),
+  };
+  entry.value.form.monthly_check_dates = {
+    ...(currentState.monthly_check_dates || {}),
+  };
+  entry.value.form.rows = rebuildFireSafetyRows(cardType, currentState.rows || []);
+}
+
+function hydrateFireSafetyEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'apar_smoke_detector_fire_alarm') {
+    return savedEntry;
+  }
+
+  const cardType = String(savedEntry?.form?.card_type || 'fire_alarm').trim() || 'fire_alarm';
+  const locationId = String(savedEntry?.form?.location || '').trim()
+    || (getFireSafetyLocationOptions(cardType)[0]?.id || '');
+  const recordKey = getFireSafetyRecordKey(cardType, locationId);
+
+  const nextEntry = {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      card_type: cardType,
+      location: locationId,
+      location_records: {
+        ...(savedEntry?.form?.location_records || {}),
+      },
+    },
+  };
+
+  if (!nextEntry.form.location_records[recordKey]) {
+    nextEntry.form.location_records[recordKey] = createFireSafetyLocationState(cardType, {
+      approved_months: savedEntry?.form?.approved_months || [],
+      monthly_notes: savedEntry?.form?.monthly_notes || {},
+      monthly_barcodes: savedEntry?.form?.monthly_barcodes || {},
+      monthly_check_dates: savedEntry?.form?.monthly_check_dates || {},
+      rows: savedEntry?.form?.rows || [],
+    });
+  }
+
+  const loadedState = nextEntry.form.location_records[recordKey];
+
+  nextEntry.form.approved_months = [...(loadedState.approved_months || [])];
+  nextEntry.form.monthly_notes = {
+    ...(loadedState.monthly_notes || {}),
+  };
+  nextEntry.form.monthly_barcodes = {
+    ...(loadedState.monthly_barcodes || {}),
+  };
+  nextEntry.form.monthly_check_dates = {
+    ...(loadedState.monthly_check_dates || {}),
+  };
+  nextEntry.form.rows = rebuildFireSafetyRows(cardType, loadedState.rows || []);
+
+  return nextEntry;
 }
 
 function hydratePersonalHygieneEntry(savedEntry) {
@@ -779,11 +1088,39 @@ function hydratePersonalHygieneEntry(savedEntry) {
   };
 }
 
+function hydrateSaranaPrasaranaEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'sarana_dan_prasarana') {
+    return savedEntry;
+  }
+
+  const period = String(savedEntry?.form?.period || '').trim() || toPeriodValue(new Date());
+
+  return {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      period,
+      selected_area: String(savedEntry?.form?.selected_area || '').trim() || savedEntry?.form?.sections?.[0]?.id || '',
+      approved_days_by_area: saranaPrasaranaAreaOptions.reduce((result, area) => {
+        result[area.id] = Array.isArray(savedEntry?.form?.approved_days_by_area?.[area.id])
+          ? savedEntry.form.approved_days_by_area[area.id]
+          : (Array.isArray(savedEntry?.form?.approved_days) && area.id === (savedEntry?.form?.selected_area || savedEntry?.form?.sections?.[0]?.id)
+            ? savedEntry.form.approved_days
+            : []);
+        return result;
+      }, {}),
+      sections: rebuildSaranaPrasaranaSections(period, savedEntry?.form?.sections || []),
+    },
+  };
+}
+
 function createInitialEntry() {
   if (props.entryId) {
     const savedEntry = findChecklistEntry(props.entryId);
     if (savedEntry) {
-      const hydratedEntry = hydratePersonalHygieneEntry(savedEntry);
+      const fireSafetyHydratedEntry = hydrateFireSafetyEntry(savedEntry);
+      const saranaPrasaranaHydratedEntry = hydrateSaranaPrasaranaEntry(fireSafetyHydratedEntry);
+      const hydratedEntry = hydratePersonalHygieneEntry(saranaPrasaranaHydratedEntry);
       selectedChecklist.value = hydratedEntry.template_id;
       return hydratedEntry;
     }
@@ -833,6 +1170,22 @@ function approveChecklist() {
     return;
   }
 
+  if (isFireSafety.value) {
+    persistCurrentFireSafetyState();
+    entry.value.form.approved_months = [
+      ...new Set([...(entry.value.form.approved_months || []), activeFireSafetyMonth.value]),
+    ];
+    entry.value.form.monthly_check_dates = {
+      ...(entry.value.form.monthly_check_dates || {}),
+      [activeFireSafetyMonth.value]: formatDayMonthDisplay(now),
+    };
+    entry.value.form.approved = true;
+    persistCurrentFireSafetyState();
+    upsertChecklistEntry(entry.value);
+    router.visit('/gmiic/checklist');
+    return;
+  }
+
   if (isSanitation.value && nextPendingSanitationDay.value) {
     entry.value.form.approved_days = [
       ...new Set([...(entry.value.form.approved_days || []), nextPendingSanitationDay.value.day]),
@@ -865,6 +1218,20 @@ function approveChecklist() {
     upsertChecklistEntry(entry.value);
     router.visit('/gmiic/checklist');
     return;
+  }
+
+  if (isSaranaPrasarana.value && nextPendingSaranaPrasaranaDay.value) {
+    const selectedArea = String(entry.value.form.selected_area || '').trim();
+    const currentApprovedDays = Array.isArray(entry.value.form.approved_days_by_area?.[selectedArea])
+      ? entry.value.form.approved_days_by_area[selectedArea]
+      : [];
+
+    entry.value.form.approved_days_by_area = {
+      ...(entry.value.form.approved_days_by_area || {}),
+      [selectedArea]: [
+        ...new Set([...currentApprovedDays, nextPendingSaranaPrasaranaDay.value.day]),
+      ].sort((a, b) => a - b),
+    };
   }
 
   entry.value.form.approved = true;
@@ -900,6 +1267,20 @@ async function scanSanitationArea() {
   await startBarcodeScanner();
 }
 
+async function scanFireSafetyBarcode() {
+  if (!entry.value || !isFireSafety.value || !canScanFireSafety.value) {
+    return;
+  }
+
+  scannerMode.value = 'fire_safety';
+  scannerError.value = '';
+  scannerLoading.value = true;
+  scannerModalOpen.value = true;
+
+  await nextTick();
+  await startBarcodeScanner();
+}
+
 function toggleLocationMenu() {
   locationMenuOpen.value = !locationMenuOpen.value;
 }
@@ -913,6 +1294,14 @@ function selectLocation(locationId) {
 
 function setKotakP3KActiveMonth(monthKey) {
   if (!entry.value || !isKotakP3K.value) {
+    return;
+  }
+
+  entry.value.form.active_month = monthKey;
+}
+
+function setFireSafetyActiveMonth(monthKey) {
+  if (!entry.value || !isFireSafety.value) {
     return;
   }
 
@@ -937,6 +1326,47 @@ function updateKotakP3KMonthNote(value) {
   kotakP3KMonthNote.value = value;
 }
 
+function updateFireSafetyCardType(cardType) {
+  if (!entry.value || !isFireSafety.value) {
+    return;
+  }
+
+  persistCurrentFireSafetyState();
+  const nextLocation = getFireSafetyLocationOptions(cardType)[0]?.id || '';
+
+  entry.value.form.card_type = cardType;
+  entry.value.form.location = nextLocation;
+  loadFireSafetyState(cardType, nextLocation);
+}
+
+function updateFireSafetyLocation(locationId) {
+  if (!entry.value || !isFireSafety.value) {
+    return;
+  }
+
+  persistCurrentFireSafetyState();
+  entry.value.form.location = locationId;
+  loadFireSafetyState(entry.value.form.card_type, locationId);
+}
+
+function cycleFireSafetyMonthAnswer(row, monthKey) {
+  if (!row?.months || !isFireSafety.value || isActiveFireSafetyMonthApproved.value || monthKey !== activeFireSafetyMonth.value) {
+    return;
+  }
+
+  const currentValue = row.months?.[monthKey] || '';
+  const nextValue = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : '';
+
+  row.months = {
+    ...row.months,
+    [monthKey]: nextValue,
+  };
+}
+
+function updateFireSafetyMonthNote(value) {
+  fireSafetyMonthNote.value = value;
+}
+
 function updateWasteTransportRow(day, field, value) {
   if (!entry.value || !isWasteTransport.value) {
     return;
@@ -959,6 +1389,59 @@ function updatePersonalHygieneField(field, value) {
   }
 
   entry.value.form[field] = value;
+}
+
+function updateSaranaPrasaranaPeriod(value) {
+  if (!entry.value || !isSaranaPrasarana.value) {
+    return;
+  }
+
+  entry.value.form.period = value;
+  entry.value.form.approved_days_by_area = saranaPrasaranaAreaOptions.reduce((result, area) => {
+    result[area.id] = [];
+    return result;
+  }, {});
+  entry.value.form.sections = rebuildSaranaPrasaranaSections(value, []);
+}
+
+function updateSaranaPrasaranaArea(value) {
+  if (!entry.value || !isSaranaPrasarana.value) {
+    return;
+  }
+
+  entry.value.form.selected_area = value;
+}
+
+function cycleSaranaPrasaranaDay(sectionId, itemId, day) {
+  if (!entry.value || !isSaranaPrasarana.value || saranaPrasaranaApprovedDays.value.includes(day)) {
+    return;
+  }
+
+  entry.value.form.sections = (entry.value.form.sections || []).map((section) => {
+    if (section.id !== sectionId) {
+      return section;
+    }
+
+    return {
+      ...section,
+      items: (section.items || []).map((item) => {
+        if (item.id !== itemId) {
+          return item;
+        }
+
+        const currentValue = item.days?.[day] || '';
+        const nextValue = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : '';
+
+        return {
+          ...item,
+          days: {
+            ...(item.days || {}),
+            [day]: nextValue,
+          },
+        };
+      }),
+    };
+  });
 }
 
 function createGeneratedPersonalHygieneEmployees(periodValue, existingEmployees = []) {
@@ -1429,6 +1912,14 @@ async function startBarcodeScanner() {
                 },
               },
             };
+          }
+
+          if (scannerMode.value === 'fire_safety') {
+            entry.value.form.monthly_barcodes = {
+              ...(entry.value.form.monthly_barcodes || {}),
+              [activeFireSafetyMonth.value]: decodedText,
+            };
+            persistCurrentFireSafetyState();
           }
         }
 
