@@ -8,6 +8,9 @@ export default [
             { key: "gmisl.master_data.department", label: "Department" },
             { key: "gmisl.master_data.position", label: "Position" },
             { key: "gmisl.master_data.vehicle_type", label: "Jenis Kendaraan" },
+            { key: "gmisl.master_data.stock_card", label: "Stock Card" },
+            { key: "gmisl.master_data.stock_card_item_type", label: "Jenis/Tipe Barang" },
+            { key: "gmisl.master_data.stock_card_unit", label: "Satuan Stock Card" },
         ],
     },
     {
@@ -24,6 +27,7 @@ export default [
             { key: "utility.date_code", label: "No Identity" },
             { key: "utility.check_inline", label: "Check Inline" },
             { key: "utility.berita_acara", label: "Berita Acara" },
+            { key: "utility.stock_card", label: "Stock Card" },
         ],
     },
     {

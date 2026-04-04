@@ -299,5 +299,21 @@ return [
                 ],
             ],
         ],
+        'stock_card' => [
+            'abilities' => [
+                'manage_master' => [
+                    ['type' => 'admin'],
+                ],
+                'add_stock' => [
+                    ['type' => 'admin'],
+                ],
+                'request_stock' => [
+                    ['type' => 'admin'],
+                ],
+                'view_history' => [
+                    ['type' => 'admin'],
+                ],
+            ],
+        ],
     ],
 ];

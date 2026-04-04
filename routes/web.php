@@ -91,6 +91,17 @@ Route::delete('gmisl/utility/berita-acara/{beritaAcara}', [App\Http\Controllers\
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
     ->name('berita-acara.destroy');
 
+// Stock Card (GMISL > Utility > Stock Card)
+Route::get('gmisl/utility/stock-card', [App\Http\Controllers\StockCardController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
+    ->name('stock-card.index');
+Route::post('gmisl/utility/stock-card/stock-in', [App\Http\Controllers\StockCardController::class, 'storeStockIn'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
+    ->name('stock-card.stock-in.store');
+Route::post('gmisl/utility/stock-card/requests', [App\Http\Controllers\StockCardController::class, 'storeRequest'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
+    ->name('stock-card.requests.store');
+
 // Check Inline (GMISL > Utility > Check Inline)
 Route::get('check-inline', [App\Http\Controllers\CheckInlineController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.check_inline'])
@@ -335,6 +346,20 @@ Route::resource('master-data/vehicle-type', VehicleTypeController::class)
     ->except(['show'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.vehicle_type'])
     ->names('vehicle-types');
+
+// Master Data - Stock Card (route: /master-data/stock-card)
+Route::get('master-data/stock-card', [App\Http\Controllers\StockCardController::class, 'masterIndex'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card'])
+    ->name('stock-card.master.index');
+Route::post('master-data/stock-card', [App\Http\Controllers\StockCardController::class, 'storeItem'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card'])
+    ->name('stock-card.master.store');
+Route::resource('master-data/stock-card-item-type', \App\Http\Controllers\StockCardItemTypeController::class)
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card_item_type'])
+    ->names('stock-card-item-types');
+Route::resource('master-data/stock-card-unit', \App\Http\Controllers\StockCardUnitController::class)
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card_unit'])
+    ->names('stock-card-units');
 
 // Master Data - Position (route: /master-data/position)
 Route::resource('master-data/position', PositionController::class)

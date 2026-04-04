@@ -124,7 +124,22 @@ const appName = import.meta.env.VITE_APP_NAME || "ColdKey";
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
-    resolve: (name) => pages[`./Pages/${name}.vue`],
+    resolve: (name) => {
+        const directKey = `./Pages/${name}.vue`;
+        const directPage = pages[directKey];
+
+        if (directPage) {
+            return directPage.default || directPage;
+        }
+
+        const fallbackKey = Object.keys(pages).find((key) => key.toLowerCase() === directKey.toLowerCase());
+        if (fallbackKey) {
+            const fallbackPage = pages[fallbackKey];
+            return fallbackPage.default || fallbackPage;
+        }
+
+        throw new Error(`Inertia page not found: ${name}`);
+    },
     setup({ el, App, props, plugin }) {
         createApp({ render: () => h(App, props) })
             .use(plugin)

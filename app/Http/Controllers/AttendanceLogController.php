@@ -2403,7 +2403,11 @@ class AttendanceLogController extends Controller
         $lastScan = $this->exportTimeOnly($row['last_scan'] ?? null);
 
         if ($firstScan === '-' && $lastScan === '-') {
-            return '';
+            $expected = trim((string) ($row['expected'] ?? ''));
+            if (strtolower($expected) === 'libur nasional') {
+                return 'Libur';
+            }
+            return $expected !== '' ? $expected : '';
         }
 
         $top = $firstScan === '-' ? '' : $firstScan;
@@ -2420,7 +2424,7 @@ class AttendanceLogController extends Controller
             return 'late';
         }
 
-        if (in_array($expected, ['off', 'tidak masuk'], true)) {
+        if ($expected === 'tidak masuk') {
             return 'danger';
         }
 
