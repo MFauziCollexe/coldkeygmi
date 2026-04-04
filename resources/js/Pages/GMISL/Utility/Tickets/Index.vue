@@ -1,11 +1,11 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-4">
+    <div class="p-4 md:p-6">
+      <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <h2 class="text-2xl font-bold">Tickets</h2>
-        <div class="flex items-center gap-2">
-          <input v-model="filters.search" @input="onSearchInput" placeholder="Search tickets..." class="px-3 py-2 rounded bg-slate-800 text-sm" />
-          <select v-model="filters.status" @change="fetch" class="px-3 py-2 rounded bg-slate-800 text-sm">
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:items-center">
+          <input v-model="filters.search" @input="onSearchInput" placeholder="Search tickets..." class="w-full px-3 py-2 rounded bg-slate-800 text-sm lg:w-auto" />
+          <select v-model="filters.status" @change="fetch" class="w-full px-3 py-2 rounded bg-slate-800 text-sm lg:w-auto">
             <option value="">All Statuses</option>
             <option value="Open">Open</option>
             <option value="In Progress">In Progress</option>
@@ -13,7 +13,7 @@
             <option value="Resolved">Resolved</option>
             <option value="Closed">Closed</option>
           </select>
-          <div class="w-48">
+          <div class="w-full lg:w-48">
             <SearchableSelect
               v-model="filters.department_id"
               :options="departments"
@@ -25,11 +25,12 @@
               @update:modelValue="fetch"
             />
           </div>
-          <Link href="/tickets/create" class="bg-indigo-600 px-4 py-2 rounded text-white">New Ticket</Link>
+          <Link href="/tickets/create" class="inline-flex items-center justify-center bg-indigo-600 px-4 py-2 rounded text-white">New Ticket</Link>
         </div>
       </div>
 
       <div class="bg-slate-800 rounded p-4">
+        <div class="hidden overflow-x-auto lg:block">
         <table class="w-full table-auto">
           <thead>
             <tr class="text-left text-slate-400">
@@ -77,6 +78,55 @@
             </tr>
           </tbody>
         </table>
+        </div>
+
+        <div class="space-y-3 lg:hidden">
+          <div
+            v-for="ticket in tickets.data"
+            :key="ticket.id"
+            class="rounded-lg border border-slate-700 bg-slate-900/60 p-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-xs text-slate-400">{{ ticket.ticket_number }}</div>
+                <div class="truncate font-semibold">{{ ticket.title }}</div>
+              </div>
+              <span :class="getStatusClass(ticket.status)">
+                {{ ticket.status.replace(/_/g, ' ').toUpperCase() }}
+              </span>
+            </div>
+
+            <div class="mt-3 grid grid-cols-[48px_1fr] gap-3">
+              <div>
+                <div v-if="ticket.attachments && ticket.attachments.length > 0" class="cursor-pointer">
+                  <img
+                    :src="ticket.attachments[0].url"
+                    class="h-12 w-12 rounded object-cover"
+                    @click="viewImage(ticket.attachments[0].url)"
+                  />
+                </div>
+                <div v-else class="flex h-12 w-12 items-center justify-center rounded bg-slate-700 text-xs">-</div>
+              </div>
+
+              <div class="space-y-1 text-sm">
+                <div><span class="text-slate-400">Department:</span> {{ ticket.department?.name || '-' }}</div>
+                <div><span class="text-slate-400">Assigned To:</span> {{ ticket.assignee?.name || '-' }}</div>
+                <div :class="getDeadlineColorClass(ticket.deadline)">
+                  <span class="text-slate-400">Deadline:</span>
+                  {{ ticket.deadline ? new Date(ticket.deadline).toLocaleDateString() : '-' }}
+                </div>
+                <div :class="getResolveDeadlineColorClass(ticket.resolve_deadline)">
+                  <span class="text-slate-400">Resolve Deadline:</span>
+                  {{ ticket.resolve_deadline ? new Date(ticket.resolve_deadline).toLocaleDateString() : '-' }}
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3 flex justify-end">
+              <Link :href="`/tickets/${ticket.id}`" class="text-indigo-400">View</Link>
+            </div>
+          </div>
+        </div>
 
         <div v-if="!tickets.data || tickets.data.length === 0" class="text-center py-8 text-slate-400">
           No tickets found.

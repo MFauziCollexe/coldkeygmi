@@ -1,19 +1,19 @@
 <template>
   <AppLayout>
-    <div class="p-6 max-w-4xl">
-      <div class="flex items-center justify-between mb-4">
+    <div class="p-4 md:p-6 max-w-4xl">
+      <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="text-2xl font-bold">Ticket Details</h2>
         <Link href="/tickets" class="text-indigo-400 hover:underline text-sm">← Back to List</Link>
       </div>
 
-      <div class="bg-slate-800 rounded p-6 space-y-4">
+      <div class="bg-slate-800 rounded p-4 md:p-6 space-y-4">
         <!-- Header -->
-        <div class="flex justify-between items-center border-b border-slate-700 pb-4">
+        <div class="flex flex-col gap-3 border-b border-slate-700 pb-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div class="text-sm text-slate-400">Ticket Number</div>
             <div class="text-xl font-bold">{{ ticket.ticket_number }}</div>
           </div>
-          <div class="text-right">
+          <div class="md:text-right">
             <div class="text-sm text-slate-400 mb-2">Status</div>
             <div class="px-3 py-2 rounded bg-slate-700 text-white inline-block">
               {{ ticket.status.replace(/_/g, ' ').toUpperCase() }}
@@ -22,7 +22,7 @@
         </div>
 
         <!-- Ticket Info -->
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <div class="text-sm text-slate-400">Title</div>
             <div class="font-semibold">{{ ticket.title }}</div>
@@ -47,7 +47,7 @@
         </div>
 
         <!-- Deadlines -->
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <div class="text-sm text-slate-400">Deadline</div>
             <div :class="getDeadlineClass(ticket.deadline)">
@@ -66,7 +66,7 @@
         <!-- Attachments -->
         <div v-if="ticket.attachments && ticket.attachments.length > 0">
           <div class="text-sm text-slate-400 mb-2">Attachments</div>
-          <div class="grid grid-cols-3 gap-3">
+          <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
             <div 
               v-for="file in ticket.attachments" 
               :key="file.id"
@@ -183,7 +183,7 @@
                 to 
                 <span class="font-bold text-yellow-400">{{ new Date(ticket.deadline_request).toLocaleDateString() }}</span>
               </p>
-              <div class="flex gap-2">
+              <div class="flex flex-col gap-2 md:flex-row">
                 <button @click="approveDeadlineChange(true)" class="px-4 py-2 bg-green-600 rounded text-white text-sm hover:bg-green-500">
                   Approve
                 </button>
@@ -197,7 +197,7 @@
             <div v-if="ticket.status === 'Resolved'" class="space-y-3">
               <h3 class="font-bold mb-3">Review Resolution</h3>
               <p class="text-sm text-slate-300">Assignee has resolved this ticket. Approve the resolution to close it, or reject to request more work.</p>
-              <div class="flex gap-2">
+              <div class="flex flex-col gap-2 md:flex-row">
                 <button @click="closeTicket()" class="px-4 py-2 bg-green-600 rounded text-white hover:bg-green-500">
                   Close Ticket
                 </button>
@@ -220,8 +220,8 @@
       </div>
 
       <!-- Deadline Change Modal -->
-      <div v-if="showDeadlineModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click="showDeadlineModal = false">
-        <div class="bg-slate-800 p-6 rounded max-w-md" @click.stop>
+      <div v-if="showDeadlineModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" @click="showDeadlineModal = false">
+        <div class="bg-slate-800 p-6 rounded max-w-md w-full" @click.stop>
           <h3 class="text-lg font-bold mb-4">Request Deadline Change</h3>
           <div class="mb-4">
             <label class="block text-sm text-slate-300 mb-2">New Deadline *</label>
@@ -231,7 +231,7 @@
             <label class="block text-sm text-slate-300 mb-2">Reason for Change</label>
             <textarea v-model="deadlineReason" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-slate-500" rows="3"></textarea>
           </div>
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
             <button @click="showDeadlineModal = false" class="px-4 py-2 rounded bg-slate-700">Cancel</button>
             <button @click="requestDeadlineChange" class="px-4 py-2 rounded bg-blue-600 text-white">Request</button>
           </div>
@@ -239,8 +239,8 @@
       </div>
 
       <!-- Resolve Modal -->
-      <div v-if="showResolveModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click="showResolveModal = false">
-        <div class="bg-slate-800 p-6 rounded max-w-md" @click.stop>
+      <div v-if="showResolveModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" @click="showResolveModal = false">
+        <div class="bg-slate-800 p-6 rounded max-w-md w-full" @click.stop>
           <h3 class="text-lg font-bold mb-4">Resolve Ticket</h3>
           <div class="mb-4">
             <label class="block text-sm text-slate-300 mb-2">Resolution Notes *</label>
@@ -250,7 +250,7 @@
             <label class="block text-sm text-slate-300 mb-2">Attach File (optional)</label>
             <input type="file" @change="handleResolutionFile" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-slate-500" />
           </div>
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
             <button @click="showResolveModal = false" class="px-4 py-2 rounded bg-slate-700">Cancel</button>
             <button @click="resolveTicket" class="px-4 py-2 rounded bg-green-600 text-white">Resolve</button>
           </div>
@@ -258,8 +258,8 @@
       </div>
 
       <!-- File Preview Modal -->
-      <div v-if="showFileModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50" @click="showFileModal = false">
-        <div @click.stop>
+      <div v-if="showFileModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" @click="showFileModal = false">
+        <div class="max-w-4xl w-full" @click.stop>
           <img v-if="previewIsImage" :src="previewFile" class="max-h-screen w-auto" />
           <div v-else class="bg-slate-800 p-8 rounded text-center">
             <p class="text-slate-300">File preview not available</p>
@@ -471,4 +471,3 @@ function reopenTicket() {
   });
 }
 </script>
-

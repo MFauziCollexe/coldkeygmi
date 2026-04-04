@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
-    <div class="p-6 max-w-2xl">
-      <div class="flex items-center justify-between mb-4">
+    <div class="p-4 md:p-6 max-w-2xl">
+      <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="text-2xl font-bold">Edit Ticket</h2>
         <Link href="/tickets" class="text-indigo-400 hover:underline text-sm">← Back to List</Link>
       </div>
@@ -78,8 +78,8 @@
           </div>
         </div>
 
-        <div class="flex justify-end gap-2">
-          <Link href="/tickets" class="px-4 py-2 rounded bg-slate-700 text-white">Cancel</Link>
+        <div class="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+          <Link href="/tickets" class="px-4 py-2 rounded bg-slate-700 text-white text-center">Cancel</Link>
           <button type="submit" class="bg-indigo-600 px-4 py-2 rounded text-white" :disabled="form.processing">
             Save Changes
           </button>
