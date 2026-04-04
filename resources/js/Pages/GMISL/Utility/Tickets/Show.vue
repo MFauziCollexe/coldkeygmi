@@ -23,13 +23,13 @@
 
         <!-- Ticket Info -->
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">Title</div>
-            <div class="font-semibold">{{ ticket.title }}</div>
+            <div class="max-w-[62%] text-right font-semibold md:max-w-none md:text-left">{{ ticket.title }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">Department</div>
-            <div>{{ ticket.department?.name || '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ ticket.department?.name || '-' }}</div>
           </div>
         </div>
 
@@ -48,18 +48,18 @@
 
         <!-- Deadlines -->
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">Deadline</div>
-            <div :class="getDeadlineClass(ticket.deadline)">
+            <div :class="getDeadlineClass(ticket.deadline) + ' max-w-[62%] text-right md:max-w-none md:text-left'">
               {{ ticket.deadline ? new Date(ticket.deadline).toLocaleDateString() : '-' }}
             </div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">Resolve Deadline</div>
-            <div v-if="ticket.resolve_deadline" :class="getDeadlineClass(ticket.resolve_deadline)">
+            <div v-if="ticket.resolve_deadline" :class="getDeadlineClass(ticket.resolve_deadline) + ' max-w-[62%] text-right md:max-w-none md:text-left'">
               {{ new Date(ticket.resolve_deadline).toLocaleDateString() }}
             </div>
-            <div v-else class="text-slate-400">-</div>
+            <div v-else class="max-w-[62%] text-right text-slate-400 md:max-w-none md:text-left">-</div>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 <template>
-  <div class="flex flex-wrap gap-2 items-end">
-    <div class="relative group min-w-[180px]">
+  <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+    <div class="relative min-w-0 group sm:min-w-[180px]">
       <SearchableSelect
         :model-value="templateType"
         :options="templateOptions"
@@ -25,12 +25,12 @@
       </label>
     </div>
 
-    <button class="h-[52px] px-4 rounded bg-slate-600 text-white" @click="emit('download-template')">
+    <button class="h-[52px] w-full rounded bg-slate-600 px-4 text-white sm:w-auto" @click="emit('download-template')">
       Download Template
     </button>
 
     <button
-      class="h-[52px] px-4 rounded bg-indigo-600 text-white disabled:opacity-50"
+      class="h-[52px] w-full rounded bg-indigo-600 px-4 text-white disabled:opacity-50 sm:w-auto"
       :disabled="isPreviewLoading || !hasFile"
       @click="emit('preview')"
     >
@@ -38,14 +38,14 @@
     </button>
 
     <button
-      class="h-[52px] px-4 rounded bg-emerald-600 text-white disabled:opacity-50"
+      class="h-[52px] w-full rounded bg-emerald-600 px-4 text-white disabled:opacity-50 sm:w-auto"
       :disabled="isUploadLoading || !canUpload"
       @click="emit('upload')"
     >
       {{ isUploadLoading ? 'Uploading...' : 'Upload' }}
     </button>
 
-    <span v-if="delimiter" class="text-xs text-slate-300 self-center">
+    <span v-if="delimiter" class="text-xs text-slate-300 sm:self-center">
       Delimiter terdeteksi: <code>{{ delimiter }}</code>
     </span>
   </div>

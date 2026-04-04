@@ -1,17 +1,17 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-6">
-      <div class="flex items-start justify-between gap-4">
+    <div class="space-y-6 p-4 md:p-6">
+      <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 class="text-2xl font-bold">Exit Permit List</h2>
           <p class="text-slate-400 text-sm">Surat izin keluar dengan approval Security, HRD, dan Manager/Supervisor.</p>
         </div>
-        <Link href="/gmi-visitor-permit/exit-permit/create" class="h-[44px] inline-flex items-center px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium">
+        <Link href="/gmi-visitor-permit/exit-permit/create" class="inline-flex h-[44px] items-center justify-center rounded-lg bg-indigo-600 px-4 text-white font-medium hover:bg-indigo-500">
           Create Form
         </Link>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-3">
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div class="md:col-span-4 relative">
             <input v-model="filters.search" placeholder=" " class="peer w-full h-[52px] px-3 pt-5 pb-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-transparent" />
@@ -29,15 +29,16 @@
               <option value="rejected">Rejected</option>
             </select>
           </div>
-          <div class="md:col-span-3 flex gap-2">
-            <button class="h-[52px] px-5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white" @click="applyFilters">Filter</button>
-            <button class="h-[52px] px-5 rounded-lg bg-slate-600 hover:bg-slate-500 text-white" @click="resetFilters">Reset</button>
+          <div class="flex gap-2 md:col-span-3">
+            <button class="h-[52px] w-full rounded-lg bg-indigo-600 px-5 text-white hover:bg-indigo-500" @click="applyFilters">Filter</button>
+            <button class="h-[52px] w-full rounded-lg bg-slate-600 px-5 text-white hover:bg-slate-500" @click="resetFilters">Reset</button>
           </div>
         </div>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 overflow-x-auto">
-        <table class="w-full text-sm min-w-[1600px]">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        <div class="hidden overflow-x-auto lg:block">
+          <table class="min-w-[1600px] w-full text-sm">
           <thead class="border-b border-slate-700 text-slate-400">
             <tr>
               <th class="text-left py-2 pr-3">No</th>
@@ -92,7 +93,73 @@
               <td colspan="11" class="py-8 text-center text-slate-400">Belum ada data surat izin keluar.</td>
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-slate-700 lg:hidden">
+          <div v-if="!exitPermits.data?.length" class="bg-slate-900/30 px-4 py-8 text-center text-slate-400">
+            Belum ada data surat izin keluar.
+          </div>
+          <div
+            v-for="row in exitPermits.data"
+            :key="`mobile-${row.id}`"
+            class="border-b border-slate-700/60 bg-slate-900/30 p-4 last:border-b-0"
+          >
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="font-semibold text-white">{{ row.employee_name }}</div>
+                <div class="text-sm text-slate-400">{{ row.permit_number || '-' }}</div>
+              </div>
+              <span class="rounded px-2 py-1 text-xs font-semibold" :class="statusBadge(row.status)">{{ row.status }}</span>
+            </div>
+
+            <div class="space-y-2 text-sm">
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Tanggal</span>
+                <span class="text-right">{{ formatDate(row.request_date) }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Dept</span>
+                <span class="max-w-[62%] text-right">{{ row.department_name || '-' }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Keperluan</span>
+                <span class="max-w-[62%] text-right">{{ row.purpose }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Pukul</span>
+                <span class="text-right">{{ shortTime(row.time_out) }} - {{ shortTime(row.time_back) }}</span>
+              </div>
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span class="rounded px-2 py-1 text-xs font-semibold" :class="approvalBadge(row.security_status)">Security: {{ row.security_status }}</span>
+              <span class="rounded px-2 py-1 text-xs font-semibold" :class="approvalBadge(row.hrd_status)">HRD: {{ row.hrd_status }}</span>
+              <span class="rounded px-2 py-1 text-xs font-semibold" :class="approvalBadge(row.manager_status)">Manager: {{ row.manager_status }}</span>
+            </div>
+
+            <div class="mt-4 flex flex-col gap-2">
+              <template v-if="row.can_approve_security">
+                <button class="rounded bg-emerald-600 px-3 py-2 text-sm text-white" @click="approve(row.id, 'security', 'approved')">Approve Sec</button>
+                <button class="rounded bg-rose-600 px-3 py-2 text-sm text-white" @click="approve(row.id, 'security', 'rejected')">Reject Sec</button>
+              </template>
+              <template v-if="row.can_approve_hrd">
+                <button class="rounded bg-emerald-600 px-3 py-2 text-sm text-white" @click="approve(row.id, 'hrd', 'approved')">Approve HRD</button>
+                <button class="rounded bg-rose-600 px-3 py-2 text-sm text-white" @click="approve(row.id, 'hrd', 'rejected')">Reject HRD</button>
+              </template>
+              <template v-if="row.can_approve_manager">
+                <button class="rounded bg-emerald-600 px-3 py-2 text-sm text-white" @click="approve(row.id, 'manager', 'approved')">Approve Mgr</button>
+                <button class="rounded bg-rose-600 px-3 py-2 text-sm text-white" @click="approve(row.id, 'manager', 'rejected')">Reject Mgr</button>
+              </template>
+              <span
+                v-if="!row.can_approve_security && !row.can_approve_hrd && !row.can_approve_manager"
+                class="text-sm text-slate-400"
+              >
+                Tidak ada aksi
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </AppLayout>

@@ -1,25 +1,25 @@
 <template>
-  <div v-if="rows.length > 0" class="bg-slate-800 rounded-lg p-4 border border-slate-700">
-    <div v-if="showSummary" class="flex flex-wrap justify-between gap-3 mb-3 text-sm">
+  <div v-if="rows.length > 0" class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+    <div v-if="showSummary" class="mb-3 flex flex-col gap-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div class="text-slate-300">
         Total Preview: <span class="font-semibold text-white">{{ summary.total_preview_rows }}</span>
       </div>
       <div class="text-emerald-300">Valid: {{ summary.valid_rows }}</div>
       <div class="text-rose-300">Invalid: {{ summary.invalid_rows }}</div>
     </div>
-    <div class="overflow-auto max-h-[620px] border border-slate-700">
+    <div class="max-h-[70vh] overflow-auto border border-slate-700">
       <table class="w-max min-w-full text-xs">
         <thead class="sticky top-0 z-10">
           <tr class="bg-yellow-300 text-slate-900">
-            <th class="sticky left-0 z-30 bg-yellow-200 border border-slate-700 px-2 py-1 min-w-[120px]">NRP</th>
-            <th class="sticky left-[120px] z-30 bg-yellow-200 border border-slate-700 px-2 py-1 min-w-[220px]">Nama</th>
+            <th class="border border-slate-700 bg-yellow-200 px-2 py-1 min-w-[120px] md:sticky md:left-0 md:z-30">NRP</th>
+            <th class="border border-slate-700 bg-yellow-200 px-2 py-1 min-w-[220px] md:sticky md:left-[120px] md:z-30">Nama</th>
             <th :colspan="columns.length" class="border border-slate-700 px-2 py-1 text-center font-bold text-base">
               {{ monthLabel.toUpperCase() }} {{ year }}
             </th>
           </tr>
           <tr class="bg-yellow-300 text-slate-900">
-            <th class="sticky left-0 z-30 bg-yellow-200 border border-slate-700 px-2 py-1"></th>
-            <th class="sticky left-[120px] z-30 bg-yellow-200 border border-slate-700 px-2 py-1"></th>
+            <th class="border border-slate-700 bg-yellow-200 px-2 py-1 md:sticky md:left-0 md:z-30"></th>
+            <th class="border border-slate-700 bg-yellow-200 px-2 py-1 md:sticky md:left-[120px] md:z-30"></th>
             <th
               v-for="col in columns"
               :key="`day-num-${col.day}`"
@@ -29,8 +29,8 @@
             </th>
           </tr>
           <tr class="bg-yellow-100 text-slate-900">
-            <th class="sticky left-0 z-30 bg-yellow-100 border border-slate-700 px-2 py-1"></th>
-            <th class="sticky left-[120px] z-30 bg-yellow-100 border border-slate-700 px-2 py-1"></th>
+            <th class="border border-slate-700 bg-yellow-100 px-2 py-1 md:sticky md:left-0 md:z-30"></th>
+            <th class="border border-slate-700 bg-yellow-100 px-2 py-1 md:sticky md:left-[120px] md:z-30"></th>
             <th
               v-for="col in columns"
               :key="`day-name-${col.day}`"
@@ -42,10 +42,10 @@
         </thead>
         <tbody>
           <tr v-for="employee in matrix" :key="employee.employee_key">
-            <td class="sticky left-0 z-20 border border-slate-700 px-2 py-1 bg-slate-100 text-slate-900 font-semibold whitespace-nowrap min-w-[120px]">
+            <td class="border border-slate-700 bg-slate-100 px-2 py-1 font-semibold text-slate-900 whitespace-nowrap min-w-[120px] md:sticky md:left-0 md:z-20">
               {{ employee.employee_nrp || '-' }}
             </td>
-            <td class="sticky left-[120px] z-20 border border-slate-700 px-2 py-1 bg-slate-100 text-slate-900 font-semibold whitespace-nowrap min-w-[220px]">
+            <td class="border border-slate-700 bg-slate-100 px-2 py-1 font-semibold text-slate-900 whitespace-nowrap min-w-[220px] md:sticky md:left-[120px] md:z-20">
               {{ employee.employee_name }}
             </td>
             <td

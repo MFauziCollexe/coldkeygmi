@@ -1,8 +1,8 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center gap-4">
+    <div class="p-4 md:p-6">
+      <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Link href="/leave-permission" class="text-slate-400 hover:text-white">
             ← Kembali
           </Link>
@@ -11,47 +11,47 @@
         <Link
           v-if="canEditLeavePermission && ['pending', 'approved'].includes(leavePermission.status)"
           :href="`/leave-permission/${leavePermission.id}/edit`"
-          class="px-4 py-2 rounded bg-amber-600 text-white hover:bg-amber-500"
+          class="inline-flex items-center justify-center rounded bg-amber-600 px-4 py-2 text-white hover:bg-amber-500"
         >
           Edit
         </Link>
       </div>
 
-      <div class="bg-slate-800 rounded p-6">
-        <div class="grid grid-cols-2 gap-6">
+      <div class="rounded bg-slate-800 p-4 md:p-6">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
           <!-- Left Column -->
           <div>
             <h3 class="text-lg font-semibold mb-4 text-indigo-400">Informasi Permintaan</h3>
             
-            <div class="space-y-4">
-              <div>
+            <div class="space-y-3">
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Jenis</div>
-                <div class="text-lg">{{ getTypeLabel(leavePermission.type) }}</div>
+                <div class="max-w-[62%] text-right text-lg">{{ getTypeLabel(leavePermission.type) }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Tanggal Pengajuan</div>
-                <div>{{ formatDate(leavePermission.created_at) }}</div>
+                <div class="max-w-[62%] text-right">{{ formatDate(leavePermission.created_at) }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Tanggal Mulai</div>
-                <div>{{ formatDate(leavePermission.start_date) }}</div>
+                <div class="max-w-[62%] text-right">{{ formatDate(leavePermission.start_date) }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Tanggal Selesai</div>
-                <div>{{ formatDate(leavePermission.end_date) }}</div>
+                <div class="max-w-[62%] text-right">{{ formatDate(leavePermission.end_date) }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Jumlah Hari</div>
-                <div>{{ leavePermission.days }} hari</div>
+                <div class="max-w-[62%] text-right">{{ leavePermission.days }} hari</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Alasan</div>
-                <div>{{ leavePermission.reason }}</div>
+                <div class="max-w-[62%] whitespace-pre-wrap text-right">{{ leavePermission.reason }}</div>
               </div>
 
               <div>
@@ -72,42 +72,42 @@
           <div>
             <h3 class="text-lg font-semibold mb-4 text-indigo-400">Informasi Karyawan</h3>
             
-              <div class="space-y-4">
-                <div>
+              <div class="space-y-3">
+                <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                   <div class="text-slate-400 text-sm">Nama Karyawan</div>
-                <div>{{ leavePermission.employee?.name || leavePermission.user?.name || '-' }}</div>
+                  <div class="max-w-[62%] text-right">{{ leavePermission.employee?.name || leavePermission.user?.name || '-' }}</div>
                 </div>
                
-                <div>
+                <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                   <div class="text-slate-400 text-sm">Email</div>
-                <div>{{ leavePermission.user?.email || '-' }}</div>
+                  <div class="max-w-[62%] text-right">{{ leavePermission.user?.email || '-' }}</div>
                 </div>
                
-                <div>
+                <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                   <div class="text-slate-400 text-sm">Department</div>
-                <div>{{ leavePermission.employee?.department?.name || leavePermission.user?.department?.name || '-' }}</div>
+                  <div class="max-w-[62%] text-right">{{ leavePermission.employee?.department?.name || leavePermission.user?.department?.name || '-' }}</div>
                 </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Status</div>
                 <span :class="getStatusClass(leavePermission.status)">
                   {{ leavePermission.status }}
                 </span>
               </div>
               
-              <div v-if="leavePermission.review_notes">
+              <div v-if="leavePermission.review_notes" class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Catatan Review</div>
-                <div>{{ leavePermission.review_notes }}</div>
+                <div class="max-w-[62%] whitespace-pre-wrap text-right">{{ leavePermission.review_notes }}</div>
               </div>
               
-              <div v-if="leavePermission.reviewed_by">
+              <div v-if="leavePermission.reviewed_by" class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Ditinjau Oleh</div>
-                <div>{{ leavePermission.reviewer?.name || '-' }}</div>
+                <div class="max-w-[62%] text-right">{{ leavePermission.reviewer?.name || '-' }}</div>
               </div>
               
-              <div v-if="leavePermission.reviewed_at">
+              <div v-if="leavePermission.reviewed_at" class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Tanggal Review</div>
-                <div>{{ formatDate(leavePermission.reviewed_at) }}</div>
+                <div class="max-w-[62%] text-right">{{ formatDate(leavePermission.reviewed_at) }}</div>
               </div>
             </div>
           </div>
@@ -116,7 +116,7 @@
         <!-- Action buttons for manager/admin when status is pending -->
         <div v-if="leavePermission.status === 'pending' && (isAdmin || isManager)" class="mt-8 pt-6 border-t border-slate-700">
           <h3 class="text-lg font-semibold mb-4">Tindakan</h3>
-          <div class="flex gap-4">
+          <div class="flex flex-col gap-3 sm:flex-row">
             <button @click="rejectRequest" class="px-6 py-3 rounded bg-red-600 text-white hover:bg-red-700">
               Tolak Permintaan
             </button>
@@ -127,7 +127,7 @@
         </div>
 
         <div v-if="isAdmin" class="mt-6 pt-4 border-t border-slate-700">
-          <button @click="deleteRequest" class="px-6 py-3 rounded bg-red-700 text-white hover:bg-red-800">
+          <button @click="deleteRequest" class="w-full rounded bg-red-700 px-6 py-3 text-white hover:bg-red-800 sm:w-auto">
             Hapus Data
           </button>
         </div>

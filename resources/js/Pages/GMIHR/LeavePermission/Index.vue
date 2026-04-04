@@ -1,15 +1,15 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-4">
+    <div class="p-4 md:p-6">
+      <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h2 class="text-2xl font-bold">Leave & Permission</h2>
-        <Link href="/leave-permission/create" class="bg-indigo-600 px-4 py-2 rounded text-white">
+        <Link href="/leave-permission/create" class="rounded bg-indigo-600 px-4 py-2 text-center text-white">
           + Ajukan Permintaan
         </Link>
       </div>
 
       <!-- Filters -->
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-3 mb-4">
+      <div class="mb-4 rounded-lg border border-slate-700 bg-slate-800 p-3">
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div class="md:col-span-3 relative">
             <input
@@ -77,11 +77,11 @@
       </div>
 
       <!-- Table -->
-      <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div v-if="!leavePermissions.data || leavePermissions.data.length === 0" class="text-slate-400 text-sm">
           Tidak ada data
         </div>
-        <div v-else class="overflow-auto">
+        <div v-else class="hidden overflow-auto lg:block">
           <table class="w-full min-w-[1220px] text-sm table-fixed">
             <thead class="text-slate-400 border-b border-slate-700">
               <tr>
@@ -177,8 +177,95 @@
           </table>
         </div>
 
+        <div v-if="leavePermissions.data && leavePermissions.data.length > 0" class="overflow-hidden rounded-lg border border-slate-700 lg:hidden">
+          <div
+            v-for="item in leavePermissions.data"
+            :key="`mobile-${item.id}`"
+            class="border-b border-slate-700/60 bg-slate-900/30 p-4 last:border-b-0"
+          >
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="font-semibold text-white">{{ item.employee?.name || item.user?.name || '-' }}</div>
+                <div class="text-sm text-slate-400">{{ getTypeLabel(item.type) }}</div>
+              </div>
+              <span :class="getStatusClass(item.status)" class="inline-flex rounded px-2 py-1 text-xs font-semibold">
+                {{ item.status }}
+              </span>
+            </div>
+
+            <div class="space-y-2 text-sm">
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Department</span>
+                <span class="max-w-[62%] text-right">{{ item.employee?.department?.name || item.user?.department?.name || '-' }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Pengajuan</span>
+                <span class="text-right">{{ formatDate(item.created_at) }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Mulai</span>
+                <span class="text-right">{{ formatDate(item.start_date) }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Selesai</span>
+                <span class="text-right">{{ formatDate(item.end_date) }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Jumlah Hari</span>
+                <span class="text-right">{{ item.days }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Attachment</span>
+                <span class="max-w-[62%] text-right">
+                  <button
+                    v-if="item.attachments_count === 1 && item.image_url"
+                    type="button"
+                    @click="openImage(item.image_url)"
+                    class="text-indigo-400 hover:text-indigo-300"
+                  >
+                    Lihat
+                  </button>
+                  <Link
+                    v-else-if="item.attachments_count > 1"
+                    :href="`/leave-permission/${item.id}`"
+                    class="text-indigo-400 hover:text-indigo-300"
+                  >
+                    {{ item.attachments_count }} File
+                  </Link>
+                  <span v-else>-</span>
+                </span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Alasan</span>
+                <span class="max-w-[62%] whitespace-pre-wrap text-right">{{ item.reason || '-' }}</span>
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-col gap-2">
+              <Link :href="`/leave-permission/${item.id}`" class="inline-flex w-full items-center justify-center rounded bg-sky-600 px-3 py-2 text-white hover:bg-sky-500">
+                Detail
+              </Link>
+              <Link
+                v-if="canEditLeavePermission && ['pending', 'approved'].includes(item.status)"
+                :href="`/leave-permission/${item.id}/edit`"
+                class="inline-flex w-full items-center justify-center rounded bg-amber-600 px-3 py-2 text-white hover:bg-amber-500"
+              >
+                Edit
+              </Link>
+              <button
+                v-if="isAdmin"
+                type="button"
+                class="inline-flex w-full items-center justify-center rounded bg-rose-600 px-3 py-2 text-white hover:bg-rose-500"
+                @click="deleteRequest(item)"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Pagination -->
-        <div class="flex items-center justify-between mt-4">
+        <div class="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div class="text-sm text-slate-400">
             Menampilkan {{ leavePermissions.data?.length || 0 }} dari {{ leavePermissions.total || 0 }} data
           </div>
@@ -187,54 +274,54 @@
       </div>
 
       <!-- Detail Modal -->
-      <div v-if="showDetailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-transparent rounded-lg p-6 w-full max-w-lg">
+      <div v-if="showDetailModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-lg rounded-lg bg-transparent p-4 md:p-6">
           <h3 class="text-xl font-bold mb-4">Detail Permintaan</h3>
           
           <div class="space-y-3">
-            <div class="flex justify-between">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Jenis:</span>
-              <span>{{ getTypeLabel(selectedItem?.type) }}</span>
+              <span class="text-left sm:text-right">{{ getTypeLabel(selectedItem?.type) }}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Karyawan:</span>
-              <span>{{ selectedItem?.employee?.name || selectedItem?.user?.name || '-' }}</span>
+              <span class="text-left sm:text-right">{{ selectedItem?.employee?.name || selectedItem?.user?.name || '-' }}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Department:</span>
-              <span>{{ selectedItem?.employee?.department?.name || selectedItem?.user?.department?.name || '-' }}</span>
+              <span class="text-left sm:text-right">{{ selectedItem?.employee?.department?.name || selectedItem?.user?.department?.name || '-' }}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Tanggal Mulai:</span>
-              <span>{{ formatDate(selectedItem?.start_date) }}</span>
+              <span class="text-left sm:text-right">{{ formatDate(selectedItem?.start_date) }}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Tanggal Selesai:</span>
-              <span>{{ formatDate(selectedItem?.end_date) }}</span>
+              <span class="text-left sm:text-right">{{ formatDate(selectedItem?.end_date) }}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Jumlah Hari:</span>
-              <span>{{ selectedItem?.days }}</span>
+              <span class="text-left sm:text-right">{{ selectedItem?.days }}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Alasan:</span>
-              <span>{{ selectedItem?.reason }}</span>
+              <span class="whitespace-pre-wrap text-left sm:max-w-[60%] sm:text-right">{{ selectedItem?.reason }}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Status:</span>
               <span :class="getStatusClass(selectedItem?.status)" class="inline-flex px-2 py-1 rounded text-xs font-semibold">
                 {{ selectedItem?.status }}
               </span>
             </div>
-            <div v-if="selectedItem?.review_notes" class="flex justify-between">
+            <div v-if="selectedItem?.review_notes" class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Catatan:</span>
-              <span>{{ selectedItem?.review_notes }}</span>
+              <span class="whitespace-pre-wrap text-left sm:max-w-[60%] sm:text-right">{{ selectedItem?.review_notes }}</span>
             </div>
           </div>
 
           <!-- Action buttons for manager/admin when status is pending -->
           <div v-if="selectedItem?.status === 'pending' && (isAdmin || isManager)" class="mt-4 pt-4 border-t border-slate-700">
-            <div class="flex gap-2 justify-end">
+            <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button @click="rejectRequest(selectedItem)" class="px-4 py-2 rounded bg-red-600 text-white">
                 Tolak
               </button>
@@ -244,7 +331,7 @@
             </div>
           </div>
 
-          <div class="flex justify-end gap-2 mt-6">
+          <div class="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
             <button @click="showDetailModal = false" class="px-4 py-2 rounded bg-slate-700 text-slate-300">
               Tutup
             </button>

@@ -1,11 +1,14 @@
 <template>
-  <aside :class="open ? 'w-72' : 'w-20'" class="shrink-0 bg-slate-900 text-slate-200 h-screen transition-[width] duration-300 ease-in-out border-r border-slate-700">
+  <aside
+    :class="sidebarClasses"
+    class="flex h-screen flex-col border-r border-slate-700 bg-slate-900 text-slate-200 transition-all duration-300 ease-in-out"
+  >
     <Link href="/dashboard" class="h-16 flex items-center gap-3 px-5 border-b border-slate-700 hover:bg-slate-800/40 transition-colors">
       <img v-if="open" src="/image/logo-gmi-text-putih.png" alt="GMI" class="h-8 object-contain" />
       <div v-else class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0 font-bold text-white">GMI</div>
     </Link>
 
-    <nav class="px-3 py-6 text-sm space-y-1">
+    <nav class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-6 text-sm space-y-1">
       <ul class="space-y-2">
         <SidebarMenuGroup
           v-for="menu in visibleMenu"
@@ -19,15 +22,19 @@
 </template>
 
 <script setup>
-import { defineProps, computed, watch, watchEffect } from 'vue';
+import { defineProps, computed, watch, watchEffect, ref } from 'vue';
 import SidebarMenuGroup from './SidebarMenuGroup.vue';
 import { sidebarMenuConfig } from '@/Config/sidebarMenu.js';
 import { Link, usePage } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
   open: {
     type: Boolean,
     default: true,
+  },
+  mobile: {
+    type: Boolean,
+    default: false,
   },
 });
 
@@ -125,6 +132,16 @@ const visibleMenu = computed(() => {
     return [];
   }
   return filtered;
+});
+
+const sidebarClasses = computed(() => {
+  if (props.mobile) {
+    return props.open
+      ? 'fixed inset-y-0 left-0 z-40 w-72 shrink-0 translate-x-0'
+      : 'pointer-events-none fixed inset-y-0 left-0 z-40 w-72 shrink-0 -translate-x-full';
+  }
+
+  return props.open ? 'shrink-0 w-72' : 'shrink-0 w-20';
 });
 
 watch(() => page.props.auth, (val) => {

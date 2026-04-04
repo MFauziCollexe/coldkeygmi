@@ -1,6 +1,6 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-transparent rounded-lg p-6 w-full max-w-lg">
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div class="w-full max-w-lg rounded-lg bg-transparent p-4 md:p-6">
       <h3 class="text-xl font-bold mb-4">{{ title }}</h3>
       
       <div class="space-y-4">
@@ -75,11 +75,11 @@
         </div>
       </div>
 
-      <div class="flex justify-end gap-2 mt-6">
-        <button @click="cancel" class="px-4 py-2 rounded bg-slate-700 text-slate-300">
+      <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button @click="cancel" class="rounded bg-slate-700 px-4 py-2 text-slate-300">
           Batal
         </button>
-        <button @click="submit" class="px-4 py-2 rounded bg-indigo-600 text-white">
+        <button @click="submit" class="rounded bg-indigo-600 px-4 py-2 text-white">
           Simpan
         </button>
       </div>

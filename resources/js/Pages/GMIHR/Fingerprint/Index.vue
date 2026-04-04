@@ -1,10 +1,10 @@
 <template>
     <AppLayout>
-        <div class="p-6">
+        <div class="p-4 md:p-6">
             <h1 class="text-2xl font-bold mb-6">Payroll - Fingerprint</h1>
 
             <!-- Upload Section -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 mb-6">
                 <h2 class="text-lg font-semibold mb-4">Upload Data Fingerprint</h2>
                 
                 <form @submit.prevent="checkData" enctype="multipart/form-data">
@@ -38,7 +38,7 @@
                         </p>
                     </div>
 
-                    <div class="flex gap-4">
+                    <div class="flex flex-col gap-3 sm:flex-row">
                         <button
                             type="submit"
                             :disabled="!selectedFile || loading"
@@ -83,12 +83,12 @@
 
             <!-- Preview Data Section -->
             <div v-if="previewData.data && previewData.data.length > 0" class="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
                     <div>
                         <h2 class="text-lg font-semibold">Preview Data</h2>
                         <p class="text-sm text-gray-500">Total: {{ previewData.total }} records</p>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-col gap-2 sm:flex-row">
                         <button
                             @click="saveAllData"
                             :disabled="saving"
@@ -106,7 +106,7 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="hidden overflow-x-auto lg:block">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 dark:bg-gray-700">
                             <tr>
@@ -148,6 +148,59 @@
                     </table>
                 </div>
 
+                <div class="space-y-3 p-4 lg:hidden">
+                    <div
+                        v-for="(fp, index) in previewData.data"
+                        :key="`preview-mobile-${index}`"
+                        class="rounded-xl border p-4"
+                        :class="fp.duplicate ? 'border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-900/30' : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900/40'"
+                    >
+                        <div class="mb-3 flex items-start justify-between gap-3">
+                            <div>
+                                <div class="font-semibold text-gray-900 dark:text-gray-100">{{ fp.name || '-' }}</div>
+                                <div class="text-sm text-gray-500">{{ fp.scan_date }}</div>
+                            </div>
+                            <span :class="fp.duplicate ? 'text-yellow-600' : 'text-green-600'" class="text-xs font-semibold">
+                                {{ fp.duplicate ? 'Duplikat' : 'Baru' }}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                            <div>
+                                <div class="text-gray-500">PIN</div>
+                                <div>{{ fp.pin }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">NIP</div>
+                                <div>{{ fp.nip }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">Jabatan</div>
+                                <div>{{ fp.position }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">Departemen</div>
+                                <div>{{ fp.department }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">Kantor</div>
+                                <div>{{ fp.office }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">Mesin</div>
+                                <div>{{ fp.machine }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">Verifikasi</div>
+                                <div>{{ fp.verify }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">I/O</div>
+                                <div>{{ fp.io }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Preview Pagination -->
                 <div v-if="previewData.last_page > 1" class="p-4 border-t border-gray-200 dark:border-gray-700">
                     <Pagination :paginator="previewData" :onPageChange="changePreviewPage" />
@@ -183,7 +236,7 @@
                     Belum ada data fingerprint tersimpan.
                 </div>
 
-                <div v-else class="overflow-x-auto">
+                <div v-else class="hidden overflow-x-auto lg:block">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 dark:bg-gray-700">
                             <tr>
@@ -206,6 +259,37 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <div v-if="fingerprints.data && fingerprints.data.length > 0" class="space-y-3 p-4 lg:hidden">
+                    <div
+                        v-for="fp in fingerprints.data"
+                        :key="`fingerprint-mobile-${fp.id}`"
+                        class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900/40"
+                    >
+                        <div class="mb-3">
+                            <div class="font-semibold text-gray-900 dark:text-gray-100">{{ fp.name || '-' }}</div>
+                            <div class="text-sm text-gray-500">{{ formatDateTime(fp.scan_date) }}</div>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                            <div>
+                                <div class="text-gray-500">PIN</div>
+                                <div>{{ fp.pin || '-' }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">Departemen</div>
+                                <div>{{ fp.department || '-' }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">I/O</div>
+                                <div>{{ fp.io ?? '-' }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">Mesin</div>
+                                <div>{{ fp.machine || '-' }}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div v-if="fingerprints.last_page > 1" class="p-4 border-t border-gray-200 dark:border-gray-700">

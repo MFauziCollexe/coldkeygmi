@@ -1,14 +1,14 @@
 <template>
   <AppLayout>
-    <div class="p-6 max-w-3xl">
-      <div class="flex items-center justify-between mb-4">
+    <div class="p-4 md:p-6 max-w-3xl">
+      <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="text-2xl font-bold">Request Access Details</h2>
         <Link href="/request-access" class="text-indigo-400">← Back to List</Link>
       </div>
 
-      <div class="bg-slate-800 rounded p-6 space-y-4">
+      <div class="bg-slate-800 rounded p-4 md:p-6 space-y-4">
         <!-- Request Number & Status -->
-        <div class="flex justify-between items-center border-b border-slate-700 pb-4">
+        <div class="flex flex-col gap-3 border-b border-slate-700 pb-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div class="text-sm text-slate-400">Request Number</div>
             <div class="text-xl font-bold">{{ request.request_number }}</div>
@@ -21,16 +21,16 @@
         </div>
 
         <!-- Request Type -->
-        <div class="grid grid-cols-2 gap-4">
-          <div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">Request Type</div>
-            <div :class="getTypeClass(request.type) + ' px-2 py-1 rounded inline-block mt-1'">
+            <div :class="getTypeClass(request.type) + ' px-2 py-1 rounded inline-block mt-1 md:mt-1'">
               {{ request.type === 'existing_user' ? 'Existing User' : 'New User' }}
             </div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">Modules</div>
-            <div class="flex flex-wrap gap-1 mt-1">
+            <div class="mt-1 flex max-w-[62%] flex-wrap justify-end gap-1 md:max-w-none md:justify-start">
               <span v-for="mod in formatModules(request.module_keys)" :key="mod" class="bg-slate-700 px-2 py-1 rounded text-sm">
                 {{ mod }}
               </span>
@@ -39,30 +39,30 @@
         </div>
 
         <!-- User Info -->
-        <div v-if="request.type === 'existing_user'" class="grid grid-cols-2 gap-4">
-          <div>
+        <div v-if="request.type === 'existing_user'" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">User Name</div>
-            <div>{{ request.user ? request.user.name : '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ request.user ? request.user.name : '-' }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">Email</div>
-            <div>{{ request.user?.email || '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ request.user?.email || '-' }}</div>
           </div>
         </div>
 
         <!-- New User Info -->
-        <div v-if="request.type === 'new_user'" class="grid grid-cols-2 gap-4">
-          <div>
+        <div v-if="request.type === 'new_user'" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">New User Name</div>
-            <div>{{ request.target_user_name || '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ request.target_user_name || '-' }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">New User Email</div>
-            <div>{{ request.target_user_email || '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ request.target_user_email || '-' }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-sm text-slate-400">Department</div>
-            <div>{{ request.target_department?.name || '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ request.target_department?.name || '-' }}</div>
           </div>
         </div>
 
@@ -75,7 +75,7 @@
         <!-- Review Info (if reviewed) -->
         <div v-if="request.status !== 'pending'" class="border-t border-slate-700 pt-4">
           <div class="text-sm text-slate-400 mb-2">Manager Review</div>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <div class="text-xs text-slate-500">Reviewed By</div>
               <div>{{ request.reviewer ? request.reviewer.name : '-' }}</div>
@@ -94,7 +94,7 @@
         <!-- Processing Info (if processed) -->
         <div v-if="request.status === 'processed'" class="border-t border-slate-700 pt-4">
           <div class="text-sm text-slate-400 mb-2">IT Processing</div>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <div class="text-xs text-slate-500">Processed By</div>
               <div>{{ request.processor ? request.processor.name : '-' }}</div>
@@ -113,7 +113,7 @@
         <!-- Action Buttons -->
         <div class="border-t border-slate-700 pt-4">
           <!-- Pending - Manager can Approve/Reject -->
-          <div v-if="request.status === 'pending' && canReview" class="flex gap-4">
+          <div v-if="request.status === 'pending' && canReview" class="flex flex-col gap-2 md:flex-row md:gap-4">
             <button @click="showApproveModal = true" class="bg-green-600 px-4 py-2 rounded text-white">
               Approve
             </button>
@@ -123,7 +123,7 @@
           </div>
 
           <!-- Approved - IT can Process or Reject -->
-          <div v-if="request.status === 'approved' && canProcess" class="flex gap-4">
+          <div v-if="request.status === 'approved' && canProcess" class="flex flex-col gap-2 md:flex-row md:gap-4">
             <button @click="showProcessModal = true" class="bg-indigo-600 px-4 py-2 rounded text-white">
               Process (Assign Permission)
             </button>
@@ -139,14 +139,14 @@
       </div>
 
       <!-- Approve Modal -->
-      <div v-if="showApproveModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click="showApproveModal = false">
-        <div class="bg-slate-800 p-6 rounded max-w-md" @click.stop>
+      <div v-if="showApproveModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" @click="showApproveModal = false">
+        <div class="bg-slate-800 p-6 rounded max-w-md w-full" @click.stop>
           <h3 class="text-lg font-bold mb-4">Approve Request</h3>
           <div class="mb-4">
             <label class="block text-sm text-slate-300 mb-2">Notes (optional)</label>
             <textarea v-model="reviewNotes" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-slate-500" rows="3"></textarea>
           </div>
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
             <button @click="showApproveModal = false" class="px-4 py-2 rounded bg-slate-700">Cancel</button>
             <button @click="approve" class="px-4 py-2 rounded bg-green-600 text-white">Approve</button>
           </div>
@@ -154,14 +154,14 @@
       </div>
 
       <!-- Reject Modal -->
-      <div v-if="showRejectModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click="showRejectModal = false">
-        <div class="bg-slate-800 p-6 rounded max-w-md" @click.stop>
+      <div v-if="showRejectModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" @click="showRejectModal = false">
+        <div class="bg-slate-800 p-6 rounded max-w-md w-full" @click.stop>
           <h3 class="text-lg font-bold mb-4">Reject Request</h3>
           <div class="mb-4">
             <label class="block text-sm text-slate-300 mb-2">Reason for rejection *</label>
             <textarea v-model="reviewNotes" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-slate-500" rows="3"></textarea>
           </div>
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
             <button @click="showRejectModal = false" class="px-4 py-2 rounded bg-slate-700">Cancel</button>
             <button @click="reject" class="px-4 py-2 rounded bg-red-600 text-white">Reject</button>
           </div>
@@ -169,8 +169,8 @@
       </div>
 
       <!-- Process Modal -->
-      <div v-if="showProcessModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click="showProcessModal = false">
-        <div class="bg-slate-800 p-6 rounded max-w-md" @click.stop>
+      <div v-if="showProcessModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" @click="showProcessModal = false">
+        <div class="bg-slate-800 p-6 rounded max-w-md w-full" @click.stop>
           <h3 class="text-lg font-bold mb-4">Process Request</h3>
           <div class="mb-4 bg-blue-900/30 p-3 rounded text-sm">
             <p v-if="request.type === 'existing_user'">
@@ -184,7 +184,7 @@
             <label class="block text-sm text-slate-300 mb-2">Notes (optional)</label>
             <textarea v-model="processingNotes" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-slate-500" rows="3"></textarea>
           </div>
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
             <button @click="showProcessModal = false" class="px-4 py-2 rounded bg-slate-700">Cancel</button>
             <button @click="process" class="px-4 py-2 rounded bg-indigo-600 text-white">Process</button>
           </div>

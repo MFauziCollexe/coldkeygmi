@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-6">
+    <div class="space-y-6 p-4 md:p-6">
       <div>
         <h2 class="text-2xl font-bold">Roster List</h2>
         <p class="text-slate-400 text-sm">
@@ -8,9 +8,9 @@
         </p>
       </div>
 
-      <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div v-if="!batches.data.length" class="text-slate-400 text-sm">Belum ada data roster.</div>
-        <div v-else class="overflow-auto">
+        <div v-else class="hidden overflow-auto lg:block">
           <table class="w-full min-w-[1120px] text-sm table-fixed">
             <thead class="text-slate-400 border-b border-slate-700">
               <tr>
@@ -95,9 +95,88 @@
             </tbody>
           </table>
         </div>
+
+        <div v-if="batches.data.length" class="space-y-3 lg:hidden">
+          <div
+            v-for="batch in batches.data"
+            :key="`mobile-${batch.id}`"
+            class="rounded-xl border border-slate-700 bg-slate-900/40 p-4"
+          >
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <div class="font-semibold text-white">{{ batch.month }}/{{ batch.year }}</div>
+                <div class="mt-1 text-sm text-slate-400">
+                  <span class="font-semibold">v{{ batch.version || 1 }}</span>
+                  <span
+                    v-if="batch.is_current"
+                    class="ml-2 rounded bg-emerald-700/40 px-2 py-0.5 text-xs text-emerald-200"
+                  >
+                    Current
+                  </span>
+                </div>
+              </div>
+              <span :class="statusClass(batch.status)" class="inline-flex rounded px-2 py-1 text-xs font-semibold">
+                {{ statusLabel(batch.status) }}
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              <div class="sm:col-span-2">
+                <div class="text-slate-400">File</div>
+                <a
+                  :href="`/roster/${batch.id}/download`"
+                  class="break-all text-sky-300 underline decoration-dotted hover:text-sky-200"
+                  :title="`Download ${batch.filename || 'file roster'}`"
+                >
+                  {{ batch.filename || '-' }}
+                </a>
+              </div>
+              <div>
+                <div class="flex items-center justify-between gap-3 text-slate-400">
+                  <span>Approver</span>
+                  <span class="text-xs">{{ formatCompactDate(batch.approved_at || batch.created_at) }}</span>
+                </div>
+                <div class="flex items-start justify-between gap-3">
+                  <div>{{ batch.approver?.name || '-' }}</div>
+                  <div class="text-right text-xs text-slate-400">{{ batch.uploader?.name || '-' }}</div>
+                </div>
+              </div>
+              <div class="sm:col-span-2">
+                <div class="text-slate-400">Catatan</div>
+                <div class="whitespace-pre-wrap">{{ noteText(batch) }}</div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-col gap-2">
+              <button
+                class="w-full rounded bg-sky-600 px-3 py-2 text-white hover:bg-sky-500 disabled:opacity-60"
+                :disabled="viewLoadingId === batch.id"
+                @click="viewBatch(batch)"
+              >
+                {{ viewLoadingId === batch.id ? 'Loading...' : 'View' }}
+              </button>
+              <button
+                v-if="batch.can_approve && batch.status === 'pending'"
+                class="w-full rounded bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-500 disabled:opacity-60"
+                :disabled="loadingId === batch.id"
+                @click="approveBatch(batch)"
+              >
+                {{ loadingId === batch.id ? 'Approving...' : 'Approve' }}
+              </button>
+              <button
+                v-if="batch.can_approve && batch.status === 'pending'"
+                class="w-full rounded bg-rose-600 px-3 py-2 text-white hover:bg-rose-500 disabled:opacity-60"
+                :disabled="rejectingId === batch.id"
+                @click="rejectBatch(batch)"
+              >
+                {{ rejectingId === batch.id ? 'Rejecting...' : 'Reject' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div v-if="batches.last_page > 1" class="flex items-center justify-end text-sm">
+      <div v-if="batches.last_page > 1" class="flex justify-end text-sm">
         <Pagination :paginator="batches" :onPageChange="goToPage" />
       </div>
 
@@ -105,11 +184,11 @@
         {{ message.text }}
       </p>
 
-      <div v-if="showViewModal" class="fixed inset-0 z-50 bg-black/70 p-4 md:p-8 overflow-auto" @click.self="closeViewModal">
-        <div class="max-w-[96vw] mx-auto bg-slate-900 border border-slate-700 rounded-lg p-4">
-          <div class="flex items-center justify-between mb-3">
+      <div v-if="showViewModal" class="fixed inset-0 z-50 overflow-auto bg-black/70 p-4 md:p-8" @click.self="closeViewModal">
+        <div class="mx-auto max-w-[96vw] rounded-lg border border-slate-700 bg-slate-900 p-4">
+          <div class="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <h3 class="text-lg font-semibold">Roster View - {{ viewBatchInfo.month }}/{{ viewBatchInfo.year }}</h3>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
               <button
                 class="px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
                 :disabled="isExportingImage"
@@ -253,6 +332,18 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString();
+}
+
+function formatCompactDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function monthLabel(month) {

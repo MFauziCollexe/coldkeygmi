@@ -1,12 +1,12 @@
 <template>
   <AppLayout>
-    <div class="p-6 max-w-4xl">
-      <div class="flex items-center justify-between mb-4">
+    <div class="mx-auto max-w-4xl p-4 md:p-6">
+      <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h2 class="text-2xl font-bold">Edit Check Inline</h2>
         <Link href="/check-inline" class="text-indigo-400">Back to list</Link>
       </div>
 
-      <form @submit.prevent="submit" class="bg-slate-800 rounded p-6 space-y-4">
+      <form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="relative">
             <input
@@ -108,7 +108,7 @@
           <div class="md:col-span-2">
             <label class="block text-sm mb-1">Image</label>
             <div
-              class="border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition"
+              class="cursor-pointer rounded-lg border-2 border-dashed p-4 text-center transition md:p-5"
               :class="dragActive ? 'border-indigo-500 bg-slate-700/40' : 'border-slate-600'"
               @click="openFileDialog"
               @dragover.prevent="onDragOver"
@@ -124,7 +124,7 @@
 
             <div class="mt-4">
               <div class="text-sm text-slate-300 mb-2">Existing Images</div>
-              <div v-if="existingImageItems.length" class="grid grid-cols-3 gap-3">
+              <div v-if="existingImageItems.length" class="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <div
                   v-for="img in existingImageItems"
                   :key="img.localKey"
@@ -148,7 +148,7 @@
 
             <div class="mt-4">
               <div class="text-sm text-slate-300 mb-2">New Images</div>
-              <div v-if="newImageItems.length" class="grid grid-cols-3 gap-3">
+              <div v-if="newImageItems.length" class="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <div
                   v-for="img in newImageItems"
                   :key="img.localKey"
@@ -172,18 +172,26 @@
           </div>
         </div>
 
-        <div class="pt-4 border-t border-slate-700 flex justify-end gap-3">
-          <Link href="/check-inline" class="px-4 py-2 rounded bg-slate-700 text-white hover:bg-slate-600">
+        <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
+          <Link href="/check-inline" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">
             Cancel
           </Link>
-          <button type="submit" class="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700" :disabled="form.processing">
+          <button
+            type="submit"
+            class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+            :disabled="form.processing"
+          >
             Save Changes
           </button>
         </div>
       </form>
 
-      <div v-if="showImageModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50" @click="closeImage">
-        <div class="max-w-5xl max-h-[90vh]" @click.stop>
+      <div
+        v-if="showImageModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+        @click="closeImage"
+      >
+        <div class="max-h-[90vh] max-w-5xl" @click.stop>
           <img :src="selectedImage" alt="Preview" class="max-h-[90vh] w-auto rounded" />
         </div>
       </div>

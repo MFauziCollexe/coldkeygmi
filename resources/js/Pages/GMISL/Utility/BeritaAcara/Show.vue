@@ -1,18 +1,18 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-4">
+    <div class="space-y-4 p-4 md:p-6">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 class="text-2xl font-bold">Detail Berita Acara</h2>
           <p class="text-slate-400 text-sm">Preview sesuai template, siap cetak.</p>
         </div>
-        <div class="flex gap-2">
-          <Link href="/gmisl/utility/berita-acara" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-sm font-semibold">
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <Link href="/gmisl/utility/berita-acara" class="rounded bg-slate-700 px-3 py-2 text-center text-sm font-semibold hover:bg-slate-600">
             Kembali
           </Link>
           <button
             type="button"
-            class="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold text-white"
+            class="rounded bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
             @click="downloadPdf"
           >
             Download PDF
@@ -20,7 +20,7 @@
           <button
             v-if="canDelete"
             type="button"
-            class="px-3 py-2 rounded bg-rose-600 hover:bg-rose-500 text-sm font-semibold text-white"
+            class="rounded bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500"
             @click="deleteItem"
           >
             Hapus
@@ -28,7 +28,7 @@
         </div>
       </div>
 
-      <div class="bg-white text-slate-900 rounded-lg border border-slate-200 p-8 shadow-sm max-w-4xl">
+      <div class="max-w-4xl rounded-lg border border-slate-200 bg-white p-4 text-slate-900 shadow-sm md:p-8">
         <div class="text-center font-semibold text-lg mb-2">Berita Acara</div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm mb-4">
           <div>No. Dokumen : <span class="font-semibold">{{ item.document_number || '-' }}</span></div>
@@ -41,10 +41,10 @@
           <div>Divisi : <span class="font-semibold">{{ item.department?.name || '-' }}</span></div>
           <div class="md:col-span-2">No Mobil : <span class="font-semibold">{{ item.vehicle_no || '-' }}</span></div>
         </div>
-        <div class="border-b border-slate-300 mb-4"></div>
+        <div class="mb-4 border-b border-slate-300"></div>
 
         <p class="text-sm leading-6 font-semibold">Kronologis Kejadian</p>
-        <div class="mt-2 text-sm whitespace-pre-wrap leading-6">
+        <div class="mt-2 text-sm leading-6 whitespace-pre-wrap">
           {{ item.chronology || '-' }}
         </div>
 

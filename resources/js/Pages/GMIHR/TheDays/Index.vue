@@ -1,12 +1,12 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-6">
+    <div class="space-y-6 p-4 md:p-6">
       <div>
         <h2 class="text-2xl font-bold">The Days</h2>
         <p class="text-slate-400 text-sm">Kelola daftar hari libur nasional untuk Attendance Log.</p>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <form class="grid grid-cols-1 md:grid-cols-12 gap-3" @submit.prevent="saveHoliday">
           <div class="md:col-span-2">
             <div class="relative group">
@@ -91,7 +91,7 @@
         </form>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
           <h3 class="font-semibold">Daftar Hari Libur Nasional</h3>
           <input
@@ -107,7 +107,7 @@
           Belum ada hari libur nasional.
         </div>
 
-        <div v-else class="overflow-auto">
+        <div v-else class="hidden overflow-auto lg:block">
           <table class="w-full text-sm">
             <thead class="border-b border-slate-700 text-slate-400">
               <tr>
@@ -134,7 +134,42 @@
           </table>
         </div>
 
-        <div v-if="holidays.last_page > 1" class="pt-4 mt-4 border-t border-slate-700 flex items-center justify-end text-sm">
+        <div v-if="holidays.data?.length" class="overflow-hidden rounded-lg border border-slate-700 lg:hidden">
+          <div
+            v-for="row in holidays.data"
+            :key="`mobile-${row.id}`"
+            class="border-b border-slate-700/60 bg-slate-900/30 p-4 last:border-b-0"
+          >
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="font-semibold text-white">{{ row.name }}</div>
+                <div class="text-sm text-slate-400">{{ formatDate(row.holiday_date) }}</div>
+              </div>
+              <span class="rounded bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-200">
+                {{ scopeLabel(row.scope_type) }}
+              </span>
+            </div>
+
+            <div class="space-y-2 text-sm">
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Berlaku Untuk</span>
+                <span class="text-right">{{ scopeLabel(row.scope_type) }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Catatan</span>
+                <span class="max-w-[62%] text-right">{{ row.notes || '-' }}</span>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <button class="w-full rounded bg-rose-600 px-3 py-2 text-sm font-semibold hover:bg-rose-500" @click="removeHoliday(row.id)">
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="holidays.last_page > 1" class="mt-4 flex items-center justify-end border-t border-slate-700 pt-4 text-sm">
           <Pagination :paginator="holidays" :onPageChange="goToPage" />
         </div>
       </div>

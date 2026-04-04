@@ -1,12 +1,13 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-4">
+    <div class="p-4 md:p-6">
+      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-2xl font-bold">Positions</h2>
         <Link href="/master-data/position/create" class="bg-indigo-600 px-4 py-2 rounded text-white">Add Position</Link>
       </div>
 
       <div class="bg-slate-800 rounded p-4">
+        <div class="hidden overflow-auto lg:block">
         <table class="w-full table-auto">
           <thead>
             <tr class="text-left text-slate-400">
@@ -40,6 +41,39 @@
             </tr>
           </tbody>
         </table>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-slate-700 lg:hidden">
+          <div v-for="position in positions.data" :key="`mobile-${position.id}`" class="border-b border-slate-700 bg-slate-900/30 p-4 last:border-b-0">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="truncate font-semibold text-white">{{ position.name }}</div>
+                <div class="text-sm text-slate-400">{{ position.code }}</div>
+              </div>
+              <span :class="position.is_active ? 'text-green-400' : 'text-red-400'">
+                {{ position.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+            <div class="mt-3 space-y-2 text-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Department</div>
+                <div class="text-right">{{ position.department ? position.department.name : '-' }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Description</div>
+                <div class="text-right">{{ position.description || '-' }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Created</div>
+                <div class="text-right">{{ new Date(position.created_at).toLocaleDateString() }}</div>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <Link :href="`/master-data/position/${position.id}/edit`" class="inline-flex items-center justify-center rounded bg-indigo-600 px-3 py-2 text-sm text-white">Edit</Link>
+              <button @click="deletePosition(position.id)" class="rounded bg-rose-600 px-3 py-2 text-sm text-white">Delete</button>
+            </div>
+          </div>
+        </div>
 
         <div class="mt-4">
           <Pagination :paginator="positions" :onPageChange="goToPage" />

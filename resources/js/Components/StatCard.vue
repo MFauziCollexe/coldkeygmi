@@ -1,7 +1,7 @@
 <template>
-  <div class="p-4 bg-slate-900/40 rounded">
-    <div class="text-slate-300">{{ label }}</div>
-    <div :class="`text-2xl font-bold mt-2 ${textColor}`">{{ value }}</div>
+  <div class="rounded bg-slate-900/40 p-4">
+    <div class="text-sm text-slate-300">{{ label }}</div>
+    <div :class="`mt-2 text-xl font-bold md:text-2xl ${textColor}`">{{ value }}</div>
   </div>
 </template>
 

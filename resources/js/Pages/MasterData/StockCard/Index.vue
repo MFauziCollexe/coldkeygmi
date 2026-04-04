@@ -1,13 +1,13 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-6">
+    <div class="space-y-6 p-4 md:p-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 class="text-2xl font-bold">Master Stock Card</h2>
           <p class="text-sm text-slate-400">Kelola master barang non-produk yang dipakai oleh modul Stock Card.</p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <input
             v-model="filters.q"
             type="text"
@@ -45,7 +45,8 @@
         </div>
       </div>
 
-      <div class="overflow-auto rounded bg-slate-800 p-4">
+      <div class="rounded bg-slate-800 p-4">
+        <div class="hidden overflow-auto lg:block">
         <table class="w-full table-auto text-sm">
           <thead>
             <tr class="text-left text-slate-400">
@@ -91,6 +92,53 @@
             </tr>
           </tbody>
         </table>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-slate-700 lg:hidden">
+          <div
+            v-for="item in items"
+            :key="`mobile-${item.id}`"
+            class="border-b border-slate-700 bg-slate-900/30 p-4 last:border-b-0"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="truncate font-semibold text-white">{{ item.name }}</div>
+                <div class="text-sm text-slate-400">{{ item.item_code }}</div>
+              </div>
+              <span :class="item.is_active ? 'text-green-400' : 'text-rose-400'">
+                {{ item.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+            <div class="mt-3 space-y-2 text-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Jenis / Tipe</div>
+                <div class="text-right">{{ item.item_type }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Satuan</div>
+                <div class="text-right">{{ item.unit }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Current Stock</div>
+                <div class="text-right">{{ item.current_stock }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Min. Stock</div>
+                <div class="text-right">{{ item.minimum_stock }}</div>
+              </div>
+            </div>
+            <div v-if="canManageMaster" class="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="rounded bg-indigo-600 px-3 py-2 text-sm text-white"
+                @click="openEditModal(item)"
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+          <div v-if="!items.length" class="py-8 text-center text-slate-400">Belum ada master barang.</div>
+        </div>
       </div>
 
       <div
@@ -114,8 +162,8 @@
       v-if="showItemModal && canManageMaster"
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
     >
-      <div class="w-full max-w-xl rounded border border-slate-700 bg-slate-900 p-6 shadow-xl">
-        <div class="mb-4 flex items-center justify-between">
+      <div class="w-full max-w-xl rounded border border-slate-700 bg-slate-900 p-4 shadow-xl md:p-6">
+        <div class="mb-4 flex items-start justify-between gap-3">
           <div>
             <div class="text-lg font-semibold text-slate-100">{{ isEditing ? 'Edit Barang' : 'Add Barang' }}</div>
             <div class="text-sm text-slate-400">
@@ -145,7 +193,7 @@
               {{ itemType }}
             </option>
           </select>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <select
               v-model="masterForm.unit"
               class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
@@ -180,7 +228,7 @@
             <span>Aktif</span>
           </label>
 
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               class="rounded border border-slate-700 px-4 py-2 text-sm text-slate-200"

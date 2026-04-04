@@ -1,10 +1,10 @@
 <template>
   <AppLayout>
-    <div class="p-6">
+    <div class="p-4 md:p-6">
       <h2 class="text-2xl font-bold mb-6">Edit Employee</h2>
 
       <form @submit.prevent="submit">
-        <div class="bg-slate-800 rounded p-6 max-w-4xl">
+        <div class="max-w-4xl rounded bg-slate-800 p-4 md:p-6">
           <h3 class="text-lg font-semibold mb-4 text-indigo-400">Select User</h3>
           
           <!-- User Selection -->
@@ -66,7 +66,7 @@
           <!-- Work Group -->
           <div class="mb-4">
             <label class="block text-sm font-medium mb-2">Work Group</label>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
               <label class="inline-flex items-center gap-2">
                 <input v-model="isOffice" type="checkbox" />
                 <span>Office</span>
@@ -164,7 +164,7 @@
           </div>
 
           <!-- Buttons -->
-          <div class="flex gap-4 mt-6">
+          <div class="mt-6 flex flex-col-reverse gap-4 sm:flex-row">
             <button
               type="submit"
               class="bg-indigo-600 px-6 py-2 rounded text-white hover:bg-indigo-700"

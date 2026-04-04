@@ -1,17 +1,17 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-6">
-      <div class="flex items-start justify-between gap-4">
+    <div class="space-y-6 p-4 md:p-6">
+      <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 class="text-2xl font-bold">Visitor List</h2>
           <p class="text-slate-400 text-sm">Monitoring data tamu dan status kunjungan.</p>
         </div>
-        <Link href="/gmi-visitor-permit/visitor-form/create" class="h-[44px] inline-flex items-center px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium">
+        <Link href="/gmi-visitor-permit/visitor-form/create" class="inline-flex h-[44px] items-center justify-center rounded-lg bg-indigo-600 px-4 text-white font-medium hover:bg-indigo-500">
           Create Form
         </Link>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-3">
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div class="md:col-span-4 relative">
             <input v-model="filters.search" placeholder=" " class="peer w-full h-[52px] px-3 pt-5 pb-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-transparent" />
@@ -27,15 +27,16 @@
               <option v-for="st in statusOptions" :key="st.value" :value="st.value">{{ st.label }}</option>
             </select>
           </div>
-          <div class="md:col-span-3 flex gap-2">
-            <button class="h-[52px] px-5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white" @click="applyFilters">Filter</button>
-            <button class="h-[52px] px-5 rounded-lg bg-slate-600 hover:bg-slate-500 text-white" @click="resetFilters">Reset</button>
+          <div class="flex gap-2 md:col-span-3">
+            <button class="h-[52px] w-full rounded-lg bg-indigo-600 px-5 text-white hover:bg-indigo-500" @click="applyFilters">Filter</button>
+            <button class="h-[52px] w-full rounded-lg bg-slate-600 px-5 text-white hover:bg-slate-500" @click="resetFilters">Reset</button>
           </div>
         </div>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 overflow-x-auto">
-        <table class="w-full text-sm min-w-[1680px]">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        <div class="hidden overflow-x-auto lg:block">
+          <table class="min-w-[1680px] w-full text-sm">
           <thead class="border-b border-slate-700 text-slate-400">
             <tr>
               <th class="text-left py-2 pr-3">Tanggal</th>
@@ -116,7 +117,97 @@
               <td colspan="13" class="py-8 text-center text-slate-400">Belum ada data visitor.</td>
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-slate-700 lg:hidden">
+          <div v-if="!visitors.data?.length" class="bg-slate-900/30 px-4 py-8 text-center text-slate-400">
+            Belum ada data visitor.
+          </div>
+          <div
+            v-for="row in visitors.data"
+            :key="`mobile-${row.id}`"
+            class="border-b border-slate-700/60 bg-slate-900/30 p-4 last:border-b-0"
+          >
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="font-semibold text-white">{{ row.visitor_name }}</div>
+                <div class="text-sm text-slate-400">{{ formatDate(row.visit_date) }}</div>
+              </div>
+              <div class="text-right text-xs text-slate-400">
+                {{ row.attachments?.length || 0 }} file
+              </div>
+            </div>
+
+            <div class="space-y-2 text-sm">
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">From</span>
+                <span class="max-w-[62%] text-right">{{ row.from || '-' }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Tanda Pengenal</span>
+                <span class="max-w-[62%] text-right">{{ row.identity_no || '-' }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Menemui</span>
+                <span class="max-w-[62%] text-right">{{ row.host_user?.name || row.host_name || '-' }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Keperluan</span>
+                <span class="max-w-[62%] text-right">{{ row.purpose || '-' }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Perjanjian</span>
+                <span class="text-right">{{ row.appointment_time ? String(row.appointment_time).slice(0, 5) : '-' }}</span>
+              </div>
+              <div class="flex items-start justify-between gap-4">
+                <span class="text-slate-400">Keluar</span>
+                <span class="text-right">{{ row.check_out ? String(row.check_out).slice(0, 5) : '-' }}</span>
+              </div>
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span class="px-2 py-1 rounded text-xs font-semibold" :class="row.security_approved_at ? 'bg-emerald-700/30 text-emerald-300 border border-emerald-500/40' : 'bg-amber-700/30 text-amber-300 border border-amber-500/40'">
+                Security: {{ row.security_approved_at ? 'Approved' : 'Pending' }}
+              </span>
+              <span class="px-2 py-1 rounded text-xs font-semibold" :class="row.host_approved_at ? 'bg-emerald-700/30 text-emerald-300 border border-emerald-500/40' : 'bg-amber-700/30 text-amber-300 border border-amber-500/40'">
+                Dituju: {{ row.host_approved_at ? 'Approved' : 'Pending' }}
+              </span>
+              <span class="px-2 py-1 rounded text-xs font-semibold" :class="approvalClass(row.approval_status)">
+                {{ formatApprovalStatus(row.approval_status) }}
+              </span>
+              <span class="px-2 py-1 rounded text-xs font-semibold" :class="statusClass(row.status)">{{ row.status }}</span>
+            </div>
+
+            <div class="mt-4 flex flex-col gap-2">
+              <button
+                v-if="isSecurityApprover && !row.security_approved_at && row.approval_status !== 'approved'"
+                class="rounded bg-violet-600 px-3 py-2 text-sm text-white"
+                @click="approve(row.id, 'security')"
+              >Approve Security</button>
+              <button
+                v-if="Number(authUserId) === Number(row.host_user_id) && !row.host_approved_at && row.approval_status !== 'approved'"
+                class="rounded bg-teal-600 px-3 py-2 text-sm text-white"
+                @click="approve(row.id, 'host')"
+              >Approve Dituju</button>
+              <button
+                v-if="row.approval_status === 'approved' && row.status === 'Waiting'"
+                class="rounded bg-emerald-600 px-3 py-2 text-sm text-white"
+                @click="updateStatus(row.id, 'Checked In')"
+              >Check In</button>
+              <button
+                v-if="row.approval_status === 'approved' && row.status === 'Checked In'"
+                class="rounded bg-sky-600 px-3 py-2 text-sm text-white"
+                @click="updateStatus(row.id, 'Checked Out')"
+              >Check Out</button>
+              <button
+                v-if="row.status !== 'Checked Out' && row.status !== 'Cancelled'"
+                class="rounded bg-rose-600 px-3 py-2 text-sm text-white"
+                @click="updateStatus(row.id, 'Cancelled')"
+              >Cancel</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </AppLayout>

@@ -1,11 +1,11 @@
 <template>
-  <div class="p-6 rounded-lg bg-gradient-to-br from-slate-800/60 to-slate-800/30 border border-slate-700 shadow-lg">
+  <div class="rounded-lg border border-slate-700 bg-gradient-to-br from-slate-800/60 to-slate-800/30 p-4 shadow-lg md:p-6">
     <div class="flex items-center justify-between">
       <div>
-        <div class="text-slate-400 text-sm">{{ title }}</div>
-        <div class="text-4xl font-extrabold mt-3">{{ value }}</div>
+        <div class="text-sm text-slate-400">{{ title }}</div>
+        <div class="mt-3 text-3xl font-extrabold md:text-4xl">{{ value }}</div>
       </div>
-      <div class="w-12 h-12 rounded-lg flex items-center justify-center text-white" :class="`bg-${bgColor}-700`">
+      <div class="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-white md:h-12 md:w-12" :class="`bg-${bgColor}-700`">
         {{ icon }}
       </div>
     </div>

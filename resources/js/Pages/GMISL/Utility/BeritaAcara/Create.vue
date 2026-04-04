@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-4 max-w-5xl">
-      <div class="flex items-center justify-between gap-3">
+    <div class="max-w-5xl space-y-4 p-4 md:p-6">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 class="text-2xl font-bold">Buat Berita Acara</h2>
           <p class="text-slate-400 text-sm">Isi data sesuai format BA.</p>
@@ -9,7 +9,7 @@
         <Link href="/gmisl/utility/berita-acara" class="text-indigo-400 hover:underline text-sm">← Back to List</Link>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <form @submit.prevent="submit" class="space-y-4">
           <div class="w-full md:max-w-[640px]">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -178,7 +178,7 @@
               v-model="form.chronology"
               rows="8"
               placeholder=" "
-              class="peer w-full px-3 pt-6 pb-2 rounded-lg bg-slate-800 border border-slate-700"
+              class="peer w-full rounded-lg border border-slate-700 bg-slate-800 px-3 pb-2 pt-6"
             ></textarea>
             <label
               class="pointer-events-none absolute left-3 z-10 px-1 transition-all text-xs text-slate-300 bg-slate-800 top-0 -translate-y-1/2 peer-placeholder-shown:top-4 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:text-base peer-placeholder-shown:text-slate-400 peer-placeholder-shown:bg-transparent peer-placeholder-shown:px-0 peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-slate-200 peer-focus:bg-slate-800 peer-focus:px-1"
@@ -189,7 +189,7 @@
           </div>
 
           <div class="flex justify-end">
-            <button type="submit" class="bg-indigo-600 px-4 py-2 rounded text-white" :disabled="form.processing">
+            <button type="submit" class="w-full rounded bg-indigo-600 px-4 py-2 text-white md:w-auto" :disabled="form.processing">
               Simpan
             </button>
           </div>

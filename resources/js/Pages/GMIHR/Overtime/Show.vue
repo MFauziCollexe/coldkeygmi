@@ -1,8 +1,8 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center gap-4">
+    <div class="p-4 md:p-6">
+      <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Link href="/overtime" class="text-slate-400 hover:text-white">
             ← Kembali
           </Link>
@@ -10,41 +10,41 @@
         </div>
       </div>
 
-      <div class="bg-slate-800 rounded p-6">
-        <div class="grid grid-cols-2 gap-6">
+      <div class="rounded bg-slate-800 p-4 md:p-6">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
           <!-- Left Column -->
           <div>
             <h3 class="text-lg font-semibold mb-4 text-indigo-400">Informasi Permintaan</h3>
             
-            <div class="space-y-4">
-              <div>
+            <div class="space-y-3">
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Tanggal Pengajuan</div>
-                <div>{{ formatDate(overtime.created_at) }}</div>
+                <div class="max-w-[62%] text-right">{{ formatDate(overtime.created_at) }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Tanggal Lembur</div>
-                <div>{{ formatDate(overtime.overtime_date) }}</div>
+                <div class="max-w-[62%] text-right">{{ formatDate(overtime.overtime_date) }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Jam Mulai</div>
-                <div>{{ overtime.start_time }}</div>
+                <div class="max-w-[62%] text-right">{{ overtime.start_time }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Jam Selesai</div>
-                <div>{{ overtime.end_time }}</div>
+                <div class="max-w-[62%] text-right">{{ overtime.end_time }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Jumlah Jam</div>
-                <div>{{ overtime.hours }} jam</div>
+                <div class="max-w-[62%] text-right">{{ overtime.hours }} jam</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Alasan</div>
-                <div>{{ overtime.reason }}</div>
+                <div class="max-w-[62%] whitespace-pre-wrap text-right">{{ overtime.reason }}</div>
               </div>
 
               <div v-if="overtime.attachment_url">
@@ -62,7 +62,7 @@
                     v-if="!isPdfAttachment(overtime)"
                     :src="overtime.attachment_url"
                     alt="Attachment lembur"
-                    class="max-h-72 rounded border border-slate-700 object-contain bg-slate-900/40"
+                    class="max-h-72 w-full rounded border border-slate-700 object-contain bg-slate-900/40"
                   />
                 </div>
               </div>
@@ -73,42 +73,42 @@
           <div>
             <h3 class="text-lg font-semibold mb-4 text-indigo-400">Informasi Karyawan</h3>
             
-            <div class="space-y-4">
-              <div>
+            <div class="space-y-3">
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Nama Karyawan</div>
-                <div>{{ overtime.employee?.name || overtime.user?.name || '-' }}</div>
+                <div class="max-w-[62%] text-right">{{ overtime.employee?.name || overtime.user?.name || '-' }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Email</div>
-                <div>{{ overtime.user?.email || '-' }}</div>
+                <div class="max-w-[62%] text-right">{{ overtime.user?.email || '-' }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Department</div>
-                <div>{{ overtime.employee?.department?.name || overtime.user?.department?.name || '-' }}</div>
+                <div class="max-w-[62%] text-right">{{ overtime.employee?.department?.name || overtime.user?.department?.name || '-' }}</div>
               </div>
               
-              <div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Status</div>
                 <span :class="getStatusClass(overtime.status)">
                   {{ overtime.status }}
                 </span>
               </div>
               
-              <div v-if="overtime.review_notes">
+              <div v-if="overtime.review_notes" class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Catatan Review</div>
-                <div>{{ overtime.review_notes }}</div>
+                <div class="max-w-[62%] whitespace-pre-wrap text-right">{{ overtime.review_notes }}</div>
               </div>
               
-              <div v-if="overtime.reviewed_by">
+              <div v-if="overtime.reviewed_by" class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Ditinjau Oleh</div>
-                <div>{{ overtime.reviewer?.name || '-' }}</div>
+                <div class="max-w-[62%] text-right">{{ overtime.reviewer?.name || '-' }}</div>
               </div>
               
-              <div v-if="overtime.reviewed_at">
+              <div v-if="overtime.reviewed_at" class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-slate-400 text-sm">Tanggal Review</div>
-                <div>{{ formatDate(overtime.reviewed_at) }}</div>
+                <div class="max-w-[62%] text-right">{{ formatDate(overtime.reviewed_at) }}</div>
               </div>
             </div>
           </div>
@@ -117,7 +117,7 @@
         <!-- Action buttons for manager/admin when status is pending -->
         <div v-if="overtime.status === 'pending' && (isAdmin || isManager)" class="mt-8 pt-6 border-t border-slate-700">
           <h3 class="text-lg font-semibold mb-4">Tindakan</h3>
-          <div class="flex gap-4">
+          <div class="flex flex-col gap-3 sm:flex-row">
             <button @click="rejectRequest" class="px-6 py-3 rounded bg-red-600 text-white hover:bg-red-700">
               Tolak Permintaan
             </button>

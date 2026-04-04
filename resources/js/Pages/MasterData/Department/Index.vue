@@ -1,12 +1,13 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-4">
+    <div class="p-4 md:p-6">
+      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-2xl font-bold">Departments</h2>
         <Link href="/master-data/department/create" class="bg-indigo-600 px-4 py-2 rounded text-white">Add Department</Link>
       </div>
 
       <div class="bg-slate-800 rounded p-4">
+        <div class="hidden overflow-auto lg:block">
         <table class="w-full table-auto">
           <thead>
             <tr class="text-left text-slate-400">
@@ -38,6 +39,35 @@
             </tr>
           </tbody>
         </table>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-slate-700 lg:hidden">
+          <div v-for="department in departments.data" :key="`mobile-${department.id}`" class="border-b border-slate-700 bg-slate-900/30 p-4 last:border-b-0">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="truncate font-semibold text-white">{{ department.name }}</div>
+                <div class="text-sm text-slate-400">{{ department.code }}</div>
+              </div>
+              <span :class="department.is_active ? 'text-green-400' : 'text-red-400'">
+                {{ department.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+            <div class="mt-3 space-y-2 text-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Description</div>
+                <div class="text-right">{{ department.description || '-' }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Created</div>
+                <div class="text-right">{{ new Date(department.created_at).toLocaleDateString() }}</div>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <Link :href="`/master-data/department/${department.id}/edit`" class="inline-flex items-center justify-center rounded bg-indigo-600 px-3 py-2 text-sm text-white">Edit</Link>
+              <button @click="deleteDepartment(department.id)" class="rounded bg-rose-600 px-3 py-2 text-sm text-white">Delete</button>
+            </div>
+          </div>
+        </div>
 
         <div class="mt-4">
           <Pagination :paginator="departments" :onPageChange="goToPage" />

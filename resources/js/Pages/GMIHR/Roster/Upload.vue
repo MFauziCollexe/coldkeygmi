@@ -1,13 +1,13 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-6">
+    <div class="space-y-6 p-4 md:p-6">
       <div>
         <h2 class="text-2xl font-bold">Roster Upload</h2>
         <p class="text-slate-400 text-sm">Preview roster lalu upload. Data akan masuk ke antrean approval manager departemen.</p>
       </div>
 
-      <div class="bg-slate-800 rounded-lg p-4 border border-slate-700 space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div class="relative group">
             <SearchableSelect
               v-model="form.month"

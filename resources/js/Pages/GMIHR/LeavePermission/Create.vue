@@ -1,9 +1,9 @@
 <template>
   <AppLayout>
-    <div class="p-6 max-w-2xl">
+    <div class="max-w-2xl p-4 md:p-6">
       <h2 class="text-2xl font-bold mb-4">Ajukan Permintaan Cuti/Izin</h2>
 
-        <form @submit.prevent="submit" class="space-y-4 bg-slate-800 p-4 rounded">
+        <form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4">
           <div v-if="canSelectEmployee" class="relative group">
             <SearchableSelect
             v-model="form.employee_id"
@@ -110,7 +110,7 @@
         <div>
           <label class="block text-sm text-slate-300">Attachment</label>
           <div
-            class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition"
+            class="cursor-pointer rounded-lg border-2 border-dashed p-5 text-center transition md:p-8"
             :class="dragActive ? 'border-indigo-500 bg-slate-700/40' : 'border-slate-600'"
             @click="clickFileInput"
             @dragover.prevent="onDragOver"
@@ -144,11 +144,11 @@
           </div>
         </div>
 
-        <div class="flex justify-end gap-2">
-          <button type="button" @click="cancel" class="px-4 py-2 rounded bg-slate-700 text-slate-300">
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" @click="cancel" class="rounded bg-slate-700 px-4 py-2 text-slate-300">
             Batal
           </button>
-          <button type="submit" class="px-4 py-2 rounded bg-indigo-600 text-white">
+          <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white">
             Simpan
           </button>
         </div>

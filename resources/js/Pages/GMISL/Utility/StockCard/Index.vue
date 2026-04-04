@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-6">
+    <div class="space-y-6 p-4 md:p-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 class="text-2xl font-bold">Stock Card</h2>
@@ -10,7 +10,7 @@
           </p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <button
             v-if="abilities.add_stock"
             type="button"
@@ -62,7 +62,7 @@
           </div>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="hidden overflow-x-auto lg:block">
           <table class="w-full table-auto text-sm">
             <thead>
               <tr class="text-left text-slate-400">
@@ -97,6 +97,45 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="space-y-3 lg:hidden">
+          <div
+            v-for="requestItem in pendingRequests"
+            :key="requestItem.id"
+            class="rounded-xl border border-slate-700 bg-slate-900/40 p-4"
+          >
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <div class="font-semibold text-slate-100">{{ requestItem.item_name }}</div>
+                <div class="text-sm text-slate-400">{{ requestItem.request_date }}</div>
+              </div>
+              <div class="rounded bg-amber-950/50 px-2 py-1 text-xs font-semibold text-amber-300">
+                Qty {{ requestItem.quantity }}
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <div class="text-slate-400">Peminta</div>
+                <div>{{ requestItem.requested_by_name }}</div>
+              </div>
+              <div>
+                <div class="text-slate-400">Keterangan</div>
+                <div>{{ requestItem.notes || requestItem.creator_name || '-' }}</div>
+              </div>
+            </div>
+
+            <div v-if="abilities.approve_request" class="mt-4">
+              <button
+                type="button"
+                class="w-full rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                @click="approveRequest(requestItem.id)"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -136,14 +175,14 @@
           <table class="min-w-full border-collapse text-sm">
             <tbody>
               <tr>
-                <td rowspan="2" class="w-40 border border-black px-3 py-3 text-center">
+                <td rowspan="2" class="w-32 border border-black px-2 py-3 text-center md:w-40 md:px-3">
                   <img
                     src="/image/logo-gmi-clean.png"
                     alt="PT. Golden Multi Indotama"
-                    class="mx-auto h-16 w-16 object-contain"
+                    class="mx-auto h-12 w-12 object-contain md:h-16 md:w-16"
                   />
                 </td>
-                <td class="border border-black px-3 py-2 text-center text-2xl font-bold">FORMULIR</td>
+                <td class="border border-black px-3 py-2 text-center text-lg font-bold md:text-2xl">FORMULIR</td>
                 <td class="border border-black p-0 align-top" rowspan="2">
                   <table class="min-w-full border-collapse text-sm">
                     <tbody>
@@ -157,7 +196,7 @@
                 </td>
               </tr>
               <tr>
-                <td class="border border-black px-3 py-4 text-center text-xl font-semibold">KARTU STOCK BARANG - NON PRODUK</td>
+                <td class="border border-black px-3 py-4 text-center text-base font-semibold md:text-xl">KARTU STOCK BARANG - NON PRODUK</td>
               </tr>
             </tbody>
           </table>
@@ -172,7 +211,7 @@
                   :
                   <select
                     v-model="filters.item_id"
-                    class="ml-2 min-w-[240px] border-none bg-transparent px-1 py-0 text-sm text-black focus:outline-none"
+                    class="ml-2 min-w-[180px] border-none bg-transparent px-1 py-0 text-sm text-black focus:outline-none md:min-w-[240px]"
                     @change="fetchList"
                   >
                     <option value="all">All</option>
@@ -202,7 +241,52 @@
           </table>
         </div>
 
-        <div class="mt-4 overflow-x-auto border border-black">
+        <div class="mt-4 border border-black lg:hidden">
+          <div
+            v-if="!cardRows.length"
+            class="px-3 py-6 text-center text-sm text-slate-500"
+          >
+            <span v-if="selectedItem">Belum ada histori penambahan atau permintaan untuk barang ini.</span>
+            <span v-else>Belum ada histori penambahan atau permintaan untuk semua barang.</span>
+          </div>
+          <div v-else class="space-y-0">
+            <div
+              v-for="(row, index) in cardRows"
+              :key="`mobile-row-${index}`"
+              class="border-b border-black px-3 py-3 last:border-b-0"
+              :class="row.is_latest_balance ? 'bg-sky-100' : ''"
+            >
+              <div class="grid grid-cols-1 gap-2 text-sm">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <div class="font-semibold">{{ row.item_name }}</div>
+                    <div class="text-xs text-slate-600">{{ row.date }}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-xs text-slate-600">Sisa Stock</div>
+                    <div class="font-semibold">{{ row.balance }}</div>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <div class="text-xs text-slate-600">Masuk</div>
+                    <div>{{ row.incoming }}</div>
+                  </div>
+                  <div>
+                    <div class="text-xs text-slate-600">Dipakai</div>
+                    <div>{{ row.outgoing }}</div>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-xs text-slate-600">Keterangan</div>
+                  <div>{{ row.note }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 hidden overflow-x-auto border border-black lg:block">
           <table class="min-w-full border-collapse text-sm">
             <thead>
               <tr class="bg-slate-100">
@@ -245,8 +329,8 @@
       v-if="showStockInModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
     >
-      <div class="w-full max-w-lg rounded border border-slate-700 bg-slate-900 p-6 shadow-xl">
-        <div class="mb-4 flex items-center justify-between">
+      <div class="w-full max-w-lg rounded border border-slate-700 bg-slate-900 p-4 shadow-xl md:p-6">
+        <div class="mb-4 flex items-start justify-between gap-3">
           <div>
             <div class="text-lg font-semibold text-slate-100">Add Stock</div>
             <div class="text-sm text-slate-400">Tambahkan stock barang ke kartu stock.</div>
@@ -268,7 +352,7 @@
               {{ item.name }}
             </option>
           </select>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <input
               v-model="stockInForm.transaction_date"
               type="date"
@@ -290,7 +374,7 @@
             class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
           ></textarea>
 
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               class="rounded border border-slate-700 px-4 py-2 text-sm text-slate-200"
@@ -314,8 +398,8 @@
       v-if="showRequestModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
     >
-      <div class="w-full max-w-lg rounded border border-slate-700 bg-slate-900 p-6 shadow-xl">
-        <div class="mb-4 flex items-center justify-between">
+      <div class="w-full max-w-lg rounded border border-slate-700 bg-slate-900 p-4 shadow-xl md:p-6">
+        <div class="mb-4 flex items-start justify-between gap-3">
           <div>
             <div class="text-lg font-semibold text-slate-100">Request Stock</div>
             <div class="text-sm text-slate-400">Catat pengeluaran stock dari barang terpilih.</div>
@@ -337,7 +421,7 @@
               {{ item.name }}
             </option>
           </select>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <input
               v-model="requestForm.request_date"
               type="date"
@@ -365,7 +449,7 @@
             class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
           ></textarea>
 
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               class="rounded border border-slate-700 px-4 py-2 text-sm text-slate-200"

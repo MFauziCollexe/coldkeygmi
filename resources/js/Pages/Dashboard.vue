@@ -1,9 +1,9 @@
 <template>
   <AppLayout>
-    <div class="max-w-7xl mx-auto">
+    <div class="max-w-7xl mx-auto p-4 md:p-6">
       <div class="mb-6">
-        <h1 class="text-4xl font-bold">Dashboard</h1>
-        <p class="text-slate-400 mt-1">
+        <h1 class="text-3xl font-bold md:text-4xl">Dashboard</h1>
+        <p class="mt-1 text-sm text-slate-400 md:text-base">
           {{ departmentName }} Department Overview - Welcome back, <span class="font-semibold">{{ displayUserName }}</span>
         </p>
       </div>
@@ -19,15 +19,15 @@
         />
       </div>
 
-      <div class="mt-8 bg-slate-800 border border-slate-700 rounded-lg p-6 shadow-inner">
+      <div class="mt-8 bg-slate-800 border border-slate-700 rounded-lg p-4 md:p-6 shadow-inner">
         <h2 class="text-lg font-semibold mb-4">Grafik Ticket Breakdown ({{ departmentCode }})</h2>
         <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
-          <div class="xl:col-span-6 bg-slate-900/30 border border-slate-700 rounded-lg p-4 min-h-[340px] flex items-center justify-center">
+          <div class="xl:col-span-6 bg-slate-900/30 border border-slate-700 rounded-lg p-3 md:p-4 min-h-[280px] md:min-h-[340px] flex items-center justify-center overflow-hidden">
             <div v-if="itDashboard.tickets.total === 0" class="text-slate-400 text-sm w-full">
               Belum ada data ticket untuk ditampilkan.
             </div>
             <div v-else class="w-full h-full flex items-center justify-center">
-              <svg viewBox="0 0 460 280" class="w-full h-[280px] max-w-[520px] overflow-visible">
+              <svg viewBox="0 0 460 280" class="w-full h-[240px] md:h-[280px] max-w-[520px] overflow-visible">
                 <circle
                   :cx="donutCenter.x"
                   :cy="donutCenter.y"
@@ -98,13 +98,13 @@
         </div>
       </div>
 
-      <div class="mt-8 bg-slate-800 border border-slate-700 rounded-lg p-6 shadow-inner">
+      <div class="mt-8 bg-slate-800 border border-slate-700 rounded-lg p-4 md:p-6 shadow-inner">
         <h2 class="text-lg font-semibold mb-4">Recent Logs</h2>
         <div v-if="itDashboard.logs.length === 0" class="text-slate-400 text-sm">
           Belum ada logs.
         </div>
         <div v-else class="overflow-x-auto">
-          <table class="min-w-full text-sm">
+          <table class="min-w-[760px] text-sm">
             <thead class="text-slate-400 border-b border-slate-700">
               <tr>
                 <th class="text-left py-2 pr-4">Time</th>
@@ -127,7 +127,7 @@
         </div>
       </div>
 
-      <div class="mt-8 bg-slate-800 border border-slate-700 rounded-lg p-6 shadow-inner">
+      <div class="mt-8 bg-slate-800 border border-slate-700 rounded-lg p-4 md:p-6 shadow-inner">
         <h2 class="text-lg font-semibold mb-4">Quick Stats</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <StatCard

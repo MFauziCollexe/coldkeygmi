@@ -1,9 +1,9 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-4">
+    <div class="p-4 md:p-6">
+      <div class="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <h2 class="text-2xl font-bold">Users</h2>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <input v-model="filters.search" @input="onSearchInput" placeholder="Search users..." class="px-3 py-2 rounded bg-slate-800 text-sm" />
           <select v-model="filters.status" @change="fetch" class="px-3 py-2 rounded bg-slate-800 text-sm">
             <option value="">All Status</option>
@@ -35,6 +35,7 @@
       </div>
 
       <div class="bg-slate-800 rounded p-4">
+        <div class="hidden overflow-auto lg:block">
         <table class="w-full table-auto">
           <thead>
             <tr class="text-left text-slate-400">
@@ -79,6 +80,46 @@
             </tr>
           </tbody>
         </table>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-slate-700 lg:hidden">
+          <div v-for="user in users.data" :key="`mobile-${user.id}`" class="border-b border-slate-700 bg-slate-900/30 p-4 last:border-b-0">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="truncate font-semibold text-white">{{ user.first_name }} {{ user.last_name }}</div>
+                <div class="break-all text-sm text-slate-400">{{ user.email }}</div>
+              </div>
+              <span :class="user.status === 'active' ? 'text-green-400' : 'text-red-400'">{{ user.status }}</span>
+            </div>
+            <div class="mt-3 space-y-2 text-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Department</div>
+                <div class="text-right">{{ user.department || '-' }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Job Position</div>
+                <div class="text-right">{{ user.job_position || '-' }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Work Position</div>
+                <div class="text-right">{{ user.work_position || '-' }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Admin</div>
+                <div class="text-right">{{ user.is_admin ? 'Yes' : 'No' }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Created</div>
+                <div class="text-right">{{ formatDate(user.created_date) }}</div>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <Link :href="`/master-data/user/${user.id}/edit`" class="inline-flex items-center justify-center rounded bg-indigo-600 px-3 py-2 text-sm text-white">Edit</Link>
+              <button @click="deleteUser(user)" class="rounded bg-red-600 px-3 py-2 text-sm text-white">Delete</button>
+            </div>
+          </div>
+          <div v-if="users.data.length === 0" class="py-4 text-center text-slate-400">No users found.</div>
+        </div>
 
         <div class="mt-4">
           <Pagination :paginator="users" :onPageChange="goToPage" />

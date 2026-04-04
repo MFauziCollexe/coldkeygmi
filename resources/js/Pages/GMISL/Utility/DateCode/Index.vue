@@ -1,14 +1,14 @@
 <template>
   <AppLayout>
-    <div class="p-6">
+    <div class="p-4 md:p-6">
       <h2 class="text-2xl font-bold mb-4">No Identity</h2>
 
-      <div class="bg-slate-800 rounded p-6 space-y-6">
-        <div class="flex gap-4 border-b border-slate-700">
+      <div class="bg-slate-800 rounded p-4 md:p-6 space-y-6">
+        <div class="flex flex-wrap gap-2 md:gap-4 border-b border-slate-700">
           <button
             type="button"
             @click="activeTab = 'manual'"
-            class="px-4 py-2 font-medium border-b-2"
+            class="px-4 py-2 font-medium border-b-2 text-sm md:text-base"
             :class="activeTab === 'manual' ? 'text-slate-200 border-indigo-600' : 'text-slate-400 border-transparent hover:text-slate-300'"
           >
             Manual Input
@@ -16,7 +16,7 @@
           <button
             type="button"
             @click="activeTab = 'import'"
-            class="px-4 py-2 font-medium border-b-2"
+            class="px-4 py-2 font-medium border-b-2 text-sm md:text-base"
             :class="activeTab === 'import' ? 'text-slate-200 border-indigo-600' : 'text-slate-400 border-transparent hover:text-slate-300'"
           >
             Import Excel
@@ -63,7 +63,7 @@
             </div>
           </div>
 
-          <div class="flex items-center gap-6">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
             <label class="inline-flex items-center gap-2 text-sm leading-none">
               <input v-model="form.inout_label" type="radio" value="IN" class="accent-indigo-500" />
               <span>IN</span>
@@ -122,10 +122,10 @@
                 Transc Date
               </label>
             </div>
-            <div></div>
+            <div class="hidden md:block"></div>
           </div>
 
-          <div class="pt-4 border-t border-slate-700 flex justify-end gap-3">
+          <div class="pt-4 border-t border-slate-700 flex flex-col-reverse gap-2 md:flex-row md:justify-end md:gap-3">
             <button @click="onCancelManual" type="button" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white">
               Cancel
             </button>
@@ -137,7 +137,7 @@
 
         <div v-else class="space-y-4">
           <div
-            class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition"
+            class="border-2 border-dashed rounded-lg p-5 md:p-8 text-center cursor-pointer transition"
             :class="dragActive ? 'border-indigo-500 bg-slate-700/40' : 'border-slate-600'"
             @click="openFileDialog"
             @dragover.prevent="onDragOver"
@@ -154,7 +154,7 @@
             File: {{ importFileName }} ({{ importRows.length }} baris)
           </div>
 
-          <div class="pt-4 border-t border-slate-700 flex justify-end gap-3">
+          <div class="pt-4 border-t border-slate-700 flex flex-col-reverse gap-2 md:flex-row md:justify-end md:gap-3">
             <button @click="onCancelImport" type="button" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white">
               Cancel
             </button>

@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="p-6 space-y-6">
+    <div class="space-y-6 p-4 md:p-6">
       <div>
         <h2 class="text-2xl font-bold">Attendance Logs</h2>
         <p class="text-slate-400 text-sm">
@@ -8,13 +8,13 @@
         </p>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-        <div class="flex items-start justify-between gap-4">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p class="text-sm font-semibold text-slate-200">Ringkasan</p>
             <p class="text-xs text-slate-400">Jumlah per status berdasarkan hasil evaluasi attendance.</p>
           </div>
-          <div class="text-right">
+          <div class="text-left sm:text-right">
             <p class="text-[11px] text-slate-400">Total</p>
             <p class="text-lg font-semibold text-slate-100">{{ summaryTotal }}</p>
           </div>
@@ -24,13 +24,13 @@
           Tidak ada ringkasan untuk filter ini.
         </div>
 
-        <div v-else class="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div v-else class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
           <div class="lg:col-span-8">
-            <div class="min-h-56 flex flex-wrap items-end gap-2">
+            <div class="flex min-h-56 flex-wrap items-end gap-2 overflow-x-auto pb-2">
               <div
                 v-for="bar in summaryBars"
                 :key="bar.key"
-                class="w-14 flex flex-col items-center justify-end"
+                class="flex w-14 shrink-0 flex-col items-center justify-end"
                 :title="`${bar.label}: ${bar.value}`"
               >
                 <div class="text-[11px] text-slate-200 mb-1 tabular-nums">{{ bar.value }}</div>
@@ -46,7 +46,7 @@
             </div>
           </div>
 
-          <div class="lg:col-span-4 border border-slate-700 rounded-lg p-3 bg-slate-900/30">
+          <div class="rounded-lg border border-slate-700 bg-slate-900/30 p-3 lg:col-span-4">
             <p class="text-sm font-semibold text-slate-200">Keterangan (Periode)</p>
             <p class="text-[11px] text-slate-400 mt-0.5">
               Minimal {{ Number(props.monthlyInsights?.min_count || 5) }}x. Terlambat dan Tidak Masuk per bulan (top nama).
@@ -77,8 +77,8 @@
         </div>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
           <div class="md:col-span-2">
             <label class="text-xs text-slate-300">Tanggal Dari</label>
             <input
@@ -119,7 +119,7 @@
             <input v-model="form.q" type="text" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" placeholder="contoh: 25111724 / EKO" />
           </div>
           <div class="md:col-span-3 flex items-end">
-            <div class="w-full flex flex-col xl:flex-row gap-2">
+            <div class="flex w-full flex-col gap-2 xl:flex-row">
               <button class="w-full xl:flex-1 px-3 py-2 rounded bg-sky-600 hover:bg-sky-500 text-sm font-semibold" @click="applyFilters">
                 Tampilkan
               </button>
@@ -131,12 +131,12 @@
         </div>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div v-if="!attendanceLogs.data?.length" class="text-sm text-slate-400">
           Tidak ada data untuk filter ini.
         </div>
 
-        <div v-else class="overflow-auto">
+        <div v-else class="hidden overflow-auto lg:block">
           <table class="w-full text-sm">
             <thead class="border-b border-slate-700 text-slate-400">
               <tr>
@@ -262,7 +262,120 @@
           </table>
         </div>
 
-        <div v-if="attendanceLogs.last_page > 1" class="pt-4 mt-4 border-t border-slate-700 flex items-center justify-end text-sm">
+        <div v-if="attendanceLogs.data?.length" class="space-y-3 lg:hidden">
+          <div
+            v-for="(group, idx) in employeeGroups"
+            :key="`mobile-${group.key}`"
+            class="rounded-xl border border-slate-700 bg-slate-900/40 p-4"
+          >
+            <button
+              type="button"
+              class="flex w-full items-start justify-between gap-3 text-left"
+              @click="toggleGroup(group.key)"
+            >
+              <div>
+                <div class="text-sm text-slate-400">#{{ idx + 1 }} · {{ group.pin }}</div>
+                <div class="font-semibold text-white">{{ group.name }}</div>
+                <div class="text-sm text-slate-400">NRP: {{ group.nrp }}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-slate-400">
+                  {{ isGroupExpanded(group.key) ? 'Sembunyikan' : 'Lihat' }}
+                </div>
+                <div class="mt-1 text-lg text-slate-300">{{ isGroupExpanded(group.key) ? '▾' : '▸' }}</div>
+              </div>
+            </button>
+
+            <div class="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+              <div class="rounded-lg border border-slate-700 bg-slate-800/80 p-2">
+                <div class="text-[11px] text-slate-400">Absensi</div>
+                <div class="font-semibold text-white">{{ group.totalAbsensi }}</div>
+              </div>
+              <div class="rounded-lg border border-amber-400/30 bg-amber-500/10 p-2">
+                <div class="text-[11px] text-amber-200">Terlambat</div>
+                <div class="font-semibold text-amber-100">{{ group.totalTerlambat }}</div>
+              </div>
+              <div class="rounded-lg border border-rose-400/30 bg-rose-500/10 p-2">
+                <div class="text-[11px] text-rose-200">Absen/Lain</div>
+                <div class="font-semibold text-rose-100">{{ group.totalAbsen + group.totalLain }}</div>
+              </div>
+            </div>
+
+            <div v-if="isGroupExpanded(group.key)" class="mt-4 overflow-hidden rounded-lg border border-slate-700 bg-slate-800/60">
+              <div
+                v-for="row in group.rows"
+                :key="`mobile-row-${row.log_date}-${row.pin}-${row.status}`"
+                class="border-b border-slate-700 p-3 last:border-b-0"
+              >
+                <div class="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <div class="font-semibold text-white">{{ row.log_date || '-' }}</div>
+                    <div class="text-xs text-slate-400">{{ formatDayName(row.log_date) }}</div>
+                  </div>
+                  <span :class="statusPillClass(getDisplayExpected(row))" class="inline-flex items-center gap-2 rounded border px-2.5 py-1 text-xs font-semibold">
+                    <span :class="statusDotClass(getDisplayExpected(row))" class="inline-block h-2 w-2 rounded-sm"></span>
+                    {{ getDisplayExpected(row) }}
+                  </span>
+                </div>
+
+                <div class="space-y-2 text-sm">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="text-slate-400">Shift / Hari</div>
+                    <div class="text-right">{{ row.shift_code || (row.is_off ? 'OFF' : '-') }} / {{ formatDayName(row.log_date) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="text-slate-400">Jadwal</div>
+                    <div class="text-right">{{ formatSchedule(row.start_time, row.end_time) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="text-slate-400">Scan Pertama</div>
+                    <div class="text-right">{{ formatTimeOnly(row.first_scan) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="text-slate-400">Scan Terakhir</div>
+                    <div class="text-right">{{ formatTimeOnly(row.last_scan) }}</div>
+                  </div>
+                  <div v-if="row.has_overtime" class="flex items-start justify-between gap-3">
+                    <div class="text-slate-400">Overtime</div>
+                    <div class="text-right">
+                      <span class="inline-flex rounded-md border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-200">
+                        {{ row.overtime_label || '-' }}
+                      </span>
+                    </div>
+                  </div>
+                  <div v-if="canShowCorrectionColumn" class="flex items-start justify-between gap-3">
+                    <div class="text-slate-400">Koreksi</div>
+                    <div v-if="row.correction" class="space-y-1 text-right">
+                      <span
+                        :class="correctionPillClass(row.correction.status)"
+                        class="inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold"
+                        :title="row.correction.rejection_reason || ''"
+                      >
+                        {{ correctionLabel(row.correction.status) }}
+                      </span>
+                      <div class="text-[11px] text-slate-400">
+                        {{ formatTimeOnly(row.correction.first_scan) }} - {{ formatTimeOnly(row.correction.last_scan) }}
+                      </div>
+                    </div>
+                    <div v-else class="text-right text-slate-500">-</div>
+                  </div>
+                </div>
+
+                <div v-if="canShowCorrectionColumn" class="mt-4">
+                  <button
+                    type="button"
+                    class="w-full rounded bg-indigo-600 px-3 py-2 text-[12px] font-semibold hover:bg-indigo-500"
+                    @click="openCorrectionSwal(row)"
+                  >
+                    Koreksi
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="attendanceLogs.last_page > 1" class="mt-4 flex justify-end border-t border-slate-700 pt-4 text-sm">
           <Pagination :paginator="attendanceLogs" :onPageChange="goToPage" />
         </div>
 

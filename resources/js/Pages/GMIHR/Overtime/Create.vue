@@ -1,10 +1,10 @@
 <template>
   <AppLayout>
-    <div class="p-6 max-w-2xl">
+    <div class="max-w-2xl p-4 md:p-6">
       <h2 class="text-2xl font-bold mb-4">Ajukan Permintaan Lembur</h2>
 
-      <form @submit.prevent="submit" class="space-y-4 bg-slate-800 p-4 rounded">
-        <div class="flex gap-2">
+      <form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4">
+        <div class="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
             class="px-4 py-2 rounded text-sm border"
@@ -66,7 +66,7 @@
             />
           </div>
 
-          <div class="flex items-center justify-between text-xs text-slate-400">
+          <div class="flex flex-col gap-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <div>
               Dipilih: <span class="text-slate-200 font-semibold">{{ form.employee_ids.length }}</span>
             </div>
@@ -134,11 +134,11 @@
           <div v-else class="text-xs text-slate-400 mt-1">Opsional, maksimal 5MB (jpg/png/webp/pdf).</div>
         </div>
 
-        <div class="flex justify-end gap-2">
-          <button type="button" @click="cancel" class="px-4 py-2 rounded bg-slate-700 text-slate-300">
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" @click="cancel" class="rounded bg-slate-700 px-4 py-2 text-slate-300">
             Batal
           </button>
-          <button type="submit" class="px-4 py-2 rounded bg-indigo-600 text-white">
+          <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white">
             Simpan
           </button>
         </div>

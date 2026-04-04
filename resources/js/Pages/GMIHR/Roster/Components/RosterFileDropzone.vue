@@ -1,6 +1,6 @@
 <template>
   <div
-    class="border-2 border-dashed rounded-lg p-6 text-center transition"
+    class="rounded-lg border-2 border-dashed p-4 text-center transition md:p-6"
     :class="isDragging ? 'border-indigo-400 bg-indigo-500/10' : 'border-slate-600 bg-slate-900/40'"
     role="button"
     tabindex="0"
@@ -13,7 +13,7 @@
     @keydown.space.prevent="openFilePicker"
   >
     <input ref="fileInput" type="file" class="hidden" accept=".csv,.txt,.xlsx,.xls" @change="onFilePicked" />
-    <p class="text-slate-300">
+    <p class="text-sm text-slate-300 md:text-base">
       Drag & drop file CSV/Excel di sini atau
       <button type="button" class="text-indigo-400 underline" @click.stop="openFilePicker">pilih file</button>
     </p>

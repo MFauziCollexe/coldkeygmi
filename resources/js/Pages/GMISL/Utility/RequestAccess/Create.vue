@@ -1,13 +1,13 @@
 <template>
   <AppLayout>
-    <div class="p-6 max-w-4xl">
+    <div class="p-4 md:p-6 max-w-4xl">
       <h2 class="text-2xl font-bold mb-4">Create Request Access</h2>
 
       <form @submit.prevent="submit" class="space-y-4 bg-slate-800 p-4 rounded">
         <!-- Request Type Selection -->
         <div>
           <label class="block text-sm text-slate-300 mb-2">Request Type</label>
-          <div class="flex gap-4">
+          <div class="flex flex-col gap-3 md:flex-row md:gap-4">
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" v-model="form.type" value="existing_user" @change="onTypeChange" />
               <span>Existing User (Request Access)</span>
@@ -121,7 +121,7 @@
         </div>
 
         <div class="flex justify-end">
-          <button type="submit" class="bg-indigo-600 px-4 py-2 rounded text-white" :disabled="form.processing || form.module_keys.length === 0">
+          <button type="submit" class="w-full md:w-auto bg-indigo-600 px-4 py-2 rounded text-white" :disabled="form.processing || form.module_keys.length === 0">
             Submit Request
           </button>
         </div>

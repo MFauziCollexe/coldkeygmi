@@ -1,11 +1,17 @@
 <template>
   <div class="min-h-screen w-full flex overflow-x-hidden bg-slate-900 text-slate-100">
-    <Sidebar :open="sidebarOpen" @update:open="sidebarOpen = $event" />
+    <div
+      v-if="isMobile && sidebarOpen"
+      class="fixed inset-0 z-30 bg-black/50 lg:hidden"
+      @click="sidebarOpen = false"
+    ></div>
+
+    <Sidebar :open="sidebarOpen" :mobile="isMobile" @update:open="sidebarOpen = $event" />
 
     <div class="min-w-0 flex-1 flex flex-col">
       <Topbar @toggle-sidebar="sidebarOpen = !sidebarOpen" />
 
-      <main class="min-w-0 p-6 overflow-auto bg-slate-900">
+      <main class="min-w-0 overflow-auto bg-slate-900">
         <slot />
       </main>
     </div>
@@ -19,6 +25,7 @@ import Sidebar from '@/Components/Sidebar.vue';
 import Topbar from '@/Components/Topbar.vue';
 
 const sidebarOpen = ref(true);
+const isMobile = ref(false);
 
 const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 let idleTimer = null;
@@ -68,8 +75,15 @@ function onActivity() {
   resetIdleTimer();
 }
 
+function syncViewportState() {
+  isMobile.value = window.innerWidth < 1024;
+  sidebarOpen.value = !isMobile.value;
+}
+
 onMounted(() => {
+  syncViewportState();
   resetIdleTimer();
+  window.addEventListener('resize', syncViewportState);
   activityEvents.forEach((eventName) => {
     window.addEventListener(eventName, onActivity, { passive: true });
   });
@@ -77,6 +91,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearIdleTimer();
+  window.removeEventListener('resize', syncViewportState);
   activityEvents.forEach((eventName) => {
     window.removeEventListener(eventName, onActivity);
   });

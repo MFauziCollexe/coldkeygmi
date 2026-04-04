@@ -1,9 +1,9 @@
 <template>
   <AppLayout>
-    <div class="p-6">
+    <div class="p-4 md:p-6">
       <h2 class="text-2xl font-bold mb-4">Add Department</h2>
 
-      <div class="bg-slate-800 rounded p-6 max-w-2xl">
+      <div class="max-w-2xl rounded bg-slate-800 p-4 md:p-6">
         <form @submit.prevent="submit">
           <div class="mb-4">
             <label class="block text-slate-400 mb-2">Code</label>
@@ -29,7 +29,7 @@
             </label>
           </div>
 
-          <div class="flex gap-2">
+          <div class="flex flex-col-reverse gap-2 sm:flex-row">
             <button type="submit" class="bg-indigo-600 px-4 py-2 rounded text-white">Save</button>
             <Link href="/master-data/department" class="bg-slate-600 px-4 py-2 rounded text-white">Cancel</Link>
           </div>

@@ -1,44 +1,44 @@
 <template>
   <AppLayout>
-    <div class="p-6 max-w-5xl">
-      <div class="flex items-center justify-between mb-4">
+    <div class="mx-auto max-w-5xl p-4 md:p-6">
+      <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h2 class="text-2xl font-bold">Check Inline Detail</h2>
         <Link href="/check-inline" class="text-indigo-400">Back to list</Link>
       </div>
 
-      <div class="bg-slate-800 rounded p-6 space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+      <div class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
+        <div class="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-slate-400 text-sm">ID</div>
-            <div>{{ row.id }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ row.id }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-slate-400 text-sm">User</div>
-            <div>{{ row.user_name || '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ row.user_name || '-' }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-slate-400 text-sm">Customer</div>
-            <div>{{ row.customer || '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ row.customer || '-' }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-slate-400 text-sm">PO</div>
-            <div>{{ row.po || '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ row.po || '-' }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-slate-400 text-sm">Qty</div>
-            <div>{{ row.qty ?? '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ row.qty ?? '-' }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-slate-400 text-sm">Exp</div>
-            <div>{{ formatDate(row.exp) }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ formatDate(row.exp) }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-slate-400 text-sm">Batch</div>
-            <div>{{ row.batch || '-' }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ row.batch || '-' }}</div>
           </div>
-          <div>
+          <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3 md:block md:border-b-0 md:pb-0">
             <div class="text-slate-400 text-sm">Date</div>
-            <div>{{ formatDate(row.date) }}</div>
+            <div class="max-w-[62%] text-right md:max-w-none md:text-left">{{ formatDate(row.date) }}</div>
           </div>
         </div>
 
@@ -50,10 +50,10 @@
               :key="url"
               type="button"
               @click="openImage(url)"
-              class="border border-slate-600 rounded overflow-hidden hover:border-indigo-400"
+              class="overflow-hidden rounded border border-slate-600 hover:border-indigo-400"
               :title="`Image ${idx + 1}`"
             >
-              <img :src="url" :alt="`Image ${idx + 1}`" class="w-20 h-20 object-cover" />
+              <img :src="url" :alt="`Image ${idx + 1}`" class="h-16 w-16 object-cover md:h-20 md:w-20" />
             </button>
           </div>
           <div v-else>-</div>
@@ -62,10 +62,10 @@
 
       <div
         v-if="showImageModal"
-        class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
         @click="closeImage"
       >
-        <div class="max-w-5xl max-h-[90vh]" @click.stop>
+        <div class="max-h-[90vh] max-w-5xl" @click.stop>
           <img :src="selectedImage" alt="Preview" class="max-h-[90vh] w-auto rounded" />
         </div>
       </div>
@@ -100,4 +100,3 @@ function closeImage() {
   selectedImage.value = '';
 }
 </script>
-

@@ -1,14 +1,14 @@
 <template>
   <AppLayout>
-    <div class="p-6 max-w-2xl">
-      <div class="flex items-center justify-between mb-4">
+    <div class="max-w-2xl p-4 md:p-6">
+      <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h2 class="text-2xl font-bold">Create Visitor Form</h2>
         <Link href="/gmi-visitor-permit/visitor-form" class="text-indigo-400 hover:underline text-sm">
           Back to List
         </Link>
       </div>
 
-      <form class="space-y-4 bg-slate-800 p-4 rounded" @submit.prevent="submit">
+      <form class="space-y-4 rounded bg-slate-800 p-4" @submit.prevent="submit">
         <div class="grid grid-cols-1 gap-4">
           <div class="relative group">
             <EnhancedDatePicker v-model="form.visit_date" placeholder=" " input-class="w-full h-[52px] px-3 pt-5 pb-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-transparent" />
@@ -52,7 +52,7 @@
         <div>
           <label class="block text-sm text-slate-300">Image</label>
           <div
-            class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition"
+            class="cursor-pointer rounded-lg border-2 border-dashed p-5 text-center transition md:p-8"
             :class="dragActive ? 'border-indigo-500 bg-slate-700/40' : 'border-slate-600'"
             @click="clickFileInput"
             @dragover.prevent="onDragOver"
@@ -79,9 +79,9 @@
           </div>
         </div>
 
-        <div class="flex justify-end gap-2">
-          <Link href="/gmi-visitor-permit/visitor-form" class="bg-slate-600 px-4 py-2 rounded text-white">Cancel</Link>
-          <button type="submit" class="bg-indigo-600 px-4 py-2 rounded text-white" :disabled="form.processing">Simpan Visitor</button>
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Link href="/gmi-visitor-permit/visitor-form" class="rounded bg-slate-600 px-4 py-2 text-center text-white">Cancel</Link>
+          <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white" :disabled="form.processing">Simpan Visitor</button>
         </div>
       </form>
     </div>
