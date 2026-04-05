@@ -63,6 +63,23 @@
         </button>
 
         <div class="mt-8 border-t border-slate-300 pt-5 text-base text-slate-600 md:text-lg">
+          <div
+            v-if="showLocationPermissionNotice"
+            class="mb-4 rounded-2xl border px-4 py-3 text-sm"
+            :class="locationPermissionNoticeClass"
+          >
+            <div class="font-semibold">{{ locationPermissionTitle }}</div>
+            <div class="mt-1">{{ locationPermissionHelp }}</div>
+            <button
+              v-if="canRequestLocationPermission"
+              type="button"
+              class="mt-3 inline-flex items-center rounded-xl bg-sky-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-500"
+              @click="requestLocationPermission"
+            >
+              Izinkan Lokasi
+            </button>
+          </div>
+
           <div class="flex items-start gap-3">
             <span class="text-xl">📍</span>
             <div>
@@ -76,9 +93,9 @@
               <button
                 type="button"
                 class="mt-3 inline-flex items-center rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-700"
-                @click="requestLocation"
+                @click="requestLocationPermission"
               >
-                Refresh Lokasi
+                {{ refreshLocationLabel }}
               </button>
             </div>
           </div>
@@ -234,6 +251,7 @@ const currentLongitude = ref(null);
 const currentAccuracy = ref(null);
 const geolocationReady = ref(false);
 const geolocationDenied = ref(false);
+const locationPermissionState = ref('prompt');
 const locationMessage = ref('Sedang mengambil lokasi Anda...');
 const matchedArea = ref(null);
 const nearestArea = ref(null);
@@ -311,6 +329,46 @@ const nearestAreaSummary = computed(() => {
   }
 
   return `Area terdekat: ${nearestArea.value.name} (${Math.round(nearestDistance.value)} m). Radius area: ${nearestArea.value.radius_meters} m.`;
+});
+
+const showLocationPermissionNotice = computed(() => ['prompt', 'denied'].includes(locationPermissionState.value));
+
+const canRequestLocationPermission = computed(() => locationPermissionState.value !== 'denied');
+
+const locationPermissionTitle = computed(() => {
+  if (locationPermissionState.value === 'denied') {
+    return 'Akses lokasi diblokir';
+  }
+
+  return 'Izin lokasi diperlukan';
+});
+
+const locationPermissionHelp = computed(() => {
+  if (locationPermissionState.value === 'denied') {
+    return 'Browser sudah menolak akses lokasi. Buka ikon lokasi di address bar atau Site Settings browser, lalu ubah izin lokasi menjadi Allow untuk halaman ini.';
+  }
+
+  return 'Izinkan akses lokasi agar sistem bisa memastikan Anda berada di area kantor yang diperbolehkan untuk absensi.';
+});
+
+const locationPermissionNoticeClass = computed(() => {
+  if (locationPermissionState.value === 'denied') {
+    return 'border-rose-200 bg-rose-50 text-rose-700';
+  }
+
+  return 'border-sky-200 bg-sky-50 text-sky-700';
+});
+
+const refreshLocationLabel = computed(() => {
+  if (locationPermissionState.value === 'prompt') {
+    return 'Izinkan Lokasi';
+  }
+
+  if (locationPermissionState.value === 'denied') {
+    return 'Cek Lokasi Lagi';
+  }
+
+  return 'Refresh Lokasi';
 });
 
 const requiresCheckoutReason = computed(() => {
@@ -404,7 +462,26 @@ function updateGeoState(position) {
     : `Anda harus berada di area kantor untuk melakukan absensi${currentAccuracy.value ? `. Akurasi GPS saat ini sekitar ${Math.round(currentAccuracy.value)} m.` : '.'}`;
 }
 
-function requestLocation() {
+async function syncLocationPermissionState() {
+  if (!navigator.permissions?.query) {
+    return;
+  }
+
+  try {
+    const status = await navigator.permissions.query({ name: 'geolocation' });
+    locationPermissionState.value = status.state;
+    status.onchange = () => {
+      locationPermissionState.value = status.state;
+      if (status.state === 'granted') {
+        requestLocation(false);
+      }
+    };
+  } catch {
+    // Browser belum mendukung permissions API untuk geolocation.
+  }
+}
+
+function requestLocation(showPromptInfo = false) {
   if (!navigator.geolocation) {
     geolocationReady.value = false;
     locationMessage.value = 'Browser ini tidak mendukung geolocation.';
@@ -416,14 +493,27 @@ function requestLocation() {
   locationMessage.value = 'Sedang mengambil lokasi Anda...';
 
   navigator.geolocation.getCurrentPosition(
-    (position) => updateGeoState(position),
+    (position) => {
+      locationPermissionState.value = 'granted';
+      updateGeoState(position);
+    },
     () => {
       geolocationReady.value = false;
       geolocationDenied.value = true;
+      locationPermissionState.value = 'denied';
       matchedArea.value = null;
       nearestArea.value = null;
       nearestDistance.value = null;
       locationMessage.value = 'Izinkan akses lokasi agar bisa melakukan absensi.';
+
+      if (showPromptInfo) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Izin Lokasi Diperlukan',
+          text: 'Izinkan akses lokasi di browser agar absensi bisa dilakukan.',
+          confirmButtonText: 'Mengerti',
+        });
+      }
     },
     {
       enableHighAccuracy: true,
@@ -431,6 +521,20 @@ function requestLocation() {
       timeout: 15000,
     },
   );
+}
+
+async function requestLocationPermission() {
+  if (locationPermissionState.value === 'denied') {
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Akses Lokasi Diblokir',
+      text: 'Buka ikon lokasi di address bar browser atau Site Settings, lalu ubah izin lokasi menjadi Allow untuk halaman ini.',
+      confirmButtonText: 'Mengerti',
+    });
+    return;
+  }
+
+  requestLocation(true);
 }
 
 function resetFaceVerificationState() {
@@ -713,6 +817,7 @@ async function submitAttendance() {
 }
 
 onMounted(() => {
+  syncLocationPermissionState();
   requestLocation();
 });
 
