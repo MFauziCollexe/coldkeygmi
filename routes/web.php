@@ -377,6 +377,9 @@ Route::resource('master-data/position', PositionController::class)
     ->names('positions');
 
 // Master Data - Employee (route: /master-data/employee)
+Route::get('master-data/employee/{employee}/face-reference-photo', [\App\Http\Controllers\EmployeeController::class, 'faceReferencePhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.employee'])
+    ->name('employees.face-reference-photo');
 Route::put('master-data/employee/{employee}/resign', [\App\Http\Controllers\EmployeeController::class, 'resign'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.employee'])
     ->name('employees.resign');

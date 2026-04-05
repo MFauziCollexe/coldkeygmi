@@ -185,13 +185,24 @@ class EmployeeController extends Controller
             'employee' => [
                 ...$employee->toArray(),
                 'face_reference_photo_url' => $employee->face_reference_photo_path
-                    ? Storage::disk('public')->url($employee->face_reference_photo_path)
+                    ? route('employees.face-reference-photo', $employee)
                     : null,
             ],
             'departments' => $departments,
             'positions' => $positions,
             'availableUsers' => $availableUsers,
         ]);
+    }
+
+    public function faceReferencePhoto(Employee $employee)
+    {
+        $path = $employee->face_reference_photo_path;
+
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->response($path);
     }
 
     /**
