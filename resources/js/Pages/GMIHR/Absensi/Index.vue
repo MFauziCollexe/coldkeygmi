@@ -345,7 +345,7 @@ const locationPermissionTitle = computed(() => {
 
 const locationPermissionHelp = computed(() => {
   if (locationPermissionState.value === 'denied') {
-    return 'Browser sudah menolak akses lokasi. Buka ikon lokasi di address bar atau Site Settings browser, lalu ubah izin lokasi menjadi Allow untuk halaman ini.';
+    return 'Browser sudah menolak akses lokasi. Klik tombol di bawah untuk melihat langkah mengaktifkan lokasi, lalu coba lagi.';
   }
 
   return 'Izinkan akses lokasi agar sistem bisa memastikan Anda berada di area kantor yang diperbolehkan untuk absensi.';
@@ -525,12 +525,30 @@ function requestLocation(showPromptInfo = false) {
 
 async function requestLocationPermission() {
   if (locationPermissionState.value === 'denied') {
-    await Swal.fire({
+    const result = await Swal.fire({
       icon: 'warning',
       title: 'Akses Lokasi Diblokir',
-      text: 'Buka ikon lokasi di address bar browser atau Site Settings, lalu ubah izin lokasi menjadi Allow untuk halaman ini.',
-      confirmButtonText: 'Mengerti',
+      html: `
+        <div style="text-align:left">
+          <div style="margin-bottom:8px;">Aktifkan lokasi untuk halaman ini dengan salah satu cara berikut:</div>
+          <ol style="padding-left:18px; margin:0; line-height:1.6">
+            <li>Buka <b>Chrome &gt; Settings &gt; Site settings &gt; Location</b>, lalu pastikan lokasi diizinkan.</li>
+            <li>Hapus blokir untuk <b>101.0.5.107:8000</b> jika situs ini ada di daftar blocked.</li>
+            <li>Pastikan di Android, izin <b>Chrome &gt; Lokasi</b> sudah <b>Izinkan saat aplikasi digunakan</b>.</li>
+          </ol>
+          <div style="margin-top:10px;">Setelah diubah, tekan <b>Saya Sudah Izinkan</b> untuk cek ulang lokasi.</div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Saya Sudah Izinkan',
+      cancelButtonText: 'Tutup',
     });
+
+    if (result.isConfirmed) {
+      locationPermissionState.value = 'prompt';
+      requestLocation(false);
+    }
+
     return;
   }
 
