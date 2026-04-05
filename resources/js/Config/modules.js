@@ -11,6 +11,7 @@ export default [
             { key: "gmisl.master_data.stock_card", label: "Stock Card" },
             { key: "gmisl.master_data.stock_card_item_type", label: "Jenis/Tipe Barang" },
             { key: "gmisl.master_data.stock_card_unit", label: "Satuan Stock Card" },
+            { key: "gmisl.master_data.attendance_lock_area", label: "Area Absensi" },
         ],
     },
     {
@@ -81,6 +82,7 @@ export default [
                 label: "Time & Attendance",
                 children: [
                     { key: "gmihr.attendance.log", label: "Attendance Log" },
+                    { key: "gmihr.attendance.absensi", label: "Absensi" },
                     {
                         key: "gmihr.attendance.leave_permission",
                         label: "Leave & Permission",

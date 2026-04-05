@@ -27,6 +27,8 @@ class Employee extends Model
         'religion',
         'marital_status',
         'education',
+        'face_reference_photo_path',
+        'face_reference_descriptor',
         'created_at',
         'updated_at',
     ];

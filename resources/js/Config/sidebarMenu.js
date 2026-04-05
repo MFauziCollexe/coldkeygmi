@@ -177,6 +177,13 @@ export const sidebarMenuConfig = [
                         module_key: "gmihr.attendance.log",
                     },
                     {
+                        id: "absensi",
+                        label: "Absensi",
+                        icon: "Clock",
+                        route: "/absensi",
+                        module_key: "gmihr.attendance.absensi",
+                    },
+                    {
                         id: "leave-permission",
                         label: "Leave & Permission",
                         icon: "Calendar",
@@ -320,6 +327,13 @@ export const sidebarMenuConfig = [
                 icon: "Ruler",
                 route: "/master-data/stock-card-unit",
                 module_key: "gmisl.master_data.stock_card_unit",
+            },
+            {
+                id: "attendance-lock-area",
+                label: "Area Absensi",
+                icon: "Building",
+                route: "/master-data/attendance-lock-area",
+                module_key: "gmisl.master_data.attendance_lock_area",
             },
         ],
     },

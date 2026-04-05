@@ -366,6 +366,10 @@ Route::resource('master-data/stock-card-item-type', \App\Http\Controllers\StockC
 Route::resource('master-data/stock-card-unit', \App\Http\Controllers\StockCardUnitController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card_unit'])
     ->names('stock-card-units');
+Route::resource('master-data/attendance-lock-area', \App\Http\Controllers\AttendanceLockAreaController::class)
+    ->except(['show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.attendance_lock_area'])
+    ->names('attendance-lock-areas');
 
 // Master Data - Position (route: /master-data/position)
 Route::resource('master-data/position', PositionController::class)
@@ -456,6 +460,13 @@ Route::post('attendance-log/corrections/{correction}/approve', [App\Http\Control
 Route::post('attendance-log/corrections/{correction}/reject', [App\Http\Controllers\AttendanceLogController::class, 'rejectCorrection'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.log'])
     ->name('attendance-log.corrections.reject');
+
+Route::get('absensi', [App\Http\Controllers\AbsensiController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.absensi'])
+    ->name('absensi.index');
+Route::post('absensi/submit', [App\Http\Controllers\AbsensiController::class, 'submit'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.absensi'])
+    ->name('absensi.submit');
 
 Route::get('the-days', [App\Http\Controllers\TheDaysController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.the_days'])

@@ -163,6 +163,33 @@
             />
           </div>
 
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Foto Referensi Wajah</label>
+            <input
+              type="file"
+              accept="image/*"
+              class="w-full rounded border bg-white px-4 py-2 text-slate-700 dark:bg-gray-700 dark:text-white"
+              @change="handleFaceReferenceChange"
+            />
+            <p class="mt-2 text-xs text-slate-400">
+              Upload ulang jika ingin mengganti foto referensi wajah untuk face recognition.
+            </p>
+            <div class="mt-3 flex flex-wrap items-start gap-4">
+              <img
+                v-if="facePreview"
+                :src="facePreview"
+                alt="Preview referensi wajah"
+                class="h-32 w-32 rounded-xl border border-slate-600 object-cover"
+              />
+              <label v-if="props.employee.face_reference_photo_url" class="inline-flex items-center gap-2 text-sm text-slate-300">
+                <input v-model="form.remove_face_reference" type="checkbox" />
+                <span>Hapus foto referensi lama</span>
+              </label>
+            </div>
+            <p v-if="faceProcessing" class="mt-2 text-sm text-sky-400">Memproses wajah referensi...</p>
+            <p v-if="faceError" class="mt-2 text-sm text-red-400">{{ faceError }}</p>
+          </div>
+
           <!-- Buttons -->
           <div class="mt-6 flex flex-col-reverse gap-4 sm:flex-row">
             <button
@@ -186,11 +213,12 @@
 
 <script setup>
 import { computed, ref, reactive, watch } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import { extractFaceDescriptorFromImage, fileToDataUrl } from '@/Utils/faceRecognition';
 
 const props = defineProps({
   employee: Object,
@@ -200,6 +228,8 @@ const props = defineProps({
 });
 
 const errors = ref({});
+const faceProcessing = ref(false);
+const faceError = ref('');
 const normalizedUsers = computed(() => (props.availableUsers || []).map((user) => ({
   ...user,
   display_name: `${user.first_name || user.name || ''} ${user.last_name || ''}`.trim() + ` (${user.email || '-'})`,
@@ -220,6 +250,7 @@ const normalizedPositions = computed(() => (props.positions || []).map((position
 
 const employeeData = props.employee;
 const isOffice = ref((employeeData.work_group || '') === 'office');
+const facePreview = ref(employeeData.face_reference_photo_url || '');
 
 function formatDateForInput(date) {
   if (!date) return '';
@@ -244,7 +275,10 @@ const form = reactive({
   gender: employeeData.gender || '',
   religion: employeeData.religion || '',
   marital_status: employeeData.marital_status || '',
-  education: employeeData.education || ''
+  education: employeeData.education || '',
+  face_reference_photo_data: '',
+  face_reference_descriptor: [],
+  remove_face_reference: false,
 });
 
 watch(() => form.user_id, (value) => {
@@ -268,6 +302,44 @@ const filteredPositions = computed(() => {
   if (!form.department_id) return normalizedPositions.value;
   return normalizedPositions.value.filter((position) => String(position?.department_id || '') === String(form.department_id));
 });
+
+watch(() => form.remove_face_reference, (value) => {
+  if (value) {
+    facePreview.value = '';
+    form.face_reference_photo_data = '';
+    form.face_reference_descriptor = [];
+    faceError.value = '';
+  } else if (!facePreview.value && employeeData.face_reference_photo_url) {
+    facePreview.value = employeeData.face_reference_photo_url;
+  }
+});
+
+async function handleFaceReferenceChange(event) {
+  const file = event.target.files?.[0];
+  faceError.value = '';
+
+  if (!file) {
+    return;
+  }
+
+  faceProcessing.value = true;
+
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    const descriptor = await extractFaceDescriptorFromImage(dataUrl);
+    facePreview.value = dataUrl;
+    form.face_reference_photo_data = dataUrl;
+    form.face_reference_descriptor = descriptor;
+    form.remove_face_reference = false;
+  } catch (error) {
+    form.face_reference_photo_data = '';
+    form.face_reference_descriptor = [];
+    faceError.value = error?.message || 'Foto referensi wajah gagal diproses.';
+  } finally {
+    faceProcessing.value = false;
+    event.target.value = '';
+  }
+}
 
 function submit() {
   errors.value = {};
