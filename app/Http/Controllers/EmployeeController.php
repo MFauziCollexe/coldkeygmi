@@ -93,13 +93,17 @@ class EmployeeController extends Controller
      */
     public function store(Request $request)
     {
+        $this->normalizeFaceReferenceDescriptor($request);
+
         // Ensure optional select inputs don't fail `exists` validation when sent as empty strings.
         $request->merge([
             'user_id' => $request->input('user_id') ?: null,
             'department_id' => $request->input('department_id') ?: null,
             'position_id' => $request->input('position_id') ?: null,
             'face_reference_photo_data' => $request->input('face_reference_photo_data') ?: null,
-            'face_reference_descriptor' => $request->input('face_reference_photo_data') ? $request->input('face_reference_descriptor') : null,
+            'face_reference_descriptor' => ($request->hasFile('face_reference_photo') || $request->filled('face_reference_photo_data'))
+                ? $request->input('face_reference_descriptor')
+                : null,
         ]);
 
         $validated = $request->validate([
@@ -117,20 +121,27 @@ class EmployeeController extends Controller
             'religion' => 'nullable|string|max:255',
             'marital_status' => 'nullable|string|max:255',
             'education' => 'nullable|string|max:255',
+            'face_reference_photo' => 'nullable|image|max:5120',
             'face_reference_photo_data' => 'nullable|string',
-            'face_reference_descriptor' => 'nullable|required_with:face_reference_photo_data|array|size:128',
+            'face_reference_descriptor' => 'nullable|required_with:face_reference_photo,face_reference_photo_data|array|size:128',
             'face_reference_descriptor.*' => 'numeric',
         ]);
 
-        if (!empty($validated['face_reference_photo_data'])) {
-            $validated['face_reference_photo_path'] = $this->storeFaceReferencePhoto(
+        if ($request->hasFile('face_reference_photo')) {
+            $validated['face_reference_photo_path'] = $this->storeFaceReferenceUpload(
+                $request->file('face_reference_photo'),
+                $validated['nik'] ?? $validated['user_id'] ?? Str::random(8),
+            );
+            $validated['face_reference_descriptor'] = json_encode($validated['face_reference_descriptor'] ?? []);
+        } elseif (!empty($validated['face_reference_photo_data'])) {
+            $validated['face_reference_photo_path'] = $this->storeFaceReferenceData(
                 $validated['face_reference_photo_data'],
                 $validated['nik'] ?? $validated['user_id'] ?? Str::random(8),
             );
             $validated['face_reference_descriptor'] = json_encode($validated['face_reference_descriptor'] ?? []);
         }
 
-        unset($validated['face_reference_photo_data']);
+        unset($validated['face_reference_photo'], $validated['face_reference_photo_data']);
 
         // Create employee record
         Employee::create($validated);
@@ -188,13 +199,17 @@ class EmployeeController extends Controller
      */
     public function update(Request $request, Employee $employee)
     {
+        $this->normalizeFaceReferenceDescriptor($request);
+
         // Ensure optional select inputs don't fail `exists` validation when sent as empty strings.
         $request->merge([
             'user_id' => $request->input('user_id') ?: null,
             'department_id' => $request->input('department_id') ?: null,
             'position_id' => $request->input('position_id') ?: null,
             'face_reference_photo_data' => $request->input('face_reference_photo_data') ?: null,
-            'face_reference_descriptor' => $request->input('face_reference_photo_data') ? $request->input('face_reference_descriptor') : null,
+            'face_reference_descriptor' => ($request->hasFile('face_reference_photo') || $request->filled('face_reference_photo_data'))
+                ? $request->input('face_reference_descriptor')
+                : null,
         ]);
 
         $validator = Validator::make($request->all(), [
@@ -212,8 +227,9 @@ class EmployeeController extends Controller
             'religion' => 'nullable|string|max:255',
             'marital_status' => 'nullable|string|max:255',
             'education' => 'nullable|string|max:255',
+            'face_reference_photo' => 'nullable|image|max:5120',
             'face_reference_photo_data' => 'nullable|string',
-            'face_reference_descriptor' => 'nullable|required_with:face_reference_photo_data|array|size:128',
+            'face_reference_descriptor' => 'nullable|required_with:face_reference_photo,face_reference_photo_data|array|size:128',
             'face_reference_descriptor.*' => 'numeric',
             'remove_face_reference' => 'nullable|boolean',
         ]);
@@ -229,8 +245,15 @@ class EmployeeController extends Controller
             $this->deleteFaceReferencePhoto($employee->face_reference_photo_path);
             $validated['face_reference_photo_path'] = null;
             $validated['face_reference_descriptor'] = null;
+        } elseif ($request->hasFile('face_reference_photo')) {
+            $validated['face_reference_photo_path'] = $this->storeFaceReferenceUpload(
+                $request->file('face_reference_photo'),
+                $validated['nik'] ?? $employee->nik ?? $employee->user_id ?? Str::random(8),
+                $employee->face_reference_photo_path,
+            );
+            $validated['face_reference_descriptor'] = json_encode($validated['face_reference_descriptor'] ?? []);
         } elseif (!empty($validated['face_reference_photo_data'])) {
-            $validated['face_reference_photo_path'] = $this->storeFaceReferencePhoto(
+            $validated['face_reference_photo_path'] = $this->storeFaceReferenceData(
                 $validated['face_reference_photo_data'],
                 $validated['nik'] ?? $employee->nik ?? $employee->user_id ?? Str::random(8),
                 $employee->face_reference_photo_path,
@@ -238,7 +261,7 @@ class EmployeeController extends Controller
             $validated['face_reference_descriptor'] = json_encode($validated['face_reference_descriptor'] ?? []);
         }
 
-        unset($validated['face_reference_photo_data'], $validated['remove_face_reference']);
+        unset($validated['face_reference_photo'], $validated['face_reference_photo_data'], $validated['remove_face_reference']);
 
         $targetUserId = (int) (($validated['user_id'] ?? null) ?: $employee->user_id);
 
@@ -313,7 +336,21 @@ class EmployeeController extends Controller
             ]);
     }
 
-    private function storeFaceReferencePhoto(string $photoData, mixed $identifier, ?string $existingPath = null): string
+    private function normalizeFaceReferenceDescriptor(Request $request): void
+    {
+        $descriptor = $request->input('face_reference_descriptor');
+
+        if (is_string($descriptor) && trim($descriptor) !== '') {
+            $decoded = json_decode($descriptor, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $request->merge([
+                    'face_reference_descriptor' => $decoded,
+                ]);
+            }
+        }
+    }
+
+    private function storeFaceReferenceData(string $photoData, mixed $identifier, ?string $existingPath = null): string
     {
         if (!preg_match('/^data:image\/(?P<extension>jpeg|jpg|png);base64,(?P<data>.+)$/i', $photoData, $matches)) {
             abort(422, 'Format foto referensi wajah tidak valid.');
@@ -335,6 +372,27 @@ class EmployeeController extends Controller
         }
 
         Storage::disk('public')->put($path, $binary);
+
+        return $path;
+    }
+
+    private function storeFaceReferenceUpload(\Illuminate\Http\UploadedFile $file, mixed $identifier, ?string $existingPath = null): string
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
+        $extension = in_array($extension, ['jpg', 'jpeg', 'png'], true)
+            ? ($extension === 'jpeg' ? 'jpg' : $extension)
+            : 'jpg';
+
+        $safeIdentifier = Str::slug((string) $identifier ?: 'employee');
+        $directory = 'employee-face-references';
+        $filename = $safeIdentifier . '-' . now()->format('YmdHis') . '-' . Str::random(8) . '.' . $extension;
+        $path = $directory . '/' . $filename;
+
+        if ($existingPath && Storage::disk('public')->exists($existingPath)) {
+            Storage::disk('public')->delete($existingPath);
+        }
+
+        Storage::disk('public')->putFileAs($directory, $file, $filename);
 
         return $path;
     }

@@ -230,6 +230,7 @@ const props = defineProps({
 const errors = ref({});
 const faceProcessing = ref(false);
 const faceError = ref('');
+const faceReferenceFile = ref(null);
 const normalizedUsers = computed(() => (props.availableUsers || []).map((user) => ({
   ...user,
   display_name: `${user.first_name || user.name || ''} ${user.last_name || ''}`.trim() + ` (${user.email || '-'})`,
@@ -276,7 +277,6 @@ const form = reactive({
   religion: employeeData.religion || '',
   marital_status: employeeData.marital_status || '',
   education: employeeData.education || '',
-  face_reference_photo_data: '',
   face_reference_descriptor: [],
   remove_face_reference: false,
 });
@@ -306,7 +306,7 @@ const filteredPositions = computed(() => {
 watch(() => form.remove_face_reference, (value) => {
   if (value) {
     facePreview.value = '';
-    form.face_reference_photo_data = '';
+    faceReferenceFile.value = null;
     form.face_reference_descriptor = [];
     faceError.value = '';
   } else if (!facePreview.value && employeeData.face_reference_photo_url) {
@@ -328,11 +328,11 @@ async function handleFaceReferenceChange(event) {
     const dataUrl = await fileToDataUrl(file);
     const descriptor = await extractFaceDescriptorFromImage(dataUrl);
     facePreview.value = dataUrl;
-    form.face_reference_photo_data = dataUrl;
+    faceReferenceFile.value = file;
     form.face_reference_descriptor = descriptor;
     form.remove_face_reference = false;
   } catch (error) {
-    form.face_reference_photo_data = '';
+    faceReferenceFile.value = null;
     form.face_reference_descriptor = [];
     faceError.value = error?.message || 'Foto referensi wajah gagal diproses.';
   } finally {
@@ -344,8 +344,16 @@ async function handleFaceReferenceChange(event) {
 function submit() {
   errors.value = {};
   form.work_group = isOffice.value ? 'office' : 'operational';
-  
-  router.put(`/master-data/employee/${props.employee.id}`, form, {
+
+  router.post(`/master-data/employee/${props.employee.id}`, {
+    ...form,
+    _method: 'put',
+    face_reference_photo: faceReferenceFile.value,
+    face_reference_descriptor: form.face_reference_descriptor.length
+      ? JSON.stringify(form.face_reference_descriptor)
+      : '',
+  }, {
+    forceFormData: true,
     onError: (formErrors) => {
       errors.value = formErrors || {};
     }

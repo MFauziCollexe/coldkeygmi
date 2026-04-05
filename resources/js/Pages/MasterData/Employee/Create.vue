@@ -225,6 +225,7 @@ const isOffice = ref(false);
 const faceProcessing = ref(false);
 const faceError = ref('');
 const facePreview = ref('');
+const faceReferenceFile = ref(null);
 const normalizedUsers = computed(() => (props.availableUsers || []).map((user) => ({
   ...user,
   display_name: `${user.first_name || user.name || ''} ${user.last_name || ''}`.trim() + ` (${user.email || '-'})`,
@@ -258,7 +259,6 @@ const form = reactive({
   religion: '',
   marital_status: '',
   education: '',
-  face_reference_photo_data: '',
   face_reference_descriptor: [],
 });
 
@@ -298,11 +298,11 @@ async function handleFaceReferenceChange(event) {
     const dataUrl = await fileToDataUrl(file);
     const descriptor = await extractFaceDescriptorFromImage(dataUrl);
     facePreview.value = dataUrl;
-    form.face_reference_photo_data = dataUrl;
+    faceReferenceFile.value = file;
     form.face_reference_descriptor = descriptor;
   } catch (error) {
     facePreview.value = '';
-    form.face_reference_photo_data = '';
+    faceReferenceFile.value = null;
     form.face_reference_descriptor = [];
     faceError.value = error?.message || 'Foto referensi wajah gagal diproses.';
   } finally {
@@ -314,8 +314,15 @@ async function handleFaceReferenceChange(event) {
 function submit() {
   errors.value = {};
   form.work_group = isOffice.value ? 'office' : 'operational';
-  
-  router.post('/master-data/employee', form, {
+
+  router.post('/master-data/employee', {
+    ...form,
+    face_reference_photo: faceReferenceFile.value,
+    face_reference_descriptor: form.face_reference_descriptor.length
+      ? JSON.stringify(form.face_reference_descriptor)
+      : '',
+  }, {
+    forceFormData: true,
     onError: (formErrors) => {
       errors.value = formErrors || {};
     }
