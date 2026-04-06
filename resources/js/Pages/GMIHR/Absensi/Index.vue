@@ -242,6 +242,7 @@ const props = defineProps({
   areas: { type: Array, default: () => [] },
   canSubmitAttendance: { type: Boolean, default: true },
   hasFaceReference: { type: Boolean, default: false },
+  faceReferencePhotoUrl: { type: String, default: null },
   faceReferenceDescriptor: { type: Array, default: () => [] },
   faceMatchMaxDistance: { type: Number, default: FACE_MATCH_MAX_DISTANCE },
 });
@@ -268,6 +269,7 @@ const faceMatchDistance = ref(null);
 const faceMatchPassed = ref(false);
 const livenessStatus = ref('Posisikan wajah Anda ke kamera.');
 const livenessVerified = ref(false);
+const referenceFaceDescriptor = ref(Array.isArray(props.faceReferenceDescriptor) ? props.faceReferenceDescriptor : []);
 
 let cameraStream = null;
 let livenessInterval = null;
@@ -399,6 +401,8 @@ const faceScoreClass = computed(() => {
 
   return 'bg-rose-950/50 text-rose-300';
 });
+
+const hasUsableReferenceDescriptor = computed(() => Array.isArray(referenceFaceDescriptor.value) && referenceFaceDescriptor.value.length === 128);
 
 function distanceInMeters(lat1, lon1, lat2, lon2) {
   const earthRadius = 6371000;
@@ -628,6 +632,19 @@ async function openAttendanceCamera() {
   }
 
   await ensureFaceRecognitionModelsLoaded();
+  if (!hasUsableReferenceDescriptor.value && props.faceReferencePhotoUrl) {
+    try {
+      referenceFaceDescriptor.value = await extractFaceDescriptorFromImage(props.faceReferencePhotoUrl);
+    } catch (error) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Referensi Wajah Belum Siap',
+        text: error?.message || 'Foto referensi wajah tidak bisa diproses. Silakan buka Employee lalu klik Update lagi.',
+      });
+      return;
+    }
+  }
+
   cameraError.value = '';
   cameraLoading.value = true;
   capturedPhotoData.value = '';
@@ -698,7 +715,7 @@ async function captureAttendancePhoto() {
 
   try {
     const descriptor = await extractFaceDescriptorFromImage(preview);
-    const distance = computeDescriptorDistance(props.faceReferenceDescriptor, descriptor);
+    const distance = computeDescriptorDistance(referenceFaceDescriptor.value, descriptor);
     const score = computeMatchScore(distance, props.faceMatchMaxDistance);
 
     capturedPhotoData.value = preview;
@@ -823,6 +840,7 @@ async function submitAttendance() {
       check_out_reason: checkOutReason,
       photo_data: capturedPhotoData.value,
       face_descriptor: liveFaceDescriptor.value,
+      reference_descriptor: hasUsableReferenceDescriptor.value ? referenceFaceDescriptor.value : [],
     },
     {
       preserveScroll: true,

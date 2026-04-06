@@ -49,7 +49,10 @@ class AbsensiController extends Controller
             'shift' => $shift,
             'areas' => $areas,
             'canSubmitAttendance' => true,
-            'hasFaceReference' => !empty($employee?->face_reference_descriptor) && !empty($employee?->face_reference_photo_path),
+            'hasFaceReference' => !empty($employee?->face_reference_photo_path),
+            'faceReferencePhotoUrl' => !empty($employee?->face_reference_photo_path)
+                ? route('employees.face-reference-photo', $employee)
+                : null,
             'faceReferenceDescriptor' => !empty($employee?->face_reference_descriptor)
                 ? json_decode((string) $employee->face_reference_descriptor, true)
                 : null,
@@ -67,6 +70,8 @@ class AbsensiController extends Controller
             'photo_data' => ['required', 'string'],
             'face_descriptor' => ['required', 'array', 'size:128'],
             'face_descriptor.*' => ['numeric'],
+            'reference_descriptor' => ['nullable', 'array', 'size:128'],
+            'reference_descriptor.*' => ['numeric'],
         ]);
 
         /** @var User $user */
@@ -75,7 +80,11 @@ class AbsensiController extends Controller
         $employee = $user->employee;
         $shift = $this->resolveShift($user, $employee, $today);
 
-        $faceMatch = $this->evaluateEmployeeFace($employee, $validated['face_descriptor']);
+        $faceMatch = $this->evaluateEmployeeFace(
+            $employee,
+            $validated['face_descriptor'],
+            $validated['reference_descriptor'] ?? null,
+        );
         if (!$faceMatch['matched']) {
             return back()->with('message', [
                 'type' => 'error',
@@ -378,9 +387,9 @@ class AbsensiController extends Controller
         return $checkOutAt->lt($scheduledEnd);
     }
 
-    private function evaluateEmployeeFace(?Employee $employee, array $descriptor): array
+    private function evaluateEmployeeFace(?Employee $employee, array $descriptor, ?array $fallbackReferenceDescriptor = null): array
     {
-        if (!$employee || empty($employee->face_reference_descriptor)) {
+        if (!$employee) {
             return [
                 'matched' => false,
                 'distance' => null,
@@ -389,6 +398,13 @@ class AbsensiController extends Controller
         }
 
         $reference = json_decode((string) $employee->face_reference_descriptor, true);
+        if ((!is_array($reference) || count($reference) !== 128)
+            && is_array($fallbackReferenceDescriptor)
+            && count($fallbackReferenceDescriptor) === 128
+            && !empty($employee->face_reference_photo_path)) {
+            $reference = $fallbackReferenceDescriptor;
+        }
+
         if (!is_array($reference) || count($reference) !== 128 || count($descriptor) !== 128) {
             return [
                 'matched' => false,
