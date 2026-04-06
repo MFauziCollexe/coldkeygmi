@@ -62,6 +62,13 @@
           {{ buttonLabel }}
         </button>
 
+        <div
+          v-if="buttonDisabledReason"
+          class="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700"
+        >
+          {{ buttonDisabledReason }}
+        </div>
+
         <div class="mt-8 border-t border-slate-300 pt-5 text-base text-slate-600 md:text-lg">
           <div
             v-if="showLocationPermissionNotice"
@@ -305,6 +312,36 @@ const buttonDisabled = computed(() => {
   if (!props.areas.length) return true;
   if (!geolocationReady.value) return true;
   return !matchedArea.value;
+});
+
+const buttonDisabledReason = computed(() => {
+  if (!props.canSubmitAttendance) {
+    return 'Absensi sedang tidak tersedia.';
+  }
+
+  if (!props.hasFaceReference) {
+    return 'Foto referensi wajah employee belum siap.';
+  }
+
+  if (props.attendance?.check_out_at) {
+    return 'Absensi hari ini sudah lengkap.';
+  }
+
+  if (!props.areas.length) {
+    return 'Area absensi belum diatur.';
+  }
+
+  if (!geolocationReady.value) {
+    return geolocationDenied.value
+      ? 'Akses lokasi masih diblokir atau belum diberikan.'
+      : 'Lokasi Anda masih sedang dicek.';
+  }
+
+  if (!matchedArea.value) {
+    return 'Lokasi Anda masih di luar area absensi yang diizinkan.';
+  }
+
+  return null;
 });
 
 const cameraTitle = computed(() => (isCheckOutMode.value ? 'Face Absen Pulang' : 'Face Absen Masuk'));
