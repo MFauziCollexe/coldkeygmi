@@ -141,39 +141,40 @@
           Belum ada file backup database.
         </div>
 
-        <div v-else class="space-y-3 lg:hidden">
-          <div v-for="item in backups" :key="item.name" class="rounded-lg border border-slate-700 bg-slate-900/40 p-4">
-            <div class="break-all text-sm font-semibold text-slate-100">{{ item.name }}</div>
-            <div class="mt-3 space-y-2 text-sm">
-              <div class="flex justify-between gap-4">
-                <span class="text-slate-400">Ukuran</span>
-                <span class="text-right text-slate-200">{{ item.size_human }}</span>
+        <div v-else>
+          <div class="space-y-3 lg:hidden">
+            <div v-for="item in backups" :key="item.name" class="rounded-lg border border-slate-700 bg-slate-900/40 p-4">
+              <div class="break-all text-sm font-semibold text-slate-100">{{ item.name }}</div>
+              <div class="mt-3 space-y-2 text-sm">
+                <div class="flex justify-between gap-4">
+                  <span class="text-slate-400">Ukuran</span>
+                  <span class="text-right text-slate-200">{{ item.size_human }}</span>
+                </div>
+                <div class="flex justify-between gap-4">
+                  <span class="text-slate-400">Diubah</span>
+                  <span class="text-right text-slate-200">{{ formatDate(item.modified_at) }}</span>
+                </div>
               </div>
-              <div class="flex justify-between gap-4">
-                <span class="text-slate-400">Diubah</span>
-                <span class="text-right text-slate-200">{{ formatDate(item.modified_at) }}</span>
+              <div class="mt-4 flex gap-2">
+                <a
+                  :href="`/control-panel/database-backup/${encodeURIComponent(item.name)}/download`"
+                  class="flex-1 rounded bg-emerald-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-emerald-500"
+                >
+                  Download
+                </a>
+                <button
+                  type="button"
+                  class="flex-1 rounded bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"
+                  @click="deleteBackup(item)"
+                >
+                  Hapus
+                </button>
               </div>
-            </div>
-            <div class="mt-4 flex gap-2">
-              <a
-                :href="`/control-panel/database-backup/${encodeURIComponent(item.name)}/download`"
-                class="flex-1 rounded bg-emerald-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-emerald-500"
-              >
-                Download
-              </a>
-              <button
-                type="button"
-                class="flex-1 rounded bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"
-                @click="deleteBackup(item)"
-              >
-                Hapus
-              </button>
             </div>
           </div>
-        </div>
 
-        <div v-else class="hidden lg:block overflow-x-auto">
-          <table class="min-w-full table-auto">
+          <div class="hidden lg:block overflow-x-auto">
+            <table class="min-w-full table-auto">
             <thead>
               <tr class="border-b border-slate-700 text-left text-sm text-slate-400">
                 <th class="py-3 pr-3">File</th>
@@ -208,7 +209,8 @@
                 </td>
               </tr>
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       </div>
     </div>
