@@ -32,6 +32,91 @@ export function fileToDataUrl(file) {
   });
 }
 
+function dataUrlToImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Foto gagal dibuka untuk kompresi.'));
+    image.src = dataUrl;
+  });
+}
+
+function blobToFile(blob, originalName = 'face-reference.jpg') {
+  const fallbackName = String(originalName || 'face-reference.jpg')
+    .replace(/\.[^.]+$/, '')
+    .concat('.jpg');
+
+  return new File([blob], fallbackName, {
+    type: 'image/jpeg',
+    lastModified: Date.now(),
+  });
+}
+
+function canvasToBlob(canvas, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('Foto gagal dikompresi.'));
+        return;
+      }
+
+      resolve(blob);
+    }, 'image/jpeg', quality);
+  });
+}
+
+export async function compressFaceReferenceFile(file, options = {}) {
+  const {
+    maxDimension = 1280,
+    maxBytes = 900 * 1024,
+    initialQuality = 0.9,
+    minimumQuality = 0.55,
+  } = options;
+
+  const sourceDataUrl = await fileToDataUrl(file);
+  const image = await dataUrlToImage(sourceDataUrl);
+
+  const width = Number(image.naturalWidth || image.width || 0);
+  const height = Number(image.naturalHeight || image.height || 0);
+
+  if (!width || !height) {
+    throw new Error('Ukuran foto tidak valid.');
+  }
+
+  const scale = Math.min(1, maxDimension / Math.max(width, height));
+  const targetWidth = Math.max(1, Math.round(width * scale));
+  const targetHeight = Math.max(1, Math.round(height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Canvas browser tidak tersedia untuk memproses foto.');
+  }
+
+  context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+  let quality = initialQuality;
+  let blob = await canvasToBlob(canvas, quality);
+
+  while (blob.size > maxBytes && quality > minimumQuality) {
+    quality = Math.max(minimumQuality, quality - 0.1);
+    blob = await canvasToBlob(canvas, quality);
+  }
+
+  const compressedFile = blobToFile(blob, file.name);
+  const dataUrl = await fileToDataUrl(compressedFile);
+
+  return {
+    file: compressedFile,
+    dataUrl,
+    originalSize: file.size,
+    compressedSize: compressedFile.size,
+  };
+}
+
 export async function extractFaceDescriptorFromImage(imageSource) {
   await ensureFaceRecognitionModelsLoaded();
 

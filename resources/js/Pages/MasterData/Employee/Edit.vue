@@ -218,7 +218,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
-import { extractFaceDescriptorFromImage, fileToDataUrl } from '@/Utils/faceRecognition';
+import { compressFaceReferenceFile, extractFaceDescriptorFromImage } from '@/Utils/faceRecognition';
 
 const props = defineProps({
   employee: Object,
@@ -325,10 +325,11 @@ async function handleFaceReferenceChange(event) {
   faceProcessing.value = true;
 
   try {
-    const dataUrl = await fileToDataUrl(file);
+    const compressed = await compressFaceReferenceFile(file);
+    const dataUrl = compressed.dataUrl;
     const descriptor = await extractFaceDescriptorFromImage(dataUrl);
     facePreview.value = dataUrl;
-    faceReferenceFile.value = file;
+    faceReferenceFile.value = compressed.file;
     form.face_reference_descriptor = descriptor;
     form.remove_face_reference = false;
   } catch (error) {
