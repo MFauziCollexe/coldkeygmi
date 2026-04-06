@@ -434,8 +434,21 @@ class OvertimeController extends Controller
             'employee_ids' => 'nullable|array',
             'employee_ids.*' => 'integer|exists:employees,id',
             'overtime_date' => 'required|date',
-            'start_time' => 'required',
-            'end_time' => 'required|after:start_time',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => [
+                'required',
+                'date_format:H:i',
+                function ($attribute, $value, $fail) use ($request) {
+                    $startTime = (string) $request->input('start_time', '');
+                    if ($startTime === '' || $value === '') {
+                        return;
+                    }
+
+                    if ($startTime === $value) {
+                        $fail('Jam selesai harus berbeda dari jam mulai.');
+                    }
+                },
+            ],
             'reason' => 'required|string|min:5',
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ]);

@@ -121,10 +121,10 @@
 
     <div
       v-if="cameraModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-3 sm:items-center sm:p-4"
       @click.self="closeCameraModal"
     >
-      <div class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
+      <div class="flex max-h-[calc(100svh-0.75rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 p-3 shadow-2xl sm:max-h-[92vh] sm:p-4">
         <div class="mb-4 flex items-center justify-between gap-4">
           <div>
             <h3 class="text-lg font-semibold text-white">{{ cameraTitle }}</h3>
@@ -148,49 +148,52 @@
           <div class="mt-1">{{ livenessStatus }}</div>
         </div>
 
-        <div v-if="cameraLoading" class="mb-3 text-sm text-slate-400">
-          Menyiapkan kamera...
-        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div v-if="cameraLoading" class="mb-3 text-sm text-slate-400">
+            Menyiapkan kamera...
+          </div>
 
-        <div class="overflow-hidden rounded-xl border border-slate-700 bg-black">
+          <div class="overflow-hidden rounded-xl border border-slate-700 bg-black">
           <video
             v-if="!capturedPhotoData"
             ref="cameraVideoRef"
             autoplay
             playsinline
             muted
-            class="min-h-[320px] w-full bg-black object-cover"
+            class="h-[210px] w-full bg-black object-cover sm:h-[320px]"
           ></video>
           <img
             v-else
             :src="capturedPhotoData"
             alt="Preview selfie absensi"
-            class="min-h-[320px] w-full bg-black object-cover"
+            class="h-[210px] w-full bg-black object-cover sm:h-[320px]"
           />
+          </div>
+
+          <div v-if="capturedPhotoData" class="mt-4 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-3 text-sm">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-slate-300">Skor Kecocokan Wajah</span>
+              <span
+                class="rounded-full px-3 py-1 font-semibold"
+                :class="faceScoreClass"
+              >
+                {{ faceMatchScore != null ? `${faceMatchScore}%` : '-' }}
+              </span>
+            </div>
+            <div v-if="faceMatchDistance != null" class="mt-2 text-xs text-slate-400">
+              Distance: {{ faceMatchDistance.toFixed(4) }} / Max {{ Number(props.faceMatchMaxDistance || 0.5).toFixed(2) }}
+            </div>
+            <div class="mt-2 text-xs" :class="faceMatchPassed ? 'text-emerald-400' : 'text-rose-400'">
+              {{ faceMatchPassed ? 'Wajah cocok dengan referensi employee.' : 'Wajah belum cukup cocok dengan referensi employee.' }}
+            </div>
+          </div>
         </div>
 
-        <div v-if="capturedPhotoData" class="mt-4 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-3 text-sm">
-          <div class="flex items-center justify-between gap-3">
-            <span class="text-slate-300">Skor Kecocokan Wajah</span>
-            <span
-              class="rounded-full px-3 py-1 font-semibold"
-              :class="faceScoreClass"
-            >
-              {{ faceMatchScore != null ? `${faceMatchScore}%` : '-' }}
-            </span>
-          </div>
-          <div v-if="faceMatchDistance != null" class="mt-2 text-xs text-slate-400">
-            Distance: {{ faceMatchDistance.toFixed(4) }} / Max {{ Number(props.faceMatchMaxDistance || 0.5).toFixed(2) }}
-          </div>
-          <div class="mt-2 text-xs" :class="faceMatchPassed ? 'text-emerald-400' : 'text-rose-400'">
-            {{ faceMatchPassed ? 'Wajah cocok dengan referensi employee.' : 'Wajah belum cukup cocok dengan referensi employee.' }}
-          </div>
-        </div>
-
-        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+        <div class="-mx-3 mt-3 shrink-0 border-t border-slate-700 bg-slate-900 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] sm:-mx-4 sm:mt-4 sm:px-4 sm:pt-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
-            class="rounded bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600"
+            class="w-full rounded bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600 sm:w-auto"
             @click="closeCameraModal"
           >
             Batal
@@ -198,7 +201,7 @@
           <button
             v-if="capturedPhotoData"
             type="button"
-            class="rounded bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+            class="w-full rounded bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 sm:w-auto"
             @click="retakePhoto"
           >
             Ulangi Foto
@@ -207,7 +210,7 @@
             v-if="!capturedPhotoData"
             type="button"
             :disabled="cameraLoading || !livenessVerified"
-            class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-600"
+            class="w-full rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-600 sm:w-auto"
             @click="captureAttendancePhoto"
           >
             {{ livenessVerified ? 'Ambil Selfie' : 'Kedipkan Mata Dulu' }}
@@ -216,11 +219,12 @@
             v-else
             type="button"
             :disabled="!faceMatchPassed"
-            class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600"
+            class="w-full rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600 sm:w-auto"
             @click="submitAttendance"
           >
             Gunakan Foto Ini
           </button>
+        </div>
         </div>
       </div>
     </div>
