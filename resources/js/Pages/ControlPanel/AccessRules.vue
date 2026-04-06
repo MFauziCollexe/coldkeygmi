@@ -1,13 +1,13 @@
 <template>
   <AppLayout>
-    <div class="p-6">
+    <div class="p-4 sm:p-6">
       <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 class="text-2xl font-bold">Access Rules</h2>
           <p class="text-sm text-slate-400">Kelola override rule akses tanpa edit JSON manual.</p>
         </div>
 
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <button type="button" class="rounded bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600" @click="resetDraft">Reset Draft</button>
           <button type="button" class="rounded bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500" @click="resetOverrides">Reset Override</button>
           <button type="button" class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500" @click="saveRules">Simpan Override</button>

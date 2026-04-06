@@ -1,16 +1,26 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-2xl font-bold">Users</h2>
-        <div class="flex items-center gap-2">
-          <input v-model="filters.search" @input="onSearchInput" placeholder="Search users..." class="px-3 py-2 rounded bg-slate-800 text-sm" />
-          <select v-model="filters.status" @change="fetch" class="px-3 py-2 rounded bg-slate-800 text-sm">
+    <div class="p-4 sm:p-6">
+      <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 class="text-2xl font-bold">Users</h2>
+          <p class="mt-1 text-sm text-slate-400 sm:hidden">
+            Kelola akun user dari Control Panel.
+          </p>
+        </div>
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <input
+            v-model="filters.search"
+            @input="onSearchInput"
+            placeholder="Search users..."
+            class="w-full rounded bg-slate-800 px-3 py-2 text-sm sm:w-56"
+          />
+          <select v-model="filters.status" @change="fetch" class="w-full rounded bg-slate-800 px-3 py-2 text-sm sm:w-40">
             <option value="">All Status</option>
             <option value="active">Active</option>
             <option value="deactivated">Deactivated</option>
           </select>
-          <div class="w-48">
+          <div class="w-full sm:w-48">
             <SearchableSelect
               v-model="filters.department_id"
               :options="departments"
@@ -22,7 +32,9 @@
               @update:modelValue="fetch"
             />
           </div>
-          <Link href="/control-panel/user/create" class="bg-indigo-600 px-4 py-2 rounded text-white">Add User</Link>
+          <Link href="/control-panel/user/create" class="inline-flex items-center justify-center rounded bg-indigo-600 px-4 py-2 text-white">
+            Add User
+          </Link>
         </div>
       </div>
 
@@ -34,7 +46,69 @@
         {{ $page.props.errors.error }}
       </div>
 
-      <div class="bg-slate-800 rounded p-4">
+      <div class="rounded bg-slate-800 p-4">
+        <div class="space-y-3 lg:hidden">
+          <div
+            v-for="(user, index) in users.data"
+            :key="user.id"
+            class="rounded-lg border border-slate-700 bg-slate-900/40 p-4"
+          >
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs text-slate-400">
+                  #{{ (users.current_page - 1) * users.per_page + index + 1 }}
+                </div>
+                <div class="text-base font-semibold text-slate-100">{{ user.account }}</div>
+                <div class="mt-1 break-all text-sm text-slate-300">{{ user.email }}</div>
+              </div>
+              <div class="shrink-0 rounded-full px-2 py-1 text-xs font-semibold" :class="user.status === 'active' ? 'bg-green-600/15 text-green-400' : 'bg-red-600/15 text-red-400'">
+                {{ user.status }}
+              </div>
+            </div>
+
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-400">Department</span>
+                <span class="text-right text-slate-200">{{ user.department?.name || '-' }}</span>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-400">Position</span>
+                <span class="text-right text-slate-200">{{ user.position?.name || '-' }}</span>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-400">Admin</span>
+                <span :class="user.is_admin ? 'text-yellow-400' : 'text-slate-300'">
+                  {{ user.is_admin ? 'Yes' : 'No' }}
+                </span>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-400">Created</span>
+                <span class="text-right text-slate-200">{{ formatDate(user.created_date) }}</span>
+              </div>
+            </div>
+
+            <div class="mt-4 flex gap-2">
+              <Link
+                :href="`/control-panel/user/${user.id}/edit`"
+                class="flex-1 rounded bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-indigo-500"
+              >
+                Edit
+              </Link>
+              <button
+                @click="deleteUser(user)"
+                class="flex-1 rounded bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-500"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+
+          <div v-if="users.data.length === 0" class="rounded-lg border border-dashed border-slate-700 px-4 py-8 text-center text-slate-400">
+            No users found.
+          </div>
+        </div>
+
+        <div class="hidden lg:block overflow-x-auto">
         <table class="w-full table-auto">
           <thead>
             <tr class="text-left text-slate-400">
@@ -77,6 +151,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
 
         <div class="mt-4">
           <Pagination :paginator="users" :onPageChange="goToPage" />

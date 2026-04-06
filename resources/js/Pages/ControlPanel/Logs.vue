@@ -1,9 +1,12 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-2xl font-bold">Activity Logs</h2>
-        <div class="flex items-center gap-2">
+    <div class="p-4 sm:p-6">
+      <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 class="text-2xl font-bold">Activity Logs</h2>
+          <p class="mt-1 text-sm text-slate-400 sm:hidden">Pantau aktivitas penting sistem dari Control Panel.</p>
+        </div>
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <button
             type="button"
             class="px-3 py-2 rounded bg-rose-600 text-sm font-semibold text-white hover:bg-rose-500"
@@ -11,8 +14,8 @@
           >
             Hapus Semua Log
           </button>
-          <input v-model="filters.search" @input="onSearchInput" placeholder="Search logs..." class="px-3 py-2 rounded bg-slate-800 text-sm" />
-          <div class="w-44">
+          <input v-model="filters.search" @input="onSearchInput" placeholder="Search logs..." class="w-full px-3 py-2 rounded bg-slate-800 text-sm sm:w-48" />
+          <div class="w-full sm:w-44">
             <SearchableSelect
               v-model="filters.table_name"
               :options="tableNames"
@@ -22,7 +25,7 @@
               @update:modelValue="fetch"
             />
           </div>
-          <div class="w-44">
+          <div class="w-full sm:w-44">
             <SearchableSelect
               v-model="filters.action"
               :options="actions"
@@ -32,7 +35,7 @@
               @update:modelValue="fetch"
             />
           </div>
-          <div class="w-52">
+          <div class="w-full sm:w-52">
             <SearchableSelect
               v-model="filters.user_id"
               :options="users"
@@ -48,6 +51,39 @@
       </div>
 
       <div class="bg-slate-800 rounded p-4">
+        <div class="space-y-3 lg:hidden">
+          <div v-for="log in logs.data" :key="log.id" class="rounded-lg border border-slate-700 bg-slate-900/40 p-4">
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs text-slate-400">#{{ log.id }}</div>
+                <div class="mt-1 text-sm font-semibold text-slate-100">{{ log.table_name }}</div>
+                <div class="mt-1 text-xs text-slate-400">{{ log.user_email || '-' }}</div>
+              </div>
+              <span :class="actionClass(log.action)" class="px-2 py-1 rounded text-xs font-semibold">
+                {{ log.action }}
+              </span>
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-400">IP Address</span>
+                <span class="text-right text-slate-200">{{ log.ip_address || '-' }}</span>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-400">Created</span>
+                <span class="text-right text-slate-200">{{ log.created_date ? new Date(log.created_date).toLocaleString() : '-' }}</span>
+              </div>
+              <div>
+                <div class="text-slate-400">Description</div>
+                <div class="mt-1 text-slate-200">{{ log.description || '-' }}</div>
+              </div>
+            </div>
+            <button @click="viewDetails(log)" class="mt-4 w-full rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+              View Details
+            </button>
+          </div>
+        </div>
+
+        <div class="hidden lg:block overflow-x-auto">
         <table class="w-full table-auto">
           <thead>
             <tr class="text-left text-slate-400">
@@ -80,17 +116,18 @@
             </tr>
           </tbody>
         </table>
+        </div>
 
         <!-- Details Modal -->
         <div v-if="selectedLog" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click="selectedLog = null">
-          <div class="bg-slate-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-auto" @click.stop>
+          <div class="bg-slate-800 rounded-lg p-4 sm:p-6 max-w-2xl w-full max-h-[80vh] overflow-auto" @click.stop>
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-xl font-bold">Log Details</h3>
               <button @click="selectedLog = null" class="text-slate-400 hover:text-white">&times;</button>
             </div>
             
             <div class="space-y-4">
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label class="text-slate-400 text-sm">ID</label>
                   <div class="font-semibold">{{ selectedLog.id }}</div>
@@ -136,7 +173,7 @@
           </div>
         </div>
 
-        <div class="mt-4 flex items-center justify-between">
+        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div class="text-sm text-slate-400">
             Showing {{ logs.from || 0 }} to {{ logs.to || 0 }} of {{ logs.total || 0 }} entries
           </div>

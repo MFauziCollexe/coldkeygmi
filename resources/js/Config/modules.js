@@ -124,6 +124,7 @@ export default [
             { key: "control.module", label: "Modul Control" },
             { key: "control.logs", label: "Logs" },
             { key: "control.access_rules", label: "Access Rules" },
+            { key: "control.database_backup", label: "Database Backup" },
         ],
     },
 ];

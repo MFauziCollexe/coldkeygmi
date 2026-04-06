@@ -371,6 +371,13 @@ export const sidebarMenuConfig = [
                 route: "/control-panel/access-rules",
                 module_key: "control.access_rules",
             },
+            {
+                id: "database-backup",
+                label: "Database Backup",
+                icon: "Database",
+                route: "/control-panel/database-backup",
+                module_key: "control.database_backup",
+            },
         ],
     },
 ];

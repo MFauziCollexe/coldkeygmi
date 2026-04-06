@@ -1,18 +1,21 @@
 <template>
   <AppLayout>
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-2xl font-bold">Modul Control</h2>
+    <div class="p-4 sm:p-6">
+      <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
+          <h2 class="text-2xl font-bold">Modul Control</h2>
+          <p class="mt-1 text-sm text-slate-400 sm:hidden">Atur permission user langsung dari Control Panel.</p>
+        </div>
+        <div class="w-full lg:w-auto">
           <button @click="save" class="bg-indigo-600 px-4 py-2 rounded text-white">Simpan Perubahan</button>
         </div>
       </div>
 
-      <div class="bg-slate-800 rounded p-4 flex gap-6">
-        <div class="w-1/4">
+      <div class="bg-slate-800 rounded p-4 flex flex-col gap-6 lg:flex-row">
+        <div class="w-full lg:w-1/4">
           <h3 class="text-sm text-slate-300 mb-2">Pilih User</h3>
           <input v-model="userFilter" placeholder="Cari user..." class="w-full px-3 py-2 rounded bg-slate-700 mb-3 text-sm" />
-          <div class="space-y-2 max-h-[420px] overflow-auto">
+          <div class="space-y-2 max-h-[320px] overflow-auto lg:max-h-[420px]">
             <button v-for="u in pagedUsers" :key="u.id" @click="selectUser(u)" :class="['w-full text-left px-4 py-3 rounded', selectedUser && selectedUser.id===u.id ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300']">
               <div class="font-semibold">{{ u.name || '-' }}</div>
               <div class="text-xs text-slate-400">{{ u.email }}</div>
@@ -23,10 +26,10 @@
           </div>
         </div>
 
-        <div class="flex-1 border-l border-slate-700 pl-6">
+        <div class="flex-1 border-t border-slate-700 pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
           <h3 class="text-sm text-slate-300 mb-4">Permission untuk <span class="text-indigo-300">{{ selectedUser ? (selectedUser.name || '-') : '-' }}</span></h3>
 
-          <div class="space-y-4 max-h-[480px] overflow-auto pr-4">
+          <div class="space-y-4 max-h-[480px] overflow-auto pr-0 lg:pr-4">
             <div v-for="group in modulesList" :key="group.key" class="p-4 border border-slate-700 rounded">
               <label class="flex items-center gap-3">
                 <input type="checkbox" :checked="hasPermission(group.key)" @change="onToggle(group, $event.target.checked)" />

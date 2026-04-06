@@ -427,6 +427,29 @@ Route::delete('control-panel/logs/clear', [App\Http\Controllers\ActivityLogContr
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.logs'])
     ->name('control.logs.clear');
 
+// Control Panel - Database Backup
+Route::get('control-panel/database-backup', [App\Http\Controllers\DatabaseBackupController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.database_backup'])
+    ->name('control.database-backup');
+Route::post('control-panel/database-backup', [App\Http\Controllers\DatabaseBackupController::class, 'store'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.database_backup'])
+    ->name('control.database-backup.store');
+Route::put('control-panel/database-backup/path', [App\Http\Controllers\DatabaseBackupController::class, 'updatePath'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.database_backup'])
+    ->name('control.database-backup.path');
+Route::post('control-panel/database-backup/start', [App\Http\Controllers\DatabaseBackupController::class, 'start'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.database_backup'])
+    ->name('control.database-backup.start');
+Route::post('control-panel/database-backup/stop', [App\Http\Controllers\DatabaseBackupController::class, 'stop'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.database_backup'])
+    ->name('control.database-backup.stop');
+Route::get('control-panel/database-backup/{fileName}/download', [App\Http\Controllers\DatabaseBackupController::class, 'download'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.database_backup'])
+    ->name('control.database-backup.download');
+Route::delete('control-panel/database-backup/{fileName}', [App\Http\Controllers\DatabaseBackupController::class, 'destroy'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.database_backup'])
+    ->name('control.database-backup.destroy');
+
 // GMIHR - Device Integration - Fingerprint
 Route::get('fingerprint', [App\Http\Controllers\FingerprintController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.device.fingerprint'])
