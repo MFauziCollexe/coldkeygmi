@@ -128,7 +128,7 @@
         <div class="mb-4 flex items-center justify-between gap-4">
           <div>
             <h3 class="text-lg font-semibold text-white">{{ cameraTitle }}</h3>
-            <p class="text-sm text-slate-400">Gunakan kamera depan, lakukan blink sekali, lalu ambil selfie.</p>
+            <p class="text-sm text-slate-400">Gunakan kamera depan. Kedipkan mata sekali, atau tahan wajah tetap stabil beberapa detik, lalu ambil selfie.</p>
           </div>
           <button
             type="button"
@@ -277,6 +277,7 @@ const faceMatchPassed = ref(false);
 const livenessStatus = ref('Posisikan wajah Anda ke kamera.');
 const livenessVerified = ref(false);
 const referenceFaceDescriptor = ref(Array.isArray(props.faceReferenceDescriptor) ? props.faceReferenceDescriptor : []);
+const stableFaceFrames = ref(0);
 
 let cameraStream = null;
 let livenessInterval = null;
@@ -606,6 +607,7 @@ function resetFaceVerificationState() {
 function resetLivenessState() {
   livenessVerified.value = false;
   livenessStatus.value = 'Posisikan wajah Anda ke kamera.';
+  stableFaceFrames.value = 0;
   blinkOpenSeen = false;
   blinkClosedSeen = false;
 }
@@ -632,27 +634,36 @@ function startLivenessMonitor() {
       const metrics = await detectBlinkMetricsFromVideo(cameraVideoRef.value);
 
       if (!metrics) {
+        stableFaceFrames.value = 0;
         livenessStatus.value = 'Wajah belum terdeteksi. Arahkan wajah lurus ke kamera.';
         return;
       }
 
       const ear = Number(metrics.ear || 0);
+      stableFaceFrames.value += 1;
 
-      if (!blinkOpenSeen && ear > 0.23) {
+      if (!blinkOpenSeen && ear > 0.2) {
         blinkOpenSeen = true;
         livenessStatus.value = 'Wajah terdeteksi. Silakan kedipkan mata satu kali.';
         return;
       }
 
-      if (blinkOpenSeen && !blinkClosedSeen && ear < 0.18) {
+      if (blinkOpenSeen && !blinkClosedSeen && ear < 0.19) {
         blinkClosedSeen = true;
         livenessStatus.value = 'Kedipan terdeteksi. Buka mata kembali...';
         return;
       }
 
-      if (blinkOpenSeen && blinkClosedSeen && ear > 0.22) {
+      if (blinkOpenSeen && blinkClosedSeen && ear > 0.2) {
         livenessVerified.value = true;
         livenessStatus.value = 'Liveness terverifikasi. Silakan ambil selfie.';
+        stopLivenessMonitor();
+        return;
+      }
+
+      if (!livenessVerified.value && stableFaceFrames.value >= 6 && ear > 0.16) {
+        livenessVerified.value = true;
+        livenessStatus.value = 'Wajah terdeteksi stabil. Silakan ambil selfie.';
         stopLivenessMonitor();
       }
     } catch {
