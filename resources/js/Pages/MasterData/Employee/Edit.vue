@@ -186,8 +186,14 @@
                 <span>Hapus foto referensi lama</span>
               </label>
             </div>
-            <p v-if="faceProcessing" class="mt-2 text-sm text-sky-400">Memproses wajah referensi...</p>
+            <p v-if="faceProcessing" class="mt-2 text-sm text-sky-400">{{ faceProcessingLabel }}</p>
             <p v-if="faceError" class="mt-2 text-sm text-red-400">{{ faceError }}</p>
+            <p
+              v-if="props.employee.face_reference_photo_url && !props.employee.face_reference_ready && !faceProcessing && !faceError"
+              class="mt-2 text-sm text-amber-400"
+            >
+              Foto lama ada, tapi descriptor wajah belum siap. Klik Update untuk menyimpan descriptor baru.
+            </p>
           </div>
 
           <!-- Buttons -->
@@ -212,7 +218,7 @@
 </template>
 
 <script setup>
-import { computed, ref, reactive, watch } from 'vue';
+import { computed, onMounted, ref, reactive, watch } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
@@ -229,6 +235,7 @@ const props = defineProps({
 
 const errors = ref({});
 const faceProcessing = ref(false);
+const faceProcessingLabel = ref('Memproses wajah referensi...');
 const faceError = ref('');
 const faceReferenceFile = ref(null);
 const normalizedUsers = computed(() => (props.availableUsers || []).map((user) => ({
@@ -323,6 +330,7 @@ async function handleFaceReferenceChange(event) {
   }
 
   faceProcessing.value = true;
+  faceProcessingLabel.value = 'Memproses wajah referensi...';
 
   try {
     const compressed = await compressFaceReferenceFile(file);
@@ -339,6 +347,26 @@ async function handleFaceReferenceChange(event) {
   } finally {
     faceProcessing.value = false;
     event.target.value = '';
+  }
+}
+
+async function ensureExistingFaceDescriptor() {
+  if (!employeeData.face_reference_photo_url || employeeData.face_reference_ready || form.face_reference_descriptor.length === 128) {
+    return;
+  }
+
+  faceProcessing.value = true;
+  faceProcessingLabel.value = 'Menyiapkan descriptor dari foto referensi lama...';
+  faceError.value = '';
+
+  try {
+    const descriptor = await extractFaceDescriptorFromImage(employeeData.face_reference_photo_url);
+    form.face_reference_descriptor = descriptor;
+  } catch (error) {
+    faceError.value = error?.message || 'Descriptor wajah dari foto lama gagal dibuat.';
+  } finally {
+    faceProcessing.value = false;
+    faceProcessingLabel.value = 'Memproses wajah referensi...';
   }
 }
 
@@ -360,4 +388,8 @@ function submit() {
     }
   });
 }
+
+onMounted(() => {
+  ensureExistingFaceDescriptor();
+});
 </script>

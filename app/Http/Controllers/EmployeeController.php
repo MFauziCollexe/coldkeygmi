@@ -187,6 +187,8 @@ class EmployeeController extends Controller
                 'face_reference_photo_url' => $employee->face_reference_photo_path
                     ? route('employees.face-reference-photo', $employee)
                     : null,
+                'face_reference_ready' => !empty($employee->face_reference_photo_path)
+                    && !empty($employee->face_reference_descriptor),
             ],
             'departments' => $departments,
             'positions' => $positions,
@@ -218,7 +220,9 @@ class EmployeeController extends Controller
             'department_id' => $request->input('department_id') ?: null,
             'position_id' => $request->input('position_id') ?: null,
             'face_reference_photo_data' => $request->input('face_reference_photo_data') ?: null,
-            'face_reference_descriptor' => ($request->hasFile('face_reference_photo') || $request->filled('face_reference_photo_data'))
+            'face_reference_descriptor' => ($request->hasFile('face_reference_photo')
+                || $request->filled('face_reference_photo_data')
+                || ($employee->face_reference_photo_path && !empty($request->input('face_reference_descriptor'))))
                 ? $request->input('face_reference_descriptor')
                 : null,
         ]);
@@ -270,6 +274,8 @@ class EmployeeController extends Controller
                 $employee->face_reference_photo_path,
             );
             $validated['face_reference_descriptor'] = json_encode($validated['face_reference_descriptor'] ?? []);
+        } elseif (!empty($validated['face_reference_descriptor']) && !empty($employee->face_reference_photo_path)) {
+            $validated['face_reference_descriptor'] = json_encode($validated['face_reference_descriptor']);
         }
 
         unset($validated['face_reference_photo'], $validated['face_reference_photo_data'], $validated['remove_face_reference']);
