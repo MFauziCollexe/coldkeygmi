@@ -137,18 +137,7 @@ class DatabaseBackupService
         $process->run();
 
         if (!$process->isSuccessful()) {
-            return [
-                'supported' => true,
-                'installed' => false,
-                'enabled' => false,
-                'running' => false,
-                'status_label' => 'Belum Terpasang',
-                'status_tone' => 'rose',
-                'message' => 'Task Scheduler untuk backup database belum terdaftar di server ini.',
-                'task_name' => $this->schedulerTaskName(),
-                'raw' => [],
-                'scheduler_log' => $this->schedulerLogMeta(),
-            ];
+            return $this->schedulerQueryFailureStatus($process);
         }
 
         $raw = $this->parseSchedulerListOutput($process->getOutput());
@@ -363,6 +352,83 @@ class DatabaseBackupService
         }
 
         return $parsed;
+    }
+
+    private function schedulerQueryFailureStatus(Process $process): array
+    {
+        $combinedOutput = trim($process->getErrorOutput() ?: $process->getOutput() ?: '');
+        $normalizedOutput = Str::lower($combinedOutput);
+        $logMeta = $this->schedulerLogMeta();
+
+        if ($this->containsAny($normalizedOutput, [
+            'access is denied',
+            'akses ditolak',
+        ])) {
+            return [
+                'supported' => true,
+                'installed' => false,
+                'enabled' => false,
+                'running' => false,
+                'status_label' => 'Akses Ditolak',
+                'status_tone' => 'amber',
+                'message' => 'Task scheduler ada atau sedang dicari, tetapi user web server tidak punya izin untuk membaca statusnya.',
+                'task_name' => $this->schedulerTaskName(),
+                'task_state' => null,
+                'next_run_time' => null,
+                'raw' => [],
+                'query_error' => $combinedOutput,
+                'scheduler_log' => $logMeta,
+            ];
+        }
+
+        if ($this->containsAny($normalizedOutput, [
+            'cannot find the file specified',
+            'system cannot find the file specified',
+            'tidak dapat menemukan file yang ditentukan',
+        ])) {
+            return [
+                'supported' => true,
+                'installed' => false,
+                'enabled' => false,
+                'running' => false,
+                'status_label' => 'Belum Terpasang',
+                'status_tone' => 'rose',
+                'message' => 'Task Scheduler untuk backup database belum terdaftar di server ini.',
+                'task_name' => $this->schedulerTaskName(),
+                'task_state' => null,
+                'next_run_time' => null,
+                'raw' => [],
+                'query_error' => $combinedOutput,
+                'scheduler_log' => $logMeta,
+            ];
+        }
+
+        return [
+            'supported' => false,
+            'installed' => false,
+            'enabled' => false,
+            'running' => false,
+            'status_label' => 'Tidak Didukung',
+            'status_tone' => 'slate',
+            'message' => 'Status task scheduler tidak bisa dibaca oleh server ini.',
+            'task_name' => $this->schedulerTaskName(),
+            'task_state' => null,
+            'next_run_time' => null,
+            'raw' => [],
+            'query_error' => $combinedOutput,
+            'scheduler_log' => $logMeta,
+        ];
+    }
+
+    private function containsAny(string $haystack, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if ($needle !== '' && str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function schedulerLogMeta(): array
