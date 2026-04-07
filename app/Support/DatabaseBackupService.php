@@ -124,7 +124,7 @@ class DatabaseBackupService
             ];
         }
 
-        $process = new Process([
+        $process = $this->makeWindowsCommandProcess([
             'schtasks',
             '/Query',
             '/TN',
@@ -327,13 +327,44 @@ class DatabaseBackupService
 
     private function runSchedulerCommand(array $command): void
     {
-        $process = new Process($command);
+        $process = $this->makeWindowsCommandProcess($command);
         $process->setTimeout(20);
         $process->run();
 
         if (!$process->isSuccessful()) {
             throw new \RuntimeException(trim($process->getErrorOutput() ?: $process->getOutput() ?: 'Gagal menjalankan perintah scheduler Windows.'));
         }
+    }
+
+    private function makeWindowsCommandProcess(array $command): Process
+    {
+        if (!$this->isWindows()) {
+            return new Process($command);
+        }
+
+        return Process::fromShellCommandline($this->buildWindowsShellCommand($command));
+    }
+
+    private function buildWindowsShellCommand(array $command): string
+    {
+        $parts = array_map(fn ($part) => $this->quoteWindowsArgument((string) $part), $command);
+
+        return 'cmd.exe /d /s /c "' . implode(' ', $parts) . '"';
+    }
+
+    private function quoteWindowsArgument(string $value): string
+    {
+        if ($value === '') {
+            return '""';
+        }
+
+        $escaped = str_replace('"', '""', $value);
+
+        if (preg_match('/[\s"&|<>^]/', $escaped) === 1) {
+            return '"' . $escaped . '"';
+        }
+
+        return $escaped;
     }
 
     private function parseSchedulerListOutput(string $output): array
