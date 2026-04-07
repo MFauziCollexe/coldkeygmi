@@ -474,6 +474,27 @@ class DatabaseBackupService
             ];
         }
 
+        if ($this->containsAny($normalizedOutput, [
+            'com+ registry database detected a system error',
+            'database registri com+ mendeteksi kesalahan sistem',
+        ])) {
+            return [
+                'supported' => true,
+                'installed' => false,
+                'enabled' => false,
+                'running' => false,
+                'status_label' => 'Sistem Windows Bermasalah',
+                'status_tone' => 'amber',
+                'message' => 'Task scheduler ada di Windows, tetapi statusnya tidak bisa dibaca karena error COM+ pada server.',
+                'task_name' => $this->schedulerTaskName(),
+                'task_state' => null,
+                'next_run_time' => null,
+                'raw' => [],
+                'query_error' => $combinedOutput,
+                'scheduler_log' => $logMeta,
+            ];
+        }
+
         return [
             'supported' => false,
             'installed' => false,
