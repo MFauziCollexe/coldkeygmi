@@ -98,6 +98,29 @@ class AttendanceLogController extends Controller
                 return [$pin => trim((string) $name)];
             });
 
+        $employeeInfoByPin = DB::table('employees as e')
+            ->leftJoin('positions as p', 'p.id', '=', 'e.position_id')
+            ->whereNotNull('e.nik')
+            ->where('e.nik', '<>', '')
+            ->get([
+                'e.nik',
+                'e.name',
+                'p.name as position_name',
+            ])
+            ->mapWithKeys(function ($row) {
+                $pin = $this->normalizePin((string) ($row->nik ?? ''));
+                if ($pin === '') {
+                    return [];
+                }
+
+                return [
+                    $pin => [
+                        'name' => trim((string) ($row->name ?? '')),
+                        'position_name' => trim((string) ($row->position_name ?? '')),
+                    ],
+                ];
+            });
+
         $employeeStatusByPin = collect();
         if (Schema::hasColumn('employees', 'employment_status')) {
             $employeeStatusByPin = DB::table('employees')
@@ -351,6 +374,7 @@ class AttendanceLogController extends Controller
                 'log_date' => $logDate,
                 'pin' => $pin,
                 'name' => (string) ($row->roster_name ?: ($scans->last()->name ?? '-')),
+                'position_name' => (string) (($employeeInfoByPin->get($pin)['position_name'] ?? '')),
                 'roster_name' => $row->roster_name,
                 'fingerprint_name' => $scans->last()->name ?? null,
                 'shift_code' => $row->shift_code,
@@ -447,6 +471,8 @@ class AttendanceLogController extends Controller
                 if ($displayName === '') {
                     $displayName = '-';
                 }
+
+                $positionName = trim((string) (($employeeInfoByPin->get($pin)['position_name'] ?? '')));
 
                 for ($day = 1; $day <= $daysInMonth; $day++) {
                     $logDate = $monthStart->copy()->day($day)->format('Y-m-d');
@@ -545,6 +571,7 @@ class AttendanceLogController extends Controller
                         'log_date' => $logDate,
                         'pin' => $pin,
                         'name' => $displayName,
+                        'position_name' => $positionName,
                         'roster_name' => null,
                         'fingerprint_name' => $displayName !== '-' ? $displayName : null,
                         'shift_code' => null,

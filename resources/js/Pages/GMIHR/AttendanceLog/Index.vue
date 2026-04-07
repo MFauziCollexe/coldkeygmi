@@ -144,6 +144,7 @@
                 <th class="text-left py-2 pr-3">PIN</th>
                 <th class="text-left py-2 pr-3">Nama</th>
                 <th class="text-left py-2 pr-3">NRP</th>
+                <th class="text-left py-2 pr-3">Position</th>
                 <th class="text-left py-2 pr-3">Absensi</th>
                 <th class="text-left py-2 pr-3">Terlambat</th>
                 <th class="text-left py-2 pr-3">Absen</th>
@@ -162,6 +163,7 @@
                   <td class="py-2 pr-3">{{ group.pin }}</td>
                   <td class="py-2 pr-3">{{ group.name }}</td>
                   <td class="py-2 pr-3">{{ group.nrp }}</td>
+                  <td class="py-2 pr-3">{{ group.positionName || '-' }}</td>
                   <td class="py-2 pr-3">{{ group.totalAbsensi }}</td>
                   <td class="py-2 pr-3">
                     <span class="inline-flex min-w-[2rem] justify-center px-2 py-0.5 rounded-md text-xs font-semibold border bg-amber-500/20 text-amber-200 border-amber-400/40">
@@ -181,7 +183,7 @@
                 </tr>
 
                 <tr v-if="isGroupExpanded(group.key)" class="border-b border-slate-700/50 bg-slate-900/30">
-                  <td colspan="8" class="py-3">
+                  <td colspan="9" class="py-3">
                     <div class="overflow-auto">
                       <table class="w-full text-sm">
                         <thead class="border-b border-slate-700 text-slate-400">
@@ -277,6 +279,7 @@
                 <div class="text-sm text-slate-400">#{{ idx + 1 }} · {{ group.pin }}</div>
                 <div class="font-semibold text-white">{{ group.name }}</div>
                 <div class="text-sm text-slate-400">NRP: {{ group.nrp }}</div>
+                <div class="text-sm text-slate-400">Position: {{ group.positionName || '-' }}</div>
               </div>
               <div class="text-right">
                 <div class="text-xs text-slate-400">
@@ -628,6 +631,7 @@ const employeeGroups = computed(() => {
         pin,
         name,
         nrp: String(row?.nrp || row?.employee_nrp || row?.pin || '-'),
+        positionName: String(row?.position_name || '-'),
         totalAbsensi: 0,
         totalTerlambat: 0,
         totalAbsen: 0,
