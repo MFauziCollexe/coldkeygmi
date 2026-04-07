@@ -1,6 +1,6 @@
 param(
     [string]$TaskName = 'ColdKeyGMI Laravel Scheduler',
-    [string]$RunnerPath = "$PSScriptRoot\run-laravel-scheduler.bat"
+    [string]$RunnerPath = "$PSScriptRoot\run-laravel-scheduler-hidden.vbs"
 )
 
 $runnerFullPath = [System.IO.Path]::GetFullPath($RunnerPath)
