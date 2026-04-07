@@ -14,7 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('app:database-backup')
-            ->dailyAt('23:00')
+            ->dailyAt('23:01')
             ->timezone('Asia/Jakarta')
             ->withoutOverlapping()
             ->runInBackground();
