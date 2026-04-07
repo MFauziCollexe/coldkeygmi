@@ -85,6 +85,12 @@
               </span>
             </div>
             <p class="text-sm text-slate-400">{{ scheduler.message || '-' }}</p>
+            <div
+              v-if="scheduler.query_error"
+              class="rounded border border-amber-600/40 bg-amber-600/10 px-3 py-2 text-xs text-amber-200"
+            >
+              {{ scheduler.query_error }}
+            </div>
           </div>
 
           <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">

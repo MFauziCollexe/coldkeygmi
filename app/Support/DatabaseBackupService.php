@@ -410,7 +410,9 @@ class DatabaseBackupService
             'running' => false,
             'status_label' => 'Tidak Didukung',
             'status_tone' => 'slate',
-            'message' => 'Status task scheduler tidak bisa dibaca oleh server ini.',
+            'message' => $combinedOutput !== ''
+                ? 'Status task scheduler tidak bisa dibaca oleh server ini. Detail: ' . $combinedOutput
+                : 'Status task scheduler tidak bisa dibaca oleh server ini.',
             'task_name' => $this->schedulerTaskName(),
             'task_state' => null,
             'next_run_time' => null,
