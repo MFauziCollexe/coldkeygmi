@@ -125,7 +125,7 @@ class DatabaseBackupService
         }
 
         $process = $this->makeWindowsCommandProcess([
-            'schtasks',
+            $this->resolveWindowsSchtasksPath(),
             '/Query',
             '/TN',
             $this->schedulerTaskName(),
@@ -179,13 +179,13 @@ class DatabaseBackupService
     public function enableScheduler(): void
     {
         $this->ensureWindowsSchedulerSupport();
-        $this->runSchedulerCommand(['schtasks', '/Change', '/TN', $this->schedulerTaskName(), '/ENABLE']);
+        $this->runSchedulerCommand([$this->resolveWindowsSchtasksPath(), '/Change', '/TN', $this->schedulerTaskName(), '/ENABLE']);
     }
 
     public function disableScheduler(): void
     {
         $this->ensureWindowsSchedulerSupport();
-        $this->runSchedulerCommand(['schtasks', '/Change', '/TN', $this->schedulerTaskName(), '/DISABLE']);
+        $this->runSchedulerCommand([$this->resolveWindowsSchtasksPath(), '/Change', '/TN', $this->schedulerTaskName(), '/DISABLE']);
     }
 
     private function createMysqlBackup(string $connectionName): string
@@ -384,6 +384,27 @@ class DatabaseBackupService
         }
 
         return 'cmd.exe';
+    }
+
+    private function resolveWindowsSchtasksPath(): string
+    {
+        $windir = (string) (getenv('WINDIR') ?: env('WINDIR', 'C:\\Windows'));
+        $systemRoot = rtrim($windir, "\\/");
+
+        $candidates = array_filter([
+            $systemRoot . '\\System32\\schtasks.exe',
+            $systemRoot . '\\Sysnative\\schtasks.exe',
+            'C:\\Windows\\System32\\schtasks.exe',
+            'C:\\Windows\\Sysnative\\schtasks.exe',
+        ]);
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return 'schtasks';
     }
 
     private function parseSchedulerListOutput(string $output): array
