@@ -74,12 +74,6 @@
 
       <div class="rounded border border-slate-700 bg-slate-800 p-4">
         <div class="text-sm font-semibold text-slate-100">Gunakan Command Manual</div>
-        <div
-          v-if="scheduler.query_error"
-          class="mt-3 rounded border border-amber-600/40 bg-amber-600/10 px-3 py-2 text-xs text-amber-200"
-        >
-          {{ scheduler.query_error }}
-        </div>
         <p class="mt-3 text-sm text-slate-400">
           Jalankan perintah berikut langsung di server untuk mengaktifkan, mematikan, atau mengecek scheduler backup.
         </p>
