@@ -73,65 +73,87 @@
       </div>
 
       <div class="rounded border border-slate-700 bg-slate-800 p-4">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="space-y-3">
-            <div class="flex flex-wrap items-center gap-3">
-              <h3 class="text-lg font-semibold text-slate-100">Scheduler Backup</h3>
-              <span
-                class="inline-flex rounded-full border px-3 py-1 text-xs font-semibold"
-                :class="schedulerToneClasses(scheduler.status_tone)"
-              >
-                {{ scheduler.status_label || 'Unknown' }}
-              </span>
-            </div>
-            <p class="text-sm text-slate-400">{{ scheduler.message || '-' }}</p>
-            <div
-              v-if="scheduler.query_error"
-              class="rounded border border-amber-600/40 bg-amber-600/10 px-3 py-2 text-xs text-amber-200"
-            >
-              {{ scheduler.query_error }}
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <button
-              type="button"
-              class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!scheduler.supported || !scheduler.installed || scheduler.enabled"
-              @click="startScheduler"
-            >
-              Start
-            </button>
-            <button
-              type="button"
-              class="rounded bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!scheduler.supported || !scheduler.installed || !scheduler.enabled"
-              @click="stopScheduler"
-            >
-              Stop
-            </button>
-          </div>
+        <div class="text-sm font-semibold text-slate-100">Gunakan Command Manual</div>
+        <div
+          v-if="scheduler.query_error"
+          class="mt-3 rounded border border-amber-600/40 bg-amber-600/10 px-3 py-2 text-xs text-amber-200"
+        >
+          {{ scheduler.query_error }}
         </div>
+        <p class="mt-3 text-sm text-slate-400">
+          Jalankan perintah berikut langsung di server untuk mengaktifkan, mematikan, atau mengecek scheduler backup.
+        </p>
 
-        <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div class="rounded border border-slate-700 bg-slate-900/40 p-4">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Task State</div>
-            <div class="mt-2 text-sm font-semibold text-slate-100">{{ scheduler.task_state || '-' }}</div>
-          </div>
-          <div class="rounded border border-slate-700 bg-slate-900/40 p-4">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Next Run</div>
-            <div class="mt-2 text-sm font-semibold text-slate-100">{{ scheduler.next_run_time || '-' }}</div>
-          </div>
-          <div class="rounded border border-slate-700 bg-slate-900/40 p-4">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Scheduler Log</div>
-            <div class="mt-2 text-sm font-semibold text-slate-100">
-              {{ scheduler.scheduler_log?.last_modified || 'Belum ada log' }}
+        <div class="mt-4 rounded-xl border border-slate-700 bg-[#171717] p-2.5">
+          <div class="space-y-3">
+            <div class="md:flex md:items-center md:gap-3">
+              <div class="text-[11px] uppercase tracking-wide text-slate-400 md:flex md:min-h-[34px] md:w-24 md:shrink-0 md:items-center">Start</div>
+              <div class="mt-2 md:mt-0 md:flex-1">
+                <div class="rounded-lg border border-slate-700 bg-[#1c1c1c] px-3 py-1.5">
+                  <div class="flex items-center justify-between gap-2">
+                    <div></div>
+                    <button
+                      type="button"
+                      class="shrink-0 rounded-md p-1 text-slate-300 transition hover:bg-white/5 hover:text-white"
+                      @click="copyCommand(startCommand)"
+                      aria-label="Salin command start"
+                      title="Salin"
+                    >
+                      <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  <pre class="-mt-3 overflow-x-auto text-[11px] leading-4 text-slate-100"><code>{{ startCommand }}</code></pre>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="rounded border border-slate-700 bg-slate-900/40 p-4">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Log Size</div>
-            <div class="mt-2 text-sm font-semibold text-slate-100">
-              {{ scheduler.scheduler_log?.size_human || '-' }}
+            <div class="border-t border-slate-700 pt-3 md:flex md:items-center md:gap-3">
+              <div class="text-[11px] uppercase tracking-wide text-slate-400 md:flex md:min-h-[34px] md:w-24 md:shrink-0 md:items-center">Stop</div>
+              <div class="mt-2 md:mt-0 md:flex-1">
+                <div class="rounded-lg border border-slate-700 bg-[#1c1c1c] px-3 py-1.5">
+                  <div class="flex items-center justify-between gap-2">
+                    <div></div>
+                    <button
+                      type="button"
+                      class="shrink-0 rounded-md p-1 text-slate-300 transition hover:bg-white/5 hover:text-white"
+                      @click="copyCommand(stopCommand)"
+                      aria-label="Salin command stop"
+                      title="Salin"
+                    >
+                      <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  <pre class="-mt-3 overflow-x-auto text-[11px] leading-4 text-slate-100"><code>{{ stopCommand }}</code></pre>
+                </div>
+              </div>
+            </div>
+            <div class="border-t border-slate-700 pt-3 md:flex md:items-center md:gap-3">
+              <div class="text-[11px] uppercase tracking-wide text-slate-400 md:flex md:min-h-[34px] md:w-24 md:shrink-0 md:items-center">Cek Hasil</div>
+              <div class="mt-2 md:mt-0 md:flex-1">
+                <div class="rounded-lg border border-slate-700 bg-[#1c1c1c] px-3 py-1.5">
+                  <div class="flex items-center justify-between gap-2">
+                    <div></div>
+                    <button
+                      type="button"
+                      class="shrink-0 rounded-md p-1 text-slate-300 transition hover:bg-white/5 hover:text-white"
+                      @click="copyCommand(checkCommand)"
+                      aria-label="Salin command cek hasil"
+                      title="Salin"
+                    >
+                      <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  <pre class="-mt-3 overflow-x-auto text-[11px] leading-4 text-slate-100"><code>{{ checkCommand }}</code></pre>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -241,6 +263,11 @@ const backupPathForm = useForm({
   backup_path: props.backupPathInput || '',
 });
 
+const schedulerTaskName = props.scheduler?.task_name || 'ColdKeyGMI Laravel Scheduler';
+const startCommand = `schtasks /Change /TN "${schedulerTaskName}" /ENABLE`;
+const stopCommand = `schtasks /Change /TN "${schedulerTaskName}" /DISABLE`;
+const checkCommand = `schtasks /Query /TN "${schedulerTaskName}" /V /FO LIST`;
+
 function createBackup() {
   router.post('/control-panel/database-backup', {}, { preserveScroll: true });
 }
@@ -253,14 +280,6 @@ function saveBackupPath() {
 
 function resetBackupPath() {
   backupPathForm.backup_path = '';
-}
-
-function startScheduler() {
-  router.post('/control-panel/database-backup/start', {}, { preserveScroll: true });
-}
-
-function stopScheduler() {
-  router.post('/control-panel/database-backup/stop', {}, { preserveScroll: true });
 }
 
 async function deleteBackup(item) {
@@ -288,12 +307,19 @@ function formatDate(value) {
   return new Date(value).toLocaleString();
 }
 
-function schedulerToneClasses(tone) {
-  return {
-    emerald: 'border-emerald-600/50 bg-emerald-600/15 text-emerald-300',
-    amber: 'border-amber-600/50 bg-amber-600/15 text-amber-300',
-    rose: 'border-rose-600/50 bg-rose-600/15 text-rose-300',
-    slate: 'border-slate-600/50 bg-slate-700/40 text-slate-300',
-  }[tone] || 'border-slate-600/50 bg-slate-700/40 text-slate-300';
+async function copyCommand(command) {
+  try {
+    await navigator.clipboard.writeText(command);
+  } catch {
+    const textArea = document.createElement('textarea');
+    textArea.value = command;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+  }
 }
 </script>
