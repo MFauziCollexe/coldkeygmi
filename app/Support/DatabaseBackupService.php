@@ -348,8 +348,9 @@ class DatabaseBackupService
     private function buildWindowsShellCommand(array $command): string
     {
         $parts = array_map(fn ($part) => $this->quoteWindowsArgument((string) $part), $command);
+        $cmdPath = $this->resolveWindowsCmdPath();
 
-        return 'cmd.exe /d /s /c "' . implode(' ', $parts) . '"';
+        return $this->quoteWindowsArgument($cmdPath) . ' /d /s /c "' . implode(' ', $parts) . '"';
     }
 
     private function quoteWindowsArgument(string $value): string
@@ -365,6 +366,24 @@ class DatabaseBackupService
         }
 
         return $escaped;
+    }
+
+    private function resolveWindowsCmdPath(): string
+    {
+        $candidates = array_filter([
+            env('COMSPEC'),
+            getenv('COMSPEC') ?: null,
+            getenv('WINDIR') ? rtrim((string) getenv('WINDIR'), "\\/") . '\\System32\\cmd.exe' : null,
+            'C:\\Windows\\System32\\cmd.exe',
+        ]);
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return 'cmd.exe';
     }
 
     private function parseSchedulerListOutput(string $output): array
