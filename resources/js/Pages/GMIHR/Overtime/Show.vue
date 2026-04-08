@@ -166,6 +166,17 @@ function getStatusClass(status) {
   return classes[status] || 'bg-slate-600 text-white px-3 py-1 rounded text-sm';
 }
 
+function submitApproval() {
+  router.put(`/overtime/${props.overtime.id}`, {
+    status: 'approved',
+    review_notes: '',
+  }, {
+    onSuccess: () => {
+      // Success - page will reload with updated data
+    },
+  });
+}
+
 function approveRequest() {
   Swal.fire({
     title: 'Konfirmasi',
@@ -178,18 +189,8 @@ function approveRequest() {
     cancelButtonText: 'Batal'
   }).then((result) => {
     if (result.isConfirmed) {
-      approveRequest();
+      submitApproval();
     }
-  });
-  return;
-  
-  router.put(`/overtime/${props.overtime.id}`, {
-    status: 'approved',
-    review_notes: '',
-  }, {
-    onSuccess: () => {
-      // Success - page will reload with updated data
-    },
   });
 }
 
