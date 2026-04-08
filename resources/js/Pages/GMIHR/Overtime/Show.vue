@@ -132,9 +132,9 @@
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
-import { router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   overtime: Object,
@@ -177,21 +177,17 @@ function submitApproval() {
   });
 }
 
-function approveRequest() {
-  Swal.fire({
+async function approveRequest() {
+  const ok = await swalConfirm({
     title: 'Konfirmasi',
     text: 'Apakah Anda yakin ingin menyetujui permintaan ini?',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonColor: '#16a34a',
-    cancelButtonColor: '#6b7280',
     confirmButtonText: 'Ya, Setujui',
-    cancelButtonText: 'Batal'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      submitApproval();
-    }
+    confirmButtonColor: '#16a34a',
   });
+
+  if (!ok) return;
+
+  submitApproval();
 }
 
 function rejectRequest() {
