@@ -20,14 +20,13 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
-import { router } from '@inertiajs/vue3';
 import Sidebar from '@/Components/Sidebar.vue';
 import Topbar from '@/Components/Topbar.vue';
 
 const sidebarOpen = ref(true);
 const isMobile = ref(false);
 
-const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 let idleTimer = null;
 let isLoggingOut = false;
 const LOGIN_PAGE_PATH = '/';
@@ -52,16 +51,27 @@ function clearIdleTimer() {
 function triggerLogout() {
   if (isLoggingOut) return;
   isLoggingOut = true;
-  router.post('/logout', {}, {
-    preserveState: false,
-    preserveScroll: false,
-    onError: () => {
-      window.location.replace(LOGIN_PAGE_PATH);
-    },
-    onFinish: () => {
-      isLoggingOut = false;
-    },
-  });
+  clearIdleTimer();
+
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+  if (!csrfToken) {
+    window.location.replace(LOGIN_PAGE_PATH);
+    return;
+  }
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/logout';
+  form.style.display = 'none';
+
+  const tokenInput = document.createElement('input');
+  tokenInput.type = 'hidden';
+  tokenInput.name = '_token';
+  tokenInput.value = csrfToken;
+  form.appendChild(tokenInput);
+
+  document.body.appendChild(form);
+  form.submit();
 }
 
 function resetIdleTimer() {
