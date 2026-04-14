@@ -103,6 +103,7 @@ class AttendanceLogController extends Controller
             ->whereNotNull('e.nik')
             ->where('e.nik', '<>', '')
             ->get([
+                'e.id as employee_id',
                 'e.nik',
                 'e.name',
                 'd.name as department_name',
@@ -115,6 +116,7 @@ class AttendanceLogController extends Controller
 
                 return [
                     $pin => [
+                        'employee_id' => (int) ($row->employee_id ?? 0),
                         'name' => trim((string) ($row->name ?? '')),
                         'department_name' => trim((string) ($row->department_name ?? '')),
                     ],
@@ -183,6 +185,11 @@ class AttendanceLogController extends Controller
             null,
             null,
             $pinsInScope,
+            $rangeStartDate,
+            $rangeEndDate
+        );
+        $overtimeFormByPinDate = $this->buildOvertimeFormByPinDate(
+            $employeeInfoByPin,
             $rangeStartDate,
             $rangeEndDate
         );
@@ -391,6 +398,7 @@ class AttendanceLogController extends Controller
                 'has_overtime' => $hasOvertime,
                 'overtime_minutes' => $overtimeMinutes,
                 'overtime_label' => $overtimeLabel,
+                'overtime_form_label' => $overtimeFormByPinDate[$pin][$logDate] ?? '-',
                 'correction' => $this->formatCorrection($correction),
             ]);
         }
@@ -588,6 +596,7 @@ class AttendanceLogController extends Controller
                         'has_overtime' => $hasOvertime,
                         'overtime_minutes' => $overtimeMinutes,
                         'overtime_label' => $overtimeLabel,
+                        'overtime_form_label' => $overtimeFormByPinDate[$pin][$logDate] ?? '-',
                         'correction' => $this->formatCorrection($correction),
                     ]);
                 }
@@ -1924,6 +1933,57 @@ class AttendanceLogController extends Controller
                     $result[$candidatePin][$dateKey] = $type;
                 }
             }
+        }
+
+        return $result;
+    }
+
+    private function buildOvertimeFormByPinDate(Collection $employeeInfoByPin, ?string $rangeStartDate, ?string $rangeEndDate): array
+    {
+        if (
+            $rangeStartDate === null
+            || $rangeEndDate === null
+            || !Schema::hasTable('overtimes')
+            || !Schema::hasColumn('overtimes', 'employee_id')
+            || !Schema::hasColumn('overtimes', 'overtime_date')
+        ) {
+            return [];
+        }
+
+        $employeeIdByPin = $employeeInfoByPin
+            ->mapWithKeys(function (array $info, string $pin) {
+                $employeeId = (int) ($info['employee_id'] ?? 0);
+                return $employeeId > 0 ? [$pin => $employeeId] : [];
+            });
+
+        if ($employeeIdByPin->isEmpty()) {
+            return [];
+        }
+
+        $employeeIds = $employeeIdByPin->values()->unique()->values();
+
+        $overtimeRows = DB::table('overtimes')
+            ->whereIn('employee_id', $employeeIds->all())
+            ->whereIn('status', ['pending', 'approved'])
+            ->whereDate('overtime_date', '>=', $rangeStartDate)
+            ->whereDate('overtime_date', '<=', $rangeEndDate)
+            ->get(['employee_id', 'overtime_date']);
+
+        $pinByEmployeeId = $employeeIdByPin
+            ->mapWithKeys(fn(int $employeeId, string $pin) => [$employeeId => $pin]);
+
+        $result = [];
+
+        foreach ($overtimeRows as $overtime) {
+            $employeeId = (int) ($overtime->employee_id ?? 0);
+            $pin = $pinByEmployeeId[$employeeId] ?? null;
+            $logDate = $this->toDateString($overtime->overtime_date ?? null);
+
+            if ($pin === null || $logDate === null) {
+                continue;
+            }
+
+            $result[$pin][$logDate] = 'Lembur';
         }
 
         return $result;

@@ -194,9 +194,10 @@
                             <th class="text-left py-2 pr-3">Shift</th>
                             <th class="text-left py-2 pr-3">Hari</th>
                             <th class="text-left py-2 pr-3">Jadwal</th>
-                            <th class="text-left py-2 pr-3">Scan Pertama</th>
-                            <th class="text-left py-2 pr-3">Scan Terakhir</th>
-                            <th class="text-left py-2">Status / Overtime</th>
+                            <th class="text-left py-2 pr-3">Masuk</th>
+                            <th class="text-left py-2 pr-3">Pulang</th>
+                            <th class="text-left py-2 pr-3">Lembur</th>
+                            <th class="text-left py-2">Status</th>
                             <th v-if="canShowCorrectionColumn" class="text-left py-2">Koreksi</th>
                           </tr>
                         </thead>
@@ -210,17 +211,16 @@
                             <td class="py-2 pr-3">{{ formatSchedule(row.start_time, row.end_time) }}</td>
                             <td class="py-2 pr-3">{{ formatTimeOnly(row.first_scan) }}</td>
                             <td class="py-2 pr-3">{{ formatTimeOnly(row.last_scan) }}</td>
+                            <td class="py-2 pr-3">
+                              <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-semibold border bg-cyan-500/20 text-cyan-200 border-cyan-400/40">
+                                {{ row.overtime_form_label || '-' }}
+                              </span>
+                            </td>
                             <td class="py-2">
                               <div class="flex items-center gap-2">
                                 <span :class="statusPillClass(getDisplayExpected(row))" class="inline-flex items-center gap-2 px-2.5 py-1 rounded text-xs font-semibold border">
                                   <span :class="statusDotClass(getDisplayExpected(row))" class="inline-block w-2 h-2 rounded-sm"></span>
                                   {{ getDisplayExpected(row) }}
-                                </span>
-                                <span
-                                  v-if="row.has_overtime"
-                                  class="inline-flex px-2 py-0.5 rounded-md text-xs font-semibold border bg-cyan-500/20 text-cyan-200 border-cyan-400/40"
-                                >
-                                  {{ row.overtime_label || '-' }}
                                 </span>
                               </div>
                             </td>
@@ -331,18 +331,18 @@
                     <div class="text-right">{{ formatSchedule(row.start_time, row.end_time) }}</div>
                   </div>
                   <div class="flex items-start justify-between gap-3">
-                    <div class="text-slate-400">Scan Pertama</div>
+                    <div class="text-slate-400">Masuk</div>
                     <div class="text-right">{{ formatTimeOnly(row.first_scan) }}</div>
                   </div>
                   <div class="flex items-start justify-between gap-3">
-                    <div class="text-slate-400">Scan Terakhir</div>
+                    <div class="text-slate-400">Pulang</div>
                     <div class="text-right">{{ formatTimeOnly(row.last_scan) }}</div>
                   </div>
-                  <div v-if="row.has_overtime" class="flex items-start justify-between gap-3">
-                    <div class="text-slate-400">Overtime</div>
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="text-slate-400">Lembur</div>
                     <div class="text-right">
                       <span class="inline-flex rounded-md border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-200">
-                        {{ row.overtime_label || '-' }}
+                        {{ row.overtime_form_label || '-' }}
                       </span>
                     </div>
                   </div>
