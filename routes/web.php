@@ -649,6 +649,17 @@ Route::get('/welcome', function () {
     return view('welcome');
 });
 
+Route::get('/session-timeout', function (Request $request) {
+    if (Auth::check()) {
+        Auth::logout();
+    }
+
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
+    return redirect('/');
+})->name('session-timeout');
+
 Route::post('/logout', function (Request $request) {
     Auth::logout();
     $request->session()->invalidate();

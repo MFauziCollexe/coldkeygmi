@@ -52,26 +52,7 @@ function triggerLogout() {
   if (isLoggingOut) return;
   isLoggingOut = true;
   clearIdleTimer();
-
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-  if (!csrfToken) {
-    window.location.replace(LOGIN_PAGE_PATH);
-    return;
-  }
-
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = '/logout';
-  form.style.display = 'none';
-
-  const tokenInput = document.createElement('input');
-  tokenInput.type = 'hidden';
-  tokenInput.name = '_token';
-  tokenInput.value = csrfToken;
-  form.appendChild(tokenInput);
-
-  document.body.appendChild(form);
-  form.submit();
+  window.location.replace('/session-timeout');
 }
 
 function resetIdleTimer() {
