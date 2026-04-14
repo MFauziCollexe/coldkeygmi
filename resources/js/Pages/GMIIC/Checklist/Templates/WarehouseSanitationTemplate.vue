@@ -30,17 +30,36 @@
         <div class="text-sm text-slate-600">Form warehouse dalam satu template dengan section A sampai E.</div>
       </div>
 
-      <button
-        type="button"
-        :disabled="!canApproveEntry"
-        class="rounded px-4 py-2 text-sm font-semibold transition"
-        :class="canApproveEntry
-          ? 'bg-amber-500 text-white hover:bg-amber-400'
-          : 'cursor-not-allowed bg-slate-300 text-slate-500'"
-        @click="$emit('approve')"
-      >
-        {{ approvalButtonLabel }}
-      </button>
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+        <div class="flex w-[132px] flex-col gap-1">
+          <button
+            type="button"
+            class="w-full rounded px-4 py-2 text-sm font-semibold transition"
+            :disabled="!canScanBarcode"
+            :class="!canScanBarcode
+              ? 'cursor-not-allowed bg-slate-300 text-slate-500 hover:bg-slate-300'
+              : 'bg-sky-600 text-white hover:bg-sky-500'"
+            @click="$emit('scan-barcode')"
+          >
+            Scan Barcode
+          </button>
+          <div class="text-xs text-slate-600">
+            {{ currentBarcode ? `Discan ${scanDate || '-'}` : 'Barcode checklist belum discan.' }}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          :disabled="!canApproveEntry"
+          class="rounded px-4 py-2 text-sm font-semibold transition"
+          :class="canApproveEntry
+            ? 'bg-amber-500 text-white hover:bg-amber-400'
+            : 'cursor-not-allowed bg-slate-300 text-slate-500'"
+          @click="$emit('approve')"
+        >
+          {{ approvalButtonLabel }}
+        </button>
+      </div>
     </div>
 
     <div class="overflow-x-auto border border-black">
@@ -419,6 +438,18 @@ defineProps({
     type: Boolean,
     required: true,
   },
+  currentBarcode: {
+    type: String,
+    default: '',
+  },
+  scanDate: {
+    type: String,
+    default: '',
+  },
+  canScanBarcode: {
+    type: Boolean,
+    required: true,
+  },
   approvalButtonLabel: {
     type: String,
     required: true,
@@ -427,6 +458,7 @@ defineProps({
 
 defineEmits([
   'approve',
+  'scan-barcode',
   'update-frequency',
   'toggle-area',
   'update-general-field',

@@ -17,8 +17,7 @@
           </tr>
           <tr>
             <td class="w-80 border border-black px-3 py-3 text-center">
-              <div class="text-xl font-bold leading-tight">CHECKLIST</div>
-              <div class="text-xl font-bold leading-tight">SARANA DAN PRASARANA</div>
+              <div class="text-xl font-bold leading-tight">CHECKLIST SITE VISIT HSE</div>
             </td>
             <td class="border border-black p-0 align-top">
               <table class="min-w-full border-collapse text-sm">
@@ -47,15 +46,15 @@
       </table>
     </div>
 
-    <div class="mb-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-      <div class="flex flex-col gap-3 text-lg font-semibold sm:flex-row sm:items-center">
+    <div class="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div class="flex flex-col gap-3 text-lg font-semibold lg:flex-row lg:items-center">
         <div class="flex items-center gap-3">
-          <span class="min-w-24">Periode:</span>
+          <span class="min-w-24">Tanggal:</span>
           <input
-            :value="entry.form.period"
-            type="month"
+            :value="entry.form.date_value"
+            type="date"
             class="rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900"
-            @input="$emit('update-period', $event.target.value)"
+            @input="$emit('update-date', $event.target.value)"
           />
         </div>
 
@@ -77,30 +76,36 @@
         </div>
       </div>
 
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <button
-          type="button"
-          :disabled="!canScanArea"
-          class="rounded px-4 py-2 text-sm font-semibold transition"
-          :class="canScanArea
-            ? 'bg-sky-600 text-white hover:bg-sky-500'
-            : 'cursor-not-allowed bg-slate-300 text-slate-500'"
-          @click="$emit('scan-area')"
-        >
-          Scan Area
-        </button>
+      <div class="flex flex-col gap-1">
+        <div class="flex flex-wrap items-start gap-2">
+          <button
+            type="button"
+            class="w-[132px] rounded px-4 py-2 text-sm font-semibold transition"
+            :disabled="!canScanBarcode"
+            :class="!canScanBarcode
+              ? 'cursor-not-allowed bg-slate-300 text-slate-500 hover:bg-slate-300'
+              : 'bg-sky-600 text-white hover:bg-sky-500'"
+            @click="$emit('scan-barcode')"
+          >
+            Scan Barcode
+          </button>
 
-        <button
-          type="button"
-          :disabled="!canApproveEntry"
-          class="rounded px-4 py-2 text-sm font-semibold transition"
-          :class="canApproveEntry
-            ? 'bg-amber-500 text-white hover:bg-amber-400'
-            : 'cursor-not-allowed bg-slate-300 text-slate-500'"
-          @click="$emit('approve')"
-        >
-          Approval
-        </button>
+          <button
+            type="button"
+            :disabled="!canApproveEntry"
+            class="w-[96px] rounded px-4 py-2 text-sm font-semibold transition"
+            :class="canApproveEntry
+              ? 'bg-amber-500 text-white hover:bg-amber-400'
+              : 'cursor-not-allowed bg-slate-300 text-slate-500'"
+            @click="$emit('approve')"
+          >
+            Approval
+          </button>
+        </div>
+
+        <div class="max-w-[132px] text-xs text-slate-600">
+          {{ currentBarcode || 'Barcode area aktif belum discan.' }}
+        </div>
       </div>
     </div>
 
@@ -109,21 +114,14 @@
         <thead>
           <tr class="bg-slate-100">
             <th class="w-12 border border-black px-2 py-2 text-center">No</th>
-            <th class="min-w-[360px] border border-black px-2 py-2 text-center">ITEM</th>
-            <th
-              v-for="day in days"
-              :key="day.key"
-              class="w-12 border border-black px-2 py-2 text-center"
-              :class="day.isSunday ? 'bg-red-600 text-white' : approvedDays.includes(day.day) ? 'bg-emerald-200' : ''"
-            >
-              {{ day.day }}
-            </th>
+            <th class="min-w-[420px] border border-black px-2 py-2 text-center">ITEM</th>
+            <th class="min-w-[180px] border border-black px-2 py-2 text-center">Kondisi</th>
           </tr>
         </thead>
         <tbody>
           <template v-if="currentSection">
             <tr class="bg-slate-50">
-              <td colspan="100" class="border border-black px-2 py-2 text-base font-bold">
+              <td colspan="3" class="border border-black px-2 py-2 text-base font-bold">
                 {{ currentSection.title }}
               </td>
             </tr>
@@ -133,33 +131,41 @@
             >
               <td class="border border-black px-2 py-1 text-center">{{ item.no }}</td>
               <td class="border border-black px-2 py-1">{{ item.name }}</td>
-              <td
-                v-for="day in days"
-                :key="`${item.id}-${day.day}`"
-                class="border border-black p-0 text-center"
-                :class="day.isSunday ? 'bg-red-600' : approvedDays.includes(day.day) ? 'bg-emerald-100' : ''"
-              >
+              <td class="border border-black p-0 text-center">
                 <button
-                  v-if="!day.isSunday"
                   type="button"
-                  class="flex h-9 w-9 items-center justify-center text-base font-semibold"
-                  :disabled="approvedDays.includes(day.day)"
-                  @click="$emit('cycle-day', currentSection.id, item.id, day.day)"
+                  class="flex h-10 w-full items-center justify-center text-lg font-semibold"
+                  :disabled="approvedAreas.includes(entry.form.selected_area)"
+                  @click="$emit('cycle-row-status', currentSection.id, item.id)"
                 >
-                  <span v-if="item.days?.[day.day] === 'yes'">✓</span>
-                  <span v-else-if="item.days?.[day.day] === 'no'" class="text-rose-600">✕</span>
+                  <span v-if="item.status === 'yes'">✓</span>
+                  <span v-else-if="item.status === 'no'" class="text-rose-600">✕</span>
                 </button>
-                <div v-else class="h-9 w-9"></div>
               </td>
             </tr>
           </template>
           <tr v-else>
-            <td colspan="100" class="border border-black px-2 py-4 text-center text-slate-500">
+            <td colspan="3" class="border border-black px-2 py-4 text-center text-slate-500">
               Pilih area terlebih dahulu.
             </td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
+      <div class="mb-2 text-sm font-semibold">{{ noteLabel }}</div>
+      <textarea
+        :value="note"
+        rows="4"
+        class="w-full rounded border border-slate-400 bg-slate-100 px-3 py-2 text-sm text-slate-900"
+        :disabled="isAreaApproved"
+        placeholder="Isi catatan / temuan untuk area aktif..."
+        @input="$emit('update-note', $event.target.value)"
+      ></textarea>
+      <div class="mt-2 text-xs text-slate-600">
+        Isi catatan ini jika ada item bertanda silang.
+      </div>
     </div>
   </div>
 </template>
@@ -178,23 +184,27 @@ defineProps({
     type: Object,
     default: null,
   },
-  days: {
+  approvedAreas: {
     type: Array,
     required: true,
   },
-  approvedDays: {
-    type: Array,
+  isAreaApproved: {
+    type: Boolean,
     required: true,
   },
-  currentAreaScan: {
-    type: Object,
-    default: null,
+  note: {
+    type: String,
+    default: '',
   },
-  nextPendingDay: {
-    type: Object,
-    default: null,
+  noteLabel: {
+    type: String,
+    default: 'Keterangan',
   },
-  canScanArea: {
+  currentBarcode: {
+    type: String,
+    default: '',
+  },
+  canScanBarcode: {
     type: Boolean,
     required: true,
   },
@@ -204,5 +214,5 @@ defineProps({
   },
 });
 
-defineEmits(['approve', 'update-period', 'update-area', 'cycle-day', 'scan-area']);
+defineEmits(['approve', 'scan-barcode', 'update-date', 'update-area', 'cycle-row-status', 'update-note']);
 </script>

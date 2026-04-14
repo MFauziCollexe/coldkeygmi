@@ -139,6 +139,21 @@
         </tbody>
       </table>
     </div>
+
+    <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
+      <div class="mb-2 text-sm font-semibold">{{ noteLabel }}</div>
+      <textarea
+        :value="note"
+        rows="4"
+        class="w-full rounded border border-slate-400 bg-slate-100 px-3 py-2 text-sm text-slate-900"
+        :disabled="!canEditNote"
+        placeholder="Isi catatan / temuan untuk hari proses dan area aktif..."
+        @input="$emit('update-note', $event.target.value)"
+      ></textarea>
+      <div class="mt-2 text-xs text-slate-600">
+        Isi keterangan ini jika ada temuan pada area yang sedang diproses.
+      </div>
+    </div>
   </div>
 </template>
 
@@ -172,6 +187,18 @@ defineProps({
     type: Boolean,
     required: true,
   },
+  note: {
+    type: String,
+    default: '',
+  },
+  noteLabel: {
+    type: String,
+    default: 'Keterangan',
+  },
+  canEditNote: {
+    type: Boolean,
+    required: true,
+  },
   sanitationDays: {
     type: Array,
     required: true,
@@ -182,5 +209,5 @@ defineProps({
   },
 });
 
-defineEmits(['approve', 'toggle-day', 'scan-area']);
+defineEmits(['approve', 'toggle-day', 'scan-area', 'update-note']);
 </script>

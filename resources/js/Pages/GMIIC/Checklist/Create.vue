@@ -25,7 +25,7 @@
         v-if="selectedChecklist && !supportedTemplates.includes(selectedChecklist)"
         class="rounded bg-slate-800 p-4 text-sm text-amber-300"
       >
-        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, dan `Sarana dan Prasarana`.
+        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, `Sarana dan Prasarana`, `Patroli Security`, `Site Visit HSE`, dan `Site Visit Maintenance`.
       </div>
 
       <div
@@ -93,11 +93,15 @@
         :next-pending-day="nextPendingSanitationDay"
         :can-scan-area="canScanSanitationArea"
         :can-approve-entry="canApproveEntry"
+        :note="sanitationNote"
+        :note-label="sanitationNoteLabel"
+        :can-edit-note="canEditSanitationNote"
         :sanitation-days="sanitationDays"
         :sanitation-area-options="sanitationAreaOptions"
         @approve="approveChecklist"
         @scan-area="scanSanitationArea"
         @toggle-day="toggleSanitationDay"
+        @update-note="updateSanitationNote"
       />
 
       <WasteTransportTemplate
@@ -117,8 +121,12 @@
         :entry="entry"
         :warehouse-area-options="warehouseAreaOptions"
         :can-approve-entry="canApproveEntry"
+        :current-barcode="currentWarehouseBarcode"
+        :scan-date="currentWarehouseScanDate"
+        :can-scan-barcode="canScanWarehouseBarcode"
         :approval-button-label="warehouseApprovalButtonLabel"
         @approve="approveChecklist"
+        @scan-barcode="scanWarehouseBarcode"
         @update-frequency="updateWarehouseFrequency"
         @toggle-area="toggleWarehouseArea"
         @update-general-field="updateWarehouseGeneralField"
@@ -136,12 +144,55 @@
         :current-section="currentSaranaPrasaranaSection"
         :days="saranaPrasaranaDays"
         :approved-days="saranaPrasaranaApprovedDays"
+        :current-area-scan="currentSaranaPrasaranaScan"
         :next-pending-day="nextPendingSaranaPrasaranaDay"
+        :can-scan-area="canScanSaranaPrasaranaArea"
         :can-approve-entry="canApproveEntry"
         @approve="approveChecklist"
+        @scan-area="scanSaranaPrasaranaArea"
         @update-period="updateSaranaPrasaranaPeriod"
         @update-area="updateSaranaPrasaranaArea"
         @cycle-day="cycleSaranaPrasaranaDay"
+      />
+
+      <PatroliSecurityTemplate
+        v-else-if="entry && isPatroliSecurity"
+        :entry="entry"
+        :area-options="patroliSecurityAreaOptions"
+        :current-section="currentPatroliSecuritySection"
+        :approved-areas="patroliSecurityApprovedAreas"
+        :is-area-approved="patroliSecurityApprovedAreas.includes(entry.form.selected_area)"
+        :note="patroliSecurityNote"
+        :note-label="patroliSecurityNoteLabel"
+        :current-barcode="currentPatroliSecurityBarcode"
+        :can-scan-barcode="canScanPatroliSecurity"
+        :can-approve-entry="canApproveEntry"
+        @approve="approveChecklist"
+        @scan-barcode="scanPatroliSecurityBarcode"
+        @update-date="updatePatroliSecurityDate"
+        @update-area="updatePatroliSecurityArea"
+        @cycle-row-status="cyclePatroliSecurityRowStatus"
+        @update-note="updatePatroliSecurityNote"
+      />
+
+      <SiteVisitHseTemplate
+        v-else-if="entry && isSiteVisitHse"
+        :entry="entry"
+        :area-options="siteVisitHseAreaOptions"
+        :current-section="currentSiteVisitHseSection"
+        :approved-areas="siteVisitHseApprovedAreas"
+        :is-area-approved="siteVisitHseApprovedAreas.includes(entry.form.selected_area)"
+        :note="siteVisitHseNote"
+        :note-label="siteVisitHseNoteLabel"
+        :current-barcode="currentSiteVisitHseBarcode"
+        :can-scan-barcode="canScanSiteVisitHse"
+        :can-approve-entry="canApproveEntry"
+        @approve="approveChecklist"
+        @scan-barcode="scanSiteVisitHseBarcode"
+        @update-date="updateSiteVisitHseDate"
+        @update-area="updateSiteVisitHseArea"
+        @cycle-row-status="cycleSiteVisitHseRowStatus"
+        @update-note="updateSiteVisitHseNote"
       />
 
       <PersonalHygieneTemplate
@@ -157,6 +208,29 @@
         @toggle-day="togglePersonalHygieneDay"
         @toggle-generated-day="toggleGeneratedPersonalHygieneDay"
         @generate-full-month="generatePersonalHygieneFullMonth"
+      />
+
+      <SiteVisitMaintenanceTemplate
+        v-else-if="entry && isSiteVisitMaintenance"
+        :entry="entry"
+        :type-options="maintenanceVisitTypeOptions"
+        :current-type-meta="maintenanceTypeMeta"
+        :daily-area-options="maintenanceDailyAreaOptions"
+        :sections="maintenanceSections"
+        :rows="maintenanceRows"
+        :note="maintenanceNote"
+        :note-label="maintenanceNoteLabel"
+        :current-barcode="currentMaintenanceBarcode"
+        :can-scan-barcode="canScanMaintenance"
+        :can-approve-entry="canApproveEntry"
+        @approve="approveChecklist"
+        @scan-barcode="scanMaintenanceBarcode"
+        @update-type="updateMaintenanceVisitType"
+        @update-date="updateMaintenanceVisitDate"
+        @update-period="updateMaintenanceVisitPeriod"
+        @update-area="updateMaintenanceVisitArea"
+        @cycle-row-status="cycleMaintenanceRowStatus"
+        @update-note="updateMaintenanceNote"
       />
 
       <div
@@ -262,7 +336,10 @@ import SearchableSelect from '@/Components/SearchableSelect.vue';
 import FireSafetyTemplate from './Templates/FireSafetyTemplate.vue';
 import KotakP3KTemplate from './Templates/KotakP3KTemplate.vue';
 import NonWarehouseSanitationTemplate from './Templates/NonWarehouseSanitationTemplate.vue';
+import PatroliSecurityTemplate from './Templates/PatroliSecurityTemplate.vue';
 import SaranaPrasaranaTemplate from './Templates/SaranaPrasaranaTemplate.vue';
+import SiteVisitHseTemplate from './Templates/SiteVisitHseTemplate.vue';
+import SiteVisitMaintenanceTemplate from './Templates/SiteVisitMaintenanceTemplate.vue';
 import WasteTransportTemplate from './Templates/WasteTransportTemplate.vue';
 import WarehouseSanitationTemplate from './Templates/WarehouseSanitationTemplate.vue';
 import PersonalHygieneTemplate from './Templates/PersonalHygieneTemplate.vue';
@@ -273,39 +350,63 @@ import {
   createFireSafetyLocationState,
   createKotakP3KEntry,
   createNonWarehouseSanitationEntry,
+  createPatroliSecurityEntry,
   createPersonalHygieneEntry,
   createSaranaPrasaranaEntry,
+  createSiteVisitHseEntry,
+  createSiteVisitMaintenanceEntry,
   createWasteTransportEntry,
   createWarehouseSanitationEntry,
   fireSafetyCardOptions,
   formatDayMonthDisplay,
+  formatDateInputDisplay,
   formatDateDisplay,
   formatDateTimeDisplay,
   formatMonthYearDisplay,
   formatShortDateDisplay,
+  formatWeekDisplay,
+  getMaintenanceDailyAreaLabel,
   getFireSafetyCardTitle,
+  getFireSafetyLocationLabel,
   getFireSafetyLocationOptions,
   getFireSafetyRecordKey,
   getDaysInPeriod,
   getKotakP3KMonthLabel,
   getLocationLabel,
+  getLocationBarcodeAliases,
+  getPatroliSecurityAreaLabel,
+  getSanitationAreaLabel,
+  getSanitationAreaBarcodeAliases,
   kotakP3KMonths,
   locationOptions,
+  maintenanceDailyAreaOptions,
+  maintenanceVisitTypeOptions,
+  patroliSecurityAreaOptions,
   personalHygieneRows as personalHygieneRowTemplates,
+  rebuildMaintenanceDailySections,
+  rebuildMaintenanceWeeklyRows,
+  rebuildPatroliSecuritySections,
   rebuildFireSafetyRows,
   rebuildPersonalHygieneRows,
   rebuildAllSanitationRowsByArea,
   rebuildSaranaPrasaranaSections,
+  rebuildSiteVisitHseSections,
   rebuildSanitationRows,
   rebuildWasteTransportRows,
+  getMaintenanceVisitTypeMeta,
+  getSaranaPrasaranaAreaLabel,
+  getSiteVisitHseAreaLabel,
   saranaPrasaranaAreaOptions,
+  siteVisitHseAreaOptions,
   sanitationAreaOptions,
+  toDateInputValue,
   toPeriodValue,
+  toWeekInputValue,
   warehouseAreaOptions,
 } from './checklistConfig';
 import { findChecklistEntry, loadChecklistEntries, upsertChecklistEntry } from './checklistStorage';
 
-const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana'];
+const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
 
 const props = defineProps({
   selectedTemplate: {
@@ -365,6 +466,9 @@ const isWasteTransport = computed(() => selectedChecklist.value === 'pengangkuta
 const isWarehouseSanitation = computed(() => selectedChecklist.value === 'warehouse_sanitation_1');
 const isPersonalHygiene = computed(() => selectedChecklist.value === 'personal_hygiene_karyawan');
 const isSaranaPrasarana = computed(() => selectedChecklist.value === 'sarana_dan_prasarana');
+const isPatroliSecurity = computed(() => selectedChecklist.value === 'patroli_security');
+const isSiteVisitHse = computed(() => selectedChecklist.value === 'site_visit_hse');
+const isSiteVisitMaintenance = computed(() => selectedChecklist.value === 'site_visit_maintenance');
 
 const saranaPrasaranaDays = computed(() => {
   if (!isSaranaPrasarana.value || !entry.value) {
@@ -394,12 +498,356 @@ const currentSaranaPrasaranaSection = computed(() => {
   return (entry.value.form.sections || []).find((section) => section.id === areaId) || null;
 });
 
+const currentSaranaPrasaranaScan = computed(() => {
+  if (!isSaranaPrasarana.value || !entry.value || !nextPendingSaranaPrasaranaDay.value) {
+    return null;
+  }
+
+  const dayScans = entry.value.form.area_scans_by_day?.[nextPendingSaranaPrasaranaDay.value.day] || {};
+  return dayScans?.[entry.value.form.selected_area] || null;
+});
+
+const patroliSecurityApprovedAreas = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.approved_areas) ? entry.value.form.approved_areas : [];
+});
+
+const currentPatroliSecuritySection = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return null;
+  }
+
+  const areaId = String(entry.value.form.selected_area || '').trim();
+  return (entry.value.form.sections || []).find((section) => section.id === areaId) || null;
+});
+
+const patroliSecurityTargetKey = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return '';
+  }
+
+  return String(entry.value.form.selected_area || '').trim();
+});
+
+const currentPatroliSecurityBarcode = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.area_barcodes?.[patroliSecurityTargetKey.value] || '';
+});
+
+const patroliSecurityNoteLabel = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return 'Keterangan';
+  }
+
+  return `Keterangan ${getPatroliSecurityAreaLabel(entry.value.form.selected_area)}`;
+});
+
+const patroliSecurityNote = computed({
+  get() {
+    if (!isPatroliSecurity.value || !entry.value) {
+      return '';
+    }
+
+    return entry.value.form.area_notes?.[patroliSecurityTargetKey.value] || '';
+  },
+  set(value) {
+    if (!isPatroliSecurity.value || !entry.value) {
+      return;
+    }
+
+    entry.value.form.area_notes = {
+      ...(entry.value.form.area_notes || {}),
+      [patroliSecurityTargetKey.value]: value,
+    };
+  },
+});
+
+const patroliSecurityValidation = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return {
+      allAnswersFilled: false,
+      hasNoAnswer: false,
+      hasRequiredNote: false,
+    };
+  }
+
+  const activeRows = currentPatroliSecuritySection.value?.items || [];
+  const statuses = activeRows.map((row) => row.status || '');
+  const allAnswersFilled = activeRows.length > 0 && statuses.every((status) => status === 'yes' || status === 'no');
+  const hasNoAnswer = statuses.includes('no');
+  const hasRequiredNote = String(patroliSecurityNote.value || '').trim() !== '';
+
+  return {
+    allAnswersFilled,
+    hasNoAnswer,
+    hasRequiredNote,
+  };
+});
+
+const canScanPatroliSecurity = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return false;
+  }
+
+  const selectedArea = String(entry.value.form.selected_area || '').trim();
+
+  return Boolean(String(entry.value.form.date_value || '').trim())
+    && Boolean(selectedArea)
+    && !patroliSecurityApprovedAreas.value.includes(selectedArea)
+    && patroliSecurityValidation.value.allAnswersFilled
+    && (!patroliSecurityValidation.value.hasNoAnswer || patroliSecurityValidation.value.hasRequiredNote)
+    && !String(currentPatroliSecurityBarcode.value || '').trim();
+});
+
+const siteVisitHseApprovedAreas = computed(() => {
+  if (!isSiteVisitHse.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.approved_areas) ? entry.value.form.approved_areas : [];
+});
+
+const currentSiteVisitHseSection = computed(() => {
+  if (!isSiteVisitHse.value || !entry.value) {
+    return null;
+  }
+
+  const areaId = String(entry.value.form.selected_area || '').trim();
+  return (entry.value.form.sections || []).find((section) => section.id === areaId) || null;
+});
+
+const siteVisitHseTargetKey = computed(() => {
+  if (!isSiteVisitHse.value || !entry.value) {
+    return '';
+  }
+
+  return String(entry.value.form.selected_area || '').trim();
+});
+
+const currentSiteVisitHseBarcode = computed(() => {
+  if (!isSiteVisitHse.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.area_barcodes?.[siteVisitHseTargetKey.value] || '';
+});
+
+const siteVisitHseNoteLabel = computed(() => {
+  if (!isSiteVisitHse.value || !entry.value) {
+    return 'Keterangan';
+  }
+
+  return `Keterangan ${getSiteVisitHseAreaLabel(entry.value.form.selected_area)}`;
+});
+
+const siteVisitHseNote = computed({
+  get() {
+    if (!isSiteVisitHse.value || !entry.value) {
+      return '';
+    }
+
+    return entry.value.form.area_notes?.[siteVisitHseTargetKey.value] || '';
+  },
+  set(value) {
+    if (!isSiteVisitHse.value || !entry.value) {
+      return;
+    }
+
+    entry.value.form.area_notes = {
+      ...(entry.value.form.area_notes || {}),
+      [siteVisitHseTargetKey.value]: value,
+    };
+  },
+});
+
+const siteVisitHseValidation = computed(() => {
+  if (!isSiteVisitHse.value || !entry.value) {
+    return {
+      allAnswersFilled: false,
+      hasNoAnswer: false,
+      hasRequiredNote: false,
+    };
+  }
+
+  const activeRows = currentSiteVisitHseSection.value?.items || [];
+  const statuses = activeRows.map((row) => row.status || '');
+  const allAnswersFilled = activeRows.length > 0 && statuses.every((status) => status === 'yes' || status === 'no');
+  const hasNoAnswer = statuses.includes('no');
+  const hasRequiredNote = String(siteVisitHseNote.value || '').trim() !== '';
+
+  return {
+    allAnswersFilled,
+    hasNoAnswer,
+    hasRequiredNote,
+  };
+});
+
+const canScanSiteVisitHse = computed(() => {
+  if (!isSiteVisitHse.value || !entry.value) {
+    return false;
+  }
+
+  const selectedArea = String(entry.value.form.selected_area || '').trim();
+
+  return Boolean(String(entry.value.form.date_value || '').trim())
+    && Boolean(selectedArea)
+    && !siteVisitHseApprovedAreas.value.includes(selectedArea)
+    && siteVisitHseValidation.value.allAnswersFilled
+    && (!siteVisitHseValidation.value.hasNoAnswer || siteVisitHseValidation.value.hasRequiredNote)
+    && !String(currentSiteVisitHseBarcode.value || '').trim();
+});
+
+const maintenanceTypeMeta = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return getMaintenanceVisitTypeMeta('maintenance_harian');
+  }
+
+  return getMaintenanceVisitTypeMeta(entry.value.form.visit_type);
+});
+
+const maintenanceSections = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return [];
+  }
+
+  const selectedArea = String(entry.value.form.selected_area || '').trim();
+  const sections = Array.isArray(entry.value.form.sections) ? entry.value.form.sections : [];
+
+  if (entry.value.form.visit_type !== 'maintenance_harian') {
+    return sections;
+  }
+
+  return sections.filter((section) => String(section.area_id || '').trim() === selectedArea);
+});
+
+const maintenanceRows = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.rows) ? entry.value.form.rows : [];
+});
+
+const maintenanceScanTargetKey = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.visit_type === 'maintenance_mingguan'
+    ? 'lantai_1_area_belakang'
+    : String(entry.value.form.selected_area || '').trim();
+});
+
+const currentMaintenanceBarcode = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.area_barcodes?.[maintenanceScanTargetKey.value] || '';
+});
+
+const maintenanceNoteLabel = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return 'Keterangan';
+  }
+
+  return entry.value.form.visit_type === 'maintenance_mingguan'
+    ? 'Keterangan Mingguan'
+    : `Keterangan ${getMaintenanceDailyAreaLabel(entry.value.form.selected_area)}`;
+});
+
+const maintenanceNote = computed({
+  get() {
+    if (!isSiteVisitMaintenance.value || !entry.value) {
+      return '';
+    }
+
+    return entry.value.form.area_notes?.[maintenanceScanTargetKey.value] || '';
+  },
+  set(value) {
+    if (!isSiteVisitMaintenance.value || !entry.value) {
+      return;
+    }
+
+    entry.value.form.area_notes = {
+      ...(entry.value.form.area_notes || {}),
+      [maintenanceScanTargetKey.value]: value,
+    };
+  },
+});
+
+const maintenanceValidation = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return {
+      allAnswersFilled: false,
+      hasNoAnswer: false,
+      hasRequiredNote: false,
+    };
+  }
+
+  const visitType = String(entry.value.form.visit_type || '').trim();
+  const activeRows = visitType === 'maintenance_mingguan'
+    ? maintenanceRows.value
+    : maintenanceSections.value.flatMap((section) => section.items || []);
+
+  const statuses = activeRows.map((row) => row.status || '');
+  const allAnswersFilled = activeRows.length > 0 && statuses.every((status) => status === 'yes' || status === 'no');
+  const hasNoAnswer = statuses.includes('no');
+  const hasRequiredNote = String(maintenanceNote.value || '').trim() !== '';
+
+  return {
+    allAnswersFilled,
+    hasNoAnswer,
+    hasRequiredNote,
+  };
+});
+
+const canScanMaintenance = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return false;
+  }
+
+  const visitType = String(entry.value.form.visit_type || '').trim();
+  if (!visitType) {
+    return false;
+  }
+
+  const hasSchedule = visitType === 'maintenance_mingguan'
+    ? Boolean(String(entry.value.form.period_value || '').trim())
+    : Boolean(String(entry.value.form.date_value || '').trim()) && Boolean(String(entry.value.form.selected_area || '').trim());
+
+  return hasSchedule
+    && maintenanceValidation.value.allAnswersFilled
+    && (!maintenanceValidation.value.hasNoAnswer || maintenanceValidation.value.hasRequiredNote)
+    && !String(currentMaintenanceBarcode.value || '').trim();
+});
+
 const nextPendingSaranaPrasaranaDay = computed(() => {
   if (!isSaranaPrasarana.value || !entry.value) {
     return null;
   }
 
   return saranaPrasaranaDays.value.find((day) => !day.isSunday && !saranaPrasaranaApprovedDays.value.includes(day.day)) || null;
+});
+
+const canScanSaranaPrasaranaArea = computed(() => {
+  if (!isSaranaPrasarana.value || !entry.value || !nextPendingSaranaPrasaranaDay.value) {
+    return false;
+  }
+
+  if (currentSaranaPrasaranaScan.value?.barcode) {
+    return false;
+  }
+
+  return Boolean(String(entry.value.form.period || '').trim())
+    && Boolean(String(entry.value.form.selected_area || '').trim())
+    && (currentSaranaPrasaranaSection.value?.items || []).every((item) => Boolean(item.days?.[nextPendingSaranaPrasaranaDay.value.day]));
 });
 
 const activeKotakP3KMonth = computed(() => {
@@ -669,6 +1117,38 @@ const canScanSanitationArea = computed(() => {
   return currentSanitationAreaCompleted.value;
 });
 
+const sanitationNoteTargetKey = computed(() => {
+  if (!isSanitation.value || !entry.value || !nextPendingSanitationDay.value) {
+    return '';
+  }
+
+  return [
+    String(entry.value.form.period || '').trim(),
+    String(nextPendingSanitationDay.value.day || '').trim(),
+    String(entry.value.form.area || '').trim(),
+  ].join('__');
+});
+
+const sanitationNote = computed(() => {
+  if (!isSanitation.value || !entry.value || !sanitationNoteTargetKey.value) {
+    return '';
+  }
+
+  return entry.value.form.area_notes?.[sanitationNoteTargetKey.value] || '';
+});
+
+const sanitationNoteLabel = computed(() => {
+  if (!isSanitation.value || !entry.value || !nextPendingSanitationDay.value) {
+    return 'Keterangan';
+  }
+
+  return `Keterangan Hari ${nextPendingSanitationDay.value.day} - ${getSanitationAreaLabel(entry.value.form.area)}`;
+});
+
+const canEditSanitationNote = computed(() => {
+  return Boolean(isSanitation.value && entry.value && nextPendingSanitationDay.value);
+});
+
 const wasteTransportRows = computed(() => {
   if (!isWasteTransport.value || !entry.value) {
     return [];
@@ -790,6 +1270,57 @@ const warehouseManagerApproved = computed(() => {
   return Boolean(entry.value.form.verification?.verified_date);
 });
 
+const currentWarehouseBarcode = computed(() => {
+  if (!isWarehouseSanitation.value || !entry.value) {
+    return '';
+  }
+
+  return String(entry.value.form.barcode || '').trim();
+});
+
+const currentWarehouseScanDate = computed(() => {
+  if (!isWarehouseSanitation.value || !entry.value) {
+    return '';
+  }
+
+  return String(entry.value.form.scan_date || '').trim();
+});
+
+const canScanWarehouseBarcode = computed(() => {
+  if (!isWarehouseSanitation.value || !entry.value || warehousePreparedApproved.value) {
+    return false;
+  }
+
+  const hasValidSchedule = entry.value.form.frequency === 'monthly'
+    ? Boolean(String(entry.value.form.period || '').trim())
+    : Boolean(String(entry.value.form.date || '').trim());
+
+  const generalCompleted = Boolean(
+    hasValidSchedule
+    && Array.isArray(entry.value.form.selected_areas)
+    && entry.value.form.selected_areas.length
+    && String(entry.value.form.room_temperature || '').trim()
+    && String(entry.value.form.petugas || '').trim()
+    && String(entry.value.form.hse || '').trim()
+  );
+
+  const areaRowsCompleted = (entry.value.form.area_rows || []).every((row) => (
+    row.clean_condition && row.no_ice_pooling && row.no_odor
+  ));
+
+  const iceControlCompleted = (entry.value.form.ice_control_rows || []).every((row) => row.status);
+
+  const cleaningMaterialCompleted = (entry.value.form.cleaning_material_rows || []).every((row) => (
+    String(row.material_name || '').trim() && row.halal && row.dosage
+  ));
+
+  return generalCompleted
+    && areaRowsCompleted
+    && iceControlCompleted
+    && cleaningMaterialCompleted
+    && !currentWarehouseBarcode.value;
+});
+
 const warehouseApprovalButtonLabel = computed(() => {
   if (!isWarehouseSanitation.value || !entry.value) {
     return 'Approval';
@@ -894,7 +1425,7 @@ const canApproveEntry = computed(() => {
     }
 
     if (!warehousePreparedApproved.value) {
-      return true;
+      return Boolean(currentWarehouseBarcode.value);
     }
 
     return canApproveWarehouseFinal.value;
@@ -928,7 +1459,44 @@ const canApproveEntry = computed(() => {
 
     return Boolean(String(entry.value.form.period || '').trim())
       && Boolean(String(entry.value.form.selected_area || '').trim())
-      && (currentSaranaPrasaranaSection.value?.items || []).every((item) => Boolean(item.days?.[nextPendingSaranaPrasaranaDay.value.day]));
+      && (currentSaranaPrasaranaSection.value?.items || []).every((item) => Boolean(item.days?.[nextPendingSaranaPrasaranaDay.value.day]))
+      && Boolean(currentSaranaPrasaranaScan.value?.barcode);
+  }
+
+  if (isSiteVisitMaintenance.value) {
+    const visitType = String(entry.value.form.visit_type || '').trim();
+    const hasSchedule = visitType === 'maintenance_mingguan'
+      ? Boolean(String(entry.value.form.period_value || '').trim())
+      : Boolean(String(entry.value.form.date_value || '').trim());
+
+    return Boolean(visitType)
+      && hasSchedule
+      && (visitType === 'maintenance_mingguan' || Boolean(String(entry.value.form.selected_area || '').trim()))
+      && Boolean(String(currentMaintenanceBarcode.value || '').trim())
+      && maintenanceValidation.value.allAnswersFilled
+      && (!maintenanceValidation.value.hasNoAnswer || maintenanceValidation.value.hasRequiredNote);
+  }
+
+  if (isSiteVisitHse.value) {
+    const selectedArea = String(entry.value.form.selected_area || '').trim();
+
+    return Boolean(String(entry.value.form.date_value || '').trim())
+      && Boolean(selectedArea)
+      && !siteVisitHseApprovedAreas.value.includes(selectedArea)
+      && Boolean(String(currentSiteVisitHseBarcode.value || '').trim())
+      && siteVisitHseValidation.value.allAnswersFilled
+      && (!siteVisitHseValidation.value.hasNoAnswer || siteVisitHseValidation.value.hasRequiredNote);
+  }
+
+  if (isPatroliSecurity.value) {
+    const selectedArea = String(entry.value.form.selected_area || '').trim();
+
+    return Boolean(String(entry.value.form.date_value || '').trim())
+      && Boolean(selectedArea)
+      && !patroliSecurityApprovedAreas.value.includes(selectedArea)
+      && Boolean(String(currentPatroliSecurityBarcode.value || '').trim())
+      && patroliSecurityValidation.value.allAnswersFilled
+      && (!patroliSecurityValidation.value.hasNoAnswer || patroliSecurityValidation.value.hasRequiredNote);
   }
 
   return false;
@@ -963,6 +1531,18 @@ function createEntryByTemplate(templateId) {
 
   if (templateId === 'sarana_dan_prasarana') {
     return createSaranaPrasaranaEntry(userName);
+  }
+
+  if (templateId === 'patroli_security') {
+    return createPatroliSecurityEntry(userName);
+  }
+
+  if (templateId === 'site_visit_hse') {
+    return createSiteVisitHseEntry(userName);
+  }
+
+  if (templateId === 'site_visit_maintenance') {
+    return createSiteVisitMaintenanceEntry(userName);
   }
 
   return null;
@@ -1101,6 +1681,9 @@ function hydrateSaranaPrasaranaEntry(savedEntry) {
       ...savedEntry.form,
       period,
       selected_area: String(savedEntry?.form?.selected_area || '').trim() || savedEntry?.form?.sections?.[0]?.id || '',
+      area_scans_by_day: {
+        ...(savedEntry?.form?.area_scans_by_day || {}),
+      },
       approved_days_by_area: saranaPrasaranaAreaOptions.reduce((result, area) => {
         result[area.id] = Array.isArray(savedEntry?.form?.approved_days_by_area?.[area.id])
           ? savedEntry.form.approved_days_by_area[area.id]
@@ -1114,13 +1697,137 @@ function hydrateSaranaPrasaranaEntry(savedEntry) {
   };
 }
 
+function hydratePatroliSecurityEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'patroli_security') {
+    return savedEntry;
+  }
+
+  const now = new Date();
+  const nextDateValue = String(savedEntry?.form?.date_value || '').trim() || toDateInputValue(now);
+  const nextSelectedArea = String(savedEntry?.form?.selected_area || '').trim()
+    || savedEntry?.form?.sections?.[0]?.id
+    || patroliSecurityAreaOptions[0]?.id
+    || '';
+
+  return {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      date_value: nextDateValue,
+      date: savedEntry?.form?.date || formatDateInputDisplay(nextDateValue),
+      selected_area: nextSelectedArea,
+      approved_areas: Array.isArray(savedEntry?.form?.approved_areas) ? savedEntry.form.approved_areas : [],
+      area_barcodes: {
+        ...(savedEntry?.form?.area_barcodes || {}),
+      },
+      area_notes: {
+        ...(savedEntry?.form?.area_notes || {}),
+      },
+      area_scan_dates: {
+        ...(savedEntry?.form?.area_scan_dates || {}),
+      },
+      document_no: savedEntry?.form?.document_no || 'FRM.HSE.15.02',
+      rev: savedEntry?.form?.rev || '00',
+      effective_date: savedEntry?.form?.effective_date || '22 Desember 2025',
+      page: savedEntry?.form?.page || '1 dari 1',
+      sections: rebuildPatroliSecuritySections(savedEntry?.form?.sections || []),
+    },
+  };
+}
+
+function hydrateSiteVisitHseEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'site_visit_hse') {
+    return savedEntry;
+  }
+
+  const now = new Date();
+  const nextDateValue = String(savedEntry?.form?.date_value || '').trim() || toDateInputValue(now);
+  const nextSelectedArea = String(savedEntry?.form?.selected_area || '').trim()
+    || savedEntry?.form?.sections?.[0]?.id
+    || siteVisitHseAreaOptions[0]?.id
+    || '';
+
+  return {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      date_value: nextDateValue,
+      date: savedEntry?.form?.date || formatDateInputDisplay(nextDateValue),
+      selected_area: nextSelectedArea,
+      approved_areas: Array.isArray(savedEntry?.form?.approved_areas) ? savedEntry.form.approved_areas : [],
+      area_barcodes: {
+        ...(savedEntry?.form?.area_barcodes || {}),
+      },
+      area_notes: {
+        ...(savedEntry?.form?.area_notes || {}),
+      },
+      area_scan_dates: {
+        ...(savedEntry?.form?.area_scan_dates || {}),
+      },
+      document_no: savedEntry?.form?.document_no || 'FRM.HSE.15.01',
+      rev: savedEntry?.form?.rev || '00',
+      effective_date: savedEntry?.form?.effective_date || '22 Desember 2025',
+      page: savedEntry?.form?.page || '1 dari 1',
+      sections: rebuildSiteVisitHseSections(savedEntry?.form?.sections || []),
+    },
+  };
+}
+
+function hydrateSiteVisitMaintenanceEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'site_visit_maintenance') {
+    return savedEntry;
+  }
+
+  const visitType = String(savedEntry?.form?.visit_type || '').trim() || 'maintenance_harian';
+  const typeMeta = getMaintenanceVisitTypeMeta(visitType);
+  const now = new Date();
+  const nextDateValue = String(savedEntry?.form?.date_value || '').trim() || toDateInputValue(now);
+  const nextPeriodValue = String(savedEntry?.form?.period_value || '').trim() || toWeekInputValue(now);
+  const nextSelectedArea = String(savedEntry?.form?.selected_area || '').trim() || 'lantai_1_area_belakang';
+
+  return {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      visit_type: visitType,
+      document_no: savedEntry?.form?.document_no || typeMeta.document_no,
+      rev: savedEntry?.form?.rev || '00',
+      effective_date: savedEntry?.form?.effective_date || '22 Desember 2025',
+      page: savedEntry?.form?.page || '1 dari 1',
+      selected_area: nextSelectedArea,
+      area_barcodes: {
+        ...(savedEntry?.form?.area_barcodes || {}),
+      },
+      area_scan_dates: {
+        ...(savedEntry?.form?.area_scan_dates || {}),
+      },
+      area_notes: {
+        ...(savedEntry?.form?.area_notes || {}),
+      },
+      date_value: nextDateValue,
+      date: visitType === 'maintenance_harian'
+        ? (savedEntry?.form?.date || formatDateInputDisplay(nextDateValue))
+        : '',
+      period_value: nextPeriodValue,
+      period: visitType === 'maintenance_mingguan'
+        ? (savedEntry?.form?.period || formatWeekDisplay(nextPeriodValue))
+        : '',
+      sections: rebuildMaintenanceDailySections(savedEntry?.form?.sections || []),
+      rows: rebuildMaintenanceWeeklyRows(savedEntry?.form?.rows || []),
+    },
+  };
+}
+
 function createInitialEntry() {
   if (props.entryId) {
     const savedEntry = findChecklistEntry(props.entryId);
     if (savedEntry) {
       const fireSafetyHydratedEntry = hydrateFireSafetyEntry(savedEntry);
       const saranaPrasaranaHydratedEntry = hydrateSaranaPrasaranaEntry(fireSafetyHydratedEntry);
-      const hydratedEntry = hydratePersonalHygieneEntry(saranaPrasaranaHydratedEntry);
+      const patroliSecurityHydratedEntry = hydratePatroliSecurityEntry(saranaPrasaranaHydratedEntry);
+      const personalHygieneHydratedEntry = hydratePersonalHygieneEntry(patroliSecurityHydratedEntry);
+      const siteVisitHseHydratedEntry = hydrateSiteVisitHseEntry(personalHygieneHydratedEntry);
+      const hydratedEntry = hydrateSiteVisitMaintenanceEntry(siteVisitHseHydratedEntry);
       selectedChecklist.value = hydratedEntry.template_id;
       return hydratedEntry;
     }
@@ -1234,6 +1941,30 @@ function approveChecklist() {
     };
   }
 
+  if (isPatroliSecurity.value) {
+    const selectedArea = String(entry.value.form.selected_area || '').trim();
+
+    entry.value.form.approved_areas = [
+      ...new Set([...(entry.value.form.approved_areas || []), selectedArea]),
+    ];
+    entry.value.form.approved = patroliSecurityAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id));
+    upsertChecklistEntry(entry.value);
+    router.visit('/gmiic/checklist');
+    return;
+  }
+
+  if (isSiteVisitHse.value) {
+    const selectedArea = String(entry.value.form.selected_area || '').trim();
+
+    entry.value.form.approved_areas = [
+      ...new Set([...(entry.value.form.approved_areas || []), selectedArea]),
+    ];
+    entry.value.form.approved = siteVisitHseAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id));
+    upsertChecklistEntry(entry.value);
+    router.visit('/gmiic/checklist');
+    return;
+  }
+
   entry.value.form.approved = true;
   upsertChecklistEntry(entry.value);
   router.visit('/gmiic/checklist');
@@ -1267,12 +1998,82 @@ async function scanSanitationArea() {
   await startBarcodeScanner();
 }
 
+async function scanSaranaPrasaranaArea() {
+  if (!entry.value || !isSaranaPrasarana.value || !canScanSaranaPrasaranaArea.value) {
+    return;
+  }
+
+  scannerMode.value = 'sarana_prasarana';
+  scannerError.value = '';
+  scannerLoading.value = true;
+  scannerModalOpen.value = true;
+
+  await nextTick();
+  await startBarcodeScanner();
+}
+
 async function scanFireSafetyBarcode() {
   if (!entry.value || !isFireSafety.value || !canScanFireSafety.value) {
     return;
   }
 
   scannerMode.value = 'fire_safety';
+  scannerError.value = '';
+  scannerLoading.value = true;
+  scannerModalOpen.value = true;
+
+  await nextTick();
+  await startBarcodeScanner();
+}
+
+async function scanWarehouseBarcode() {
+  if (!entry.value || !isWarehouseSanitation.value || !canScanWarehouseBarcode.value) {
+    return;
+  }
+
+  scannerMode.value = 'warehouse_sanitation';
+  scannerError.value = '';
+  scannerLoading.value = true;
+  scannerModalOpen.value = true;
+
+  await nextTick();
+  await startBarcodeScanner();
+}
+
+async function scanMaintenanceBarcode() {
+  if (!entry.value || !isSiteVisitMaintenance.value || !canScanMaintenance.value) {
+    return;
+  }
+
+  scannerMode.value = 'site_visit_maintenance';
+  scannerError.value = '';
+  scannerLoading.value = true;
+  scannerModalOpen.value = true;
+
+  await nextTick();
+  await startBarcodeScanner();
+}
+
+async function scanSiteVisitHseBarcode() {
+  if (!entry.value || !isSiteVisitHse.value || !canScanSiteVisitHse.value) {
+    return;
+  }
+
+  scannerMode.value = 'site_visit_hse';
+  scannerError.value = '';
+  scannerLoading.value = true;
+  scannerModalOpen.value = true;
+
+  await nextTick();
+  await startBarcodeScanner();
+}
+
+async function scanPatroliSecurityBarcode() {
+  if (!entry.value || !isPatroliSecurity.value || !canScanPatroliSecurity.value) {
+    return;
+  }
+
+  scannerMode.value = 'patroli_security';
   scannerError.value = '';
   scannerLoading.value = true;
   scannerModalOpen.value = true;
@@ -1397,6 +2198,7 @@ function updateSaranaPrasaranaPeriod(value) {
   }
 
   entry.value.form.period = value;
+  entry.value.form.area_scans_by_day = {};
   entry.value.form.approved_days_by_area = saranaPrasaranaAreaOptions.reduce((result, area) => {
     result[area.id] = [];
     return result;
@@ -1410,6 +2212,247 @@ function updateSaranaPrasaranaArea(value) {
   }
 
   entry.value.form.selected_area = value;
+}
+
+function updatePatroliSecurityDate(value) {
+  if (!entry.value || !isPatroliSecurity.value) {
+    return;
+  }
+
+  entry.value.form.date_value = value;
+  entry.value.form.date = formatDateInputDisplay(value);
+  entry.value.form.approved_areas = [];
+  entry.value.form.area_barcodes = {};
+  entry.value.form.area_notes = {};
+  entry.value.form.area_scan_dates = {};
+  entry.value.form.approved = false;
+  entry.value.form.sections = rebuildPatroliSecuritySections([]);
+}
+
+function updatePatroliSecurityArea(value) {
+  if (!entry.value || !isPatroliSecurity.value) {
+    return;
+  }
+
+  entry.value.form.selected_area = value;
+}
+
+function updatePatroliSecurityNote(value) {
+  if (!entry.value || !isPatroliSecurity.value || !patroliSecurityTargetKey.value) {
+    return;
+  }
+
+  entry.value.form.area_notes = {
+    ...(entry.value.form.area_notes || {}),
+    [patroliSecurityTargetKey.value]: String(value || ''),
+  };
+}
+
+function updateSiteVisitHseDate(value) {
+  if (!entry.value || !isSiteVisitHse.value) {
+    return;
+  }
+
+  entry.value.form.date_value = value;
+  entry.value.form.date = formatDateInputDisplay(value);
+  entry.value.form.approved_areas = [];
+  entry.value.form.area_barcodes = {};
+  entry.value.form.area_notes = {};
+  entry.value.form.area_scan_dates = {};
+  entry.value.form.approved = false;
+  entry.value.form.sections = rebuildSiteVisitHseSections([]);
+}
+
+function updateSiteVisitHseArea(value) {
+  if (!entry.value || !isSiteVisitHse.value) {
+    return;
+  }
+
+  entry.value.form.selected_area = value;
+}
+
+function updateSiteVisitHseNote(value) {
+  if (!entry.value || !isSiteVisitHse.value || !siteVisitHseTargetKey.value) {
+    return;
+  }
+
+  entry.value.form.area_notes = {
+    ...(entry.value.form.area_notes || {}),
+    [siteVisitHseTargetKey.value]: String(value || ''),
+  };
+}
+
+function updateSanitationNote(value) {
+  if (!entry.value || !isSanitation.value || !sanitationNoteTargetKey.value) {
+    return;
+  }
+
+  entry.value.form.area_notes = {
+    ...(entry.value.form.area_notes || {}),
+    [sanitationNoteTargetKey.value]: String(value || ''),
+  };
+}
+
+function updateMaintenanceVisitType(value) {
+  if (!entry.value || !isSiteVisitMaintenance.value) {
+    return;
+  }
+
+  const visitType = String(value || '').trim() || 'maintenance_harian';
+  const typeMeta = getMaintenanceVisitTypeMeta(visitType);
+
+  entry.value.form.visit_type = visitType;
+  entry.value.form.document_no = typeMeta.document_no;
+  entry.value.form.selected_area = visitType === 'maintenance_harian'
+    ? (entry.value.form.selected_area || 'lantai_1_area_belakang')
+    : 'lantai_1_area_belakang';
+  entry.value.form.date = visitType === 'maintenance_harian'
+    ? formatDateInputDisplay(entry.value.form.date_value || toDateInputValue(new Date()))
+    : '';
+  entry.value.form.period = visitType === 'maintenance_mingguan'
+    ? formatWeekDisplay(entry.value.form.period_value || toWeekInputValue(new Date()))
+    : '';
+  entry.value.form.sections = rebuildMaintenanceDailySections(entry.value.form.sections || []);
+  entry.value.form.rows = rebuildMaintenanceWeeklyRows(entry.value.form.rows || []);
+}
+
+function updateMaintenanceVisitDate(value) {
+  if (!entry.value || !isSiteVisitMaintenance.value) {
+    return;
+  }
+
+  entry.value.form.date_value = value;
+  entry.value.form.date = formatDateInputDisplay(value);
+}
+
+function updateMaintenanceVisitPeriod(value) {
+  if (!entry.value || !isSiteVisitMaintenance.value) {
+    return;
+  }
+
+  entry.value.form.period_value = value;
+  entry.value.form.period = formatWeekDisplay(value);
+}
+
+function updateMaintenanceVisitArea(value) {
+  if (!entry.value || !isSiteVisitMaintenance.value) {
+    return;
+  }
+
+  entry.value.form.selected_area = value;
+}
+
+function getNextMaintenanceStatus(currentValue) {
+  if (currentValue === 'yes') {
+    return 'no';
+  }
+
+  if (currentValue === 'no') {
+    return '';
+  }
+
+  return 'yes';
+}
+
+function cycleMaintenanceRowStatus(payload) {
+  if (!entry.value || !isSiteVisitMaintenance.value || !payload?.rowId) {
+    return;
+  }
+
+  if (entry.value.form.visit_type === 'maintenance_mingguan') {
+    entry.value.form.rows = (entry.value.form.rows || []).map((row) => (
+      row.id === payload.rowId ? { ...row, status: getNextMaintenanceStatus(row.status) } : row
+    ));
+    return;
+  }
+
+  entry.value.form.sections = (entry.value.form.sections || []).map((section) => (
+    section.id === payload.sectionId
+      ? {
+          ...section,
+          items: (section.items || []).map((item) => (
+            item.id === payload.rowId ? { ...item, status: getNextMaintenanceStatus(item.status) } : item
+          )),
+        }
+      : section
+  ));
+}
+
+function updateMaintenanceNote(value) {
+  if (!entry.value || !isSiteVisitMaintenance.value || !maintenanceScanTargetKey.value) {
+    return;
+  }
+
+  entry.value.form.area_notes = {
+    ...(entry.value.form.area_notes || {}),
+    [maintenanceScanTargetKey.value]: String(value || ''),
+  };
+}
+
+function cycleSiteVisitHseRowStatus(sectionId, itemId) {
+  if (!entry.value || !isSiteVisitHse.value) {
+    return;
+  }
+
+  if (siteVisitHseApprovedAreas.value.includes(String(entry.value.form.selected_area || '').trim())) {
+    return;
+  }
+
+  entry.value.form.sections = (entry.value.form.sections || []).map((section) => {
+    if (section.id !== sectionId) {
+      return section;
+    }
+
+    return {
+      ...section,
+      items: (section.items || []).map((item) => {
+        if (item.id !== itemId) {
+          return item;
+        }
+
+        const currentValue = item.status || '';
+        const nextValue = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : '';
+
+        return {
+          ...item,
+          status: nextValue,
+        };
+      }),
+    };
+  });
+}
+
+function cyclePatroliSecurityRowStatus(sectionId, itemId) {
+  if (!entry.value || !isPatroliSecurity.value) {
+    return;
+  }
+
+  if (patroliSecurityApprovedAreas.value.includes(String(entry.value.form.selected_area || '').trim())) {
+    return;
+  }
+
+  entry.value.form.sections = (entry.value.form.sections || []).map((section) => {
+    if (section.id !== sectionId) {
+      return section;
+    }
+
+    return {
+      ...section,
+      items: (section.items || []).map((item) => {
+        if (item.id !== itemId) {
+          return item;
+        }
+
+        const currentValue = item.status || '';
+        const nextValue = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : '';
+
+        return {
+          ...item,
+          status: nextValue,
+        };
+      }),
+    };
+  });
 }
 
 function cycleSaranaPrasaranaDay(sectionId, itemId, day) {
@@ -1666,6 +2709,11 @@ function updateWarehouseGeneralField(field, value) {
   }
 
   entry.value.form[field] = value;
+
+  if (field === 'period' || field === 'date') {
+    entry.value.form.barcode = '';
+    entry.value.form.scan_date = '';
+  }
 }
 
 function updateWarehouseFrequency(value) {
@@ -1674,6 +2722,8 @@ function updateWarehouseFrequency(value) {
   }
 
   entry.value.form.frequency = value;
+  entry.value.form.barcode = '';
+  entry.value.form.scan_date = '';
   entry.value.form.area_rows = buildWarehouseAreaRows(
     value,
     entry.value.form.area_rows || []
@@ -1783,6 +2833,75 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function normalizeBarcodeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function isBarcodeTextMatchingExpected(decodedText, expectedValues = []) {
+  const normalizedDecoded = normalizeBarcodeText(decodedText);
+  if (!normalizedDecoded) {
+    return false;
+  }
+
+  return expectedValues.some((value) => {
+    const normalizedExpected = normalizeBarcodeText(value);
+    if (!normalizedExpected) {
+      return false;
+    }
+
+    return normalizedDecoded === normalizedExpected
+      || normalizedDecoded.includes(normalizedExpected)
+      || normalizedExpected.includes(normalizedDecoded);
+  });
+}
+
+function getExpectedBarcodeValuesForCurrentScannerMode() {
+  if (!entry.value) {
+    return [];
+  }
+
+  if (scannerMode.value === 'kotak_p3k') {
+    return getLocationBarcodeAliases(entry.value.form.location);
+  }
+
+  if (scannerMode.value === 'fire_safety') {
+    return getLocationBarcodeAliases(entry.value.form.location)
+      .concat(getFireSafetyLocationLabel(entry.value.form.card_type, entry.value.form.location));
+  }
+
+  if (scannerMode.value === 'sanitation_area') {
+    return getSanitationAreaBarcodeAliases(entry.value.form.area);
+  }
+
+  if (scannerMode.value === 'sarana_prasarana') {
+    return [getSaranaPrasaranaAreaLabel(entry.value.form.selected_area)];
+  }
+
+  if (scannerMode.value === 'site_visit_hse') {
+    return [getSiteVisitHseAreaLabel(entry.value.form.selected_area)];
+  }
+
+  if (scannerMode.value === 'patroli_security') {
+    return [getPatroliSecurityAreaLabel(entry.value.form.selected_area)];
+  }
+
+  if (scannerMode.value === 'site_visit_maintenance') {
+    return [getMaintenanceDailyAreaLabel(maintenanceScanTargetKey.value)];
+  }
+
+  if (scannerMode.value === 'warehouse_sanitation') {
+    return warehouseAreaOptions
+      .filter((area) => (entry.value.form.selected_areas || []).includes(area.id))
+      .map((area) => area.name);
+  }
+
+  return [];
+}
+
 async function startPhotoCamera() {
   try {
     await stopPhotoCamera();
@@ -1870,12 +2989,16 @@ async function startBarcodeScanner() {
     }
 
     const preferredCamera = choosePreferredCamera(cameras);
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 720;
+    const qrboxWidth = Math.min(Math.max(Math.floor(viewportWidth * 0.82), 320), 460);
+    const qrboxHeight = Math.min(Math.max(Math.floor(viewportHeight * 0.34), 180), 280);
 
     await html5QrcodeInstance.start(
       preferredCamera.id,
       {
         fps: 10,
-        qrbox: { width: 280, height: 140 },
+        qrbox: { width: qrboxWidth, height: qrboxHeight },
         aspectRatio: 1.777778,
       },
       async (decodedText) => {
@@ -1884,6 +3007,15 @@ async function startBarcodeScanner() {
         }
 
         scannerFinishing = true;
+
+        const expectedBarcodeValues = getExpectedBarcodeValuesForCurrentScannerMode();
+        const shouldValidateArea = expectedBarcodeValues.length > 0;
+        if (shouldValidateArea && !isBarcodeTextMatchingExpected(decodedText, expectedBarcodeValues)) {
+          scannerError.value = `Area barcode tidak sesuai. Harus sesuai area aktif: ${expectedBarcodeValues[0]}.`;
+          window.alert(`Barcode salah area.\nArea aktif: ${expectedBarcodeValues[0]}\nBarcode terbaca: ${decodedText}`);
+          scannerFinishing = false;
+          return;
+        }
 
         if (entry.value) {
           if (scannerMode.value === 'kotak_p3k') {
@@ -1921,6 +3053,61 @@ async function startBarcodeScanner() {
             };
             persistCurrentFireSafetyState();
           }
+
+          if (scannerMode.value === 'sarana_prasarana' && nextPendingSaranaPrasaranaDay.value) {
+            const day = nextPendingSaranaPrasaranaDay.value.day;
+            const dayScans = entry.value.form.area_scans_by_day?.[day] || {};
+
+            entry.value.form.area_scans_by_day = {
+              ...(entry.value.form.area_scans_by_day || {}),
+              [day]: {
+                ...dayScans,
+                [entry.value.form.selected_area]: {
+                  barcode: decodedText,
+                  scanned_at: formatDateTimeDisplay(new Date()),
+                },
+              },
+            };
+          }
+
+          if (scannerMode.value === 'warehouse_sanitation') {
+            entry.value.form.barcode = decodedText;
+            entry.value.form.scan_date = formatShortDateDisplay(new Date());
+          }
+
+          if (scannerMode.value === 'site_visit_maintenance') {
+            entry.value.form.area_barcodes = {
+              ...(entry.value.form.area_barcodes || {}),
+              [maintenanceScanTargetKey.value]: decodedText,
+            };
+            entry.value.form.area_scan_dates = {
+              ...(entry.value.form.area_scan_dates || {}),
+              [maintenanceScanTargetKey.value]: formatShortDateDisplay(new Date()),
+            };
+          }
+
+          if (scannerMode.value === 'site_visit_hse') {
+            entry.value.form.area_barcodes = {
+              ...(entry.value.form.area_barcodes || {}),
+              [siteVisitHseTargetKey.value]: decodedText,
+            };
+            entry.value.form.area_scan_dates = {
+              ...(entry.value.form.area_scan_dates || {}),
+              [siteVisitHseTargetKey.value]: formatShortDateDisplay(new Date()),
+            };
+          }
+
+          if (scannerMode.value === 'patroli_security') {
+            entry.value.form.area_barcodes = {
+              ...(entry.value.form.area_barcodes || {}),
+              [patroliSecurityTargetKey.value]: decodedText,
+            };
+            entry.value.form.area_scan_dates = {
+              ...(entry.value.form.area_scan_dates || {}),
+              [patroliSecurityTargetKey.value]: formatShortDateDisplay(new Date()),
+            };
+          }
+
         }
 
         await closeScannerModal();

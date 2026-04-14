@@ -417,6 +417,7 @@ function statusLabel(status) {
 function noteText(batch) {
   if (!batch) return '-';
   if (batch.status === 'rejected') return batch.reject_reason || '-';
+  if (batch.approval_locked_reason) return batch.approval_locked_reason;
   return batch.change_reason || '-';
 }
 

@@ -11,10 +11,26 @@ export const checklistOptions = [
   { id: 'warehouse_sanitation_1', name: 'Kebersihan dan Sanitasi (Warehouse Area)' },
 ];
 
+const groupedLocationLabels = {
+  pos_security: 'Lantai 1 Depan Dan Luar',
+  lantai_1_area_luar: 'Lantai 1 Depan Dan Luar',
+  lobby_lantai_1: 'Lantai 1 Dalam',
+  lantai_1_area_dalam: 'Lantai 1 Dalam',
+  loading_dock: 'Lantai 1 Dalam',
+  ruang_admin: 'Lantai 1 Belakang',
+  ruang_kontrol: 'Lantai 1 Belakang',
+  area_ruang_mesin: 'Lantai 1 Belakang',
+  lantai_1_area_belakang: 'Lantai 1 Belakang',
+  area_office_lantai_2: 'Lantai 2 Office',
+  lantai_2: 'Lantai 2 Office',
+  area_lantai_3: 'Lantai 3 Office',
+  lantai_3: 'Lantai 3 Office',
+};
+
 export const locationOptions = [
-  { id: 'ruang_admin', name: 'Ruang Admin' },
-  { id: 'ruang_kontrol', name: 'Ruang Kontrol' },
-  { id: 'pos_security', name: 'Pos Security' },
+  { id: 'ruang_admin', name: groupedLocationLabels.ruang_admin },
+  { id: 'ruang_kontrol', name: groupedLocationLabels.ruang_kontrol },
+  { id: 'pos_security', name: groupedLocationLabels.pos_security },
 ];
 
 export const fireSafetyCardOptions = [
@@ -25,22 +41,22 @@ export const fireSafetyCardOptions = [
 
 export const fireSafetyLocationOptionsByType = {
   apar: [
-    { id: 'lobby_lantai_1', name: 'Lobby Lantai 1' },
-    { id: 'area_office_lantai_2', name: 'Area Office Lantai 2' },
-    { id: 'area_ruang_mesin', name: 'Area Ruang Mesin' },
-    { id: 'area_lantai_3', name: 'Area Lantai 3' },
+    { id: 'lobby_lantai_1', name: groupedLocationLabels.lobby_lantai_1 },
+    { id: 'area_office_lantai_2', name: groupedLocationLabels.area_office_lantai_2 },
+    { id: 'area_ruang_mesin', name: groupedLocationLabels.area_ruang_mesin },
+    { id: 'area_lantai_3', name: groupedLocationLabels.area_lantai_3 },
   ],
   smoke_detector: [
-    { id: 'lobby_lantai_1', name: 'Lobby Lantai 1' },
-    { id: 'lantai_2', name: 'Lantai 2' },
-    { id: 'area_ruang_mesin', name: 'Area Ruang Mesin' },
-    { id: 'area_lantai_3', name: 'Area Lantai 3' },
+    { id: 'lobby_lantai_1', name: groupedLocationLabels.lobby_lantai_1 },
+    { id: 'lantai_2', name: groupedLocationLabels.lantai_2 },
+    { id: 'area_ruang_mesin', name: groupedLocationLabels.area_ruang_mesin },
+    { id: 'area_lantai_3', name: groupedLocationLabels.area_lantai_3 },
   ],
   fire_alarm: [
-    { id: 'lobby_lantai_1', name: 'Lobby Lantai 1' },
-    { id: 'area_office_lantai_2', name: 'Area Office Lantai 2' },
-    { id: 'area_ruang_mesin', name: 'Area Ruang Mesin' },
-    { id: 'area_lantai_3', name: 'Area Lantai 3' },
+    { id: 'lobby_lantai_1', name: groupedLocationLabels.lobby_lantai_1 },
+    { id: 'area_office_lantai_2', name: groupedLocationLabels.area_office_lantai_2 },
+    { id: 'area_ruang_mesin', name: groupedLocationLabels.area_ruang_mesin },
+    { id: 'area_lantai_3', name: groupedLocationLabels.area_lantai_3 },
   ],
 };
 
@@ -70,7 +86,7 @@ export const fireSafetyItemsByType = {
 export const sanitationAreaOptions = [
   {
     id: 'lantai_1',
-    name: 'Lantai 1',
+    name: groupedLocationLabels.lantai_1_area_dalam,
     items: [
       'Ruang Admin',
       'Ruang Repacking',
@@ -84,7 +100,7 @@ export const sanitationAreaOptions = [
   },
   {
     id: 'lantai_2',
-    name: 'Lantai 2',
+    name: groupedLocationLabels.lantai_2,
     items: [
       'Ruang Direktur',
       'Ruang Meeting',
@@ -96,7 +112,7 @@ export const sanitationAreaOptions = [
   },
   {
     id: 'area_luar_bangunan',
-    name: 'Area Luar Bangunan',
+    name: groupedLocationLabels.lantai_1_area_luar,
     items: [
       'Pos Security',
       'Musholla',
@@ -234,10 +250,276 @@ export const saranaPrasaranaSections = [
   },
 ];
 
+const groupedChecklistAreaLabels = {
+  lantai_1_area_luar: groupedLocationLabels.lantai_1_area_luar,
+  lantai_1_area_belakang: groupedLocationLabels.lantai_1_area_belakang,
+  lantai_1_area_dalam: groupedLocationLabels.lantai_1_area_dalam,
+  lantai_2: groupedLocationLabels.lantai_2,
+  lantai_3: groupedLocationLabels.lantai_3,
+  loading_dock: groupedLocationLabels.loading_dock,
+};
+
 export const saranaPrasaranaAreaOptions = saranaPrasaranaSections.map((section) => ({
   id: section.id,
-  name: section.title.replace(/^[A-Z]\.\s*/, ''),
+  name: groupedChecklistAreaLabels[section.id] || section.title.replace(/^[A-Z]\.\s*/, ''),
 }));
+
+export const siteVisitHseSections = [
+  {
+    id: 'lantai_1_area_luar',
+    title: 'A. LANTAI 1 - AREA LUAR',
+    items: [
+      'Area APAR tidak terhalang',
+      'Area titik kumpul tidak terhalang',
+      'Jalur evakuasi tidak terhalang',
+      'Rambu K3 terbaca dengan jelas',
+    ],
+  },
+  {
+    id: 'lantai_1_area_belakang',
+    title: 'B. LANTAI 1 - AREA BELAKANG',
+    items: [
+      'Area APAR tidak terhalang',
+      'Area titik kumpul tidak terhalang',
+      'Jalur evakuasi tidak terhalang',
+      'Rambu K3 terbaca dengan jelas',
+      'Tidak overloading (tidak bertumpuk banyak colokan)',
+    ],
+  },
+  {
+    id: 'lantai_1_area_dalam',
+    title: 'C. LANTAI 1 - AREA DALAM',
+    items: [
+      'Pekerja menggunakan APD yang sesuai',
+      'Pekerja menggunakan APD dengan benar',
+      'APD yang digunakan dalam keadaan baik',
+      'Area APAR tidak terhalang',
+      'Jalur evakuasi tidak terhalang',
+      'Jalur pejalan kaki terlihat jelas',
+      'Jalur pejalan kaki tidak terhalang',
+      'Rambu K3 terbaca dengan jelas',
+      'Tidak overloading (tidak bertumpuk banyak colokan)',
+      'Pintu cold storage dapat dibuka secara otomatis dengan baik',
+      'Pintu cold storage dapat ditutup secara otomatis dengan baik',
+      'Pintu cold storage dapat dibuka secara manual dengan baik',
+      'Pintu cold storage dapat ditutup secara manual dengan baik',
+      'Lampu cold storage berfungsi',
+      'Lampu emergency anteroom berfungsi',
+      'Lampu emergency loading dock berfungsi',
+      'Sampah dibuang sesuai klasifikasi tempat sampah',
+    ],
+  },
+  {
+    id: 'lantai_2',
+    title: 'D. LANTAI 2',
+    items: [
+      'Area APAR tidak terhalang',
+      'Area titik kumpul tidak terhalang',
+      'Jalur evakuasi tidak terhalang',
+      'Rambu K3 terbaca dengan jelas',
+      'Tidak overloading (tidak bertumpuk banyak colokan)',
+      'Lampu emergency berfungsi',
+    ],
+  },
+  {
+    id: 'lantai_3',
+    title: 'E. LANTAI 3',
+    items: [
+      'Area APAR tidak terhalang',
+      'Area titik kumpul tidak terhalang',
+      'Jalur evakuasi tidak terhalang',
+      'Rambu K3 terbaca dengan jelas',
+      'Tidak overloading (tidak bertumpuk banyak colokan)',
+      'Lampu emergency berfungsi',
+    ],
+  },
+];
+
+export const siteVisitHseAreaOptions = siteVisitHseSections.map((section) => ({
+  id: section.id,
+  name: groupedChecklistAreaLabels[section.id] || section.title.replace(/^[A-Z]\.\s*/, ''),
+}));
+
+export const patroliSecuritySections = [
+  {
+    id: 'lantai_1_area_luar',
+    title: 'A. LANTAI 1 - AREA LUAR',
+    items: [
+      'Pintu / akses masuk aman',
+      'CCTV berfungsi',
+      'Tidak ada orang mencurigakan',
+      'Kendaraan keluar-masuk terkontrol',
+      'Karyawan dan tamu menggunakan ID Card',
+      'Jalur evakuasi tidak terhalang',
+      'Area APAR tidak terhalang',
+      'Area bebas putung rokok dan asap rokok',
+      'Area titik kumpul tidak terhalang',
+      'Parkir tertata rapi',
+    ],
+  },
+  {
+    id: 'lantai_1_area_belakang',
+    title: 'B. LANTAI 1 - AREA BELAKANG',
+    items: [
+      'Pintu / akses masuk aman',
+      'CCTV berfungsi',
+      'Tidak ada orang mencurigakan',
+      'Karyawan dan tamu menggunakan ID Card',
+      'Jalur evakuasi tidak terhalang',
+      'Area APAR tidak terhalang',
+      'Area bebas putung rokok dan asap rokok',
+    ],
+  },
+  {
+    id: 'lantai_1_area_dalam',
+    title: 'C. LANTAI 1 - AREA DALAM',
+    items: [
+      'Pintu / akses masuk aman',
+      'CCTV berfungsi',
+      'Tidak ada orang mencurigakan',
+      'Karyawan dan tamu menggunakan ID Card',
+      'Jalur evakuasi tidak terhalang',
+      'Area APAR tidak terhalang',
+      'Jalur pejalan kaki tidak terhalang',
+      'Area bebas putung rokok dan asap rokok',
+    ],
+  },
+  {
+    id: 'lantai_2',
+    title: 'D. LANTAI 2',
+    items: [
+      'CCTV berfungsi',
+      'Tidak ada orang mencurigakan',
+      'Karyawan dan tamu menggunakan ID Card',
+      'Jalur evakuasi tidak terhalang',
+      'Area APAR tidak terhalang',
+    ],
+  },
+  {
+    id: 'lantai_3',
+    title: 'E. LANTAI 3',
+    items: [
+      'CCTV berfungsi',
+      'Tidak ada orang mencurigakan',
+      'Karyawan dan tamu menggunakan ID Card',
+      'Jalur evakuasi tidak terhalang',
+      'Area APAR tidak terhalang',
+    ],
+  },
+];
+
+export const patroliSecurityAreaOptions = patroliSecuritySections.map((section) => ({
+  id: section.id,
+  name: groupedChecklistAreaLabels[section.id] || section.title.replace(/^[A-Z]\.\s*/, ''),
+}));
+
+export const maintenanceVisitTypeOptions = [
+  {
+    id: 'maintenance_harian',
+    name: 'Maintenance Mesin (Harian)',
+    title: 'CHECKLIST MAINTENANCE MESIN',
+    document_no: 'FRM.MTC.01.01',
+    schedule_label: 'Tanggal',
+  },
+  {
+    id: 'maintenance_mingguan',
+    name: 'Maintenance Genset (Mingguan)',
+    title: 'CHECKLIST MAINTENANCE GENSET',
+    document_no: 'FRM.MTC.01.02',
+    schedule_label: 'Periode',
+  },
+];
+
+export const maintenanceDailySections = [
+  {
+    id: 'mesin_dan_sistem_pendingin',
+    area_id: 'lantai_1_area_belakang',
+    title: 'A. MESIN & SISTEM PENDINGIN',
+    items: [
+      'Suhu sesuai setting',
+      'Tidak ada alarm/error',
+      'Suara mesin normal (tidak berisik/aneh)',
+      'Getaran normal',
+      'Tekanan amonia normal',
+    ],
+  },
+  {
+    id: 'evaporator',
+    area_id: 'loading_dock',
+    title: 'B. EVAPORATOR',
+    items: [
+      'Evaporator bersih (tidak ada es)',
+      'Kipas evaporator berfungsi normal',
+      'Suhu sesuai setting',
+      'Proses defrost berjalan sesuai jadwal',
+    ],
+  },
+  {
+    id: 'kondensor',
+    area_id: 'lantai_1_area_belakang',
+    title: 'C. KONDENSOR',
+    items: [
+      'Kondensor bersih',
+      'Kipas kondensor berfungsi normal',
+      'Tekanan dan suhu kondensor berjalan normal',
+      'Tidak ada kebocoran refrigeran',
+      'Sirkulasi udara normal/tidak terhalang',
+    ],
+  },
+  {
+    id: 'sistem_drainase',
+    area_id: 'lantai_1_area_belakang',
+    title: 'D. SISTEM DRAINASE',
+    items: [
+      'Saluran drain tidak tersumbat',
+      'Tidak ada genangan air/es',
+      'Pipa drain dalam kondisi baik',
+    ],
+  },
+  {
+    id: 'kelistrikan',
+    area_id: 'lantai_1_area_belakang',
+    title: 'E. KELISTRIKAN',
+    items: [
+      'Panel listrik normal (tidak panas)',
+      'Kabel tidak rusak',
+      'MCB/proteksi berfungsi normal',
+      'Tidak ada bau terbakar',
+    ],
+  },
+  {
+    id: 'pintu_dan_seal',
+    area_id: 'loading_dock',
+    title: 'F. PINTU & SEAL',
+    items: [
+      'Pintu menutup rapat',
+      'Karet seal tidak rusak',
+      'Tidak ada kebocoran udara dingin',
+      'Alarm pintu berfungsi normal',
+    ],
+  },
+];
+
+export const maintenanceWeeklyItems = [
+  'Oli mesin dalam kondisi normal',
+  'Filter oli dalam kondisi normal',
+  'Filter solar dalam kondisi normal',
+  'Air Radiator dalam kondisi normal',
+  'Connector battery dalam kondisi normal',
+  'Ampere battery dalam kondisi normal',
+  'Ketersediaan solar (minimal 250 liter)',
+];
+
+export const maintenanceDailyAreaOptions = [
+  {
+    id: 'lantai_1_area_belakang',
+    name: groupedChecklistAreaLabels.lantai_1_area_belakang,
+  },
+  {
+    id: 'loading_dock',
+    name: groupedChecklistAreaLabels.loading_dock,
+  },
+];
 
 export const kotakP3KItems = [
   { id: 'kondisi_kotak_p3k', name: 'Kondisi kotak P3K', quantity: '' },
@@ -444,6 +726,56 @@ function createSaranaPrasaranaDayMap(periodValue) {
   }, {});
 }
 
+function createSiteVisitHseSections() {
+  return siteVisitHseSections.map((section) => ({
+    id: section.id,
+    title: section.title,
+    items: section.items.map((itemName, index) => ({
+      no: index + 1,
+      id: `${section.id}-${index + 1}`,
+      name: itemName,
+      status: '',
+    })),
+  }));
+}
+
+function createPatroliSecuritySections() {
+  return patroliSecuritySections.map((section) => ({
+    id: section.id,
+    title: section.title,
+    items: section.items.map((itemName, index) => ({
+      no: index + 1,
+      id: `${section.id}-${index + 1}`,
+      name: itemName,
+      status: '',
+    })),
+  }));
+}
+
+function createMaintenanceRow(id, name, no, locationLabel = '') {
+  return {
+    id,
+    no,
+    name,
+    status: '',
+    note: '',
+    scan_location: locationLabel,
+  };
+}
+
+function createMaintenanceDailySections() {
+  return maintenanceDailySections.map((section) => ({
+    id: section.id,
+    area_id: section.area_id,
+    title: section.title,
+    items: section.items.map((itemName, index) => createMaintenanceRow(`${section.id}-${index + 1}`, itemName, index + 1)),
+  }));
+}
+
+function createMaintenanceWeeklyRows() {
+  return maintenanceWeeklyItems.map((itemName, index) => createMaintenanceRow(`genset-${index + 1}`, itemName, index + 1, groupedChecklistAreaLabels.lantai_1_area_belakang));
+}
+
 function createSaranaPrasaranaSections(periodValue) {
   return saranaPrasaranaSections.map((section) => ({
     id: section.id,
@@ -477,8 +809,96 @@ export function rebuildSaranaPrasaranaSections(periodValue, existingSections = [
   });
 }
 
+export function rebuildSiteVisitHseSections(existingSections = []) {
+  return createSiteVisitHseSections().map((section) => {
+    const matchedSection = existingSections.find((item) => item.id === section.id);
+
+    return {
+      ...section,
+      items: section.items.map((item) => {
+        const matchedItem = matchedSection?.items?.find((sectionItem) => sectionItem.id === item.id);
+        return {
+          ...item,
+          status: matchedItem?.status || '',
+        };
+      }),
+    };
+  });
+}
+
+export function rebuildPatroliSecuritySections(existingSections = []) {
+  return createPatroliSecuritySections().map((section) => {
+    const matchedSection = existingSections.find((item) => item.id === section.id);
+
+    return {
+      ...section,
+      items: section.items.map((item) => {
+        const matchedItem = matchedSection?.items?.find((sectionItem) => sectionItem.id === item.id);
+        return {
+          ...item,
+          status: matchedItem?.status || '',
+        };
+      }),
+    };
+  });
+}
+
+export function rebuildMaintenanceDailySections(existingSections = []) {
+  return createMaintenanceDailySections().map((section) => {
+    const matchedSection = existingSections.find((item) => item.id === section.id);
+
+    return {
+      ...section,
+      area_id: matchedSection?.area_id || section.area_id,
+      items: section.items.map((item) => {
+        const matchedItem = matchedSection?.items?.find((sectionItem) => sectionItem.id === item.id);
+
+        return {
+          ...item,
+          status: matchedItem?.status || '',
+          note: matchedItem?.note || '',
+          scan_location: matchedItem?.scan_location || '',
+        };
+      }),
+    };
+  });
+}
+
+export function rebuildMaintenanceWeeklyRows(existingRows = []) {
+  return createMaintenanceWeeklyRows().map((row) => {
+    const matchedRow = existingRows.find((item) => item.id === row.id);
+
+    return {
+      ...row,
+      status: matchedRow?.status || '',
+      note: matchedRow?.note || '',
+      scan_location: matchedRow?.scan_location || row.scan_location || groupedChecklistAreaLabels.lantai_1_area_belakang,
+    };
+  });
+}
+
+export function getMaintenanceVisitTypeMeta(visitType) {
+  return maintenanceVisitTypeOptions.find((option) => option.id === visitType) || maintenanceVisitTypeOptions[0];
+}
+
+export function getMaintenanceVisitTypeLabel(visitType) {
+  return getMaintenanceVisitTypeMeta(visitType)?.name || '-';
+}
+
+export function getMaintenanceDailyAreaLabel(areaId) {
+  return maintenanceDailyAreaOptions.find((area) => area.id === areaId)?.name || '-';
+}
+
 export function getSaranaPrasaranaAreaLabel(areaId) {
   return saranaPrasaranaAreaOptions.find((area) => area.id === areaId)?.name || '-';
+}
+
+export function getSiteVisitHseAreaLabel(areaId) {
+  return siteVisitHseAreaOptions.find((area) => area.id === areaId)?.name || '-';
+}
+
+export function getPatroliSecurityAreaLabel(areaId) {
+  return patroliSecurityAreaOptions.find((area) => area.id === areaId)?.name || '-';
 }
 
 export function createWarehouseSanitationEntry(userName) {
@@ -495,6 +915,8 @@ export function createWarehouseSanitationEntry(userName) {
       frequency,
       date: formatDateDisplay(now),
       period,
+      barcode: '',
+      scan_date: '',
       room_temperature: '',
       petugas: userName || 'User Login',
       hse: '',
@@ -568,11 +990,102 @@ export function createSaranaPrasaranaEntry(userName) {
         result[section.id] = [];
         return result;
       }, {}),
+      area_scans_by_day: {},
       document_no: 'FRM.HRGA.01.06',
       rev: '00',
       effective_date: '22 Desember 2025',
       page: '1 dari 1',
       sections: createSaranaPrasaranaSections(period),
+    },
+  };
+}
+
+export function createSiteVisitHseEntry(userName) {
+  const now = new Date();
+  const defaultArea = siteVisitHseSections[0]?.id || '';
+
+  return {
+    id: `site_visit_hse-${Date.now()}`,
+    template_id: 'site_visit_hse',
+    name: 'Site Visit HSE',
+    created_at: formatDateTimeDisplay(now),
+    form: {
+      date_value: toDateInputValue(now),
+      date: formatDateDisplay(now),
+      selected_area: defaultArea,
+      pic: userName || 'User Login',
+      approved: false,
+      approved_areas: [],
+      area_barcodes: {},
+      area_notes: {},
+      area_scan_dates: {},
+      document_no: 'FRM.HSE.15.01',
+      rev: '00',
+      effective_date: '22 Desember 2025',
+      page: '1 dari 1',
+      sections: createSiteVisitHseSections(),
+    },
+  };
+}
+
+export function createPatroliSecurityEntry(userName) {
+  const now = new Date();
+  const defaultArea = patroliSecuritySections[0]?.id || '';
+
+  return {
+    id: `patroli_security-${Date.now()}`,
+    template_id: 'patroli_security',
+    name: 'Patroli Security',
+    created_at: formatDateTimeDisplay(now),
+    form: {
+      date_value: toDateInputValue(now),
+      date: formatDateDisplay(now),
+      selected_area: defaultArea,
+      pic: userName || 'User Login',
+      approved: false,
+      approved_areas: [],
+      area_barcodes: {},
+      area_notes: {},
+      area_scan_dates: {},
+      document_no: 'FRM.HSE.15.02',
+      rev: '00',
+      effective_date: '22 Desember 2025',
+      page: '1 dari 1',
+      sections: createPatroliSecuritySections(),
+    },
+  };
+}
+
+export function createSiteVisitMaintenanceEntry(userName) {
+  const now = new Date();
+  const visitType = maintenanceVisitTypeOptions[0]?.id || 'maintenance_harian';
+  const typeMeta = getMaintenanceVisitTypeMeta(visitType);
+  const dateValue = toDateInputValue(now);
+  const periodValue = toWeekInputValue(now);
+
+  return {
+    id: `site_visit_maintenance-${Date.now()}`,
+    template_id: 'site_visit_maintenance',
+    name: 'Site Visit Maintenance',
+    created_at: formatDateTimeDisplay(now),
+    form: {
+      visit_type: visitType,
+      pic: userName || 'User Login',
+      approved: false,
+      document_no: typeMeta.document_no,
+      rev: '00',
+      effective_date: '22 Desember 2025',
+      page: '1 dari 1',
+      selected_area: 'lantai_1_area_belakang',
+      area_barcodes: {},
+      area_scan_dates: {},
+      area_notes: {},
+      date_value: dateValue,
+      date: formatDateDisplay(now),
+      period_value: periodValue,
+      period: formatWeekDisplay(periodValue),
+      sections: createMaintenanceDailySections(),
+      rows: createMaintenanceWeeklyRows(),
     },
   };
 }
@@ -655,6 +1168,19 @@ export function formatDateDisplay(date = new Date()) {
   }).format(date);
 }
 
+export function formatDateInputDisplay(dateValue) {
+  if (!String(dateValue || '').trim()) {
+    return '-';
+  }
+
+  const [year, month, day] = String(dateValue).split('-').map(Number);
+  if (!year || !month || !day) {
+    return '-';
+  }
+
+  return formatDateDisplay(new Date(year, month - 1, day));
+}
+
 export function formatShortDateDisplay(date = new Date()) {
   return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
@@ -694,6 +1220,36 @@ export function toPeriodValue(date = new Date()) {
   return `${date.getFullYear()}-${month}`;
 }
 
+export function toDateInputValue(date = new Date()) {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function getIsoWeekNumber(date) {
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  return Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+}
+
+export function toWeekInputValue(date = new Date()) {
+  const year = date.getFullYear();
+  const week = `${getIsoWeekNumber(date)}`.padStart(2, '0');
+  return `${year}-W${week}`;
+}
+
+export function formatWeekDisplay(weekValue) {
+  const match = String(weekValue || '').match(/^(\d{4})-W(\d{2})$/);
+  if (!match) {
+    return '-';
+  }
+
+  const [, year, week] = match;
+  return `Minggu ${Number(week)}, ${year}`;
+}
+
 export function getCurrentKotakP3KMonthKey(date = new Date()) {
   return kotakP3KMonths[date.getMonth()]?.key || 'jan';
 }
@@ -713,8 +1269,33 @@ export function getLocationLabel(locationId) {
   return locationOptions.find((location) => location.id === locationId)?.name || '-';
 }
 
+export function getLocationBarcodeAliases(locationId) {
+  const aliases = {
+    ruang_admin: ['Lantai 1 Belakang', 'Ruang Admin'],
+    ruang_kontrol: ['Lantai 1 Belakang', 'Ruang Kontrol'],
+    pos_security: ['Lantai 1 Depan Dan Luar', 'Pos Security'],
+    lobby_lantai_1: ['Lantai 1 Dalam', 'Lobby Lantai 1'],
+    area_office_lantai_2: ['Lantai 2 Office', 'Area Office Lantai 2'],
+    area_ruang_mesin: ['Lantai 1 Belakang', 'Area Ruang Mesin'],
+    area_lantai_3: ['Lantai 3 Office', 'Area Lantai 3'],
+    lantai_2: ['Lantai 2 Office', 'Lantai 2'],
+  };
+
+  return aliases[locationId] || [getLocationLabel(locationId)];
+}
+
 export function getSanitationAreaLabel(areaId) {
   return sanitationAreaOptions.find((area) => area.id === areaId)?.name || '-';
+}
+
+export function getSanitationAreaBarcodeAliases(areaId) {
+  const aliases = {
+    lantai_1: ['Lantai 1 Dalam', 'Lantai 1'],
+    lantai_2: ['Lantai 2 Office', 'Lantai 2'],
+    area_luar_bangunan: ['Lantai 1 Depan Dan Luar', 'Area Luar Bangunan'],
+  };
+
+  return aliases[areaId] || [getSanitationAreaLabel(areaId)];
 }
 
 export function getChecklistLabel(templateId) {
@@ -755,6 +1336,22 @@ export function getChecklistEntryAreaLabel(entry) {
 
   if (entry?.template_id === 'sarana_dan_prasarana') {
     return getSaranaPrasaranaAreaLabel(entry.form?.selected_area);
+  }
+
+  if (entry?.template_id === 'site_visit_hse') {
+    return getSiteVisitHseAreaLabel(entry.form?.selected_area);
+  }
+
+  if (entry?.template_id === 'patroli_security') {
+    return getPatroliSecurityAreaLabel(entry.form?.selected_area);
+  }
+
+  if (entry?.template_id === 'site_visit_maintenance') {
+    if (entry.form?.visit_type === 'maintenance_mingguan') {
+      return groupedChecklistAreaLabels.lantai_1_area_belakang;
+    }
+
+    return getMaintenanceDailyAreaLabel(entry.form?.selected_area);
   }
 
   return '-';
@@ -865,6 +1462,7 @@ export function createNonWarehouseSanitationEntry(userName) {
       approved: false,
       approved_days: [],
       area_scans_by_day: {},
+      area_notes: {},
       date: formatDateDisplay(now),
       verifier: 'HSE',
       verifier_title: 'Diperiksa oleh,',

@@ -2226,7 +2226,7 @@ class AttendanceLogController extends Controller
         $sheet->getColumnDimension('B')->setWidth(18);
         foreach ($dateColumns as $index => $logDate) {
             $column = Coordinate::stringFromColumnIndex($index + 3);
-            $sheet->getColumnDimension($column)->setWidth(7.5);
+            $sheet->getColumnDimension($column)->setWidth(9.5);
         }
 
         $groupedRows = $rows
@@ -2322,12 +2322,13 @@ class AttendanceLogController extends Controller
                 ]);
             }
 
-            $sheet->getRowDimension($rowIndex)->setRowHeight(28);
+            $sheet->getRowDimension($rowIndex)->setRowHeight(42);
             $rowIndex++;
         }
 
         $bodyLastRow = max($bodyStartRow, $rowIndex - 1);
         $sheet->freezePane('C' . $bodyStartRow);
+        $this->appendAttendanceStatusLegendSheet($spreadsheet, $rows);
 
         $filename = 'attendance_logs_' . now()->format('Ymd_His') . '.xlsx';
         $writer = new Xlsx($spreadsheet);
@@ -2428,19 +2429,22 @@ class AttendanceLogController extends Controller
 
         $firstScan = $this->exportTimeOnly($row['first_scan'] ?? null);
         $lastScan = $this->exportTimeOnly($row['last_scan'] ?? null);
+        $expected = trim((string) ($row['expected'] ?? ''));
+        $lines = [];
 
-        if ($firstScan === '-' && $lastScan === '-') {
-            $expected = trim((string) ($row['expected'] ?? ''));
-            if (strtolower($expected) === 'libur nasional') {
-                return 'Libur';
-            }
-            return $expected !== '' ? $expected : '';
+        if ($firstScan !== '-') {
+            $lines[] = $firstScan;
         }
 
-        $top = $firstScan === '-' ? '' : $firstScan;
-        $bottom = $lastScan === '-' ? '' : $lastScan;
+        if ($lastScan !== '-') {
+            $lines[] = $lastScan;
+        }
 
-        return $top . "\n" . $bottom;
+        if ($expected !== '') {
+            $lines[] = strtolower($expected) === 'libur nasional' ? 'Libur Nasional' : $expected;
+        }
+
+        return implode("\n", $lines);
     }
 
     private function exportCellCategory(array $row): string
@@ -2497,6 +2501,99 @@ class AttendanceLogController extends Controller
         }
 
         return substr($startTime, 0, 5) . ' - ' . substr($endTime, 0, 5);
+    }
+
+    private function appendAttendanceStatusLegendSheet(Spreadsheet $spreadsheet, Collection $rows): void
+    {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Keterangan Status');
+
+        $sheet->setCellValue('A1', 'Status Attendance Log');
+        $sheet->setCellValue('A2', 'Kode Status');
+        $sheet->setCellValue('B2', 'Label');
+        $sheet->setCellValue('C2', 'Keterangan');
+
+        $sheet->getStyle('A1:C1')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 14,
+                'color' => ['rgb' => '111827'],
+            ],
+        ]);
+
+        $sheet->getStyle('A2:C2')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => '111827'],
+            ],
+            'fill' => [
+                'fillType' => 'solid',
+                'color' => ['rgb' => 'E5E7EB'],
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => 'thin',
+                    'color' => ['rgb' => '9CA3AF'],
+                ],
+            ],
+        ]);
+
+        $statusMeta = [
+            'matched' => ['label' => 'On Time', 'description' => 'Scan masuk sesuai jadwal kerja.'],
+            'time_mismatch' => ['label' => 'Terlambat', 'description' => 'Jam scan masuk tidak sesuai jadwal kerja.'],
+            'missing_scan' => ['label' => 'Tidak Masuk', 'description' => 'Tidak ada scan masuk maupun scan pulang pada hari kerja.'],
+            'missing_checkin' => ['label' => 'Tidak Scan masuk', 'description' => 'Hanya ada scan pulang, scan masuk tidak ditemukan.'],
+            'missing_checkout' => ['label' => 'Tidak Scan pulang', 'description' => 'Hanya ada scan masuk, scan pulang tidak ditemukan.'],
+            'offday' => ['label' => 'OFF', 'description' => 'Hari OFF sesuai roster atau aturan default.'],
+            'holiday_national' => ['label' => 'Libur Nasional', 'description' => 'Tanggal termasuk hari libur nasional.'],
+            'check_again' => ['label' => 'Cek Lagi', 'description' => 'Data perlu dicek lagi karena kondisi scan atau jadwal tidak normal.'],
+            'izin' => ['label' => 'Izin', 'description' => 'Izin yang sudah disetujui.'],
+            'sakit' => ['label' => 'Sakit', 'description' => 'Sakit yang sudah disetujui.'],
+            'cuti' => ['label' => 'Cuti', 'description' => 'Cuti yang sudah disetujui.'],
+            'dinas_luar' => ['label' => 'Dinas Luar', 'description' => 'Dinas luar yang sudah disetujui.'],
+            'no_roster' => ['label' => 'Tanpa Roster', 'description' => 'Tidak ada roster, sehingga evaluasi memakai aturan default atau perlu pengecekan.'],
+        ];
+
+        $usedStatuses = $rows
+            ->pluck('status')
+            ->map(fn($status) => strtolower(trim((string) $status)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $rowIndex = 3;
+        foreach ($usedStatuses as $status) {
+            $matchedRow = $rows->first(function (array $row) use ($status) {
+                return strtolower(trim((string) ($row['status'] ?? ''))) === $status;
+            });
+            $meta = $statusMeta[$status] ?? [
+                'label' => trim((string) ($matchedRow['expected'] ?? '')) ?: $status,
+                'description' => 'Status attendance yang digunakan pada data export.',
+            ];
+
+            $sheet->setCellValue('A' . $rowIndex, $status);
+            $sheet->setCellValue('B' . $rowIndex, $meta['label']);
+            $sheet->setCellValue('C' . $rowIndex, $meta['description']);
+            $rowIndex++;
+        }
+
+        $lastRow = max(2, $rowIndex - 1);
+        $sheet->getStyle('A2:C' . $lastRow)->applyFromArray([
+            'alignment' => [
+                'vertical' => 'top',
+                'wrapText' => true,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => 'thin',
+                    'color' => ['rgb' => 'D1D5DB'],
+                ],
+            ],
+        ]);
+
+        $sheet->getColumnDimension('A')->setWidth(22);
+        $sheet->getColumnDimension('B')->setWidth(20);
+        $sheet->getColumnDimension('C')->setWidth(60);
     }
 
     private function exportDayName(string $logDate): string

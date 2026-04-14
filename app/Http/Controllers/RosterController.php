@@ -47,6 +47,7 @@ class RosterController extends Controller
         $canViewAllDepartments = $this->canViewAllRosterDepartments($user);
         $canApproveAllDepartments = $this->canApproveAllRosterDepartments($user);
         $canApproveAnyBatch = $this->canApproveAnyRosterBatch($user);
+        $latestPendingBatchIdsByDepartment = $this->latestPendingBatchIdsByDepartment();
 
         $batches = RosterUploadBatch::query()
             ->with([
@@ -91,8 +92,11 @@ class RosterController extends Controller
                 'created_at',
             ])
             ->withQueryString()
-            ->through(function ($batch) use ($user) {
-                $batch->can_approve = $this->canApproveBatch($user, $batch);
+            ->through(function ($batch) use ($user, $latestPendingBatchIdsByDepartment) {
+                $isLatestPendingForDepartment = $this->isLatestPendingBatchForDepartment($batch, $latestPendingBatchIdsByDepartment);
+                $batch->is_latest_pending_for_department = $isLatestPendingForDepartment;
+                $batch->approval_locked_reason = $this->approvalLockedReason($batch, $isLatestPendingForDepartment);
+                $batch->can_approve = $this->canApproveBatch($user, $batch) && $isLatestPendingForDepartment;
                 return $batch;
             });
 
@@ -344,6 +348,12 @@ class RosterController extends Controller
             ], 403);
         }
 
+        if (!$this->isLatestPendingBatchForDepartment($batch)) {
+            return response()->json([
+                'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru pada departemen yang sama.',
+            ], 422);
+        }
+
         if ($batch->status !== 'pending') {
             return response()->json([
                 'message' => 'Roster ini sudah diproses sebelumnya.',
@@ -428,6 +438,12 @@ class RosterController extends Controller
             return response()->json([
                 'message' => 'Anda tidak berhak reject roster ini.',
             ], 403);
+        }
+
+        if (!$this->isLatestPendingBatchForDepartment($batch)) {
+            return response()->json([
+                'message' => 'Roster ini tidak bisa di-reject karena sudah ada upload roster yang lebih baru pada departemen yang sama.',
+            ], 422);
         }
 
         if ($batch->status !== 'pending') {
@@ -1370,5 +1386,42 @@ class RosterController extends Controller
         }
 
         return $this->accessRules()->canViewAllDepartments($user, self::ACCESS_MODULE, 'view_list');
+    }
+
+    private function latestPendingBatchIdsByDepartment(): array
+    {
+        return RosterUploadBatch::query()
+            ->where('status', 'pending')
+            ->selectRaw('department_id, MAX(id) as latest_id')
+            ->groupBy('department_id')
+            ->pluck('latest_id', 'department_id')
+            ->mapWithKeys(fn($batchId, $departmentId) => [(int) $departmentId => (int) $batchId])
+            ->all();
+    }
+
+    private function isLatestPendingBatchForDepartment(RosterUploadBatch $batch, ?array $latestPendingBatchIdsByDepartment = null): bool
+    {
+        if ($batch->status !== 'pending') {
+            return true;
+        }
+
+        $departmentId = (int) $batch->department_id;
+        if ($departmentId <= 0) {
+            return true;
+        }
+
+        $latestPendingBatchIdsByDepartment ??= $this->latestPendingBatchIdsByDepartment();
+        $latestBatchId = (int) ($latestPendingBatchIdsByDepartment[$departmentId] ?? 0);
+
+        return $latestBatchId > 0 && $latestBatchId === (int) $batch->id;
+    }
+
+    private function approvalLockedReason(RosterUploadBatch $batch, bool $isLatestPendingForDepartment): ?string
+    {
+        if ($batch->status !== 'pending' || $isLatestPendingForDepartment) {
+            return null;
+        }
+
+        return 'Approval dinonaktifkan karena sudah ada upload roster yang lebih baru untuk departemen ini.';
     }
 }

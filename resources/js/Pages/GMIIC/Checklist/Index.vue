@@ -32,7 +32,7 @@
         v-if="selectedChecklist && !canOpenCreatePage"
         class="mb-4 text-sm text-amber-300"
       >
-        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, dan `Sarana dan Prasarana`.
+        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, `Sarana dan Prasarana`, `Patroli Security`, `Site Visit HSE`, dan `Site Visit Maintenance`.
       </div>
 
       <div class="rounded bg-slate-800 p-4">
@@ -143,7 +143,7 @@ const page = usePage();
 const selectedChecklist = ref('');
 const checklistEntries = ref([]);
 const selectedEntryIds = ref([]);
-const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana'];
+const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});
 const canDeleteChecklistEntries = computed(() => Boolean(checklistAbilities.value.delete_entries));
 
