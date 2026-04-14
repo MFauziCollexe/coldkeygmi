@@ -105,7 +105,10 @@ return new class extends Migration
             $table->foreignId('scanned_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
-            $table->index(['checklist_header_id', 'scan_scope', 'scope_key']);
+            $table->index(
+                ['checklist_header_id', 'scan_scope', 'scope_key'],
+                'chk_scans_hdr_scope_key_idx'
+            );
         });
 
         Schema::create('checklist_approvals', function (Blueprint $table) {
@@ -118,7 +121,10 @@ return new class extends Migration
             $table->timestamp('approved_at')->nullable();
             $table->timestamps();
 
-            $table->index(['checklist_header_id', 'approval_type', 'scope_key']);
+            $table->index(
+                ['checklist_header_id', 'approval_type', 'scope_key'],
+                'chk_appr_hdr_type_scope_idx'
+            );
         });
 
         Schema::create('checklist_audit_logs', function (Blueprint $table) {
