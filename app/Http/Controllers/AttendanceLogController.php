@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -189,6 +190,11 @@ class AttendanceLogController extends Controller
             $rangeEndDate
         );
         $overtimeFormByPinDate = $this->buildOvertimeFormByPinDate(
+            $employeeInfoByPin,
+            $rangeStartDate,
+            $rangeEndDate
+        );
+        $overtimeDetailsByPinDate = $this->buildOvertimeDetailsByPinDate(
             $employeeInfoByPin,
             $rangeStartDate,
             $rangeEndDate
@@ -399,6 +405,7 @@ class AttendanceLogController extends Controller
                 'overtime_minutes' => $overtimeMinutes,
                 'overtime_label' => $overtimeLabel,
                 'overtime_form_label' => $overtimeFormByPinDate[$pin][$logDate] ?? '-',
+                'overtime_request' => $overtimeDetailsByPinDate[$pin][$logDate] ?? null,
                 'correction' => $this->formatCorrection($correction),
             ]);
         }
@@ -597,6 +604,7 @@ class AttendanceLogController extends Controller
                         'overtime_minutes' => $overtimeMinutes,
                         'overtime_label' => $overtimeLabel,
                         'overtime_form_label' => $overtimeFormByPinDate[$pin][$logDate] ?? '-',
+                        'overtime_request' => $overtimeDetailsByPinDate[$pin][$logDate] ?? null,
                         'correction' => $this->formatCorrection($correction),
                     ]);
                 }
@@ -2020,6 +2028,105 @@ class AttendanceLogController extends Controller
         }
 
         return $result;
+    }
+
+    private function buildOvertimeDetailsByPinDate(Collection $employeeInfoByPin, ?string $rangeStartDate, ?string $rangeEndDate): array
+    {
+        if (
+            $rangeStartDate === null
+            || $rangeEndDate === null
+            || !Schema::hasTable('overtimes')
+            || !Schema::hasColumn('overtimes', 'employee_id')
+            || !Schema::hasColumn('overtimes', 'overtime_date')
+        ) {
+            return [];
+        }
+
+        $employeeIdByPin = $employeeInfoByPin
+            ->mapWithKeys(function (array $info, string $pin) {
+                $employeeId = (int) ($info['employee_id'] ?? 0);
+                return $employeeId > 0 ? [$pin => $employeeId] : [];
+            });
+
+        if ($employeeIdByPin->isEmpty()) {
+            return [];
+        }
+
+        $employeeIds = $employeeIdByPin->values()->unique()->values();
+
+        $overtimeRows = DB::table('overtimes')
+            ->whereIn('employee_id', $employeeIds->all())
+            ->whereIn('status', ['pending', 'approved'])
+            ->whereDate('overtime_date', '>=', $rangeStartDate)
+            ->whereDate('overtime_date', '<=', $rangeEndDate)
+            ->orderByDesc('created_at')
+            ->get([
+                'id',
+                'employee_id',
+                'overtime_date',
+                'start_time',
+                'end_time',
+                'hours',
+                'reason',
+                'status',
+                'created_at',
+                'review_notes',
+                'attachment_path',
+                'attachment_original_name',
+            ]);
+
+        $pinByEmployeeId = $employeeIdByPin
+            ->mapWithKeys(fn(int $employeeId, string $pin) => [$employeeId => $pin]);
+
+        $result = [];
+
+        foreach ($overtimeRows as $overtime) {
+            $employeeId = (int) ($overtime->employee_id ?? 0);
+            $pin = $pinByEmployeeId[$employeeId] ?? null;
+            $logDate = $this->toDateString($overtime->overtime_date ?? null);
+
+            if ($pin === null || $logDate === null) {
+                continue;
+            }
+
+            $attachmentPath = trim((string) ($overtime->attachment_path ?? ''));
+
+            $result[$pin][$logDate] = [
+                'id' => (int) ($overtime->id ?? 0),
+                'overtime_date' => $logDate,
+                'start_time' => $this->formatTimeValue($overtime->start_time ?? null),
+                'end_time' => $this->formatTimeValue($overtime->end_time ?? null),
+                'hours' => $overtime->hours !== null ? (float) $overtime->hours : null,
+                'reason' => trim((string) ($overtime->reason ?? '')),
+                'status' => trim((string) ($overtime->status ?? '')),
+                'created_at' => $this->formatDateTimeValue($overtime->created_at ?? null),
+                'review_notes' => trim((string) ($overtime->review_notes ?? '')),
+                'attachment_url' => $attachmentPath !== '' ? Storage::disk('public')->url($attachmentPath) : null,
+                'attachment_original_name' => trim((string) ($overtime->attachment_original_name ?? '')),
+            ];
+        }
+
+        return $result;
+    }
+
+    private function formatTimeValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $time = trim((string) $value);
+        if ($time === '') {
+            return null;
+        }
+
+        return substr($time, 0, 5);
+    }
+
+    private function formatDateTimeValue(mixed $value): ?string
+    {
+        $dateTime = $this->toDateTimeString($value);
+        return $dateTime !== null ? str_replace(' ', 'T', $dateTime) : null;
     }
 
     private function leaveTypeLabel(string $type): string

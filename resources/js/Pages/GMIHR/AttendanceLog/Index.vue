@@ -212,7 +212,18 @@
                             <td class="py-2 pr-3">{{ formatTimeOnly(row.first_scan) }}</td>
                             <td class="py-2 pr-3">{{ formatTimeOnly(row.last_scan) }}</td>
                             <td class="py-2 pr-3">
-                              <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-semibold border bg-cyan-500/20 text-cyan-200 border-cyan-400/40">
+                              <button
+                                v-if="hasOvertimeRequest(row)"
+                                type="button"
+                                class="inline-flex rounded-md border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/30"
+                                @click="openOvertimeDetail(row)"
+                              >
+                                {{ row.overtime_form_label || 'Lembur' }}
+                              </button>
+                              <span
+                                v-else
+                                class="inline-flex px-2 py-0.5 rounded-md text-xs font-semibold border bg-cyan-500/20 text-cyan-200 border-cyan-400/40"
+                              >
                                 {{ row.overtime_form_label || '-' }}
                               </span>
                             </td>
@@ -355,7 +366,18 @@
                   <div class="flex items-start justify-between gap-3">
                     <div class="text-slate-400">Lembur</div>
                     <div class="text-right">
-                      <span class="inline-flex rounded-md border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-200">
+                      <button
+                        v-if="hasOvertimeRequest(row)"
+                        type="button"
+                        class="inline-flex rounded-md border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/30"
+                        @click="openOvertimeDetail(row)"
+                      >
+                        {{ row.overtime_form_label || 'Lembur' }}
+                      </button>
+                      <span
+                        v-else
+                        class="inline-flex rounded-md border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-200"
+                      >
                         {{ row.overtime_form_label || '-' }}
                       </span>
                     </div>
@@ -396,6 +418,95 @@
           <Pagination :paginator="attendanceLogs" :onPageChange="goToPage" />
         </div>
 
+        <div
+          v-if="showOvertimeModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          @click="closeOvertimeDetail"
+        >
+          <div class="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl" @click.stop>
+            <div class="flex items-center justify-between border-b border-slate-700 px-5 py-4">
+              <div>
+                <h3 class="text-lg font-semibold text-white">Detail Overtime</h3>
+                <p class="text-sm text-slate-400">
+                  {{ selectedOvertimeContext.name || '-' }} · {{ selectedOvertimeContext.log_date || '-' }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+                @click="closeOvertimeDetail"
+              >
+                Tutup
+              </button>
+            </div>
+
+            <div class="space-y-4 px-5 py-4">
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="space-y-3 rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Tanggal Pengajuan</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ formatDateTime(selectedOvertime?.created_at) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Tanggal Lembur</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ formatDate(selectedOvertime?.overtime_date) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Jam</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ formatOvertimeHours(selectedOvertime) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Durasi</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ formatOvertimeDuration(selectedOvertime?.hours) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Status</div>
+                    <span :class="overtimeStatusClass(selectedOvertime?.status)" class="inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold">
+                      {{ selectedOvertime?.status || '-' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="space-y-3 rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Nama</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ selectedOvertimeContext.name || '-' }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">PIN</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ selectedOvertimeContext.pin || '-' }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Department</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ selectedOvertimeContext.department_name || '-' }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                <div class="text-sm text-slate-400">Alasan</div>
+                <div class="mt-2 whitespace-pre-wrap text-sm text-slate-200">{{ selectedOvertime?.reason || '-' }}</div>
+              </div>
+
+              <div v-if="selectedOvertime?.review_notes" class="rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                <div class="text-sm text-slate-400">Catatan Review</div>
+                <div class="mt-2 whitespace-pre-wrap text-sm text-slate-200">{{ selectedOvertime.review_notes }}</div>
+              </div>
+
+              <div v-if="selectedOvertime?.attachment_url" class="rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                <div class="text-sm text-slate-400">Attachment</div>
+                <a
+                  :href="selectedOvertime.attachment_url"
+                  target="_blank"
+                  rel="noopener"
+                  class="mt-2 inline-flex text-sm text-sky-300 underline hover:text-sky-200"
+                >
+                  {{ selectedOvertime.attachment_original_name || 'Lihat attachment' }}
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
 
       </div>
     </div>
@@ -603,6 +714,9 @@ function barHeightPx(value) {
 }
 
 const expandedGroups = reactive({});
+const showOvertimeModal = ref(false);
+const selectedOvertime = ref(null);
+const selectedOvertimeContext = ref({});
 const hiddenEmployeeNames = new Set([
   'ari budi',
   'daud setiawan',
@@ -780,6 +894,73 @@ function formatDayName(dateValue) {
   const date = new Date(`${dateValue}T00:00:00`);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString('id-ID', { weekday: 'long' });
+}
+
+function formatDate(dateValue) {
+  if (!dateValue) return '-';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function formatDateTime(dateValue) {
+  if (!dateValue) return '-';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('id-ID', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function hasOvertimeRequest(row) {
+  return Boolean(row?.overtime_request?.id);
+}
+
+function openOvertimeDetail(row) {
+  if (!hasOvertimeRequest(row)) return;
+
+  selectedOvertime.value = row.overtime_request;
+  selectedOvertimeContext.value = {
+    name: row?.name || '-',
+    pin: row?.pin || '-',
+    department_name: row?.department_name || '-',
+    log_date: row?.log_date || '-',
+  };
+  showOvertimeModal.value = true;
+}
+
+function closeOvertimeDetail() {
+  showOvertimeModal.value = false;
+  selectedOvertime.value = null;
+  selectedOvertimeContext.value = {};
+}
+
+function formatOvertimeHours(item) {
+  if (!item) return '-';
+  const start = item?.start_time || '-';
+  const end = item?.end_time || '-';
+  return `${start} - ${end}`;
+}
+
+function formatOvertimeDuration(hours) {
+  if (hours === null || hours === undefined || hours === '') return '-';
+  return `${hours} jam`;
+}
+
+function overtimeStatusClass(status) {
+  const value = String(status || '').toLowerCase();
+  if (value === 'approved') return 'border-emerald-500/40 bg-emerald-600/20 text-emerald-200';
+  if (value === 'pending') return 'border-amber-400/40 bg-amber-500/20 text-amber-200';
+  if (value === 'rejected') return 'border-rose-500/40 bg-rose-600/20 text-rose-200';
+  return 'border-slate-500/30 bg-slate-600/20 text-slate-200';
 }
 
 function isSunday(dateValue) {
