@@ -222,6 +222,12 @@
                                   <span :class="statusDotClass(getDisplayExpected(row))" class="inline-block w-2 h-2 rounded-sm"></span>
                                   {{ getDisplayExpected(row) }}
                                 </span>
+                                <span
+                                  v-if="shouldShowOvertimeBadge(row)"
+                                  class="inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold border bg-cyan-500/20 text-cyan-200 border-cyan-400/40"
+                                >
+                                  OT {{ row.overtime_label }}
+                                </span>
                               </div>
                             </td>
                             <td v-if="canShowCorrectionColumn" class="py-2">
@@ -315,10 +321,18 @@
                     <div class="font-semibold text-white">{{ row.log_date || '-' }}</div>
                     <div class="text-xs text-slate-400">{{ formatDayName(row.log_date) }}</div>
                   </div>
-                  <span :class="statusPillClass(getDisplayExpected(row))" class="inline-flex items-center gap-2 rounded border px-2.5 py-1 text-xs font-semibold">
-                    <span :class="statusDotClass(getDisplayExpected(row))" class="inline-block h-2 w-2 rounded-sm"></span>
-                    {{ getDisplayExpected(row) }}
-                  </span>
+                  <div class="flex flex-col items-end gap-2">
+                    <span :class="statusPillClass(getDisplayExpected(row))" class="inline-flex items-center gap-2 rounded border px-2.5 py-1 text-xs font-semibold">
+                      <span :class="statusDotClass(getDisplayExpected(row))" class="inline-block h-2 w-2 rounded-sm"></span>
+                      {{ getDisplayExpected(row) }}
+                    </span>
+                    <span
+                      v-if="shouldShowOvertimeBadge(row)"
+                      class="inline-flex items-center rounded border border-cyan-400/40 bg-cyan-500/20 px-2.5 py-1 text-xs font-semibold text-cyan-200"
+                    >
+                      OT {{ row.overtime_label }}
+                    </span>
+                  </div>
                 </div>
 
                 <div class="space-y-2 text-sm">
@@ -1022,6 +1036,10 @@ function statusDotClass(expected) {
   if (value === 'off') return 'bg-slate-300';
   if (value === 'libur nasional') return 'bg-cyan-300';
   return 'bg-slate-300';
+}
+
+function shouldShowOvertimeBadge(row) {
+  return Number(row?.overtime_minutes || 0) > 0 && String(row?.overtime_label || '-').trim() !== '-';
 }
 
 function statusLabel(status) {
