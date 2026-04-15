@@ -1294,6 +1294,9 @@ class AttendanceLogController extends Controller
 
             $checkinScan = $checkinCandidates->first();
             $checkoutScan = $checkoutCandidates->first();
+            if ($checkinScan !== null && $checkoutScan === null) {
+                $checkoutScan = $this->resolveFallbackCheckoutScan($sorted, $checkinScan);
+            }
 
             return [
                 $this->toDateTimeString(optional($checkinScan)->scan_date ?? null),
@@ -1302,6 +1305,36 @@ class AttendanceLogController extends Controller
         } catch (\Throwable $e) {
             return [null, null];
         }
+    }
+
+    private function resolveFallbackCheckoutScan(Collection $sortedScans, $checkinScan)
+    {
+        $checkinDateTime = $this->toDateTimeString(optional($checkinScan)->scan_date ?? null);
+        if ($checkinDateTime === null) {
+            return null;
+        }
+
+        $otherScans = $sortedScans
+            ->filter(fn ($scan) => $this->toDateTimeString($scan->scan_date ?? null) !== $checkinDateTime)
+            ->values();
+
+        if ($otherScans->isEmpty()) {
+            return null;
+        }
+
+        $laterScan = $otherScans
+            ->filter(function ($scan) use ($checkinDateTime) {
+                $scanDateTime = $this->toDateTimeString($scan->scan_date ?? null);
+                return $scanDateTime !== null && $scanDateTime > $checkinDateTime;
+            })
+            ->sortByDesc('scan_date')
+            ->first();
+
+        if ($laterScan !== null) {
+            return $laterScan;
+        }
+
+        return $otherScans->sortBy('scan_date')->first();
     }
 
     private function resolveScanWindowLegacy(Collection $scans, ?string $startTime, ?string $endTime, ?string $logDate = null): array
