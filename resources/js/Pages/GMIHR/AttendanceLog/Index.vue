@@ -218,7 +218,7 @@
                                 class="inline-flex rounded-md border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/30"
                                 @click="openOvertimeDetail(row)"
                               >
-                                {{ row.overtime_form_label || 'Lembur' }}
+                                {{ overtimeButtonLabel(row) }}
                               </button>
                               <span
                                 v-else
@@ -400,7 +400,7 @@
                         class="inline-flex rounded-md border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/30"
                         @click="openOvertimeDetail(row)"
                       >
-                        {{ row.overtime_form_label || 'Lembur' }}
+                        {{ overtimeButtonLabel(row) }}
                       </button>
                       <span
                         v-else
@@ -1051,6 +1051,11 @@ function formatDateTime(dateValue) {
 
 function hasOvertimeRequest(row) {
   return Boolean(row?.overtime_request?.id);
+}
+
+function overtimeButtonLabel(row) {
+  const label = String(row?.overtime_form_label || '').trim();
+  return label && label !== '-' ? label : 'Lembur';
 }
 
 function hasLeaveRequest(row) {

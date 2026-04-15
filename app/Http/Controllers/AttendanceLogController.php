@@ -1310,7 +1310,7 @@ class AttendanceLogController extends Controller
             $checkinScan = $checkinCandidates->first();
             $checkoutScan = $checkoutCandidates->first();
             if ($checkinScan !== null && $checkoutScan === null) {
-                $checkoutScan = $this->resolveFallbackCheckoutScan($sorted, $checkinScan);
+                $checkoutScan = $this->resolveFallbackCheckoutScan($sorted, $checkinScan, $outTo);
             }
 
             return [
@@ -1322,7 +1322,7 @@ class AttendanceLogController extends Controller
         }
     }
 
-    private function resolveFallbackCheckoutScan(Collection $sortedScans, $checkinScan)
+    private function resolveFallbackCheckoutScan(Collection $sortedScans, $checkinScan, ?Carbon $windowEnd = null)
     {
         $checkinDateTime = $this->toDateTimeString(optional($checkinScan)->scan_date ?? null);
         if ($checkinDateTime === null) {
@@ -1338,9 +1338,21 @@ class AttendanceLogController extends Controller
         }
 
         $laterScan = $otherScans
-            ->filter(function ($scan) use ($checkinDateTime) {
+            ->filter(function ($scan) use ($checkinDateTime, $windowEnd) {
                 $scanDateTime = $this->toDateTimeString($scan->scan_date ?? null);
-                return $scanDateTime !== null && $scanDateTime > $checkinDateTime;
+                if ($scanDateTime === null || $scanDateTime <= $checkinDateTime) {
+                    return false;
+                }
+
+                if ($windowEnd === null) {
+                    return true;
+                }
+
+                try {
+                    return Carbon::parse($scanDateTime)->lt($windowEnd);
+                } catch (\Throwable $e) {
+                    return false;
+                }
             })
             ->sortByDesc('scan_date')
             ->first();
