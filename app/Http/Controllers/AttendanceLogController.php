@@ -363,9 +363,9 @@ class AttendanceLogController extends Controller
                 [$expected, $reason] = $this->evaluateCheckIn($startTime, $firstScanTime, $firstScan, $logDate);
             }
 
-            $hasOvertime = $this->hasOvertime($logDate, $startTime, $endTime, $lastScan, $isOff || $isNationalHoliday);
-            $overtimeMinutes = $this->overtimeMinutes($logDate, $startTime, $endTime, $lastScan, $isOff || $isNationalHoliday);
-            $overtimeLabel = $this->overtimeLabel($logDate, $startTime, $endTime, $lastScan, $isOff || $isNationalHoliday);
+            $hasOvertime = $this->hasOvertime($logDate, $startTime, $endTime, $lastScan, $isOff);
+            $overtimeMinutes = $this->overtimeMinutes($logDate, $startTime, $endTime, $lastScan, $isOff);
+            $overtimeLabel = $this->overtimeLabel($logDate, $startTime, $endTime, $lastScan, $isOff);
 
             $leaveType = $approvedLeaveTypeByPinDate[$pin][$logDate] ?? null;
             if ($leaveType !== null) {
@@ -561,9 +561,9 @@ class AttendanceLogController extends Controller
                         }
                     }
 
-                    $hasOvertime = $this->hasOvertime($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday || $isNationalHoliday);
-                    $overtimeMinutes = $this->overtimeMinutes($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday || $isNationalHoliday);
-                    $overtimeLabel = $this->overtimeLabel($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday || $isNationalHoliday);
+                    $hasOvertime = $this->hasOvertime($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday);
+                    $overtimeMinutes = $this->overtimeMinutes($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday);
+                    $overtimeLabel = $this->overtimeLabel($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday);
 
                     $leaveType = $approvedLeaveTypeByPinDate[$pin][$logDate] ?? null;
                     if ($leaveType !== null) {
