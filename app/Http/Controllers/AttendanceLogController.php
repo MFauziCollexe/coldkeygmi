@@ -363,9 +363,9 @@ class AttendanceLogController extends Controller
                 [$expected, $reason] = $this->evaluateCheckIn($startTime, $firstScanTime, $firstScan, $logDate);
             }
 
-            $hasOvertime = $this->hasOvertime($logDate, $startTime, $endTime, $lastScan, $isOff);
-            $overtimeMinutes = $this->overtimeMinutes($logDate, $startTime, $endTime, $lastScan, $isOff);
-            $overtimeLabel = $this->overtimeLabel($logDate, $startTime, $endTime, $lastScan, $isOff);
+            $hasOvertime = $this->hasOvertime($logDate, $startTime, $endTime, $firstScan, $lastScan, $isOff, $isNationalHoliday);
+            $overtimeMinutes = $this->overtimeMinutes($logDate, $startTime, $endTime, $firstScan, $lastScan, $isOff, $isNationalHoliday);
+            $overtimeLabel = $this->overtimeLabel($logDate, $startTime, $endTime, $firstScan, $lastScan, $isOff, $isNationalHoliday);
 
             $leaveType = $approvedLeaveTypeByPinDate[$pin][$logDate] ?? null;
             if ($leaveType !== null) {
@@ -561,9 +561,9 @@ class AttendanceLogController extends Controller
                         }
                     }
 
-                    $hasOvertime = $this->hasOvertime($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday);
-                    $overtimeMinutes = $this->overtimeMinutes($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday);
-                    $overtimeLabel = $this->overtimeLabel($logDate, $defaultStartTime, $defaultEndTime, $lastScan, $isSunday);
+                    $hasOvertime = $this->hasOvertime($logDate, $defaultStartTime, $defaultEndTime, $firstScan, $lastScan, $isSunday, $isNationalHoliday);
+                    $overtimeMinutes = $this->overtimeMinutes($logDate, $defaultStartTime, $defaultEndTime, $firstScan, $lastScan, $isSunday, $isNationalHoliday);
+                    $overtimeLabel = $this->overtimeLabel($logDate, $defaultStartTime, $defaultEndTime, $firstScan, $lastScan, $isSunday, $isNationalHoliday);
 
                     $leaveType = $approvedLeaveTypeByPinDate[$pin][$logDate] ?? null;
                     if ($leaveType !== null) {
@@ -2702,14 +2702,30 @@ class AttendanceLogController extends Controller
         }
     }
 
-    private function hasOvertime(?string $logDate, ?string $startTime, ?string $endTime, ?string $lastScan, bool $isOff = false): bool
+    private function hasOvertime(
+        ?string $logDate,
+        ?string $startTime,
+        ?string $endTime,
+        ?string $firstScan,
+        ?string $lastScan,
+        bool $isOff = false,
+        bool $isNationalHoliday = false
+    ): bool
     {
-        return $this->overtimeMinutes($logDate, $startTime, $endTime, $lastScan, $isOff) > 0;
+        return $this->overtimeMinutes($logDate, $startTime, $endTime, $firstScan, $lastScan, $isOff, $isNationalHoliday) > 0;
     }
 
-    private function overtimeLabel(?string $logDate, ?string $startTime, ?string $endTime, ?string $lastScan, bool $isOff = false): string
+    private function overtimeLabel(
+        ?string $logDate,
+        ?string $startTime,
+        ?string $endTime,
+        ?string $firstScan,
+        ?string $lastScan,
+        bool $isOff = false,
+        bool $isNationalHoliday = false
+    ): string
     {
-        $minutes = $this->overtimeMinutes($logDate, $startTime, $endTime, $lastScan, $isOff);
+        $minutes = $this->overtimeMinutes($logDate, $startTime, $endTime, $firstScan, $lastScan, $isOff, $isNationalHoliday);
         if ($minutes <= 0) {
             return '-';
         }
@@ -2717,13 +2733,35 @@ class AttendanceLogController extends Controller
         return sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
     }
 
-    private function overtimeMinutes(?string $logDate, ?string $startTime, ?string $endTime, ?string $lastScan, bool $isOff = false): int
+    private function overtimeMinutes(
+        ?string $logDate,
+        ?string $startTime,
+        ?string $endTime,
+        ?string $firstScan,
+        ?string $lastScan,
+        bool $isOff = false,
+        bool $isNationalHoliday = false
+    ): int
     {
-        if ($isOff || $logDate === null || $endTime === null || $lastScan === null) {
+        if ($isOff || $logDate === null || $lastScan === null) {
             return 0;
         }
 
         try {
+            if ($isNationalHoliday && $startTime !== null && $endTime !== null && $firstScan !== null) {
+                $firstScanAt = Carbon::parse($firstScan);
+                $lastScanAt = Carbon::parse($lastScan);
+                if ($lastScanAt->lessThan($firstScanAt)) {
+                    $lastScanAt->addDay();
+                }
+
+                return max(0, (int) $firstScanAt->diffInMinutes($lastScanAt, false));
+            }
+
+            if ($endTime === null) {
+                return 0;
+            }
+
             $scheduledEnd = Carbon::parse($logDate . ' ' . $endTime);
             if ($this->isOvernightShift($startTime, $endTime)) {
                 $scheduledEnd->addDay();
