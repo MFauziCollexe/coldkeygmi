@@ -14,6 +14,14 @@
             <div class="text-xl font-bold">{{ ticket.ticket_number }}</div>
           </div>
           <div class="md:text-right">
+            <button
+              v-if="isAdmin"
+              type="button"
+              @click="deleteTicket"
+              class="mb-2 rounded bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-500"
+            >
+              Delete Ticket
+            </button>
             <div class="text-sm text-slate-400 mb-2">Status</div>
             <div class="px-3 py-2 rounded bg-slate-700 text-white inline-block">
               {{ ticket.status.replace(/_/g, ' ').toUpperCase() }}
@@ -36,6 +44,55 @@
         <div>
           <div class="text-sm text-slate-400">Description</div>
           <div class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-slate-500">{{ ticket.description }}</div>
+        </div>
+
+        <div v-if="canComment || (ticket.comments && ticket.comments.length > 0)" class="border-t border-slate-700 pt-4">
+          <div class="bg-slate-700/50 p-4 rounded space-y-4">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="font-bold">Comments</h3>
+              <span v-if="ticket.status === 'Closed'" class="text-xs text-slate-400">Comment disabled for closed tickets</span>
+            </div>
+
+            <form v-if="canComment && ticket.status !== 'Closed'" @submit.prevent="submitComment" class="space-y-3">
+              <textarea
+                v-model="commentForm.comment"
+                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 placeholder-slate-500"
+                rows="3"
+                placeholder="Write a comment..."
+              ></textarea>
+              <div class="flex justify-end">
+                <button
+                  type="submit"
+                  :disabled="commentProcessing"
+                  class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Add Comment
+                </button>
+              </div>
+            </form>
+
+            <div v-else-if="!canComment" class="text-sm text-slate-400">
+              Comments can only be added by the requester department and assigned department.
+            </div>
+
+            <div v-if="ticket.comments && ticket.comments.length > 0" class="space-y-3">
+              <div
+                v-for="comment in ticket.comments"
+                :key="comment.id"
+                class="rounded-lg border border-slate-600 bg-slate-800/80 p-3"
+              >
+                <div class="flex flex-col gap-1 text-sm md:flex-row md:items-center md:justify-between">
+                  <div class="font-semibold text-slate-100">{{ comment.user?.name || 'Unknown User' }}</div>
+                  <div class="text-xs text-slate-400">{{ formatDateTime(comment.created_at) }}</div>
+                </div>
+                <p class="mt-2 whitespace-pre-wrap text-sm text-slate-300">{{ comment.comment }}</p>
+              </div>
+            </div>
+
+            <div v-else class="text-sm text-slate-400">
+              No comments yet.
+            </div>
+          </div>
         </div>
 
         <!-- Resolution Notes Section -->
@@ -286,6 +343,8 @@ const props = defineProps({
   isCreator: Boolean,
   departmentEmployees: Array,
   canReopen: Boolean,
+  canComment: Boolean,
+  isAdmin: Boolean,
 });
 
 const currentStatus = ref(props.ticket.status);
@@ -298,6 +357,10 @@ const resolutionFile = ref(null);
 const showFileModal = ref(false);
 const previewFile = ref('');
 const previewIsImage = ref(false);
+const commentForm = reactive({
+  comment: '',
+});
+const commentProcessing = ref(false);
 
 function changeStatus(status) {
   router.patch(`/tickets/${props.ticket.id}`, { status: status });
@@ -332,6 +395,44 @@ function viewFile(file) {
     previewIsImage.value = false;
   }
   showFileModal.value = true;
+}
+
+function formatDateTime(value) {
+  if (!value) return '-';
+
+  return new Date(value).toLocaleString('id-ID', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function submitComment() {
+  if (!commentForm.comment.trim()) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Oops!',
+      text: 'Please write a comment first',
+      confirmButtonColor: '#4f46e5'
+    });
+    return;
+  }
+
+  commentProcessing.value = true;
+
+  router.post(`/tickets/${props.ticket.id}/comments`, {
+    comment: commentForm.comment,
+  }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      commentForm.comment = '';
+    },
+    onFinish: () => {
+      commentProcessing.value = false;
+    },
+  });
 }
 
 function deleteAttachment(fileId) {
@@ -467,6 +568,23 @@ function reopenTicket() {
   }).then((result) => {
     if (result.isConfirmed) {
       router.post(`/tickets/${props.ticket.id}/reopen`);
+    }
+  });
+}
+
+function deleteTicket() {
+  Swal.fire({
+    title: 'Delete Ticket?',
+    text: 'This ticket will be permanently deleted.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      router.delete(`/tickets/${props.ticket.id}`);
     }
   });
 }

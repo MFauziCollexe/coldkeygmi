@@ -37,6 +37,8 @@
               <th class="py-2">#</th>
               <th>Image</th>
               <th>Title</th>
+              <th>Requested By</th>
+              <th>Created At</th>
               <th>Status</th>
               <th>Deadline</th>
               <th>Resolve Deadline</th>
@@ -59,6 +61,8 @@
                 <div v-else class="w-12 h-12 bg-slate-700 rounded flex items-center justify-center text-xs">-</div>
               </td>
               <td>{{ ticket.title }}</td>
+              <td>{{ ticket.creator?.name || '-' }}</td>
+              <td>{{ formatDateTime(ticket.created_at) }}</td>
               <td>
                 <span :class="getStatusClass(ticket.status)">
                   {{ ticket.status.replace(/_/g, ' ').toUpperCase() }}
@@ -109,6 +113,8 @@
               </div>
 
               <div class="space-y-1 text-sm">
+                <div><span class="text-slate-400">Requested By:</span> {{ ticket.creator?.name || '-' }}</div>
+                <div><span class="text-slate-400">Created At:</span> {{ formatDateTime(ticket.created_at) }}</div>
                 <div><span class="text-slate-400">Department:</span> {{ ticket.department?.name || '-' }}</div>
                 <div><span class="text-slate-400">Assigned To:</span> {{ ticket.assignee?.name || '-' }}</div>
                 <div :class="getDeadlineColorClass(ticket.deadline)">
@@ -244,6 +250,18 @@ function getDeadlineColorClass(deadline) {
 
 function getResolveDeadlineColorClass(deadline) {
   return getDeadlineColorClass(deadline);
+}
+
+function formatDateTime(value) {
+  if (!value) return '-';
+
+  return new Date(value).toLocaleString('id-ID', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function viewImage(imageSrc) {

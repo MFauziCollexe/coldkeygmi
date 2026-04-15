@@ -46,6 +46,9 @@ Route::post('tickets/{ticket}/close', [App\Http\Controllers\TicketController::cl
 Route::post('tickets/{ticket}/reopen', [App\Http\Controllers\TicketController::class, 'reopen'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.tickets'])
     ->name('tickets.reopen');
+Route::post('tickets/{ticket}/comments', [App\Http\Controllers\TicketController::class, 'storeComment'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.tickets'])
+    ->name('tickets.comments.store');
 
 // Deadline change request and approval
 Route::post('tickets/{ticket}/request-deadline', [App\Http\Controllers\TicketController::class, 'requestDeadlineChange'])

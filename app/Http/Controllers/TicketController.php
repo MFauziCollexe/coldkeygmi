@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
+use App\Models\TicketComment;
 use App\Models\Department;
 use App\Models\User;
 use App\Models\Position;
@@ -209,6 +210,7 @@ class TicketController extends Controller
     public function show(Ticket $ticket)
     {
         $this->authorizeTicketVisibility($ticket);
+        $ticket->load(['creator', 'assignee']);
 
         // Get users in the ticket's department for distribution
         $departmentUsers = [];
@@ -228,7 +230,15 @@ class TicketController extends Controller
         $isCreator = $ticket->isCreator(Auth::id());
 
         return Inertia::render('GMISL/Utility/Tickets/Show', [
-            'ticket' => $ticket->load(['creator', 'assignee', 'department', 'resolvedBy', 'closedBy', 'attachments']),
+            'ticket' => $ticket->load([
+                'creator',
+                'assignee',
+                'department',
+                'resolvedBy',
+                'closedBy',
+                'attachments',
+                'comments.user',
+            ]),
             'authUser' => [
                 'id' => Auth::id(),
                 'name' => Auth::user()->name,
@@ -241,7 +251,37 @@ class TicketController extends Controller
             'isAssignee' => $isAssignee,
             'isCreator' => $isCreator,
             'canReopen' => $isCreator && $ticket->status === 'Closed',
+            'canComment' => $this->canCommentOnTicket($ticket, Auth::user()),
+            'isAdmin' => (bool) Auth::user()?->is_admin,
         ]);
+    }
+
+    /**
+     * Store a comment for the specified ticket.
+     */
+    public function storeComment(Request $request, Ticket $ticket)
+    {
+        $this->authorizeTicketVisibility($ticket);
+        $ticket->loadMissing(['creator', 'assignee']);
+
+        if ($ticket->status === 'Closed') {
+            return redirect()->back()->withErrors(['comment' => 'Cannot add comments to a closed ticket.']);
+        }
+
+        if (!$this->canCommentOnTicket($ticket, Auth::user())) {
+            return redirect()->back()->withErrors(['comment' => 'Only the requester department and assigned department can add comments.']);
+        }
+
+        $data = $request->validate([
+            'comment' => 'required|string|max:2000',
+        ]);
+
+        $ticket->comments()->create([
+            'user_id' => Auth::id(),
+            'comment' => $data['comment'],
+        ]);
+
+        return redirect()->back()->with('success', 'Comment added successfully.');
     }
 
     /**
@@ -343,6 +383,10 @@ class TicketController extends Controller
     public function destroy(Request $request, Ticket $ticket)
     {
         $this->authorizeTicketVisibility($ticket);
+
+        if (!Auth::user()?->is_admin) {
+            return redirect()->back()->withErrors(['error' => 'Only admin can delete tickets.']);
+        }
 
         $ticket->delete();
         return $this->redirectToRememberedIndex($request, 'tickets', 'tickets.index')
@@ -677,5 +721,19 @@ class TicketController extends Controller
         }
 
         return $this->canManageTicketDepartment($user, $ticket);
+    }
+
+    protected function canCommentOnTicket(Ticket $ticket, ?User $user): bool
+    {
+        if (!$user || !$user->department_id) {
+            return false;
+        }
+
+        $allowedDepartmentIds = array_filter([
+            $ticket->creator?->department_id,
+            $ticket->assignee?->department_id,
+        ]);
+
+        return in_array((int) $user->department_id, array_map('intval', $allowedDepartmentIds), true);
     }
 }

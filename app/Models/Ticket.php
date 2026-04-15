@@ -93,6 +93,14 @@ class Ticket extends Model
     }
 
     /**
+     * Comments posted on the ticket.
+     */
+    public function comments()
+    {
+        return $this->hasMany(TicketComment::class)->latest();
+    }
+
+    /**
      * Check if deadline change is pending approval
      */
     public function hasPendingDeadlineRequest()
