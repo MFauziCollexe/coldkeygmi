@@ -229,7 +229,21 @@
                             </td>
                             <td class="py-2">
                               <div class="flex items-center gap-2">
-                                <span :class="statusPillClass(getDisplayExpected(row))" class="inline-flex items-center gap-2 px-2.5 py-1 rounded text-xs font-semibold border">
+                                <button
+                                  v-if="hasLeaveRequest(row)"
+                                  type="button"
+                                  :class="statusPillClass(getDisplayExpected(row))"
+                                  class="inline-flex items-center gap-2 rounded border px-2.5 py-1 text-xs font-semibold hover:brightness-110"
+                                  @click="openLeaveDetail(row)"
+                                >
+                                  <span :class="statusDotClass(getDisplayExpected(row))" class="inline-block h-2 w-2 rounded-sm"></span>
+                                  {{ getDisplayExpected(row) }}
+                                </button>
+                                <span
+                                  v-else
+                                  :class="statusPillClass(getDisplayExpected(row))"
+                                  class="inline-flex items-center gap-2 px-2.5 py-1 rounded text-xs font-semibold border"
+                                >
                                   <span :class="statusDotClass(getDisplayExpected(row))" class="inline-block w-2 h-2 rounded-sm"></span>
                                   {{ getDisplayExpected(row) }}
                                 </span>
@@ -333,7 +347,21 @@
                     <div class="text-xs text-slate-400">{{ formatDayName(row.log_date) }}</div>
                   </div>
                   <div class="flex flex-col items-end gap-2">
-                    <span :class="statusPillClass(getDisplayExpected(row))" class="inline-flex items-center gap-2 rounded border px-2.5 py-1 text-xs font-semibold">
+                    <button
+                      v-if="hasLeaveRequest(row)"
+                      type="button"
+                      :class="statusPillClass(getDisplayExpected(row))"
+                      class="inline-flex items-center gap-2 rounded border px-2.5 py-1 text-xs font-semibold hover:brightness-110"
+                      @click="openLeaveDetail(row)"
+                    >
+                      <span :class="statusDotClass(getDisplayExpected(row))" class="inline-block h-2 w-2 rounded-sm"></span>
+                      {{ getDisplayExpected(row) }}
+                    </button>
+                    <span
+                      v-else
+                      :class="statusPillClass(getDisplayExpected(row))"
+                      class="inline-flex items-center gap-2 rounded border px-2.5 py-1 text-xs font-semibold"
+                    >
                       <span :class="statusDotClass(getDisplayExpected(row))" class="inline-block h-2 w-2 rounded-sm"></span>
                       {{ getDisplayExpected(row) }}
                     </span>
@@ -503,6 +531,104 @@
                 >
                   {{ selectedOvertime.attachment_original_name || 'Lihat attachment' }}
                 </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="showLeaveModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          @click="closeLeaveDetail"
+        >
+          <div class="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl" @click.stop>
+            <div class="flex items-center justify-between border-b border-slate-700 px-5 py-4">
+              <div>
+                <h3 class="text-lg font-semibold text-white">Detail Izin</h3>
+                <p class="text-sm text-slate-400">
+                  {{ selectedLeaveContext.name || '-' }} · {{ leaveTypeLabel(selectedLeave?.type) }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+                @click="closeLeaveDetail"
+              >
+                Tutup
+              </button>
+            </div>
+
+            <div class="space-y-4 px-5 py-4">
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="space-y-3 rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Tanggal Pengajuan</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ formatDateTime(selectedLeave?.created_at) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Jenis</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ leaveTypeLabel(selectedLeave?.type) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Tanggal Mulai</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ formatDate(selectedLeave?.start_date) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Tanggal Selesai</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ formatDate(selectedLeave?.end_date) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Jumlah Hari</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ formatLeaveDays(selectedLeave?.days) }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Status</div>
+                    <span :class="leaveStatusClass(selectedLeave?.status)" class="inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold">
+                      {{ selectedLeave?.status || '-' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="space-y-3 rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Nama</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ selectedLeaveContext.name || '-' }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">PIN</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ selectedLeaveContext.pin || '-' }}</div>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="text-sm text-slate-400">Department</div>
+                    <div class="max-w-[62%] text-right text-sm">{{ selectedLeaveContext.department_name || '-' }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                <div class="text-sm text-slate-400">Alasan</div>
+                <div class="mt-2 whitespace-pre-wrap text-sm text-slate-200">{{ selectedLeave?.reason || '-' }}</div>
+              </div>
+
+              <div v-if="selectedLeave?.review_notes" class="rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                <div class="text-sm text-slate-400">Catatan Review</div>
+                <div class="mt-2 whitespace-pre-wrap text-sm text-slate-200">{{ selectedLeave.review_notes }}</div>
+              </div>
+
+              <div v-if="selectedLeave?.attachments?.length" class="rounded-lg border border-slate-700 bg-slate-800/80 p-4">
+                <div class="text-sm text-slate-400">Attachment</div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <a
+                    v-for="attachment in selectedLeave.attachments"
+                    :key="attachment.path"
+                    :href="attachment.url"
+                    target="_blank"
+                    rel="noopener"
+                    class="inline-flex rounded-md border border-sky-400/30 bg-sky-500/10 px-3 py-1.5 text-sm text-sky-200 hover:bg-sky-500/20"
+                  >
+                    {{ attachment.name }}
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -717,6 +843,9 @@ const expandedGroups = reactive({});
 const showOvertimeModal = ref(false);
 const selectedOvertime = ref(null);
 const selectedOvertimeContext = ref({});
+const showLeaveModal = ref(false);
+const selectedLeave = ref(null);
+const selectedLeaveContext = ref({});
 const hiddenEmployeeNames = new Set([
   'ari budi',
   'daud setiawan',
@@ -924,6 +1053,10 @@ function hasOvertimeRequest(row) {
   return Boolean(row?.overtime_request?.id);
 }
 
+function hasLeaveRequest(row) {
+  return Boolean(row?.leave_request?.id);
+}
+
 function openOvertimeDetail(row) {
   if (!hasOvertimeRequest(row)) return;
 
@@ -943,6 +1076,24 @@ function closeOvertimeDetail() {
   selectedOvertimeContext.value = {};
 }
 
+function openLeaveDetail(row) {
+  if (!hasLeaveRequest(row)) return;
+
+  selectedLeave.value = row.leave_request;
+  selectedLeaveContext.value = {
+    name: row?.name || '-',
+    pin: row?.pin || '-',
+    department_name: row?.department_name || '-',
+  };
+  showLeaveModal.value = true;
+}
+
+function closeLeaveDetail() {
+  showLeaveModal.value = false;
+  selectedLeave.value = null;
+  selectedLeaveContext.value = {};
+}
+
 function formatOvertimeHours(item) {
   if (!item) return '-';
   const start = item?.start_time || '-';
@@ -956,6 +1107,28 @@ function formatOvertimeDuration(hours) {
 }
 
 function overtimeStatusClass(status) {
+  const value = String(status || '').toLowerCase();
+  if (value === 'approved') return 'border-emerald-500/40 bg-emerald-600/20 text-emerald-200';
+  if (value === 'pending') return 'border-amber-400/40 bg-amber-500/20 text-amber-200';
+  if (value === 'rejected') return 'border-rose-500/40 bg-rose-600/20 text-rose-200';
+  return 'border-slate-500/30 bg-slate-600/20 text-slate-200';
+}
+
+function leaveTypeLabel(type) {
+  const value = String(type || '').toLowerCase().trim();
+  if (value === 'izin') return 'Izin';
+  if (value === 'sakit') return 'Sakit';
+  if (value === 'cuti') return 'Cuti';
+  if (value === 'dinas_luar') return 'Dinas Luar';
+  return type || '-';
+}
+
+function formatLeaveDays(days) {
+  if (days === null || days === undefined || days === '') return '-';
+  return `${days} hari`;
+}
+
+function leaveStatusClass(status) {
   const value = String(status || '').toLowerCase();
   if (value === 'approved') return 'border-emerald-500/40 bg-emerald-600/20 text-emerald-200';
   if (value === 'pending') return 'border-amber-400/40 bg-amber-500/20 text-amber-200';

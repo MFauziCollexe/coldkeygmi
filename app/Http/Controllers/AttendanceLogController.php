@@ -189,6 +189,11 @@ class AttendanceLogController extends Controller
             $rangeStartDate,
             $rangeEndDate
         );
+        $approvedLeaveDetailsByPinDate = $this->buildApprovedLeaveDetailsByPinDate(
+            $pinsInScope,
+            $rangeStartDate,
+            $rangeEndDate
+        );
         $overtimeFormByPinDate = $this->buildOvertimeFormByPinDate(
             $employeeInfoByPin,
             $rangeStartDate,
@@ -401,6 +406,7 @@ class AttendanceLogController extends Controller
                 'status' => $rowStatus,
                 'expected' => $expected,
                 'reason' => $reason,
+                'leave_request' => $approvedLeaveDetailsByPinDate[$pin][$logDate] ?? null,
                 'has_overtime' => $hasOvertime,
                 'overtime_minutes' => $overtimeMinutes,
                 'overtime_label' => $overtimeLabel,
@@ -600,6 +606,7 @@ class AttendanceLogController extends Controller
                         'status' => $rowStatus,
                         'expected' => $expected,
                         'reason' => $reason,
+                        'leave_request' => $approvedLeaveDetailsByPinDate[$pin][$logDate] ?? null,
                         'has_overtime' => $hasOvertime,
                         'overtime_minutes' => $overtimeMinutes,
                         'overtime_label' => $overtimeLabel,
@@ -2030,6 +2037,158 @@ class AttendanceLogController extends Controller
         return $result;
     }
 
+    private function buildApprovedLeaveDetailsByPinDate(Collection $pinsInScope, ?string $rangeStartDate, ?string $rangeEndDate): array
+    {
+        if ($pinsInScope->isEmpty()) {
+            return [];
+        }
+
+        $employeePairs = DB::table('employees')
+            ->select(['id', 'nik', 'user_id'])
+            ->whereNotNull('nik')
+            ->where('nik', '<>', '')
+            ->get();
+
+        $employeeIdByPin = [];
+        $userIdByPin = [];
+        $pinByEmployeeId = [];
+        $pinByUserId = [];
+
+        foreach ($employeePairs as $row) {
+            $pin = $this->normalizePin((string) $row->nik);
+            if ($pin === '') {
+                continue;
+            }
+
+            $employeeId = (int) $row->id;
+            if ($employeeId > 0) {
+                $employeeIdByPin[$pin] = $employeeId;
+                if (!isset($pinByEmployeeId[$employeeId])) {
+                    $pinByEmployeeId[$employeeId] = $pin;
+                }
+            }
+
+            $userId = (int) ($row->user_id ?? 0);
+            if ($userId > 0) {
+                $userIdByPin[$pin] = $userId;
+                if (!isset($pinByUserId[$userId])) {
+                    $pinByUserId[$userId] = $pin;
+                }
+            }
+        }
+
+        $employeeIdsInScope = $pinsInScope
+            ->map(fn($pin) => $employeeIdByPin[(string) $pin] ?? null)
+            ->filter(fn($id) => $id !== null)
+            ->unique()
+            ->values();
+
+        $userIdsInScope = $pinsInScope
+            ->map(fn($pin) => $userIdByPin[(string) $pin] ?? null)
+            ->filter(fn($id) => $id !== null)
+            ->unique()
+            ->values();
+
+        if ($employeeIdsInScope->isEmpty() && $userIdsInScope->isEmpty()) {
+            return [];
+        }
+
+        $rangeStart = $rangeStartDate
+            ? Carbon::parse($rangeStartDate)->startOfDay()
+            : Carbon::now()->startOfMonth()->startOfDay();
+        $rangeEnd = $rangeEndDate
+            ? Carbon::parse($rangeEndDate)->startOfDay()
+            : Carbon::now()->endOfMonth()->startOfDay();
+
+        $leaveRows = DB::table('leave_permissions')
+            ->where('status', 'approved')
+            ->where(function ($q) use ($employeeIdsInScope, $userIdsInScope) {
+                $hasEmp = !$employeeIdsInScope->isEmpty();
+                $hasUser = !$userIdsInScope->isEmpty();
+
+                if ($hasEmp && $hasUser) {
+                    $q->whereIn('employee_id', $employeeIdsInScope->all())
+                        ->orWhereIn('user_id', $userIdsInScope->all());
+                } elseif ($hasEmp) {
+                    $q->whereIn('employee_id', $employeeIdsInScope->all());
+                } elseif ($hasUser) {
+                    $q->whereIn('user_id', $userIdsInScope->all());
+                }
+            })
+            ->whereDate('start_date', '<=', $rangeEnd->toDateString())
+            ->whereDate('end_date', '>=', $rangeStart->toDateString())
+            ->orderByDesc('created_at')
+            ->get([
+                'id',
+                'employee_id',
+                'user_id',
+                'type',
+                'start_date',
+                'end_date',
+                'days',
+                'reason',
+                'status',
+                'created_at',
+                'review_notes',
+                'attachment_image',
+                'attachment_images',
+            ]);
+
+        $result = [];
+
+        foreach ($leaveRows as $leave) {
+            $pin = null;
+
+            $employeeId = (int) ($leave->employee_id ?? 0);
+            if ($employeeId > 0) {
+                $pin = $pinByEmployeeId[$employeeId] ?? null;
+            }
+
+            if (($pin === null || $pin === '') && !empty($leave->user_id)) {
+                $userId = (int) $leave->user_id;
+                $pin = $pinByUserId[$userId] ?? null;
+            }
+
+            if ($pin === null || $pin === '') {
+                continue;
+            }
+
+            $from = Carbon::parse($leave->start_date)->startOfDay();
+            $to = Carbon::parse($leave->end_date)->startOfDay();
+            if ($from->lt($rangeStart)) {
+                $from = $rangeStart->copy()->startOfDay();
+            }
+            if ($to->gt($rangeEnd)) {
+                $to = $rangeEnd->copy()->startOfDay();
+            }
+
+            $payload = [
+                'id' => (int) ($leave->id ?? 0),
+                'type' => trim((string) ($leave->type ?? '')),
+                'start_date' => $this->toDateString($leave->start_date ?? null),
+                'end_date' => $this->toDateString($leave->end_date ?? null),
+                'days' => $leave->days !== null ? (int) $leave->days : null,
+                'reason' => trim((string) ($leave->reason ?? '')),
+                'status' => trim((string) ($leave->status ?? '')),
+                'created_at' => $this->formatDateTimeValue($leave->created_at ?? null),
+                'review_notes' => trim((string) ($leave->review_notes ?? '')),
+                'attachments' => $this->formatLeaveAttachmentFiles(
+                    $leave->attachment_image ?? null,
+                    $leave->attachment_images ?? null
+                ),
+            ];
+
+            for ($cursor = $from->copy(); $cursor->lte($to); $cursor->addDay()) {
+                $dateKey = $cursor->format('Y-m-d');
+                foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
+                    $result[$candidatePin][$dateKey] = $payload;
+                }
+            }
+        }
+
+        return $result;
+    }
+
     private function buildOvertimeDetailsByPinDate(Collection $employeeInfoByPin, ?string $rangeStartDate, ?string $rangeEndDate): array
     {
         if (
@@ -2127,6 +2286,38 @@ class AttendanceLogController extends Controller
     {
         $dateTime = $this->toDateTimeString($value);
         return $dateTime !== null ? str_replace(' ', 'T', $dateTime) : null;
+    }
+
+    private function formatLeaveAttachmentFiles(mixed $singlePath, mixed $multiplePaths): array
+    {
+        $paths = $multiplePaths;
+
+        if (is_string($paths) && trim($paths) !== '') {
+            $decoded = json_decode($paths, true);
+            $paths = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($paths)) {
+            $paths = [];
+        }
+
+        $single = trim((string) ($singlePath ?? ''));
+        if (empty($paths) && $single !== '') {
+            $paths = [$single];
+        }
+
+        return collect($paths)
+            ->filter(fn($path) => is_string($path) && trim($path) !== '')
+            ->unique()
+            ->values()
+            ->map(function (string $path) {
+                return [
+                    'path' => $path,
+                    'name' => basename($path),
+                    'url' => Storage::disk('public')->url($path),
+                ];
+            })
+            ->all();
     }
 
     private function leaveTypeLabel(string $type): string
