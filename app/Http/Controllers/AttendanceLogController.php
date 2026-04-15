@@ -1361,6 +1361,10 @@ class AttendanceLogController extends Controller
             return $laterScan;
         }
 
+        if ($windowEnd !== null) {
+            return null;
+        }
+
         return $otherScans->sortBy('scan_date')->first();
     }
 
