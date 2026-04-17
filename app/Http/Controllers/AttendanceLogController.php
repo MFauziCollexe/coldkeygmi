@@ -2716,29 +2716,24 @@ class AttendanceLogController extends Controller
 
     private function resolveFlexibleT2PShiftCode(?string $firstScan, ?string $lastScan): ?string
     {
-        if ($firstScan === null || $lastScan === null) {
+        if ($firstScan === null) {
             return null;
         }
 
-        try {
-            $start = Carbon::parse($firstScan);
-            $end = Carbon::parse($lastScan);
-            if ($end->lessThanOrEqualTo($start)) {
-                return null;
-            }
-
-            $minutes = $start->diffInMinutes($end);
-            $hours = intdiv($minutes, 60);
-            $remainingMinutes = $minutes % 60;
-
-            if ($remainingMinutes === 0) {
-                return $hours . ' Jam';
-            }
-
-            return sprintf('%d Jam %02d Menit', $hours, $remainingMinutes);
-        } catch (\Throwable $e) {
+        $startTime = $this->normalizeTime($firstScan);
+        if ($startTime === null) {
             return null;
         }
+
+        if ($startTime >= '06:00:00' && $startTime <= '08:00:00') {
+            return '1';
+        }
+
+        if ($startTime >= '17:00:00' && $startTime <= '20:00:00') {
+            return '2';
+        }
+
+        return null;
     }
 
     private function formatCorrection(?AttendanceLogCorrection $correction): ?array
