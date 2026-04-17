@@ -21,15 +21,6 @@ class AttendanceLogController extends Controller
     // Easy rollback switch for scan pairing logic.
     private const ACCESS_MODULE = 'attendance_log';
     private const USE_SCHEDULE_WINDOWS = true;
-    private const EXPORT_EXCLUDED_PINS = [
-        '2251001006',
-        '2250209004',
-        '22511170005',
-        '2251117007',
-        '2251215002',
-        '2251117003',
-    ];
-
     protected function accessRules(): AccessRuleService
     {
         return app(AccessRuleService::class);
@@ -2893,17 +2884,6 @@ class AttendanceLogController extends Controller
 
     private function shouldExcludeFromAttendanceExport(string $pin): bool
     {
-        $normalizedPin = $this->normalizePin($pin);
-        if ($normalizedPin === '') {
-            return false;
-        }
-
-        foreach (self::EXPORT_EXCLUDED_PINS as $excludedPin) {
-            if ($normalizedPin === $this->normalizePin($excludedPin)) {
-                return true;
-            }
-        }
-
         return false;
     }
 

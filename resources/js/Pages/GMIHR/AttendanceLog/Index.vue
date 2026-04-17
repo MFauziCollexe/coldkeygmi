@@ -846,33 +846,6 @@ const selectedOvertimeContext = ref({});
 const showLeaveModal = ref(false);
 const selectedLeave = ref(null);
 const selectedLeaveContext = ref({});
-const hiddenEmployeeNames = new Set([
-  'ari budi',
-  'daud setiawan',
-  'heriyant',
-  'm ali g',
-  'm ramli',
-]);
-const hiddenEmployeeNamePrefixes = [
-  'tholut',
-  'yunanda',
-];
-
-function normalizeEmployeeName(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function shouldHideEmployee(name) {
-  const normalizedName = normalizeEmployeeName(name);
-  if (!normalizedName) return false;
-  if (hiddenEmployeeNames.has(normalizedName)) return true;
-  return hiddenEmployeeNamePrefixes.some((prefix) => normalizedName.startsWith(prefix));
-}
-
 const employeeGroups = computed(() => {
   const grouped = new Map();
   const rows = attendanceRows.value || [];
@@ -912,7 +885,6 @@ const employeeGroups = computed(() => {
   }
 
   return Array.from(grouped.values())
-    .filter((group) => !shouldHideEmployee(group.name))
     .map((group) => ({
       ...group,
       rows: [...group.rows].sort((a, b) => String(a.log_date || '').localeCompare(String(b.log_date || ''))),
