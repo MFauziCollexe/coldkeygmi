@@ -35,7 +35,8 @@
             <tr class="text-left text-slate-400">
               <th class="py-2">#</th>
               <th>NIK</th>
-              <th>Name</th>
+              <th>Fingerprint Name</th>
+              <th>Alias</th>
               <th>Department</th>
               <th>Position</th>
               <th>Work Group</th>
@@ -49,6 +50,7 @@
               <td class="py-3">{{ (employees.current_page - 1) * employees.per_page + index + 1 }}</td>
               <td>{{ emp.nik || '-' }}</td>
               <td>{{ emp.name || '-' }}</td>
+              <td>{{ emp.alias_name || '-' }}</td>
               <td>{{ emp.user?.department?.name || emp.department?.name || '-' }}</td>
               <td>{{ emp.user?.position?.name || emp.position?.name || '-' }}</td>
               <td>{{ formatWorkGroup(emp.work_group) }}</td>
@@ -90,7 +92,7 @@
               </td>
             </tr>
             <tr v-if="employees.data.length === 0">
-              <td colspan="9" class="py-4 text-center text-slate-400">No employees found</td>
+              <td colspan="10" class="py-4 text-center text-slate-400">No employees found</td>
             </tr>
           </tbody>
         </table>
@@ -100,7 +102,7 @@
           <div v-for="emp in employees.data" :key="`mobile-${emp.id}`" class="border-b border-slate-700 bg-slate-900/30 p-4 last:border-b-0">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <div class="truncate font-semibold text-white">{{ emp.name || '-' }}</div>
+                <div class="truncate font-semibold text-white">{{ emp.alias_name || emp.name || '-' }}</div>
                 <div class="text-sm text-slate-400">{{ emp.nik || '-' }}</div>
               </div>
               <span v-if="emp.employment_status === 'resigned'" class="shrink-0 text-red-400">Non Active</span>
@@ -108,6 +110,14 @@
             </div>
 
             <div class="mt-3 space-y-2 text-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Fingerprint Name</div>
+                <div class="text-right">{{ emp.name || '-' }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Alias</div>
+                <div class="text-right">{{ emp.alias_name || '-' }}</div>
+              </div>
               <div class="flex items-start justify-between gap-3">
                 <div class="text-slate-400">Department</div>
                 <div class="text-right">{{ emp.user?.department?.name || emp.department?.name || '-' }}</div>

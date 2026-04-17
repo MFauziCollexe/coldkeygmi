@@ -33,6 +33,7 @@ class EmployeeController extends Controller
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nik', 'like', "%{$search}%")
+                      ->orWhere('alias_name', 'like', "%{$search}%")
                       ->orWhere('name', 'like', "%{$search}%")
                       ->orWhereHas('user', function ($userQuery) use ($search) {
                           $userQuery->where('name', 'like', "%{$search}%");
@@ -111,6 +112,7 @@ class EmployeeController extends Controller
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
             'nik' => 'nullable|string|max:255|unique:employees,nik',
+            'alias_name' => 'nullable|string|max:255',
             'work_group' => 'nullable|in:office,operational',
             'join_date' => 'nullable|date',
             'phone' => 'nullable|string|max:255',
@@ -232,6 +234,7 @@ class EmployeeController extends Controller
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
             'nik' => 'nullable|string|max:255|unique:employees,nik,' . $employee->id,
+            'alias_name' => 'nullable|string|max:255',
             'work_group' => 'nullable|in:office,operational',
             'join_date' => 'nullable|date',
             'phone' => 'nullable|string|max:255',

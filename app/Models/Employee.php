@@ -15,6 +15,7 @@ class Employee extends Model
         'position_id',
         'nik',
         'name',
+        'alias_name',
         'employment_status',
         'resigned_at',
         'work_group',

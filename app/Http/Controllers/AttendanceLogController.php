@@ -87,18 +87,6 @@ class AttendanceLogController extends Controller
                 'scan_date',
             ]);
 
-        $employeeNameMap = DB::table('employees')
-            ->whereNotNull('nik')
-            ->where('nik', '<>', '')
-            ->pluck('name', 'nik')
-            ->mapWithKeys(function ($name, $nik) {
-                $pin = $this->normalizePin((string) $nik);
-                if ($pin === '') {
-                    return [];
-                }
-                return [$pin => trim((string) $name)];
-            });
-
         $employeeInfoByPin = DB::table('employees as e')
             ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
             ->whereNotNull('e.nik')
@@ -107,6 +95,7 @@ class AttendanceLogController extends Controller
                 'e.id as employee_id',
                 'e.nik',
                 'e.name',
+                'e.alias_name',
                 'd.name as department_name',
             ])
             ->mapWithKeys(function ($row) {
@@ -119,6 +108,7 @@ class AttendanceLogController extends Controller
                     $pin => [
                         'employee_id' => (int) ($row->employee_id ?? 0),
                         'name' => trim((string) ($row->name ?? '')),
+                        'alias_name' => trim((string) ($row->alias_name ?? '')),
                         'department_name' => trim((string) ($row->department_name ?? '')),
                     ],
                 ];
@@ -391,7 +381,11 @@ class AttendanceLogController extends Controller
             $rows->push([
                 'log_date' => $logDate,
                 'pin' => $pin,
-                'name' => (string) ($row->roster_name ?: ($scans->last()->name ?? '-')),
+                'name' => $this->resolveAttendanceDisplayName(
+                    $employeeInfoByPin->get($pin),
+                    (string) ($row->roster_name ?? ''),
+                    (string) ($scans->last()->name ?? ''),
+                ),
                 'department_name' => (string) (($employeeInfoByPin->get($pin)['department_name'] ?? '')),
                 'roster_name' => $row->roster_name,
                 'fingerprint_name' => $scans->last()->name ?? null,
@@ -479,19 +473,16 @@ class AttendanceLogController extends Controller
             foreach ($monthKeys as $monthKey) {
                 $monthStart = Carbon::createFromFormat('Y-m-d', $monthKey . '-01');
                 $daysInMonth = $monthStart->daysInMonth;
-                $displayName = collect($dateMap)
+                $fingerprintName = collect($dateMap)
                     ->flatten(1)
                     ->sortByDesc('scan_date')
                     ->map(fn($scan) => trim((string) ($scan->name ?? '')))
                     ->first(fn($name) => $name !== '');
-
-                if ($displayName === null || $displayName === '') {
-                    $displayName = trim((string) ($employeeNameMap->get($pin) ?? ''));
-                }
-
-                if ($displayName === '') {
-                    $displayName = '-';
-                }
+                $displayName = $this->resolveAttendanceDisplayName(
+                    $employeeInfoByPin->get($pin),
+                    null,
+                    (string) ($fingerprintName ?? ''),
+                );
 
                 $departmentName = trim((string) (($employeeInfoByPin->get($pin)['department_name'] ?? '')));
 
@@ -594,7 +585,7 @@ class AttendanceLogController extends Controller
                         'name' => $displayName,
                         'department_name' => $departmentName,
                         'roster_name' => null,
-                        'fingerprint_name' => $displayName !== '-' ? $displayName : null,
+                        'fingerprint_name' => $fingerprintName ?: null,
                         'shift_code' => null,
                         'is_off' => false,
                         'start_time' => $defaultStartTime,
@@ -851,13 +842,16 @@ class AttendanceLogController extends Controller
         $employeeNameMap = DB::table('employees')
             ->whereNotNull('nik')
             ->where('nik', '<>', '')
-            ->pluck('name', 'nik')
-            ->mapWithKeys(function ($name, $nik) {
+            ->get(['nik', 'name', 'alias_name'])
+            ->mapWithKeys(function ($row) {
+                $nik = (string) ($row->nik ?? '');
                 $pin = $this->normalizePin((string) $nik);
                 if ($pin === '') {
                     return [];
                 }
-                return [$pin => trim((string) $name)];
+                $aliasName = trim((string) ($row->alias_name ?? ''));
+                $name = trim((string) ($row->name ?? ''));
+                return [$pin => ($aliasName !== '' ? $aliasName : $name)];
             });
 
         $rosterRows = DB::table('roster_entries as re')
@@ -1034,10 +1028,12 @@ class AttendanceLogController extends Controller
                 [$expected] = $this->evaluateCheckIn($startTime, $firstScanTime, $firstScan, $logDate);
             }
 
-            $name = trim((string) ($row->roster_name ?? ''));
-            if ($name === '') {
-                $name = trim((string) ($scans->last()->name ?? ''));
-            }
+            $name = $this->resolveAttendanceDisplayName(
+                ['alias_name' => trim((string) ($employeeNameMap->get($pin) ?? ''))],
+                (string) ($row->roster_name ?? ''),
+                (string) ($scans->last()->name ?? ''),
+                ''
+            );
             if ($name === '') {
                 continue;
             }
@@ -1070,19 +1066,16 @@ class AttendanceLogController extends Controller
                 continue;
             }
 
-            // Pick a stable display name (prefer scans, fallback to employees table).
-            $displayName = $scanRows
+            $fingerprintName = $scanRows
                 ->filter(fn($row) => $this->normalizePin((string) $row->pin) === $pin)
                 ->sortByDesc('scan_date')
                 ->map(fn($row) => trim((string) ($row->name ?? '')))
                 ->first(fn($name) => $name !== '');
-
-            if ($displayName === null || $displayName === '') {
-                $displayName = trim((string) ($employeeNameMap->get($pin) ?? ''));
-            }
-            if ($displayName === null || $displayName === '') {
-                $displayName = '-';
-            }
+            $displayName = $this->resolveAttendanceDisplayName(
+                ['alias_name' => trim((string) ($employeeNameMap->get($pin) ?? ''))],
+                null,
+                (string) ($fingerprintName ?? ''),
+            );
 
             for ($day = 1; $day <= $daysInMonth; $day++) {
                 $logDate = $monthStart->copy()->day($day)->format('Y-m-d');
@@ -1152,6 +1145,35 @@ class AttendanceLogController extends Controller
         }
 
         return [$lateCounts, $absentCounts];
+    }
+
+    private function resolveAttendanceDisplayName(
+        array|null $employeeInfo,
+        ?string $rosterName,
+        ?string $fingerprintName,
+        string $fallback = '-'
+    ): string {
+        $aliasName = trim((string) ($employeeInfo['alias_name'] ?? ''));
+        if ($aliasName !== '') {
+            return $aliasName;
+        }
+
+        $employeeName = trim((string) ($employeeInfo['name'] ?? ''));
+        if ($employeeName !== '') {
+            return $employeeName;
+        }
+
+        $rosterName = trim((string) ($rosterName ?? ''));
+        if ($rosterName !== '') {
+            return $rosterName;
+        }
+
+        $fingerprintName = trim((string) ($fingerprintName ?? ''));
+        if ($fingerprintName !== '') {
+            return $fingerprintName;
+        }
+
+        return $fallback;
     }
 
     public function storeCorrection(Request $request)
