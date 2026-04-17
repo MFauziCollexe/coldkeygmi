@@ -480,12 +480,17 @@ class AttendanceLogController extends Controller
                     (string) ($fingerprintName ?? ''),
                 );
 
-                $departmentName = trim((string) (($employeeInfoByPin->get($pin)['department_name'] ?? '')));
+                $employeeInfo = $employeeInfoByPin->get($pin);
+                $displayPin = $this->resolveAttendanceDisplayPin(null, $employeeInfo, collect($dateMap)->flatten(1), $pin);
+                $departmentName = trim((string) (($employeeInfo['department_name'] ?? '')));
 
                 for ($day = 1; $day <= $daysInMonth; $day++) {
                     $logDate = $monthStart->copy()->day($day)->format('Y-m-d');
-                    ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime, 'label' => $defaultScheduleLabel] = $this->resolveNoRosterSchedule($logDate);
+                    ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime, 'label' => $defaultScheduleLabel] = $this->resolveNoRosterSchedule($logDate, $displayPin);
                     $lookupDates = $this->scanLookupDatesForSchedule($logDate, $defaultStartTime, $defaultEndTime, $defaultNextDayStartTime);
+                    if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
+                        $lookupDates = $this->resolveFlexibleT2PScanLookupDates($logDate);
+                    }
                     $scans = collect();
                     foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
                         foreach ($lookupDates as $lookupDate) {
@@ -495,7 +500,11 @@ class AttendanceLogController extends Controller
                     $scans = $scans->sortBy('scan_date')->values();
 
                     $scanCount = $scans->count();
-                    [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
+                    if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
+                        [$firstScan, $lastScan] = $this->resolveFlexibleT2PNoRosterScanWindow($scans, $logDate);
+                    } else {
+                        [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
+                    }
                     $correction = $correctionMap->get($logDate . '|' . $pin);
                     if ($correction && $correction->status === 'approved') {
                         if ($correction->corrected_first_scan !== null) {
@@ -507,9 +516,13 @@ class AttendanceLogController extends Controller
                     }
                     $firstScanTime = $this->normalizeTime($firstScan);
                     $lastScanTime = $this->normalizeTime($lastScan);
+                    if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
+                        ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime, 'label' => $defaultScheduleLabel] = $this->resolveFlexibleT2PNoRosterSchedule($firstScan, $lastScan);
+                    }
                     $hasFirstScan = $firstScan !== null;
                     $hasLastScan = $lastScan !== null;
                     $isSunday = Carbon::parse($logDate)->isSunday();
+                    $ignoreSundayOff = $this->usesT2PNoRosterSchedule($displayPin);
                     [$isNationalHoliday, $holidayName] = $this->resolveHolidayForPin(
                         $holidaysByDate,
                         $logDate,
@@ -520,12 +533,17 @@ class AttendanceLogController extends Controller
                     $rowStatus = 'no_roster';
                     $expected = 'Cek Lagi';
                     $reason = 'Tidak ada roster, jadwal default ' . $defaultScheduleLabel . '.';
+                    if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
+                        $reason = 'Tidak ada roster, jadwal T2P security mengikuti scan dengan acuan 12 jam.';
+                    } elseif ($this->usesFixedT2PNoRosterSchedule($displayPin)) {
+                        $reason = 'Tidak ada roster, jadwal T2P241201001 tetap 08:00 - 16:00.';
+                    }
 
                     if ($isNationalHoliday) {
                         $rowStatus = 'holiday_national';
                         $expected = 'Libur Nasional';
                         $reason = $holidayName !== '' ? 'Libur Nasional: ' . $holidayName : 'Libur Nasional.';
-                    } elseif ($isSunday) {
+                    } elseif ($isSunday && !$ignoreSundayOff) {
                         $rowStatus = 'offday';
                         $expected = 'OFF';
                         $reason = 'Hari Minggu tanpa roster dianggap OFF.';
@@ -577,11 +595,7 @@ class AttendanceLogController extends Controller
 
                     $rows->push([
                         'log_date' => $logDate,
-                        'pin' => $this->resolveAttendanceDisplayPin(
-                            null,
-                            $employeeInfoByPin->get($pin),
-                            $scans
-                        ),
+                        'pin' => $this->resolveAttendanceDisplayPin(null, $employeeInfo, $scans, $displayPin),
                         'name' => $displayName,
                         'department_name' => $departmentName,
                         'roster_name' => null,
@@ -1066,9 +1080,11 @@ class AttendanceLogController extends Controller
                 continue;
             }
 
-            $fingerprintName = $scanRows
+            $pinScans = $scanRows
                 ->filter(fn($row) => $this->normalizePin((string) $row->pin) === $pin)
-                ->sortByDesc('scan_date')
+                ->sortByDesc('scan_date');
+            $displayPin = $this->resolveAttendanceDisplayPin(null, null, $pinScans, $pin);
+            $fingerprintName = $pinScans
                 ->map(fn($row) => trim((string) ($row->name ?? '')))
                 ->first(fn($name) => $name !== '');
             $displayName = $this->resolveAttendanceDisplayName(
@@ -1088,7 +1104,7 @@ class AttendanceLogController extends Controller
                     $pinWorkGroupMap
                 );
 
-                if ($isNationalHoliday || $isSunday) {
+                if ($isNationalHoliday || ($isSunday && !$this->usesT2PNoRosterSchedule($displayPin))) {
                     continue;
                 }
 
@@ -1099,9 +1115,12 @@ class AttendanceLogController extends Controller
                 }
 
                 // Merge scans across known pin variants.
-                ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime] = $this->resolveNoRosterSchedule($logDate);
+                ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime] = $this->resolveNoRosterSchedule($logDate, $displayPin);
                 $scans = collect();
                 $lookupDates = $this->scanLookupDatesForSchedule($logDate, $defaultStartTime, $defaultEndTime, $defaultNextDayStartTime);
+                if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
+                    $lookupDates = $this->resolveFlexibleT2PScanLookupDates($logDate);
+                }
                 foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
                     foreach ($lookupDates as $lookupDate) {
                         $scans = $scans->merge($scanGroups->get($lookupDate . '|' . $candidatePin, collect()));
@@ -1109,7 +1128,11 @@ class AttendanceLogController extends Controller
                 }
                 $scans = $scans->sortBy('scan_date')->values();
 
-                [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
+                if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
+                    [$firstScan, $lastScan] = $this->resolveFlexibleT2PNoRosterScanWindow($scans, $logDate);
+                } else {
+                    [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
+                }
                 $correction = $correctionMap->get($logDate . '|' . $pin);
                 if ($correction && $correction->status === 'approved') {
                     if ($correction->corrected_first_scan !== null) {
@@ -1121,6 +1144,9 @@ class AttendanceLogController extends Controller
                 }
 
                 $firstScanTime = $this->normalizeTime($firstScan);
+                if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
+                    ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime] = $this->resolveFlexibleT2PNoRosterSchedule($firstScan, $lastScan);
+                }
                 $hasFirstScan = $firstScan !== null;
                 $hasLastScan = $lastScan !== null;
 
@@ -2552,8 +2578,20 @@ class AttendanceLogController extends Controller
         return null;
     }
 
-    private function resolveNoRosterSchedule(string $logDate): array
+    private function resolveNoRosterSchedule(string $logDate, ?string $displayPin = null): array
     {
+        if ($this->usesFixedT2PNoRosterSchedule($displayPin)) {
+            $startTime = '08:00:00';
+            $endTime = '16:00:00';
+
+            return [
+                'start_time' => $startTime,
+                'end_time' => $endTime,
+                'next_day_start_time' => $startTime,
+                'label' => substr($startTime, 0, 5) . ' - ' . substr($endTime, 0, 5),
+            ];
+        }
+
         $date = Carbon::parse($logDate);
         $startTime = '08:00:00';
         $endTime = $date->isSaturday() ? '13:00:00' : '16:00:00';
@@ -2563,6 +2601,119 @@ class AttendanceLogController extends Controller
             'end_time' => $endTime,
             'next_day_start_time' => $startTime,
             'label' => substr($startTime, 0, 5) . ' - ' . substr($endTime, 0, 5),
+        ];
+    }
+
+    private function usesT2PNoRosterSchedule(?string $displayPin): bool
+    {
+        $pin = strtoupper(trim((string) ($displayPin ?? '')));
+        return $pin !== '' && str_starts_with($pin, 'T2P');
+    }
+
+    private function usesFixedT2PNoRosterSchedule(?string $displayPin): bool
+    {
+        $pin = strtoupper(trim((string) ($displayPin ?? '')));
+        return $pin === 'T2P241201001';
+    }
+
+    private function usesFlexibleT2PNoRosterSchedule(?string $displayPin): bool
+    {
+        return $this->usesT2PNoRosterSchedule($displayPin) && !$this->usesFixedT2PNoRosterSchedule($displayPin);
+    }
+
+    private function resolveFlexibleT2PScanLookupDates(string $logDate): array
+    {
+        try {
+            $date = Carbon::parse($logDate);
+            return [
+                $date->toDateString(),
+                $date->copy()->addDay()->toDateString(),
+            ];
+        } catch (\Throwable $e) {
+            return [$logDate];
+        }
+    }
+
+    private function resolveFlexibleT2PNoRosterScanWindow(Collection $scans, string $logDate): array
+    {
+        if ($scans->isEmpty()) {
+            return [null, null];
+        }
+
+        try {
+            $shiftStartDate = Carbon::parse($logDate)->startOfDay();
+            $shiftEndDate = Carbon::parse($logDate)->endOfDay();
+
+            $firstScan = $scans
+                ->filter(function ($scan) use ($shiftStartDate, $shiftEndDate) {
+                    try {
+                        $scanAt = Carbon::parse($scan->scan_date);
+                        return $scanAt->betweenIncluded($shiftStartDate, $shiftEndDate);
+                    } catch (\Throwable $e) {
+                        return false;
+                    }
+                })
+                ->sortBy('scan_date')
+                ->first();
+
+            if ($firstScan === null) {
+                return [null, null];
+            }
+
+            $firstScanAt = Carbon::parse($firstScan->scan_date);
+            $checkoutLimit = $firstScanAt->copy()->addHours(14);
+
+            $lastScan = $scans
+                ->filter(function ($scan) use ($firstScanAt, $checkoutLimit) {
+                    try {
+                        $scanAt = Carbon::parse($scan->scan_date);
+                        return $scanAt->greaterThan($firstScanAt) && $scanAt->lessThanOrEqualTo($checkoutLimit);
+                    } catch (\Throwable $e) {
+                        return false;
+                    }
+                })
+                ->sortByDesc('scan_date')
+                ->first();
+
+            return [
+                $this->toDateTimeString(optional($firstScan)->scan_date ?? null),
+                $this->toDateTimeString(optional($lastScan)->scan_date ?? null),
+            ];
+        } catch (\Throwable $e) {
+            return [null, null];
+        }
+    }
+
+    private function resolveFlexibleT2PNoRosterSchedule(?string $firstScan, ?string $lastScan): array
+    {
+        $startTime = $this->normalizeTime($firstScan);
+        $endTime = $this->normalizeTime($lastScan);
+
+        if ($startTime !== null && $endTime === null) {
+            try {
+                $endTime = Carbon::parse($firstScan)->addHours(12)->format('H:i:s');
+            } catch (\Throwable $e) {
+                $endTime = null;
+            }
+        }
+
+        if ($startTime === null && $endTime !== null) {
+            try {
+                $startTime = Carbon::parse('2000-01-01 ' . $endTime)->subHours(12)->format('H:i:s');
+            } catch (\Throwable $e) {
+                $startTime = null;
+            }
+        }
+
+        $label = ($startTime !== null && $endTime !== null)
+            ? (substr($startTime, 0, 5) . ' - ' . substr($endTime, 0, 5))
+            : '-';
+
+        return [
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'next_day_start_time' => $startTime,
+            'label' => $label,
         ];
     }
 
