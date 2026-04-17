@@ -78,56 +78,50 @@
       </div>
 
       <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
-          <div class="md:col-span-2">
-            <label class="text-xs text-slate-300">Tanggal Dari</label>
-            <input
-              v-model="form.date_from"
-              type="date"
-              class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm"
-            />
-          </div>
-          <div class="md:col-span-2">
-            <label class="text-xs text-slate-300">Sampai</label>
-            <input
-              v-model="form.date_to"
-              type="date"
-              class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm"
-            />
-          </div>
-          <div class="md:col-span-2">
-            <label class="text-xs text-slate-300">Status</label>
-            <select v-model="form.status" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
-              <option value="all">Semua</option>
-              <option value="on_time">On Time</option>
-              <option value="terlambat">Terlambat</option>
-              <option value="tidak_masuk">Tidak Masuk</option>
-              <option value="tidak_scan_masuk">Tidak Scan masuk</option>
-              <option value="tidak_scan_pulang">Tidak Scan pulang</option>
-              <option value="izin">Izin</option>
-              <option value="sakit">Sakit</option>
-              <option value="cuti">Cuti</option>
-              <option value="dinas_luar">Dinas Luar</option>
-              <option value="off">OFF</option>
-              <option value="libur_nasional">Libur Nasional</option>
-              <option value="cek_lagi">Cek Lagi</option>
-              <option value="no_roster">Tanpa Roster</option>
-            </select>
-          </div>
-          <div class="md:col-span-3">
-            <label class="text-xs text-slate-300">Cari PIN / Nama</label>
-            <input v-model="form.q" type="text" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" placeholder="contoh: 25111724 / EKO" />
-          </div>
-          <div class="md:col-span-3 flex items-end">
-            <div class="flex w-full flex-col gap-2 xl:flex-row">
-              <button class="w-full xl:flex-1 px-3 py-2 rounded bg-sky-600 hover:bg-sky-500 text-sm font-semibold" @click="applyFilters">
+        <div class="flex flex-wrap items-end gap-3">
+            <div class="w-40 shrink-0">
+              <label class="text-xs text-slate-300">Tanggal Dari</label>
+              <input
+                v-model="form.date_from"
+                type="date"
+                class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm"
+              />
+            </div>
+            <div class="w-40 shrink-0">
+              <label class="text-xs text-slate-300">Sampai</label>
+              <input
+                v-model="form.date_to"
+                type="date"
+                class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm"
+              />
+            </div>
+            <div class="w-40 shrink-0">
+              <label class="text-xs text-slate-300">Status</label>
+              <select v-model="form.status" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
+                <option value="all">Semua</option>
+                <option value="on_time">On Time</option>
+                <option value="terlambat">Terlambat</option>
+                <option value="tidak_masuk">Tidak Masuk</option>
+                <option value="tidak_scan_masuk">Tidak Scan masuk</option>
+                <option value="tidak_scan_pulang">Tidak Scan pulang</option>
+                <option value="izin">Izin</option>
+                <option value="sakit">Sakit</option>
+                <option value="cuti">Cuti</option>
+                <option value="dinas_luar">Dinas Luar</option>
+                <option value="off">OFF</option>
+                <option value="libur_nasional">Libur Nasional</option>
+                <option value="cek_lagi">Cek Lagi</option>
+                <option value="no_roster">Tanpa Roster</option>
+              </select>
+            </div>
+            <div class="flex shrink-0 items-end gap-2">
+              <button class="min-w-[126px] rounded bg-sky-600 px-4 py-2 text-sm font-semibold hover:bg-sky-500" @click="applyFilters">
                 Tampilkan
               </button>
-              <button class="w-full xl:w-auto px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold" @click="exportExcel">
+              <button class="min-w-[126px] rounded bg-emerald-600 px-4 py-2 text-sm font-semibold hover:bg-emerald-500" @click="exportExcel">
                 Export Excel
               </button>
             </div>
-          </div>
         </div>
       </div>
 
@@ -141,10 +135,36 @@
             <thead class="border-b border-slate-700 text-slate-400">
               <tr>
                 <th class="text-left py-2 pr-3">No</th>
-                <th class="text-left py-2 pr-3">PIN</th>
-                <th class="text-left py-2 pr-3">Nama</th>
-                <th class="text-left py-2 pr-3">NRP</th>
-                <th class="text-left py-2 pr-3">Department</th>
+                <th class="text-left py-2 pr-3">
+                  <div class="inline-flex items-center gap-2">
+                    <span>PIN</span>
+                    <button type="button" :class="headerFilterButtonClass(hasPinFilterActive)" @click.stop="toggleHeaderFilter('pin', $event)">
+                      <svg viewBox="0 0 20 20" class="h-3.5 w-3.5 fill-current" aria-hidden="true">
+                        <path d="M3 5h14l-5.5 6.2V16l-3-1v-3.8L3 5z" />
+                      </svg>
+                    </button>
+                  </div>
+                </th>
+                <th class="text-left py-2 pr-3">
+                  <div class="inline-flex items-center gap-2">
+                    <span>Nama</span>
+                    <button type="button" :class="headerFilterButtonClass(hasNameFilterActive)" @click.stop="toggleHeaderFilter('name', $event)">
+                      <svg viewBox="0 0 20 20" class="h-3.5 w-3.5 fill-current" aria-hidden="true">
+                        <path d="M3 5h14l-5.5 6.2V16l-3-1v-3.8L3 5z" />
+                      </svg>
+                    </button>
+                  </div>
+                </th>
+                <th class="text-left py-2 pr-3">
+                  <div class="inline-flex items-center gap-2">
+                    <span>Department</span>
+                    <button type="button" :class="headerFilterButtonClass(hasDepartmentFilterActive)" @click.stop="toggleHeaderFilter('department', $event)">
+                      <svg viewBox="0 0 20 20" class="h-3.5 w-3.5 fill-current" aria-hidden="true">
+                        <path d="M3 5h14l-5.5 6.2V16l-3-1v-3.8L3 5z" />
+                      </svg>
+                    </button>
+                  </div>
+                </th>
                 <th class="text-left py-2 pr-3">Absensi</th>
                 <th class="text-left py-2 pr-3">Terlambat</th>
                 <th class="text-left py-2 pr-3">Absen</th>
@@ -162,7 +182,6 @@
                   </td>
                   <td class="py-2 pr-3">{{ group.pin }}</td>
                   <td class="py-2 pr-3">{{ group.name }}</td>
-                  <td class="py-2 pr-3">{{ group.nrp }}</td>
                   <td class="py-2 pr-3">{{ group.departmentName || '-' }}</td>
                   <td class="py-2 pr-3">{{ group.totalAbsensi }}</td>
                   <td class="py-2 pr-3">
@@ -183,7 +202,7 @@
                 </tr>
 
                 <tr v-if="isGroupExpanded(group.key)" class="border-b border-slate-700/50 bg-slate-900/30">
-                  <td colspan="9" class="py-3">
+                  <td colspan="8" class="py-3">
                     <div class="overflow-auto">
                       <table class="w-full text-sm">
                         <thead class="border-b border-slate-700 text-slate-400">
@@ -309,7 +328,6 @@
               <div>
                 <div class="text-sm text-slate-400">#{{ idx + 1 }} · {{ group.pin }}</div>
                 <div class="font-semibold text-white">{{ group.name }}</div>
-                <div class="text-sm text-slate-400">NRP: {{ group.nrp }}</div>
                 <div class="text-sm text-slate-400">Department: {{ group.departmentName || '-' }}</div>
               </div>
               <div class="text-right">
@@ -635,6 +653,42 @@
         </div>
 
       </div>
+
+      <Teleport to="body">
+        <div
+          v-if="activeHeaderFilter"
+          class="absolute z-[100] w-72 rounded-lg border border-slate-600 bg-slate-900 p-3 shadow-2xl"
+          :style="{ left: `${headerFilterPosition.left}px`, top: `${headerFilterPosition.top}px` }"
+          @click.stop
+        >
+          <input
+            v-model="activeHeaderSearchModel"
+            type="text"
+            placeholder="Search"
+            class="w-full rounded border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+          />
+          <div class="mt-3 max-h-56 overflow-y-auto rounded border border-slate-700 bg-slate-950/70 p-2">
+            <label class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-slate-200">
+              <input type="checkbox" :checked="activeHeaderAllSelected" @change="toggleActiveHeaderAll" />
+              <span>(Select All)</span>
+            </label>
+            <label
+              v-for="option in activeHeaderOptions"
+              :key="option"
+              class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-slate-200"
+            >
+              <input type="checkbox" :checked="activeHeaderDraft.includes(option)" @change="toggleActiveHeaderOption(option)" />
+              <span>{{ option }}</span>
+            </label>
+            <div v-if="!activeHeaderOptions.length" class="px-1 py-2 text-sm text-slate-400">
+              {{ activeHeaderEmptyLabel }}
+            </div>
+          </div>
+          <div class="mt-3 flex justify-end">
+            <button type="button" class="rounded bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-500" @click="applyActiveHeaderFilter">OK</button>
+          </div>
+        </div>
+      </Teleport>
     </div>
   </AppLayout>
 </template>
@@ -733,6 +787,17 @@ const isCurrentUserItDepartment = computed(() => {
 });
 const canShowCorrectionColumn = computed(() => canManageCorrections && isCurrentUserItDepartment.value);
 const MIN_HIGHLIGHT_COUNT = 5;
+const activeHeaderFilter = ref('');
+const headerFilterPosition = reactive({ left: 0, top: 0 });
+const pinSearch = ref('');
+const selectedPins = ref([]);
+const draftSelectedPins = ref([]);
+const nameSearch = ref('');
+const selectedNames = ref([]);
+const draftSelectedNames = ref([]);
+const departmentSearch = ref('');
+const selectedDepartments = ref([]);
+const draftSelectedDepartments = ref([]);
 
 const summaryTotal = computed(() => Number(props.summary?.total || 0));
 
@@ -846,7 +911,7 @@ const selectedOvertimeContext = ref({});
 const showLeaveModal = ref(false);
 const selectedLeave = ref(null);
 const selectedLeaveContext = ref({});
-const employeeGroups = computed(() => {
+const allEmployeeGroups = computed(() => {
   const grouped = new Map();
   const rows = attendanceRows.value || [];
 
@@ -895,6 +960,186 @@ const employeeGroups = computed(() => {
     });
 });
 
+const departmentOptions = computed(() => allEmployeeGroups.value
+  .map((group) => String(group?.departmentName || '').trim())
+  .filter((name) => name !== '' && name !== '-')
+  .sort((a, b) => a.localeCompare(b))
+  .filter((name, index, array) => array.indexOf(name) === index));
+
+const pinOptions = computed(() => allEmployeeGroups.value
+  .map((group) => String(group?.pin || '').trim())
+  .filter((pin) => pin !== '' && pin !== '-')
+  .sort((a, b) => a.localeCompare(b))
+  .filter((pin, index, array) => array.indexOf(pin) === index));
+
+const nameOptions = computed(() => allEmployeeGroups.value
+  .map((group) => String(group?.name || '').trim())
+  .filter((name) => name !== '' && name !== '-')
+  .sort((a, b) => a.localeCompare(b))
+  .filter((name, index, array) => array.indexOf(name) === index));
+
+watch(
+  pinOptions,
+  (options) => {
+    const current = selectedPins.value.filter((pin) => options.includes(pin));
+    selectedPins.value = current.length ? current : [...options];
+    draftSelectedPins.value = draftSelectedPins.value.filter((pin) => options.includes(pin));
+    if (!draftSelectedPins.value.length) {
+      draftSelectedPins.value = [...selectedPins.value];
+    }
+  },
+  { immediate: true }
+);
+
+watch(
+  nameOptions,
+  (options) => {
+    const current = selectedNames.value.filter((name) => options.includes(name));
+    selectedNames.value = current.length ? current : [...options];
+    draftSelectedNames.value = draftSelectedNames.value.filter((name) => options.includes(name));
+    if (!draftSelectedNames.value.length) {
+      draftSelectedNames.value = [...selectedNames.value];
+    }
+  },
+  { immediate: true }
+);
+
+watch(
+  departmentOptions,
+  (options) => {
+    const current = selectedDepartments.value.filter((name) => options.includes(name));
+    selectedDepartments.value = current.length ? current : [...options];
+    draftSelectedDepartments.value = draftSelectedDepartments.value.filter((name) => options.includes(name));
+    if (!draftSelectedDepartments.value.length) {
+      draftSelectedDepartments.value = [...selectedDepartments.value];
+    }
+  },
+  { immediate: true }
+);
+
+const filteredDepartmentOptions = computed(() => {
+  const needle = String(departmentSearch.value || '').trim().toLowerCase();
+  if (!needle) return departmentOptions.value;
+  return departmentOptions.value.filter((department) => department.toLowerCase().includes(needle));
+});
+
+const filteredPinOptions = computed(() => {
+  const needle = String(pinSearch.value || '').trim().toLowerCase();
+  if (!needle) return pinOptions.value;
+  return pinOptions.value.filter((pin) => pin.toLowerCase().includes(needle));
+});
+
+const filteredNameOptions = computed(() => {
+  const needle = String(nameSearch.value || '').trim().toLowerCase();
+  if (!needle) return nameOptions.value;
+  return nameOptions.value.filter((name) => name.toLowerCase().includes(needle));
+});
+
+const allVisibleDepartmentsSelected = computed(() => {
+  const visible = filteredDepartmentOptions.value;
+  if (!visible.length) return false;
+  return visible.every((department) => draftSelectedDepartments.value.includes(department));
+});
+
+const allVisiblePinsSelected = computed(() => {
+  const visible = filteredPinOptions.value;
+  if (!visible.length) return false;
+  return visible.every((pin) => draftSelectedPins.value.includes(pin));
+});
+
+const allVisibleNamesSelected = computed(() => {
+  const visible = filteredNameOptions.value;
+  if (!visible.length) return false;
+  return visible.every((name) => draftSelectedNames.value.includes(name));
+});
+
+const selectedDepartmentSummary = computed(() => {
+  const total = departmentOptions.value.length;
+  const selected = selectedDepartments.value.length;
+  if (!total || selected === total) return 'Semua Department';
+  if (selected === 0) return 'Pilih Department';
+  if (selected === 1) return selectedDepartments.value[0];
+  return `${selected} department dipilih`;
+});
+
+const selectedPinSummary = computed(() => {
+  const total = pinOptions.value.length;
+  const selected = selectedPins.value.length;
+  if (!total || selected === total) return 'Semua PIN';
+  if (selected === 0) return 'Pilih PIN';
+  if (selected === 1) return selectedPins.value[0];
+  return `${selected} PIN dipilih`;
+});
+
+const selectedNameSummary = computed(() => {
+  const total = nameOptions.value.length;
+  const selected = selectedNames.value.length;
+  if (!total || selected === total) return 'Semua Nama';
+  if (selected === 0) return 'Pilih Nama';
+  if (selected === 1) return selectedNames.value[0];
+  return `${selected} nama dipilih`;
+});
+
+const hasPinFilterActive = computed(() => pinOptions.value.length > 0 && selectedPins.value.length !== pinOptions.value.length);
+const hasNameFilterActive = computed(() => nameOptions.value.length > 0 && selectedNames.value.length !== nameOptions.value.length);
+const hasDepartmentFilterActive = computed(() => departmentOptions.value.length > 0 && selectedDepartments.value.length !== departmentOptions.value.length);
+const activeHeaderSearchModel = computed({
+  get() {
+    if (activeHeaderFilter.value === 'pin') return pinSearch.value;
+    if (activeHeaderFilter.value === 'name') return nameSearch.value;
+    if (activeHeaderFilter.value === 'department') return departmentSearch.value;
+    return '';
+  },
+  set(value) {
+    if (activeHeaderFilter.value === 'pin') pinSearch.value = value;
+    if (activeHeaderFilter.value === 'name') nameSearch.value = value;
+    if (activeHeaderFilter.value === 'department') departmentSearch.value = value;
+  },
+});
+const activeHeaderOptions = computed(() => {
+  if (activeHeaderFilter.value === 'pin') return filteredPinOptions.value;
+  if (activeHeaderFilter.value === 'name') return filteredNameOptions.value;
+  if (activeHeaderFilter.value === 'department') return filteredDepartmentOptions.value;
+  return [];
+});
+const activeHeaderDraft = computed(() => {
+  if (activeHeaderFilter.value === 'pin') return draftSelectedPins.value;
+  if (activeHeaderFilter.value === 'name') return draftSelectedNames.value;
+  if (activeHeaderFilter.value === 'department') return draftSelectedDepartments.value;
+  return [];
+});
+const activeHeaderAllSelected = computed(() => {
+  if (activeHeaderFilter.value === 'pin') return allVisiblePinsSelected.value;
+  if (activeHeaderFilter.value === 'name') return allVisibleNamesSelected.value;
+  if (activeHeaderFilter.value === 'department') return allVisibleDepartmentsSelected.value;
+  return false;
+});
+const activeHeaderEmptyLabel = computed(() => {
+  if (activeHeaderFilter.value === 'pin') return 'PIN tidak ditemukan.';
+  if (activeHeaderFilter.value === 'name') return 'Nama tidak ditemukan.';
+  if (activeHeaderFilter.value === 'department') return 'Department tidak ditemukan.';
+  return 'Data tidak ditemukan.';
+});
+
+const employeeGroups = computed(() => {
+  const selectedDepartmentSet = new Set(selectedDepartments.value);
+  const selectedPinSet = new Set(selectedPins.value);
+  const selectedNameSet = new Set(selectedNames.value);
+
+  if (!selectedDepartments.value.length || !selectedPins.value.length || !selectedNames.value.length) {
+    return [];
+  }
+
+  return allEmployeeGroups.value.filter((group) => {
+    const departmentName = String(group?.departmentName || '');
+    const pin = String(group?.pin || '');
+    const name = String(group?.name || '');
+    return selectedDepartmentSet.has(departmentName)
+      && selectedPinSet.has(pin)
+      && selectedNameSet.has(name);
+  });
+});
+
 const topAttendanceInsights = computed(() => {
   const groups = employeeGroups.value;
 
@@ -936,6 +1181,151 @@ function isGroupExpanded(key) {
 
 function toggleGroup(key) {
   expandedGroups[key] = !expandedGroups[key];
+}
+
+function headerFilterButtonClass(isActive) {
+  return [
+    'inline-flex h-6 w-6 items-center justify-center rounded border transition',
+    isActive
+      ? 'border-sky-400/60 bg-sky-500/20 text-sky-200'
+      : 'border-slate-600 bg-slate-900 text-slate-400 hover:text-slate-200',
+  ];
+}
+
+function toggleHeaderFilter(type, event) {
+  if (activeHeaderFilter.value === type) {
+    activeHeaderFilter.value = '';
+    return;
+  }
+
+  if (type === 'pin') {
+    draftSelectedPins.value = [...selectedPins.value];
+  } else if (type === 'name') {
+    draftSelectedNames.value = [...selectedNames.value];
+  } else if (type === 'department') {
+    draftSelectedDepartments.value = [...selectedDepartments.value];
+  }
+
+  const rect = event?.currentTarget?.getBoundingClientRect?.();
+  if (rect) {
+    headerFilterPosition.left = Math.max(12, Math.min(window.scrollX + window.innerWidth - 300, window.scrollX + rect.left));
+    headerFilterPosition.top = window.scrollY + rect.bottom + 8;
+
+    const estimatedPopupHeight = 320;
+    const popupBottom = rect.bottom + 8 + estimatedPopupHeight;
+    const visibleBottom = window.innerHeight - 12;
+    if (popupBottom > visibleBottom) {
+      window.scrollBy({
+        top: popupBottom - visibleBottom,
+        behavior: 'smooth',
+      });
+    }
+  }
+
+  activeHeaderFilter.value = type;
+}
+
+function togglePinSelection(pin) {
+  if (draftSelectedPins.value.includes(pin)) {
+    draftSelectedPins.value = draftSelectedPins.value.filter((item) => item !== pin);
+    return;
+  }
+
+  draftSelectedPins.value = [...draftSelectedPins.value, pin];
+}
+
+function toggleAllVisiblePins() {
+  const visible = filteredPinOptions.value;
+  if (!visible.length) return;
+
+  if (allVisiblePinsSelected.value) {
+    draftSelectedPins.value = draftSelectedPins.value.filter((pin) => !visible.includes(pin));
+    return;
+  }
+
+  draftSelectedPins.value = Array.from(new Set([
+    ...draftSelectedPins.value,
+    ...visible,
+  ])).sort((a, b) => a.localeCompare(b));
+}
+
+function applyPinFilter() {
+  selectedPins.value = [...draftSelectedPins.value];
+}
+
+function toggleDepartmentSelection(department) {
+  if (draftSelectedDepartments.value.includes(department)) {
+    draftSelectedDepartments.value = draftSelectedDepartments.value.filter((item) => item !== department);
+    return;
+  }
+
+  draftSelectedDepartments.value = [...draftSelectedDepartments.value, department];
+}
+
+function toggleAllVisibleDepartments() {
+  const visible = filteredDepartmentOptions.value;
+  if (!visible.length) return;
+
+  if (allVisibleDepartmentsSelected.value) {
+    draftSelectedDepartments.value = draftSelectedDepartments.value.filter((department) => !visible.includes(department));
+    return;
+  }
+
+  draftSelectedDepartments.value = Array.from(new Set([
+    ...draftSelectedDepartments.value,
+    ...visible,
+  ])).sort((a, b) => a.localeCompare(b));
+}
+
+function applyDepartmentFilter() {
+  selectedDepartments.value = [...draftSelectedDepartments.value];
+}
+
+function toggleNameSelection(name) {
+  if (draftSelectedNames.value.includes(name)) {
+    draftSelectedNames.value = draftSelectedNames.value.filter((item) => item !== name);
+    return;
+  }
+
+  draftSelectedNames.value = [...draftSelectedNames.value, name];
+}
+
+function toggleAllVisibleNames() {
+  const visible = filteredNameOptions.value;
+  if (!visible.length) return;
+
+  if (allVisibleNamesSelected.value) {
+    draftSelectedNames.value = draftSelectedNames.value.filter((name) => !visible.includes(name));
+    return;
+  }
+
+  draftSelectedNames.value = Array.from(new Set([
+    ...draftSelectedNames.value,
+    ...visible,
+  ])).sort((a, b) => a.localeCompare(b));
+}
+
+function applyNameFilter() {
+  selectedNames.value = [...draftSelectedNames.value];
+}
+
+function toggleActiveHeaderAll() {
+  if (activeHeaderFilter.value === 'pin') return toggleAllVisiblePins();
+  if (activeHeaderFilter.value === 'name') return toggleAllVisibleNames();
+  if (activeHeaderFilter.value === 'department') return toggleAllVisibleDepartments();
+}
+
+function toggleActiveHeaderOption(option) {
+  if (activeHeaderFilter.value === 'pin') return togglePinSelection(option);
+  if (activeHeaderFilter.value === 'name') return toggleNameSelection(option);
+  if (activeHeaderFilter.value === 'department') return toggleDepartmentSelection(option);
+}
+
+function applyActiveHeaderFilter() {
+  if (activeHeaderFilter.value === 'pin') applyPinFilter();
+  if (activeHeaderFilter.value === 'name') applyNameFilter();
+  if (activeHeaderFilter.value === 'department') applyDepartmentFilter();
+  activeHeaderFilter.value = '';
 }
 
 function applyFilters() {
