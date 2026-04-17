@@ -98,6 +98,7 @@ class AttendanceLogController extends Controller
                 return [
                     $pin => [
                         'employee_id' => (int) ($row->employee_id ?? 0),
+                        'nik' => trim((string) ($row->nik ?? '')),
                         'name' => trim((string) ($row->name ?? '')),
                         'alias_name' => trim((string) ($row->alias_name ?? '')),
                         'department_name' => trim((string) ($row->department_name ?? '')),
@@ -371,7 +372,11 @@ class AttendanceLogController extends Controller
 
             $rows->push([
                 'log_date' => $logDate,
-                'pin' => $pin,
+                'pin' => $this->resolveAttendanceDisplayPin(
+                    (string) ($row->pin ?? ''),
+                    $employeeInfoByPin->get($pin),
+                    $scans
+                ),
                 'name' => $this->resolveAttendanceDisplayName(
                     $employeeInfoByPin->get($pin),
                     (string) ($row->roster_name ?? ''),
@@ -572,7 +577,11 @@ class AttendanceLogController extends Controller
 
                     $rows->push([
                         'log_date' => $logDate,
-                        'pin' => $pin,
+                        'pin' => $this->resolveAttendanceDisplayPin(
+                            null,
+                            $employeeInfoByPin->get($pin),
+                            $scans
+                        ),
                         'name' => $displayName,
                         'department_name' => $departmentName,
                         'roster_name' => null,
@@ -1162,6 +1171,33 @@ class AttendanceLogController extends Controller
         $fingerprintName = trim((string) ($fingerprintName ?? ''));
         if ($fingerprintName !== '') {
             return $fingerprintName;
+        }
+
+        return $fallback;
+    }
+
+    private function resolveAttendanceDisplayPin(
+        ?string $preferredPin,
+        array|null $employeeInfo,
+        Collection $scans,
+        string $fallback = '-'
+    ): string {
+        $preferredPin = trim((string) ($preferredPin ?? ''));
+        if ($preferredPin !== '') {
+            return $preferredPin;
+        }
+
+        $scanPin = $scans
+            ->sortByDesc('scan_date')
+            ->map(fn($scan) => trim((string) ($scan->pin ?? '')))
+            ->first(fn($pin) => $pin !== '');
+        if (!empty($scanPin)) {
+            return (string) $scanPin;
+        }
+
+        $employeeNik = trim((string) ($employeeInfo['nik'] ?? ''));
+        if ($employeeNik !== '') {
+            return $employeeNik;
         }
 
         return $fallback;
