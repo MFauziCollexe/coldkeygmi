@@ -2693,10 +2693,10 @@ class AttendanceLogController extends Controller
 
         $referenceTime = $startTime ?? $endTime;
         if ($referenceTime !== null) {
-            if ($referenceTime >= '06:00:00' && $referenceTime <= '07:10:59') {
+            if ($referenceTime >= '06:00:00' && $referenceTime < '18:00:00') {
                 $startTime = '07:00:00';
                 $endTime = '19:00:00';
-            } elseif ($referenceTime >= '18:00:00' && $referenceTime <= '19:10:59') {
+            } else {
                 $startTime = '19:00:00';
                 $endTime = '07:00:00';
             }
