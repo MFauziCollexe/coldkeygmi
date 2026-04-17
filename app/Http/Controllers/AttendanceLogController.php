@@ -600,7 +600,9 @@ class AttendanceLogController extends Controller
                         'department_name' => $departmentName,
                         'roster_name' => null,
                         'fingerprint_name' => $fingerprintName ?: null,
-                        'shift_code' => null,
+                        'shift_code' => $this->usesT2PNoRosterSchedule($displayPin)
+                            ? $this->resolveFlexibleT2PShiftCode($firstScan, $lastScan)
+                            : null,
                         'is_off' => false,
                         'start_time' => $defaultStartTime,
                         'end_time' => $defaultEndTime,
@@ -2689,19 +2691,14 @@ class AttendanceLogController extends Controller
         $startTime = $this->normalizeTime($firstScan);
         $endTime = $this->normalizeTime($lastScan);
 
-        if ($startTime !== null && $endTime === null) {
-            try {
-                $endTime = Carbon::parse($firstScan)->addHours(12)->format('H:i:s');
-            } catch (\Throwable $e) {
-                $endTime = null;
-            }
-        }
-
-        if ($startTime === null && $endTime !== null) {
-            try {
-                $startTime = Carbon::parse('2000-01-01 ' . $endTime)->subHours(12)->format('H:i:s');
-            } catch (\Throwable $e) {
-                $startTime = null;
+        $referenceTime = $startTime ?? $endTime;
+        if ($referenceTime !== null) {
+            if ($referenceTime >= '06:00:00' && $referenceTime <= '07:10:59') {
+                $startTime = '07:00:00';
+                $endTime = '19:00:00';
+            } elseif ($referenceTime >= '18:00:00' && $referenceTime <= '19:10:59') {
+                $startTime = '19:00:00';
+                $endTime = '07:00:00';
             }
         }
 
@@ -2712,9 +2709,36 @@ class AttendanceLogController extends Controller
         return [
             'start_time' => $startTime,
             'end_time' => $endTime,
-            'next_day_start_time' => $startTime,
+            'next_day_start_time' => $this->isOvernightShift($startTime, $endTime) ? $endTime : $startTime,
             'label' => $label,
         ];
+    }
+
+    private function resolveFlexibleT2PShiftCode(?string $firstScan, ?string $lastScan): ?string
+    {
+        if ($firstScan === null || $lastScan === null) {
+            return null;
+        }
+
+        try {
+            $start = Carbon::parse($firstScan);
+            $end = Carbon::parse($lastScan);
+            if ($end->lessThanOrEqualTo($start)) {
+                return null;
+            }
+
+            $minutes = $start->diffInMinutes($end);
+            $hours = intdiv($minutes, 60);
+            $remainingMinutes = $minutes % 60;
+
+            if ($remainingMinutes === 0) {
+                return $hours . ' Jam';
+            }
+
+            return sprintf('%d Jam %02d Menit', $hours, $remainingMinutes);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function formatCorrection(?AttendanceLogCorrection $correction): ?array
