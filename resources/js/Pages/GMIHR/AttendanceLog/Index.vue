@@ -960,59 +960,115 @@ const allEmployeeGroups = computed(() => {
     });
 });
 
+function filterGroupsBySelections(groups, {
+  includeDepartments = true,
+  includePins = true,
+  includeNames = true,
+} = {}) {
+  const selectedDepartmentSet = new Set(selectedDepartments.value);
+  const selectedPinSet = new Set(selectedPins.value);
+  const selectedNameSet = new Set(selectedNames.value);
+
+  return groups.filter((group) => {
+    const departmentName = String(group?.departmentName || '');
+    const pin = String(group?.pin || '');
+    const name = String(group?.name || '');
+
+    if (includeDepartments && selectedDepartmentSet.size > 0 && !selectedDepartmentSet.has(departmentName)) {
+      return false;
+    }
+
+    if (includePins && selectedPinSet.size > 0 && !selectedPinSet.has(pin)) {
+      return false;
+    }
+
+    if (includeNames && selectedNameSet.size > 0 && !selectedNameSet.has(name)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+const filterGroupsByDepartmentOnly = computed(() => filterGroupsBySelections(allEmployeeGroups.value, {
+  includeDepartments: true,
+  includePins: false,
+  includeNames: false,
+}));
+
 const departmentOptions = computed(() => allEmployeeGroups.value
   .map((group) => String(group?.departmentName || '').trim())
   .filter((name) => name !== '' && name !== '-')
   .sort((a, b) => a.localeCompare(b))
   .filter((name, index, array) => array.indexOf(name) === index));
 
-const pinOptions = computed(() => allEmployeeGroups.value
+const pinOptions = computed(() => filterGroupsByDepartmentOnly.value
   .map((group) => String(group?.pin || '').trim())
   .filter((pin) => pin !== '' && pin !== '-')
   .sort((a, b) => a.localeCompare(b))
   .filter((pin, index, array) => array.indexOf(pin) === index));
 
-const nameOptions = computed(() => allEmployeeGroups.value
+const nameOptions = computed(() => filterGroupsByDepartmentOnly.value
   .map((group) => String(group?.name || '').trim())
   .filter((name) => name !== '' && name !== '-')
   .sort((a, b) => a.localeCompare(b))
   .filter((name, index, array) => array.indexOf(name) === index));
 
+function arraysShallowEqual(left, right) {
+  if (left === right) return true;
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+
+  return left.every((item, index) => item === right[index]);
+}
+
+function includesAllOptions(selectedItems, options) {
+  if (!Array.isArray(options) || options.length === 0) return false;
+  return options.every((item) => selectedItems.includes(item));
+}
+
+function syncHeaderFilterSelection(options, previousOptions, selectedRef, draftRef) {
+  const hadAllSelectedBefore = includesAllOptions(selectedRef.value, previousOptions);
+  const nextSelected = hadAllSelectedBefore
+    ? [...options]
+    : selectedRef.value.filter((item) => options.includes(item));
+  const normalizedSelected = nextSelected.length ? nextSelected : [...options];
+
+  if (!arraysShallowEqual(selectedRef.value, normalizedSelected)) {
+    selectedRef.value = normalizedSelected;
+  }
+
+  const hadAllDraftBefore = includesAllOptions(draftRef.value, previousOptions);
+  const nextDraft = hadAllDraftBefore
+    ? [...options]
+    : draftRef.value.filter((item) => options.includes(item));
+  const normalizedDraft = nextDraft.length ? nextDraft : [...normalizedSelected];
+
+  if (!arraysShallowEqual(draftRef.value, normalizedDraft)) {
+    draftRef.value = normalizedDraft;
+  }
+}
+
 watch(
   pinOptions,
-  (options) => {
-    const current = selectedPins.value.filter((pin) => options.includes(pin));
-    selectedPins.value = current.length ? current : [...options];
-    draftSelectedPins.value = draftSelectedPins.value.filter((pin) => options.includes(pin));
-    if (!draftSelectedPins.value.length) {
-      draftSelectedPins.value = [...selectedPins.value];
-    }
+  (options, previousOptions = []) => {
+    syncHeaderFilterSelection(options, previousOptions, selectedPins, draftSelectedPins);
   },
   { immediate: true }
 );
 
 watch(
   nameOptions,
-  (options) => {
-    const current = selectedNames.value.filter((name) => options.includes(name));
-    selectedNames.value = current.length ? current : [...options];
-    draftSelectedNames.value = draftSelectedNames.value.filter((name) => options.includes(name));
-    if (!draftSelectedNames.value.length) {
-      draftSelectedNames.value = [...selectedNames.value];
-    }
+  (options, previousOptions = []) => {
+    syncHeaderFilterSelection(options, previousOptions, selectedNames, draftSelectedNames);
   },
   { immediate: true }
 );
 
 watch(
   departmentOptions,
-  (options) => {
-    const current = selectedDepartments.value.filter((name) => options.includes(name));
-    selectedDepartments.value = current.length ? current : [...options];
-    draftSelectedDepartments.value = draftSelectedDepartments.value.filter((name) => options.includes(name));
-    if (!draftSelectedDepartments.value.length) {
-      draftSelectedDepartments.value = [...selectedDepartments.value];
-    }
+  (options, previousOptions = []) => {
+    syncHeaderFilterSelection(options, previousOptions, selectedDepartments, draftSelectedDepartments);
   },
   { immediate: true }
 );
@@ -1357,14 +1413,26 @@ function goToPage(page) {
 }
 
 function exportExcel() {
-  const params = new URLSearchParams({
-    date_from: String(form.date_from || ''),
-    date_to: String(form.date_to || ''),
-    status: String(form.status || 'all'),
-    q: String(form.q || ''),
-    per_page: String(form.per_page || 2000),
-    export: '1',
+  const params = new URLSearchParams();
+  params.set('date_from', String(form.date_from || ''));
+  params.set('date_to', String(form.date_to || ''));
+  params.set('status', String(form.status || 'all'));
+  params.set('q', String(form.q || ''));
+  params.set('per_page', String(form.per_page || 2000));
+  params.set('export', '1');
+
+  selectedPins.value.forEach((pin) => {
+    params.append('pins[]', String(pin || ''));
   });
+
+  selectedNames.value.forEach((name) => {
+    params.append('names[]', String(name || ''));
+  });
+
+  selectedDepartments.value.forEach((department) => {
+    params.append('departments[]', String(department || ''));
+  });
+
   window.open(`/attendance-log?${params.toString()}`, '_blank');
 }
 

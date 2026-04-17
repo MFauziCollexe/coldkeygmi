@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceLogCorrection;
 use App\Support\AccessRuleService;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -37,6 +39,9 @@ class AttendanceLogController extends Controller
         $status = strtolower(trim((string) $request->input('status', 'all')));
         $q = trim((string) $request->input('q', ''));
         $perPage = (int) $request->input('per_page', 2000);
+        $selectedPins = $this->normalizeAttendanceHeaderFilterInput($request->input('pins'));
+        $selectedNames = $this->normalizeAttendanceHeaderFilterInput($request->input('names'));
+        $selectedDepartments = $this->normalizeAttendanceHeaderFilterInput($request->input('departments'));
 
         if ($month !== null && ($month < 1 || $month > 12)) {
             $month = null;
@@ -662,6 +667,50 @@ class AttendanceLogController extends Controller
             })->values();
         }
 
+        if (!empty($selectedPins) || !empty($selectedNames) || !empty($selectedDepartments)) {
+            $pinLookup = array_fill_keys($selectedPins, true);
+            $nameLookup = array_fill_keys($selectedNames, true);
+            $departmentLookup = array_fill_keys($selectedDepartments, true);
+
+            $rows = $rows->filter(function (array $row) use ($pinLookup, $nameLookup, $departmentLookup) {
+                $pin = trim((string) ($row['pin'] ?? ''));
+                $name = trim((string) ($row['name'] ?? ''));
+                $departmentName = trim((string) ($row['department_name'] ?? ''));
+
+                if (!empty($pinLookup) && !isset($pinLookup[$pin])) {
+                    return false;
+                }
+
+                if (!empty($nameLookup) && !isset($nameLookup[$name])) {
+                    return false;
+                }
+
+                if (!empty($departmentLookup) && !isset($departmentLookup[$departmentName])) {
+                    return false;
+                }
+
+                return true;
+            })->values();
+        }
+
+        $rows = $rows->map(function (array $row) {
+            $displayPin = trim((string) ($row['pin'] ?? ''));
+            if (!$this->usesT2PNoRosterSchedule($displayPin)) {
+                return $row;
+            }
+
+            $expected = trim((string) ($row['expected'] ?? ''));
+            if (mb_strtolower($expected) !== 'tidak masuk') {
+                return $row;
+            }
+
+            $row['status'] = 'offday';
+            $row['expected'] = 'OFF';
+            $row['reason'] = 'PIN T2P tanpa scan ditampilkan sebagai OFF.';
+
+            return $row;
+        })->values();
+
         $summaryRows = $rows;
 
         if ($status !== 'all') {
@@ -693,6 +742,10 @@ class AttendanceLogController extends Controller
             ->values();
 
         if ($request->boolean('export')) {
+            if ($this->shouldUseSecurityIndividualExport($selectedDepartments)) {
+                return $this->exportSecurityRowsToPdf($rows, $dateFrom, $dateTo);
+            }
+
             return $this->exportRowsToExcel($rows, $dateFrom, $dateTo);
         }
 
@@ -731,8 +784,42 @@ class AttendanceLogController extends Controller
                 'status' => $status,
                 'q' => $q,
                 'per_page' => $perPage,
+                'pins' => $selectedPins,
+                'names' => $selectedNames,
+                'departments' => $selectedDepartments,
             ],
         ]);
+    }
+
+    private function normalizeAttendanceHeaderFilterInput($value): array
+    {
+        $items = [];
+
+        if ($value instanceof Collection) {
+            $items = $value->all();
+        } elseif (is_array($value)) {
+            $items = $value;
+        } elseif (is_string($value) && trim($value) !== '') {
+            $items = explode(',', $value);
+        }
+
+        return collect($items)
+            ->map(fn($item) => trim((string) $item))
+            ->filter(fn($item) => $item !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function shouldUseSecurityIndividualExport(array $selectedDepartments): bool
+    {
+        if (count($selectedDepartments) !== 1) {
+            return false;
+        }
+
+        $department = strtolower(trim((string) ($selectedDepartments[0] ?? '')));
+
+        return $department === 'security';
     }
 
     private function buildMonthlyLateAbsentInsights(?string $dateFrom, ?string $dateTo): array
@@ -2967,6 +3054,440 @@ class AttendanceLogController extends Controller
             'Pragma' => 'no-cache',
             'Expires' => '0',
         ]);
+    }
+
+    private function exportSecurityRowsToPdf(Collection $rows, ?string $dateFrom = null, ?string $dateTo = null)
+    {
+        $dateColumns = $this->buildExportDateColumns($rows, $dateFrom, $dateTo);
+        $groups = $this->buildSecurityExportGroups($rows);
+        $monthLabel = $this->buildSecurityExportMonthLabel($dateFrom, $dateTo, $dateColumns);
+        $logoDataUri = $this->buildSecurityLogoDataUri();
+
+        $html = view('exports.attendance-security-pdf', [
+            'groups' => $groups,
+            'dateColumns' => $dateColumns,
+            'monthLabel' => $monthLabel,
+            'logoDataUri' => $logoDataUri,
+            'companyLines' => [
+                'TRI TUNGGAL PUTRA',
+                'Graha Permata Sidorejo Indah',
+                'Blok X No 20 Sidorejo',
+                'Krian - Sidoarjo',
+                'Telp/Fax (031) 9989 0975',
+            ],
+        ])->render();
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', false);
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = 'attendance_security_' . now()->format('Ymd_His') . '.pdf';
+
+        return response()->streamDownload(function () use ($dompdf) {
+            echo $dompdf->output();
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
+    }
+
+    private function buildSecurityExportGroups(Collection $rows): Collection
+    {
+        return $rows
+            ->groupBy(function (array $row) {
+                $pin = trim((string) ($row['pin'] ?? ''));
+                $name = trim((string) ($row['name'] ?? '-'));
+
+                return $pin . '|' . $name;
+            })
+            ->map(function (Collection $group) {
+                $first = $group->first();
+
+                return [
+                    'name' => trim((string) ($first['name'] ?? '-')) ?: '-',
+                    'pin' => trim((string) ($first['pin'] ?? '')),
+                    'rows' => $group->keyBy(fn(array $row) => (string) ($row['log_date'] ?? '')),
+                ];
+            })
+            ->filter(fn(array $group) => !$this->shouldExcludeFromAttendanceExport((string) ($group['pin'] ?? '')))
+            ->sortBy([
+                ['name', 'asc'],
+                ['pin', 'asc'],
+            ])
+            ->values();
+    }
+
+    private function buildSecurityLogoDataUri(): ?string
+    {
+        $path = public_path('image/T2P.jpg');
+        if (!is_file($path)) {
+            return null;
+        }
+
+        $contents = @file_get_contents($path);
+        if ($contents === false) {
+            return null;
+        }
+
+        return 'data:image/jpeg;base64,' . base64_encode($contents);
+    }
+
+    private function exportSecurityRowsToWorkbook(Collection $rows, ?string $dateFrom = null, ?string $dateTo = null)
+    {
+        $dateColumns = $this->buildExportDateColumns($rows, $dateFrom, $dateTo);
+        $groupedRows = $this->buildSecurityExportGroups($rows);
+
+        $spreadsheet = new Spreadsheet();
+        $sheetIndex = 0;
+
+        if ($groupedRows->isEmpty()) {
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Security');
+            $sheet->setCellValue('A1', 'Tidak ada data security untuk filter ini.');
+        } else {
+            foreach ($groupedRows as $group) {
+                $sheet = $sheetIndex === 0
+                    ? $spreadsheet->getActiveSheet()
+                    : $spreadsheet->createSheet();
+
+                $this->buildSecurityEmployeeSheet(
+                    $sheet,
+                    $group,
+                    $dateColumns,
+                    $dateFrom,
+                    $dateTo,
+                    $sheetIndex
+                );
+
+                $sheetIndex++;
+            }
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = 'attendance_security_' . now()->format('Ymd_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
+    }
+
+    private function buildSecurityEmployeeSheet($sheet, array $group, array $dateColumns, ?string $dateFrom, ?string $dateTo, int $sheetIndex): void
+    {
+        $sheet->setTitle($this->buildSecuritySheetTitle(
+            (string) ($group['pin'] ?? ''),
+            (string) ($group['name'] ?? 'Security'),
+            $sheetIndex
+        ));
+
+        $sheet->getDefaultRowDimension()->setRowHeight(20);
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+        $sheet->getPageMargins()->setTop(0.35);
+        $sheet->getPageMargins()->setRight(0.25);
+        $sheet->getPageMargins()->setLeft(0.25);
+        $sheet->getPageMargins()->setBottom(0.35);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight(1);
+        $sheet->setShowGridlines(false);
+
+        foreach (['A' => 7, 'B' => 16, 'C' => 12, 'D' => 12, 'E' => 13, 'F' => 9, 'G' => 18, 'H' => 18] as $column => $width) {
+            $sheet->getColumnDimension($column)->setWidth($width);
+        }
+
+        $sheet->mergeCells('E1:F4');
+        $sheet->mergeCells('G1:H4');
+
+        $logoPath = public_path('image/T2P.jpg');
+        if (is_file($logoPath)) {
+            $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+            $drawing->setName('T2P Logo');
+            $drawing->setDescription('T2P Logo');
+            $drawing->setPath($logoPath);
+            $drawing->setCoordinates('E1');
+            $drawing->setOffsetX(4);
+            $drawing->setOffsetY(8);
+            $drawing->setWidth(128);
+            $drawing->setWorksheet($sheet);
+        } else {
+            $sheet->setCellValue('E1', "T2P");
+        }
+
+        $headerText = new \PhpOffice\PhpSpreadsheet\RichText\RichText();
+        $headerTitle = $headerText->createTextRun('TRI TUNGGAL PUTRA');
+        $headerTitle->getFont()->setBold(true)->setSize(16);
+        $headerText->createText("\nGraha Permata Sidorejo Indah\nBlok X No 20 Sidorejo\nKrian - Sidoarjo\nTelp/Fax (031) 9989 0975");
+        $sheet->setCellValue('G1', $headerText);
+        $sheet->getStyle('E1:F4')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 22,
+            ],
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical' => 'center',
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => 'thin',
+                    'color' => ['rgb' => '111111'],
+                ],
+            ],
+        ]);
+        $sheet->getStyle('G1:H4')->applyFromArray([
+            'font' => [
+                'bold' => false,
+                'size' => 10,
+            ],
+            'alignment' => [
+                'horizontal' => 'left',
+                'vertical' => 'top',
+                'wrapText' => true,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => 'thin',
+                    'color' => ['rgb' => '111111'],
+                ],
+            ],
+        ]);
+        $sheet->getStyle('G1:H4')->getAlignment()->setIndent(0);
+        $sheet->getRowDimension(1)->setRowHeight(20);
+        $sheet->getRowDimension(2)->setRowHeight(20);
+        $sheet->getRowDimension(3)->setRowHeight(20);
+        $sheet->getRowDimension(4)->setRowHeight(20);
+
+        $sheet->mergeCells('A5:H5');
+        $sheet->setCellValue('A5', 'DAFTAR HADIR DAN LEMBUR PERORANGAN');
+        $sheet->getStyle('A5')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 14,
+            ],
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical' => 'center',
+            ],
+        ]);
+        $sheet->getRowDimension(5)->setRowHeight(26);
+
+        $monthLabel = $this->buildSecurityExportMonthLabel($dateFrom, $dateTo, $dateColumns);
+        $sheet->setCellValue('A6', 'Nama');
+        $sheet->setCellValue('B6', ':');
+        $sheet->mergeCells('C6:E6');
+        $sheet->setCellValue('C6', (string) ($group['name'] ?? '-'));
+        $sheet->setCellValue('F6', 'Bulan');
+        $sheet->mergeCells('G6:H6');
+        $sheet->setCellValue('G6', $monthLabel);
+
+        $sheet->setCellValue('A7', 'NIK');
+        $sheet->setCellValue('B7', ':');
+        $sheet->mergeCells('C7:E7');
+        $sheet->setCellValueExplicit('C7', (string) ($group['pin'] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+
+        $sheet->setCellValue('A8', 'Lokasi Kerja');
+        $sheet->setCellValue('B8', ':');
+        $sheet->mergeCells('C8:H8');
+        $sheet->setCellValue('C8', 'Golden Multi Indotama');
+
+        $sheet->getStyle('A6:H8')->applyFromArray([
+            'font' => [
+                'size' => 11,
+            ],
+            'alignment' => [
+                'vertical' => 'center',
+            ],
+        ]);
+
+        $headerRow = 10;
+        $dataStartRow = 11;
+        $sheet->setCellValue('A' . $headerRow, 'Tgl');
+        $sheet->setCellValue('B' . $headerRow, 'Hari');
+        $sheet->setCellValue('C' . $headerRow, 'Masuk');
+        $sheet->setCellValue('D' . $headerRow, 'Pulang');
+        $sheet->setCellValue('E' . $headerRow, 'Status');
+        $sheet->mergeCells('F' . $headerRow . ':H' . $headerRow);
+        $sheet->setCellValue('F' . $headerRow, 'Keterangan');
+        $sheet->getStyle('A' . $headerRow . ':H' . $headerRow)->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 11,
+            ],
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical' => 'center',
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => 'thin',
+                    'color' => ['rgb' => '111111'],
+                ],
+            ],
+        ]);
+
+        $employeeRows = $group['rows'] instanceof Collection
+            ? $group['rows']
+            : collect($group['rows'] ?? []);
+
+        $rowIndex = $dataStartRow;
+        foreach ($dateColumns as $logDate) {
+            $row = $employeeRows->get($logDate);
+            $sheet->mergeCells('F' . $rowIndex . ':H' . $rowIndex);
+            $sheet->setCellValue('A' . $rowIndex, Carbon::parse($logDate)->format('j'));
+            $sheet->setCellValue('B' . $rowIndex, $this->exportDayNameShortId($logDate));
+            $sheet->setCellValue('C' . $rowIndex, $this->exportSecurityTimeCell($row, 'first_scan'));
+            $sheet->setCellValue('D' . $rowIndex, $this->exportSecurityTimeCell($row, 'last_scan'));
+            $sheet->setCellValue('E' . $rowIndex, $this->exportSecurityStatus($row));
+            $sheet->setCellValue('F' . $rowIndex, $this->exportSecurityRemark($row));
+            $sheet->getStyle('A' . $rowIndex . ':H' . $rowIndex)->applyFromArray([
+                'font' => [
+                    'size' => 10,
+                ],
+                'alignment' => [
+                    'horizontal' => 'center',
+                    'vertical' => 'center',
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => 'thin',
+                        'color' => ['rgb' => '111111'],
+                    ],
+                ],
+            ]);
+            $sheet->getStyle('F' . $rowIndex)->getAlignment()->setHorizontal('left');
+            $rowIndex++;
+        }
+
+        $signatureLabelRow = $rowIndex + 1;
+        $signatureTopRow = $rowIndex + 2;
+        $signatureBottomRow = $rowIndex + 5;
+        $nameRow = $rowIndex + 6;
+        $roleRow = $rowIndex + 7;
+
+        $sheet->mergeCells('A' . $signatureLabelRow . ':D' . $signatureLabelRow);
+        $sheet->mergeCells('E' . $signatureLabelRow . ':H' . $signatureLabelRow);
+        $sheet->setCellValue('E' . $signatureLabelRow, 'Mengetahui');
+        $sheet->getStyle('E' . $signatureLabelRow)->getAlignment()->setHorizontal('center');
+
+        $sheet->mergeCells('A' . $signatureTopRow . ':D' . $signatureBottomRow);
+        $sheet->mergeCells('E' . $signatureTopRow . ':H' . $signatureBottomRow);
+        $sheet->mergeCells('A' . $nameRow . ':D' . $nameRow);
+        $sheet->mergeCells('E' . $nameRow . ':H' . $nameRow);
+        $sheet->mergeCells('A' . $roleRow . ':D' . $roleRow);
+        $sheet->mergeCells('E' . $roleRow . ':H' . $roleRow);
+
+        $sheet->setCellValue('A' . $nameRow, (string) ($group['name'] ?? '-'));
+        $sheet->setCellValue('A' . $roleRow, 'ANGGOTA SATPAM');
+        $sheet->setCellValue('E' . $roleRow, 'KOMANDAN REGU');
+
+        $sheet->getStyle('A' . $signatureTopRow . ':H' . $roleRow)->applyFromArray([
+            'font' => [
+                'size' => 10,
+            ],
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical' => 'center',
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => 'thin',
+                    'color' => ['rgb' => '111111'],
+                ],
+            ],
+        ]);
+    }
+
+    private function buildSecuritySheetTitle(string $pin, string $name, int $sheetIndex): string
+    {
+        $base = trim($pin !== '' ? $pin : $name);
+        if ($base === '') {
+            $base = 'Security';
+        }
+
+        $base = preg_replace('/[\\\\\\/\\?\\*\\:\\[\\]]+/', ' ', $base) ?: 'Security';
+        $base = trim($base);
+
+        if ($sheetIndex > 0) {
+            $suffix = ' ' . ($sheetIndex + 1);
+            $base = mb_substr($base, 0, 31 - mb_strlen($suffix)) . $suffix;
+        } else {
+            $base = mb_substr($base, 0, 31);
+        }
+
+        return $base;
+    }
+
+    private function buildSecurityExportMonthLabel(?string $dateFrom, ?string $dateTo, array $dateColumns): string
+    {
+        try {
+            if ($dateFrom !== null) {
+                return Carbon::parse($dateFrom)->locale('id')->translatedFormat('F Y');
+            }
+
+            if (!empty($dateColumns)) {
+                return Carbon::parse((string) $dateColumns[0])->locale('id')->translatedFormat('F Y');
+            }
+
+            if ($dateTo !== null) {
+                return Carbon::parse($dateTo)->locale('id')->translatedFormat('F Y');
+            }
+        } catch (\Throwable $e) {
+            // Ignore and fallback below.
+        }
+
+        return now()->locale('id')->translatedFormat('F Y');
+    }
+
+    private function exportDayNameShortId(string $logDate): string
+    {
+        if ($logDate === '') {
+            return '-';
+        }
+
+        try {
+            return ucfirst(Carbon::parse($logDate)->locale('id')->translatedFormat('l'));
+        } catch (\Throwable $e) {
+            return '-';
+        }
+    }
+
+    private function exportSecurityTimeCell($row, string $field): string
+    {
+        if (!is_array($row)) {
+            return '';
+        }
+
+        $value = $this->exportTimeOnly($row[$field] ?? null);
+
+        return $value === '-' ? '' : $value;
+    }
+
+    private function exportSecurityRemark($row): string
+    {
+        return '';
+    }
+
+    private function exportSecurityStatus($row): string
+    {
+        if (!is_array($row)) {
+            return '';
+        }
+
+        return trim((string) ($row['expected'] ?? ''));
     }
 
     private function buildExportDateColumns(Collection $rows, ?string $dateFrom = null, ?string $dateTo = null): array
