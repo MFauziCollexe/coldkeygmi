@@ -219,7 +219,7 @@
               <button 
                 v-if="ticket.status !== 'Resolved' && ticket.status !== 'Closed'"
                 @click="showResolveModal = true"
-                :disabled="ticket.deadline_request && !ticket.deadline_approved"
+                :disabled="ticket.status !== 'In Progress' || (ticket.deadline_request && !ticket.deadline_approved)"
                 class="px-3 py-2 bg-green-600 rounded text-white text-sm hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Resolve Ticket
@@ -302,6 +302,7 @@
           <div class="mb-4">
             <label class="block text-sm text-slate-300 mb-2">Resolution Notes *</label>
             <textarea v-model="resolutionNotes" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-slate-500" rows="4" placeholder="Describe how you resolved this ticket..."></textarea>
+            <p class="mt-2 text-xs text-slate-400">Resolve hanya bisa saat status ticket `In Progress` dan catatan minimal 10 karakter.</p>
           </div>
           <div class="mb-4">
             <label class="block text-sm text-slate-300 mb-2">Attach File (optional)</label>
@@ -309,7 +310,13 @@
           </div>
           <div class="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
             <button @click="showResolveModal = false" class="px-4 py-2 rounded bg-slate-700">Cancel</button>
-            <button @click="resolveTicket" class="px-4 py-2 rounded bg-green-600 text-white">Resolve</button>
+            <button
+              @click="resolveTicket"
+              :disabled="!canResolveNow() || !resolutionNotes || resolutionNotes.trim().length < 10"
+              class="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Resolve
+            </button>
           </div>
         </div>
       </div>
@@ -361,6 +368,9 @@ const commentForm = reactive({
   comment: '',
 });
 const commentProcessing = ref(false);
+const canResolveNow = () => props.isAssignee
+  && props.ticket.status === 'In Progress'
+  && !(props.ticket.deadline_request && !props.ticket.deadline_approved);
 
 function changeStatus(status) {
   router.patch(`/tickets/${props.ticket.id}`, { status: status });
@@ -483,11 +493,21 @@ function handleResolutionFile(e) {
 }
 
 function resolveTicket() {
-  if (!resolutionNotes.value) {
+  if (!canResolveNow()) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Resolve belum bisa',
+      text: 'Ticket harus berstatus In Progress dan tidak boleh ada pending deadline change request.',
+      confirmButtonColor: '#4f46e5'
+    });
+    return;
+  }
+
+  if (!resolutionNotes.value || resolutionNotes.value.trim().length < 10) {
     Swal.fire({
       icon: 'error',
       title: 'Oops!',
-      text: 'Please provide resolution notes',
+      text: 'Resolution notes minimal 10 karakter',
       confirmButtonColor: '#4f46e5'
     });
     return;
@@ -505,6 +525,15 @@ function resolveTicket() {
       showResolveModal.value = false;
       resolutionNotes.value = '';
       resolutionFile.value = null;
+    },
+    onError: (errors) => {
+      const message = errors.status || errors.resolution_notes || errors.attachment || 'Gagal resolve ticket.';
+      Swal.fire({
+        icon: 'error',
+        title: 'Resolve gagal',
+        text: message,
+        confirmButtonColor: '#4f46e5'
+      });
     },
   });
 }
