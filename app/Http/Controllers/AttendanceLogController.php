@@ -1213,7 +1213,7 @@ class AttendanceLogController extends Controller
                 }
 
                 // Merge scans across known pin variants.
-                ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime] = $this->resolveNoRosterSchedule($logDate, $displayPin, (string) ($row['department_name'] ?? ''));
+                ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime] = $this->resolveNoRosterSchedule($logDate, $displayPin);
                 $scans = collect();
                 $lookupDates = $this->scanLookupDatesForSchedule($logDate, $defaultStartTime, $defaultEndTime, $defaultNextDayStartTime);
                 if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
