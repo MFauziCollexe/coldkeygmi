@@ -241,8 +241,8 @@
         <div class="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
           <div class="mb-4 flex items-center justify-between gap-4">
             <div>
-              <h3 class="text-lg font-semibold text-white">Scan Barcode</h3>
-              <p class="text-sm text-slate-400">Gunakan kamera HP atau laptop untuk membaca barcode lokasi.</p>
+              <h3 class="text-lg font-semibold text-white">Scan QRCode</h3>
+              <p class="text-sm text-slate-400">Gunakan kamera HP atau laptop untuk membaca QRCode lokasi.</p>
             </div>
 
             <button
@@ -3011,8 +3011,8 @@ async function startBarcodeScanner() {
         const expectedBarcodeValues = getExpectedBarcodeValuesForCurrentScannerMode();
         const shouldValidateArea = expectedBarcodeValues.length > 0;
         if (shouldValidateArea && !isBarcodeTextMatchingExpected(decodedText, expectedBarcodeValues)) {
-          scannerError.value = `Area barcode tidak sesuai. Harus sesuai area aktif: ${expectedBarcodeValues[0]}.`;
-          window.alert(`Barcode salah area.\nArea aktif: ${expectedBarcodeValues[0]}\nBarcode terbaca: ${decodedText}`);
+          scannerError.value = `Area QRCode tidak sesuai. Harus sesuai area aktif: ${expectedBarcodeValues[0]}.`;
+          window.alert(`QRCode salah area.\nArea aktif: ${expectedBarcodeValues[0]}\nQRCode terbaca: ${decodedText}`);
           scannerFinishing = false;
           return;
         }
@@ -3153,7 +3153,7 @@ function normalizeScannerError(error) {
     return 'Kamera membutuhkan koneksi aman (HTTPS) atau localhost.';
   }
 
-  return message || 'Scanner barcode gagal dijalankan.';
+  return message || 'Scanner QRCode gagal dijalankan.';
 }
 
 async function closeScannerModal() {

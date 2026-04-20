@@ -41,10 +41,10 @@
               : 'bg-sky-600 text-white hover:bg-sky-500'"
             @click="$emit('scan-barcode')"
           >
-            Scan Barcode
+            QRCode
           </button>
           <div class="text-xs text-slate-600">
-            {{ currentBarcode ? `Discan ${scanDate || '-'}` : 'Barcode checklist belum discan.' }}
+            {{ currentBarcode ? `Discan ${scanDate || '-'}` : 'QRCode checklist belum discan.' }}
           </div>
         </div>
 
