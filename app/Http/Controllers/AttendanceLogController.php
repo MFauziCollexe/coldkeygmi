@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLogCorrection;
+use App\Models\User;
 use App\Support\AccessRuleService;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -31,6 +32,7 @@ class AttendanceLogController extends Controller
     public function index(Request $request)
     {
         $canManageCorrections = $this->canManageCorrections($request->user());
+        $forcedDepartmentName = $this->resolveForcedAttendanceDepartment($request->user());
 
         $monthInput = $request->input('month');
         $yearInput = $request->input('year');
@@ -42,6 +44,9 @@ class AttendanceLogController extends Controller
         $selectedPins = $this->normalizeAttendanceHeaderFilterInput($request->input('pins'));
         $selectedNames = $this->normalizeAttendanceHeaderFilterInput($request->input('names'));
         $selectedDepartments = $this->normalizeAttendanceHeaderFilterInput($request->input('departments'));
+        if ($forcedDepartmentName !== null) {
+            $selectedDepartments = [$forcedDepartmentName];
+        }
 
         if ($month !== null && ($month < 1 || $month > 12)) {
             $month = null;
@@ -697,6 +702,12 @@ class AttendanceLogController extends Controller
             })->values();
         }
 
+        if ($forcedDepartmentName !== null) {
+            $rows = $rows->filter(function (array $row) use ($forcedDepartmentName) {
+                return $this->departmentMatches((string) ($row['department_name'] ?? ''), $forcedDepartmentName);
+            })->values();
+        }
+
         $rows = $rows->map(function (array $row) {
             $displayPin = trim((string) ($row['pin'] ?? ''));
             if (!$this->usesT2PNoRosterSchedule($displayPin)) {
@@ -773,7 +784,7 @@ class AttendanceLogController extends Controller
             'expected_counts' => $expectedCounts,
         ];
 
-        $monthlyInsights = $this->buildMonthlyLateAbsentInsights($dateFrom, $dateTo);
+        $monthlyInsights = $this->buildMonthlyLateAbsentInsights($dateFrom, $dateTo, $forcedDepartmentName);
 
         $attendanceLogs = $this->paginateCollection($rows, $perPage, $request);
 
@@ -826,7 +837,27 @@ class AttendanceLogController extends Controller
         return $department === 'security';
     }
 
-    private function buildMonthlyLateAbsentInsights(?string $dateFrom, ?string $dateTo): array
+    private function resolveForcedAttendanceDepartment(?User $user): ?string
+    {
+        if (!$user) {
+            return null;
+        }
+
+        $user->loadMissing('department:id,name');
+        $departmentName = trim((string) optional($user->department)->name);
+
+        return $this->departmentMatches($departmentName, 'Security') ? 'Security' : null;
+    }
+
+    private function departmentMatches(?string $left, ?string $right): bool
+    {
+        $normalizedLeft = mb_strtolower(trim((string) ($left ?? '')));
+        $normalizedRight = mb_strtolower(trim((string) ($right ?? '')));
+
+        return $normalizedLeft !== '' && $normalizedRight !== '' && $normalizedLeft === $normalizedRight;
+    }
+
+    private function buildMonthlyLateAbsentInsights(?string $dateFrom, ?string $dateTo, ?string $forcedDepartmentName = null): array
     {
         $now = Carbon::now();
         $minCount = 5;
@@ -861,7 +892,7 @@ class AttendanceLogController extends Controller
             12 => 'Desember',
         ];
 
-        [$lateCounts, $absentCounts] = $this->buildLateAbsentCountsByNameForMonth((int) $target->year, (int) $target->month);
+        [$lateCounts, $absentCounts] = $this->buildLateAbsentCountsByNameForMonth((int) $target->year, (int) $target->month, $forcedDepartmentName);
 
         $ym = $target->format('Y-m');
         $byMonth = [
@@ -917,7 +948,7 @@ class AttendanceLogController extends Controller
         ];
     }
 
-    private function buildLateAbsentCountsByNameForMonth(int $year, int $month): array
+    private function buildLateAbsentCountsByNameForMonth(int $year, int $month, ?string $forcedDepartmentName = null): array
     {
         [$scanRangeStart, $scanRangeEnd] = $this->resolveScanDateRange($year, $month);
 
@@ -964,6 +995,20 @@ class AttendanceLogController extends Controller
                 $aliasName = trim((string) ($row->alias_name ?? ''));
                 $name = trim((string) ($row->name ?? ''));
                 return [$pin => ($aliasName !== '' ? $aliasName : $name)];
+            });
+
+        $employeeDepartmentByPin = DB::table('employees as e')
+            ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
+            ->whereNotNull('e.nik')
+            ->where('e.nik', '<>', '')
+            ->get(['e.nik', 'd.name as department_name'])
+            ->mapWithKeys(function ($row) {
+                $pin = $this->normalizePin((string) ($row->nik ?? ''));
+                if ($pin === '') {
+                    return [];
+                }
+
+                return [$pin => trim((string) ($row->department_name ?? ''))];
             });
 
         $rosterRows = DB::table('roster_entries as re')
@@ -1071,6 +1116,10 @@ class AttendanceLogController extends Controller
                 continue;
             }
 
+            if ($forcedDepartmentName !== null && !$this->departmentMatches((string) ($employeeDepartmentByPin->get($pin) ?? ''), $forcedDepartmentName)) {
+                continue;
+            }
+
             $startTime = $this->normalizeTime($row->start_time);
             $endTime = $this->normalizeTime($row->end_time);
             $isOff = (bool) ($row->is_off ?? false);
@@ -1175,6 +1224,10 @@ class AttendanceLogController extends Controller
         foreach ($pinsNoRoster as $pinValue) {
             $pin = (string) $pinValue;
             if ($pin === '') {
+                continue;
+            }
+
+            if ($forcedDepartmentName !== null && !$this->departmentMatches((string) ($employeeDepartmentByPin->get($pin) ?? ''), $forcedDepartmentName)) {
                 continue;
             }
 
