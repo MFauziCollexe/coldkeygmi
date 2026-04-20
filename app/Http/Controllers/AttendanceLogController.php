@@ -2854,22 +2854,9 @@ class AttendanceLogController extends Controller
 
     private function excludeFlexibleT2PCarryoverScans(Collection $sameDayScans, Collection $allScans, string $logDate): Collection
     {
-        if ($sameDayScans->count() < 2) {
-            return $sameDayScans;
-        }
-
         try {
             $previousDate = Carbon::parse($logDate)->subDay()->toDateString();
         } catch (\Throwable $e) {
-            return $sameDayScans;
-        }
-
-        $hasLikelyNightCheckin = $sameDayScans->contains(function ($scan) {
-            $time = $this->normalizeTime($scan->scan_date ?? null);
-            return $time !== null && $time >= '17:00:00';
-        });
-
-        if (!$hasLikelyNightCheckin) {
             return $sameDayScans;
         }
 
@@ -2886,6 +2873,20 @@ class AttendanceLogController extends Controller
             ->values();
 
         if ($previousNightScans->isEmpty()) {
+            return $sameDayScans;
+        }
+
+        $hasLikelyNightCheckin = $sameDayScans->contains(function ($scan) {
+            $time = $this->normalizeTime($scan->scan_date ?? null);
+            return $time !== null && $time >= '17:00:00';
+        });
+
+        $onlyHasEarlyMorningScans = $sameDayScans->isNotEmpty() && $sameDayScans->every(function ($scan) {
+            $time = $this->normalizeTime($scan->scan_date ?? null);
+            return $time !== null && $time <= '12:00:00';
+        });
+
+        if (!$hasLikelyNightCheckin && !$onlyHasEarlyMorningScans) {
             return $sameDayScans;
         }
 
