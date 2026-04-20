@@ -48,6 +48,13 @@ class RosterController extends Controller
         $canApproveAllDepartments = $this->canApproveAllRosterDepartments($user);
         $canApproveAnyBatch = $this->canApproveAnyRosterBatch($user);
         $latestPendingBatchIdsByDepartment = $this->latestPendingBatchIdsByDepartment();
+        $selectedMonth = request()->has('month')
+            ? (int) request('month', 0)
+            : (int) now()->month;
+
+        if ($selectedMonth < 1 || $selectedMonth > 12) {
+            $selectedMonth = 0;
+        }
 
         $batches = RosterUploadBatch::query()
             ->with([
@@ -60,6 +67,9 @@ class RosterController extends Controller
                 $query->whereIn('department_id', $departmentIds);
             }, function ($query) {
                 $query->whereRaw('1 = 0');
+            })
+            ->when($selectedMonth > 0, function ($query) use ($selectedMonth) {
+                $query->where('month', $selectedMonth);
             })
             ->when(!$canApproveAnyBatch && !$canApproveAllDepartments, function ($query) use ($user) {
                 $query->where(function ($nested) use ($user) {
@@ -104,6 +114,9 @@ class RosterController extends Controller
             'batches' => $batches,
             'canApprove' => $canApproveAnyBatch || $canApproveAllDepartments,
             'departmentName' => $canViewAllDepartments ? 'Semua Departemen' : optional($user->department)->name,
+            'filters' => [
+                'month' => $selectedMonth,
+            ],
         ]);
     }
 

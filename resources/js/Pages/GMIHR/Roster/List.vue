@@ -9,6 +9,24 @@
       </div>
 
       <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <div class="w-48">
+            <label class="text-xs text-slate-300">Filter Bulan</label>
+            <select
+              v-model="selectedMonth"
+              class="mt-1 w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
+              @change="applyMonthFilter"
+            >
+              <option value="0">Semua Bulan</option>
+              <option v-for="month in months" :key="month.value" :value="String(month.value)">
+                {{ month.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div v-if="!batches.data.length" class="text-slate-400 text-sm">Belum ada data roster.</div>
         <div v-else class="hidden overflow-auto lg:block">
           <table class="w-full min-w-[1120px] text-sm table-fixed">
@@ -265,6 +283,12 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  filters: {
+    type: Object,
+    default: () => ({
+      month: 0,
+    }),
+  },
 });
 
 const loadingId = ref(null);
@@ -326,6 +350,7 @@ const months = [
   { value: 7, label: 'Juli' }, { value: 8, label: 'Agustus' }, { value: 9, label: 'September' },
   { value: 10, label: 'Oktober' }, { value: 11, label: 'November' }, { value: 12, label: 'Desember' },
 ];
+const selectedMonth = ref(String(props.filters?.month || 0));
 
 function formatDate(value) {
   if (!value) return '-';
@@ -397,7 +422,18 @@ function goToPage(page) {
   const last = Number(props.batches?.last_page || 1);
   const target = Math.min(Math.max(1, Number(page || 1)), last);
   if (target === current) return;
-  router.get('/roster/list', { page: target }, { preserveState: true, preserveScroll: true });
+  router.get('/roster/list', { page: target, month: Number(selectedMonth.value || 0) }, { preserveState: true, preserveScroll: true });
+}
+
+function applyMonthFilter() {
+  router.get('/roster/list', {
+    month: Number(selectedMonth.value || 0),
+    page: 1,
+  }, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+  });
 }
 
 function statusClass(status) {
