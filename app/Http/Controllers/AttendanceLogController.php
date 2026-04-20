@@ -83,17 +83,21 @@ class AttendanceLogController extends Controller
                 'scan_date',
             ]);
 
+        $employeeColumns = [
+            'e.id as employee_id',
+            'e.nik',
+            'e.name',
+            'd.name as department_name',
+        ];
+        if (Schema::hasColumn('employees', 'alias_name')) {
+            $employeeColumns[] = 'e.alias_name';
+        }
+
         $employeeInfoByPin = DB::table('employees as e')
             ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
             ->whereNotNull('e.nik')
             ->where('e.nik', '<>', '')
-            ->get([
-                'e.id as employee_id',
-                'e.nik',
-                'e.name',
-                'e.alias_name',
-                'd.name as department_name',
-            ])
+            ->get($employeeColumns)
             ->mapWithKeys(function ($row) {
                 $pin = $this->normalizePin((string) ($row->nik ?? ''));
                 if ($pin === '') {
@@ -942,10 +946,15 @@ class AttendanceLogController extends Controller
             ->groupBy(fn($row) => $this->toDateString($row->log_date) . '|' . $this->normalizePin((string) $row->pin))
             ->map(fn(Collection $group) => $group->sortBy('scan_date')->values());
 
+        $employeeNameColumns = ['nik', 'name'];
+        if (Schema::hasColumn('employees', 'alias_name')) {
+            $employeeNameColumns[] = 'alias_name';
+        }
+
         $employeeNameMap = DB::table('employees')
             ->whereNotNull('nik')
             ->where('nik', '<>', '')
-            ->get(['nik', 'name', 'alias_name'])
+            ->get($employeeNameColumns)
             ->mapWithKeys(function ($row) {
                 $nik = (string) ($row->nik ?? '');
                 $pin = $this->normalizePin((string) $nik);
