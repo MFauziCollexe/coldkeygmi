@@ -15,11 +15,14 @@
         <slot />
       </main>
     </div>
+
+    <HelpAssistantWidget />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
+import HelpAssistantWidget from '@/Components/HelpAssistantWidget.vue';
 import Sidebar from '@/Components/Sidebar.vue';
 import Topbar from '@/Components/Topbar.vue';
 

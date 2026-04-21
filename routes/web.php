@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Auth;
 use App\Support\AccessRuleService;
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
+Route::post('/ai-help/chat', [App\Http\Controllers\HelpAssistantController::class, 'chat'])
+    ->middleware('auth')
+    ->name('ai-help.chat');
 
 Route::get('/debug', function () {
     return response()->json([

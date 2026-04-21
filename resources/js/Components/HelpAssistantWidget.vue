@@ -1,0 +1,949 @@
+<template>
+  <div class="fixed bottom-5 right-5 z-40">
+    <transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="translate-y-2 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-2 opacity-0"
+    >
+      <div
+        v-if="open"
+        class="mb-3 flex h-[min(72vh,680px)] w-[min(92vw,400px)] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+      >
+        <div class="border-b border-slate-700 bg-slate-950/80 px-4 py-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold text-white">AI Help Assistant</h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-slate-700 hover:text-white"
+                @click="resetChat"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-slate-700 hover:text-white"
+                @click="open = false"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <transition-group
+          ref="messagesContainer"
+          tag="div"
+          class="flex-1 space-y-3 overflow-y-auto px-4 py-4 scroll-smooth"
+          enter-active-class="transition-all duration-300 ease-out"
+          enter-from-class="translate-y-2 opacity-0"
+          enter-to-class="translate-y-0 opacity-100"
+          leave-active-class="transition-all duration-200 ease-in"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-for="message in messages"
+            :key="message.id"
+            :class="message.role === 'user' ? 'flex justify-end' : 'flex justify-start'"
+          >
+            <div
+              :class="message.role === 'user'
+                ? 'max-w-[85%] rounded-2xl rounded-br-md bg-sky-600 px-3 py-2 text-sm text-white shadow-lg shadow-sky-950/25 transition-all duration-300'
+                : 'max-w-[88%] rounded-2xl rounded-bl-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 shadow-lg shadow-slate-950/20 transition-all duration-300'"
+            >
+              <template v-if="message.role === 'assistant'">
+                <div class="space-y-3">
+                  <div
+                    v-for="(block, blockIndex) in formatAssistantMessage(message.text)"
+                    :key="`${message.id}-block-${blockIndex}`"
+                  >
+                    <p v-if="block.type === 'paragraph'" class="leading-6 text-slate-100">
+                      {{ block.content }}
+                    </p>
+                    <ul v-else-if="block.type === 'list'" class="space-y-2">
+                      <li
+                        v-for="(item, itemIndex) in block.items"
+                        :key="`${message.id}-item-${itemIndex}`"
+                        class="flex items-start gap-2 leading-6 text-slate-100"
+                      >
+                        <span class="mt-2 h-1.5 w-1.5 rounded-full bg-sky-400"></span>
+                        <span class="flex-1">{{ item }}</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </template>
+              <div v-else class="whitespace-pre-line leading-6">{{ message.text }}</div>
+
+              <div
+                v-if="message.role === 'assistant' && Array.isArray(message.suggestions) && message.suggestions.length"
+                class="mt-3 flex flex-wrap gap-2"
+              >
+                <button
+                  v-for="suggestion in message.suggestions"
+                  :key="suggestion"
+                  type="button"
+                  class="rounded-full border border-slate-600 bg-slate-900 px-3 py-1 text-xs text-slate-200 transition hover:border-sky-500 hover:text-white"
+                  @click="askSuggestion(suggestion)"
+                >
+                  {{ suggestion }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="isTyping" key="typing-indicator" class="flex justify-start">
+            <div class="rounded-2xl rounded-bl-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200">
+              <div class="flex items-center gap-1.5">
+                <span class="h-2 w-2 animate-bounce rounded-full bg-sky-400 [animation-delay:-0.2s]"></span>
+                <span class="h-2 w-2 animate-bounce rounded-full bg-sky-400 [animation-delay:-0.1s]"></span>
+                <span class="h-2 w-2 animate-bounce rounded-full bg-sky-400"></span>
+              </div>
+            </div>
+          </div>
+        </transition-group>
+
+        <div class="border-t border-slate-700 bg-slate-950/60 px-4 py-3">
+          <form class="flex items-end gap-2" @submit.prevent="submitQuestion">
+            <textarea
+              v-model="draft"
+              rows="2"
+              class="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-500"
+              placeholder="Tulis pesan lalu tekan Enter. Shift+Enter untuk baris baru."
+              @keydown="handleComposerKeydown"
+            ></textarea>
+            <button
+              type="submit"
+              class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+              :disabled="!draft.trim() || isTyping"
+            >
+              Kirim
+            </button>
+          </form>
+        </div>
+      </div>
+    </transition>
+
+    <button
+      type="button"
+      class="group flex items-center gap-3 rounded-full border border-sky-500/40 bg-sky-600 px-4 py-3 text-white shadow-xl transition hover:bg-sky-500"
+      @click="toggleOpen"
+    >
+      <span class="flex h-9 w-9 items-center justify-center rounded-full bg-sky-500/30">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current" aria-hidden="true">
+          <path d="M12 3C6.477 3 2 6.91 2 11.733c0 2.613 1.333 4.958 3.452 6.567L5 22l3.67-1.994c1.046.285 2.16.438 3.33.438 5.523 0 10-3.91 10-8.711S17.523 3 12 3zm-4 10.2a1.2 1.2 0 110-2.4 1.2 1.2 0 010 2.4zm4 0a1.2 1.2 0 110-2.4 1.2 1.2 0 010 2.4zm4 0a1.2 1.2 0 110-2.4 1.2 1.2 0 010 2.4z"/>
+        </svg>
+      </span>
+      <span class="hidden text-left sm:block">
+        <span class="block text-sm font-semibold">Assistant Help</span>
+      </span>
+    </button>
+  </div>
+</template>
+
+<script setup>
+import axios from 'axios';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+
+const STORAGE_KEY_PREFIX = 'gmi-help-assistant-chat-v3';
+
+const moduleProfiles = [
+  {
+    key: 'attendance',
+    label: 'Attendance',
+    matches: ['gmihr/attendancelog', 'gmihr/absensi', 'gmihr/fingerprint', 'gmihr/thedays', 'gmihr/attendanceapproval', 'attendance-log', 'fingerprint', 'absensi', 'the-days'],
+    suggestions: ['Kenapa attendance saya OFF?', 'Cara baca status attendance log'],
+  },
+  {
+    key: 'leave_permission',
+    label: 'Leave & Permission',
+    matches: ['gmihr/leavepermission', 'leave-permission'],
+    suggestions: ['Cara buat leave permission', 'Siapa yang bisa approve leave permission?', 'Kenapa pengajuan saya belum approved?'],
+  },
+  {
+    key: 'overtime',
+    label: 'Overtime',
+    matches: ['gmihr/overtime', 'overtime'],
+    suggestions: ['Cara buat overtime', 'Siapa yang bisa approve overtime?', 'Kenapa overtime saya tidak muncul?'],
+  },
+  {
+    key: 'roster',
+    label: 'Roster',
+    matches: ['gmihr/roster', '/roster'],
+    suggestions: ['Cara upload roster dari awal', 'Apa bedanya pending dan current roster?', 'Cara approve roster'],
+  },
+  {
+    key: 'ticket',
+    label: 'Ticket',
+    matches: ['gmisl/utility/tickets', '/tickets'],
+    suggestions: ['Cara membuat ticket', 'Kenapa ticket tidak bisa di-resolve?', 'Siapa yang bisa close ticket?'],
+  },
+  {
+    key: 'checklist',
+    label: 'Checklist',
+    matches: ['gmiic/checklist', 'checklist'],
+    suggestions: ['Cara isi checklist', 'Bagaimana scan QRCode checklist?', 'Siapa yang bisa approve checklist?'],
+  },
+  {
+    key: 'request_access',
+    label: 'Request Access',
+    matches: ['gmisl/utility/requestaccess', 'request-access'],
+    suggestions: ['Cara buat request access', 'Siapa yang bisa approve request access?', 'Kenapa request access saya ditolak?'],
+  },
+  {
+    key: 'check_inline',
+    label: 'Check Inline',
+    matches: ['gmisl/utility/checkinline', 'check-inline'],
+    suggestions: ['Cara buat check inline', 'Siapa yang bisa update check inline?', 'Bagaimana lihat detail check inline?'],
+  },
+  {
+    key: 'berita_acara',
+    label: 'Berita Acara',
+    matches: ['gmisl/utility/beritaacara', 'berita-acara'],
+    suggestions: ['Cara membuat berita acara', 'Bagaimana print berita acara?', 'Siapa yang bisa hapus berita acara?'],
+  },
+  {
+    key: 'date_code',
+    label: 'Date Code',
+    matches: ['gmisl/utility/datecode', 'date-code'],
+    suggestions: ['Cara pakai date code', 'Bagaimana membaca hasil date code?', 'Apa fungsi modul date code?'],
+  },
+  {
+    key: 'stock_card',
+    label: 'Stock Card',
+    matches: ['gmisl/utility/stockcard', 'masterdata/stockcard', 'stock-card'],
+    suggestions: ['Cara stock in di stock card', 'Cara request item stock card', 'Siapa yang bisa approve request stock card?'],
+  },
+  {
+    key: 'plugging',
+    label: 'Plugging',
+    matches: ['gmium/plugging', 'plugging'],
+    suggestions: ['Cara buat plugging', 'Bagaimana approval plugging?', 'Kenapa plugging saya belum approved?'],
+  },
+  {
+    key: 'electricity',
+    label: 'Electricity Meter',
+    matches: ['gmium/resourcemonitoring/electricity', 'standard-meter', 'hv-meter'],
+    suggestions: ['Cara input meter listrik', 'Bagaimana edit log meter listrik?', 'Bagaimana export data meter listrik?'],
+  },
+  {
+    key: 'water_meter',
+    label: 'Water Meter',
+    matches: ['gmium/resourcemonitoring/watermeter', 'water-meter'],
+    suggestions: ['Cara input water meter', 'Bagaimana edit log water meter?', 'Bagaimana export water meter?'],
+  },
+  {
+    key: 'utility_report',
+    label: 'Utility Report',
+    matches: ['gmium/utilityreport', 'utility-report'],
+    suggestions: ['Apa fungsi utility report?', 'Bagaimana membaca utility report?', 'Data utility report berasal dari mana?'],
+  },
+  {
+    key: 'visitor_form',
+    label: 'Visitor Form',
+    matches: ['gmivp/visitorform', 'visitor-form'],
+    suggestions: ['Cara buat visitor form', 'Siapa yang bisa approve visitor form?', 'Kenapa visitor form saya belum approved?'],
+  },
+  {
+    key: 'exit_permit',
+    label: 'Exit Permit',
+    matches: ['gmivp/exitpermit', 'exit-permit'],
+    suggestions: ['Cara buat exit permit', 'Siapa yang bisa approve exit permit?', 'Bagaimana update status exit permit?'],
+  },
+  {
+    key: 'master_data',
+    label: 'Master Data',
+    matches: ['masterdata/', 'master-data/', 'masterdata'],
+    suggestions: ['Cara tambah master data', 'Bagaimana edit master data?', 'Siapa yang bisa mengelola master data?'],
+  },
+  {
+    key: 'control_panel',
+    label: 'Control Panel',
+    matches: ['controlpanel/', 'control-panel/', 'controlpanel'],
+    suggestions: ['Apa fungsi control panel?', 'Siapa yang bisa mengubah module control?', 'Bagaimana melihat log aktivitas?'],
+  },
+  {
+    key: 'dashboard',
+    label: 'Dashboard',
+    matches: ['dashboard'],
+    suggestions: ['Apa fungsi dashboard?', 'Data dashboard ini dari mana?', 'Kenapa data dashboard berbeda?'],
+  },
+];
+
+const knowledgeTopics = [
+  {
+    id: 'attendance_overview',
+    module: 'attendance',
+    keywords: ['attendance', 'absensi', 'attendance log', 'fingerprint', 'scan', 'attendance dengan bahasa sederhana', 'cara pakai attendance'],
+    summary: 'Attendance dipakai untuk membaca hasil scan fingerprint lalu membandingkannya dengan roster yang aktif.',
+    detail: [
+      'Biasanya alurnya seperti ini: data scan masuk dulu, roster periode terkait harus approved dan current, lalu Attendance Log menampilkan hasilnya.',
+      'Dari sana user bisa lihat status seperti On Time, Terlambat, OFF, atau kondisi scan yang tidak lengkap.',
+      'Kalau hasilnya terasa aneh, titik cek pertama biasanya roster aktif dan scan mentah pada tanggal terkait.',
+    ],
+    suggestions: ['Cara baca status attendance log', 'Kenapa attendance saya OFF?'],
+  },
+  {
+    id: 'attendance_status',
+    module: 'attendance',
+    keywords: ['baca status', 'status attendance', 'on time', 'terlambat', 'tidak scan', 'cara baca status attendance log'],
+    summary: 'Status di Attendance Log adalah hasil perbandingan antara jadwal kerja dan scan aktual.',
+    detail: [
+      'On Time berarti scan masuk masih sesuai toleransi jadwal.',
+      'Terlambat berarti scan masuk melewati batas yang dianggap tepat waktu.',
+      'OFF biasanya berarti hari itu memang bukan jadwal kerja, atau sistem membaca hari itu sebagai hari libur/off berdasarkan roster atau aturan default.',
+      'Kalau jam masuk dan pulang terasa kebalik, biasanya perlu cek scan lintas hari atau roster shift malam.',
+    ],
+    suggestions: ['Kenapa attendance saya OFF?'],
+  },
+  {
+    id: 'attendance_off',
+    module: 'attendance',
+    keywords: ['off', 'kenapa off', 'status off', 'attendance saya off', 'tidak masuk'],
+    summary: 'Status OFF biasanya bukan error tampilan, tapi hasil pembacaan jadwal atau aturan hari tersebut.',
+    detail: [
+      'Penyebab paling umum adalah hari itu memang OFF di roster.',
+      'Kalau tidak ada roster, sistem bisa memakai aturan default tertentu tergantung jenis pegawai atau PIN.',
+      'Untuk shift malam, scan pagi hari berikutnya kadang terbaca sebagai checkout hari sebelumnya, jadi perlu dilihat lintas tanggal.',
+      'Kalau kamu yakin seharusnya masuk kerja, cocokkan tanggal itu dengan roster aktif dan scan fingerprint mentahnya.',
+    ],
+    suggestions: ['Cara baca status attendance log'],
+  },
+  {
+    id: 'attendance_team_review',
+    module: 'attendance',
+    keywords: ['attendance tim', 'attendance aneh', 'hasil attendance aneh', 'attendance bawahan'],
+    summary: 'Kalau hasil attendance tim terasa aneh, pengecekan paling aman dimulai dari data jadwal dan scan asli.',
+    detail: [
+      'Cocokkan dulu roster aktif pada tanggal yang dipermasalahkan.',
+      'Lalu cek scan fingerprint mentah untuk memastikan ada scan masuk, pulang, atau scan lintas hari.',
+      'Sesudah itu baru lihat apakah status seperti OFF, Terlambat, atau jam kebalik memang sesuai logika shift yang terbaca.',
+    ],
+    suggestions: ['Cara baca status attendance log', 'Kenapa attendance saya OFF?'],
+  },
+  {
+    id: 'roster_overview',
+    module: 'roster',
+    keywords: ['roster', 'cara pakai roster', 'upload roster', 'roster dengan bahasa sederhana'],
+    summary: 'Roster adalah sumber jadwal kerja yang nanti dipakai Attendance untuk membaca status kehadiran.',
+    detail: [
+      'Alur umumnya: download template, isi shift, preview untuk validasi, upload, lalu tunggu approval.',
+      'Setelah batch roster approved dan menjadi current, barulah roster itu dipakai sistem.',
+      'Kalau roster belum current, Attendance bisa tetap membaca batch lama atau aturan default.',
+    ],
+    suggestions: ['Cara upload roster dari awal', 'Apa bedanya pending dan current roster?', 'Cara approve roster'],
+  },
+  {
+    id: 'roster_upload',
+    module: 'roster',
+    keywords: ['upload roster', 'cara upload roster', 'template roster', 'preview roster', 'upload roster dari awal'],
+    summary: 'Upload roster sebaiknya dilakukan bertahap supaya error cepat ketahuan sebelum dipakai Attendance.',
+    detail: [
+      'Mulai dari download template roster yang sesuai periode atau departemen.',
+      'Isi data shift di file itu, lalu lakukan preview untuk mengecek format dan isi.',
+      'Kalau preview aman, baru lanjut upload sebagai batch roster.',
+      'Sesudah itu manager atau approver terkait tinggal approve batch tersebut agar bisa aktif.',
+    ],
+    suggestions: ['Apa bedanya pending dan current roster?', 'Cara approve roster'],
+  },
+  {
+    id: 'roster_status',
+    module: 'roster',
+    keywords: ['pending', 'current', 'approved', 'pending manager', 'beda pending dan current', 'apa bedanya pending dan current roster'],
+    summary: 'Pending, approved, dan current itu bukan hal yang sama.',
+    detail: [
+      'Pending Manager artinya batch roster masih menunggu persetujuan.',
+      'Approved artinya batch itu sudah lolos approval.',
+      'Current artinya itulah batch approved yang sedang dipakai aktif oleh sistem untuk periode tersebut.',
+      'Jadi batch bisa saja approved, tapi bukan current kalau ada versi lain yang lebih baru dan aktif.',
+    ],
+    suggestions: ['Cara approve roster', 'Cara upload roster dari awal'],
+  },
+  {
+    id: 'roster_approve',
+    module: 'roster',
+    keywords: ['approve roster', 'reject roster', 'set current', 'cara approve roster'],
+    summary: 'Approve roster biasanya dilakukan oleh role approver setelah isi batch dipastikan benar.',
+    detail: [
+      'Dari daftar roster, approver buka batch yang menunggu persetujuan lalu review isinya.',
+      'Kalau sesuai, batch di-approve dan sistem akan menandainya sebagai approved.',
+      'Untuk periode yang sama, batch approved terbaru yang dipilih aktif akan menjadi current.',
+      'Kalau ada kesalahan isi, approver bisa reject agar uploader revisi file roster lebih dulu.',
+    ],
+    suggestions: ['Apa bedanya pending dan current roster?', 'Cara upload roster dari awal'],
+  },
+  {
+    id: 'ticket_overview',
+    module: 'ticket',
+    keywords: ['ticket', 'tiket', 'cara pakai ticket', 'alur ticket', 'ticket dengan bahasa sederhana'],
+    summary: 'Modul Ticket dipakai untuk mencatat permintaan kerja sampai selesai dan dikonfirmasi.',
+    detail: [
+      'Biasanya alurnya mulai dari requester membuat ticket.',
+      'Setelah itu ticket ditangani assignee, status berubah ke In Progress saat pekerjaan mulai dikerjakan.',
+      'Kalau pekerjaan selesai, assignee melakukan resolve dengan catatan hasil kerja.',
+      'Terakhir requester atau creator meninjau hasilnya lalu close ticket jika sudah sesuai.',
+    ],
+    suggestions: ['Kenapa ticket tidak bisa di-resolve?', 'Siapa yang bisa close ticket?', 'Alur ticket dari open sampai close'],
+  },
+  {
+    id: 'ticket_create',
+    module: 'ticket',
+    keywords: ['cara membuat ticket', 'membuat ticket', 'buat ticket', 'create ticket', 'cara buat tiket', 'cara membuat ticket secara detail'],
+    summary: 'Untuk membuat ticket, fokusnya ada di pengisian informasi inti ticket dengan jelas sejak awal.',
+    detail: [
+      'Buka modul Ticket lalu masuk ke halaman create atau tombol tambah ticket.',
+      'Pilih atau pastikan department yang sesuai dengan kebutuhan pekerjaan atau permintaan.',
+      'Isi judul atau ringkasan masalah dengan singkat tapi jelas supaya mudah dipahami saat ticket dibaca.',
+      'Isi deskripsi masalah atau kebutuhan secara lebih detail, termasuk kendala, lokasi, barang, atau konteks kejadian jika memang ada.',
+      'Kalau form menyediakan deadline, priority, lampiran, atau foto pendukung, isi bagian itu sesuai kebutuhan supaya assignee lebih cepat memahami kasusnya.',
+      'Sesudah semua data dirasa lengkap, simpan atau submit ticket.',
+      'Setelah ticket dibuat, ticket biasanya masuk ke alur penanganan: ditinjau, didistribusikan ke assignee, lalu statusnya bergerak sampai resolve dan close.',
+    ],
+    suggestions: ['Alur ticket dari open sampai close', 'Kenapa ticket tidak bisa di-resolve?', 'Siapa yang bisa close ticket?'],
+  },
+  {
+    id: 'ticket_resolve',
+    module: 'ticket',
+    keywords: ['resolve', 'resolve ticket', 'tidak bisa resolve', 'kenapa ticket tidak bisa di-resolve', 'resolution notes'],
+    summary: 'Resolve ticket biasanya gagal bukan karena tombolnya rusak, tapi karena syarat backend belum terpenuhi.',
+    detail: [
+      'User yang klik resolve biasanya harus assignee ticket tersebut.',
+      'Status ticket juga harus sudah In Progress, bukan masih Open atau status lain.',
+      'Kalau ada pending deadline request, proses resolve bisa ikut tertahan.',
+      'Resolution notes juga perlu diisi cukup jelas agar proses resolve diterima.',
+    ],
+    suggestions: ['Siapa yang bisa close ticket?', 'Alur ticket dari open sampai close'],
+  },
+  {
+    id: 'ticket_close',
+    module: 'ticket',
+    keywords: ['close ticket', 'siapa close', 'creator', 'requester', 'siapa yang bisa close ticket'],
+    summary: 'Resolve dan close itu dua tahap yang berbeda.',
+    detail: [
+      'Assignee menyelesaikan pekerjaan lalu menekan resolve.',
+      'Setelah itu creator atau requester meninjau hasilnya.',
+      'Kalau hasilnya sudah sesuai, creator/requester yang melakukan close ticket.',
+      'Kalau belum sesuai, ticket bisa dikembalikan untuk dikerjakan lagi.',
+    ],
+    suggestions: ['Kenapa ticket tidak bisa di-resolve?', 'Alur ticket dari open sampai close'],
+  },
+  {
+    id: 'ticket_distribute',
+    module: 'ticket',
+    keywords: ['distribute', 'bagikan ticket', 'assign ticket', 'cara distribute ticket'],
+    summary: 'Distribusi ticket biasanya dilakukan oleh manager department yang berwenang mengatur penugasan.',
+    detail: [
+      'Sebelum distribute, pastikan ticket memang masuk ke department yang benar.',
+      'User yang dipilih biasanya harus masih berada di department yang sama dengan ticket.',
+      'Kalau tombol distribute tidak bisa dipakai, biasanya masalahnya ada di role user atau hak kelola department.',
+    ],
+    suggestions: ['Kenapa ticket tidak bisa di-resolve?', 'Siapa yang bisa close ticket?'],
+  },
+  {
+    id: 'checklist_overview',
+    module: 'checklist',
+    keywords: ['checklist', 'cara isi checklist', 'scan qrcode checklist', 'template checklist'],
+    summary: 'Checklist dipakai untuk mencatat hasil pemeriksaan berdasarkan template yang dipilih.',
+    detail: [
+      'Biasanya user memilih template dulu, lalu memilih area atau section yang relevan.',
+      'Jika template memakai QRCode, area yang discan harus sesuai dengan dropdown atau area aktif.',
+      'Sesudah semua pertanyaan diisi, checklist disimpan lalu masuk ke alur review atau approval sesuai template dan role.',
+    ],
+    suggestions: ['Bagaimana scan QRCode checklist?', 'Siapa yang bisa approve checklist?'],
+  },
+  {
+    id: 'leave_permission_overview',
+    module: 'leave_permission',
+    keywords: ['leave permission', 'cuti', 'izin', 'cara buat leave permission'],
+    summary: 'Leave & Permission dipakai untuk mengajukan cuti atau izin lalu mengikuti alur approval.',
+    detail: [
+      'User biasanya membuat pengajuan dengan memilih tipe pengajuan, tanggal, dan alasan.',
+      'Sesudah disubmit, pengajuan akan masuk ke alur approval sesuai role dan department.',
+      'Kalau status belum berubah, biasanya perlu dicek approver yang berwenang atau data pengajuan yang belum lengkap.',
+    ],
+    suggestions: ['Siapa yang bisa approve leave permission?', 'Kenapa pengajuan saya belum approved?'],
+  },
+  {
+    id: 'overtime_overview',
+    module: 'overtime',
+    keywords: ['overtime', 'lembur', 'cara buat overtime'],
+    summary: 'Overtime dipakai untuk mencatat dan mengajukan pekerjaan lembur sesuai kebutuhan kerja.',
+    detail: [
+      'Biasanya user membuat form lembur dengan tanggal, jam, alasan, dan pekerjaan yang dilakukan.',
+      'Sesudah disubmit, overtime akan melewati proses review atau approval sesuai role.',
+      'Kalau overtime tidak muncul atau belum approved, cek status pengajuan dan pihak approver terkait.',
+    ],
+    suggestions: ['Siapa yang bisa approve overtime?', 'Kenapa overtime saya tidak muncul?'],
+  },
+  {
+    id: 'visitor_form_overview',
+    module: 'visitor_form',
+    keywords: ['visitor form', 'tamu', 'cara buat visitor form'],
+    summary: 'Visitor Form dipakai untuk mencatat kunjungan tamu dan mengatur alur persetujuannya.',
+    detail: [
+      'Biasanya form diisi dengan data tamu, tujuan kunjungan, tanggal, dan pihak yang dikunjungi.',
+      'Setelah disubmit, status form akan menunggu approval sesuai alur yang berlaku.',
+      'Kalau belum approved, cek apakah data tamu, tujuan, atau approver yang dituju sudah benar.',
+    ],
+    suggestions: ['Siapa yang bisa approve visitor form?', 'Kenapa visitor form saya belum approved?'],
+  },
+  {
+    id: 'exit_permit_overview',
+    module: 'exit_permit',
+    keywords: ['exit permit', 'cara buat exit permit', 'barang keluar'],
+    summary: 'Exit Permit dipakai untuk pengajuan barang atau item yang akan keluar sesuai prosedur.',
+    detail: [
+      'User biasanya mengisi data barang, tujuan, alasan, dan informasi pendukung lainnya.',
+      'Sesudah form dikirim, status akan mengikuti alur approval yang berlaku.',
+      'Kalau update status tidak bisa, cek role user dan posisi dokumen di alur approval.',
+    ],
+    suggestions: ['Siapa yang bisa approve exit permit?', 'Bagaimana update status exit permit?'],
+  },
+  {
+    id: 'stock_card_overview',
+    module: 'stock_card',
+    keywords: ['stock card', 'stok', 'cara stock in', 'request stock'],
+    summary: 'Stock Card dipakai untuk pencatatan stok masuk, permintaan item, dan approval terkait stok.',
+    detail: [
+      'Di modul ini user bisa melihat pergerakan stok atau membuat request sesuai hak aksesnya.',
+      'Untuk proses stock in atau request, data item dan jumlah harus jelas agar pencatatan tidak salah.',
+      'Kalau request tidak bisa diproses, cek status request dan hak akses approval pada user yang sedang login.',
+    ],
+    suggestions: ['Cara stock in di stock card', 'Siapa yang bisa approve request stock card?'],
+  },
+  {
+    id: 'plugging_overview',
+    module: 'plugging',
+    keywords: ['plugging', 'cara buat plugging', 'approval plugging'],
+    summary: 'Plugging dipakai untuk pengajuan dan pemantauan aktivitas plugging beserta approval-nya.',
+    detail: [
+      'User biasanya membuat data plugging terlebih dahulu lalu mengirimkannya untuk approval.',
+      'Status approval akan menentukan apakah plugging sudah bisa dilanjutkan atau masih menunggu.',
+      'Kalau belum approved, cek approver, status, dan kelengkapan data yang diinput.',
+    ],
+    suggestions: ['Bagaimana approval plugging?', 'Kenapa plugging saya belum approved?'],
+  },
+  {
+    id: 'master_data_overview',
+    module: 'master_data',
+    keywords: ['master data', 'department', 'employee', 'position', 'customer', 'vehicle type'],
+    summary: 'Master Data dipakai untuk mengelola data referensi yang dipakai modul-modul lain.',
+    detail: [
+      'Biasanya data seperti department, employee, position, customer, dan item referensi lain dikelola di sini.',
+      'Perubahan master data bisa berdampak ke modul lain, jadi input dan edit harus dilakukan hati-hati.',
+      'Kalau tombol create atau edit tidak tersedia, biasanya itu terkait permission user yang sedang login.',
+    ],
+    suggestions: ['Cara tambah master data', 'Siapa yang bisa mengelola master data?'],
+  },
+  {
+    id: 'control_panel_overview',
+    module: 'control_panel',
+    keywords: ['control panel', 'module control', 'access rules', 'logs', 'database backup'],
+    summary: 'Control Panel dipakai untuk pengaturan sistem seperti akses modul, access rules, logs, dan backup.',
+    detail: [
+      'Setiap halaman di control panel punya fungsi berbeda, jadi jawaban perlu menyesuaikan subhalamannya.',
+      'Module Control biasanya terkait pengaturan akses modul per user.',
+      'Access Rules, Logs, dan Database Backup biasanya hanya relevan untuk user dengan wewenang pengelolaan sistem.',
+    ],
+    suggestions: ['Siapa yang bisa mengubah module control?', 'Bagaimana melihat log aktivitas?'],
+  },
+];
+
+const page = usePage();
+const open = ref(false);
+const draft = ref('');
+const messages = ref([]);
+const messagesContainer = ref(null);
+const isTyping = ref(false);
+const lastTopicId = ref(null);
+const lastProvider = ref('local');
+
+const currentModule = computed(() => {
+  const pageName = String(page.component || '').toLowerCase();
+  const normalizedPageName = pageName.replace(/\s+/g, '');
+  const url = String(page.url || window.location.pathname || '').toLowerCase();
+  const combined = `${normalizedPageName} ${url}`;
+
+  const matchedProfile = moduleProfiles.find((profile) => profile.matches.some((match) => combined.includes(String(match).toLowerCase())));
+  return matchedProfile?.key || 'general';
+});
+
+const currentModuleLabel = computed(() => {
+  return moduleProfiles.find((profile) => profile.key === currentModule.value)?.label || 'Aplikasi';
+});
+
+const authUser = computed(() => page.props?.auth?.user || null);
+const userPermissions = computed(() => Array.isArray(page.props?.auth?.module_permissions) ? page.props.auth.module_permissions : []);
+const isAdmin = computed(() => Boolean(page.props?.auth?.is_admin));
+const isManager = computed(() => Boolean(authUser.value?.position?.is_manager));
+const departmentName = computed(() => String(authUser.value?.department?.name || '').trim());
+const roleName = computed(() => String(authUser.value?.position?.name || '').trim());
+const storageKey = computed(() => `${STORAGE_KEY_PREFIX}:${authUser.value?.id || 'guest'}`);
+
+const quickSuggestions = computed(() => {
+  const baseProfile = moduleProfiles.find((profile) => profile.key === currentModule.value);
+  const baseSuggestions = baseProfile?.suggestions || ['Jelaskan modul ini dengan bahasa sederhana', 'Apa fungsi halaman ini?', 'Siapa yang bisa memakai modul ini?'];
+
+  if (currentModule.value === 'attendance') {
+    return isManager.value || isAdmin.value
+      ? ['Cara baca status attendance log', 'Kenapa attendance tim bisa OFF?', 'Apa yang perlu dicek saat hasil attendance aneh?']
+      : baseSuggestions;
+  }
+
+  if (currentModule.value === 'roster') {
+    return isManager.value || isAdmin.value
+      ? ['Cara approve roster', 'Apa bedanya pending dan current roster?', 'Kalau roster belum current apa dampaknya?']
+      : baseSuggestions;
+  }
+
+  if (currentModule.value === 'ticket') {
+    return isManager.value || isAdmin.value
+      ? ['Cara distribute ticket', 'Kenapa ticket tidak bisa di-resolve?', 'Siapa yang bisa close ticket?']
+      : baseSuggestions;
+  }
+
+  return baseSuggestions;
+});
+
+function createMessage(role, text, extra = {}) {
+  return {
+    id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    role,
+    text,
+    suggestions: extra.suggestions || [],
+  };
+}
+
+function capitalize(value) {
+  const normalized = String(value || '').trim();
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '';
+}
+
+function defaultWelcomeMessage() {
+  const loginName = String(authUser.value?.name || 'User').trim() || 'User';
+
+  return createMessage(
+    'assistant',
+    `Hi ${loginName}\n\nDari mana kita harus mulai?`,
+    { suggestions: quickSuggestions.value }
+  );
+}
+
+function persistMessages() {
+  try {
+    localStorage.setItem(
+      storageKey.value,
+      JSON.stringify({
+        messages: messages.value.slice(-30),
+        lastTopicId: lastTopicId.value,
+        lastProvider: lastProvider.value,
+      })
+    );
+  } catch (error) {
+    // ignore localStorage issues
+  }
+}
+
+function loadMessages() {
+  try {
+    const raw = localStorage.getItem(storageKey.value);
+    const parsed = raw ? JSON.parse(raw) : null;
+
+    if (parsed && Array.isArray(parsed.messages) && parsed.messages.length) {
+      messages.value = parsed.messages;
+      lastTopicId.value = parsed.lastTopicId || null;
+      lastProvider.value = parsed.lastProvider || 'local';
+      return;
+    }
+  } catch (error) {
+    // ignore localStorage issues
+  }
+
+  messages.value = [defaultWelcomeMessage()];
+  lastTopicId.value = null;
+  lastProvider.value = 'local';
+}
+
+function normalizeText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getTopicById(topicId) {
+  return knowledgeTopics.find((topic) => topic.id === topicId) || null;
+}
+
+function isFollowUpQuestion(question) {
+  const normalized = normalizeText(question);
+  const followUpPhrases = ['kalau begitu', 'kalau gitu', 'lalu', 'terus', 'habis itu', 'setelah itu', 'berarti', 'kalau saya', 'jadi', 'yang bisa', 'siapa', 'kenapa'];
+
+  if (normalized.split(/\s+/).length <= 4) {
+    return true;
+  }
+
+  return followUpPhrases.some((phrase) => normalized.startsWith(phrase));
+}
+
+function scoreTopic(topic, question) {
+  const normalizedQuestion = normalizeText(question);
+
+  return topic.keywords.reduce((score, keyword) => {
+    return normalizedQuestion.includes(normalizeText(keyword)) ? score + 1 : score;
+  }, topic.module === currentModule.value ? 0.75 : 0);
+}
+
+function findBestTopic(question) {
+  const ranked = knowledgeTopics
+    .map((topic) => ({ topic, score: scoreTopic(topic, question) }))
+    .sort((left, right) => right.score - left.score);
+
+  if (!ranked.length || ranked[0].score < 1) {
+    return null;
+  }
+
+  return ranked[0].topic;
+}
+
+function suggestionsForTopic(topic) {
+  return topic?.suggestions?.length ? topic.suggestions : quickSuggestions.value;
+}
+
+function joinDetailLines(lines) {
+  return lines.map((line) => `- ${line}`).join('\n');
+}
+
+function buildTopicAnswer(topic, usedFollowUpContext = false) {
+  const moduleLabel = topic.module === 'general' ? 'aplikasi' : capitalize(topic.module);
+  const opener = usedFollowUpContext
+    ? `Masih nyambung dengan topik ${moduleLabel} tadi, ${topic.summary.toLowerCase()}`
+    : topic.summary;
+
+  return createMessage(
+    'assistant',
+    `${opener}\n\n${joinDetailLines(topic.detail)}\n\nKalau mau, saya bisa bantu lanjut dari sisi yang lebih spesifik juga.`,
+    { suggestions: suggestionsForTopic(topic) }
+  );
+}
+
+function fallbackAnswer(question) {
+  const moduleLabel = currentModule.value === 'general' ? 'modul aplikasi ini' : currentModuleLabel.value;
+  const normalized = normalizeText(question);
+
+  if (normalized.includes('cara') || normalized.includes('bagaimana') || normalized.includes('kenapa')) {
+    return createMessage(
+      'assistant',
+      `Saya belum yakin menangkap maksudnya secara spesifik, tapi saya bisa bantu dari konteks ${moduleLabel}.\n\nCoba tulis pertanyaannya lebih langsung tentang langkah penggunaan, arti status, approval, atau alasan sebuah aksi tidak bisa dipakai di halaman ini.`,
+      { suggestions: quickSuggestions.value }
+    );
+  }
+
+  return createMessage(
+    'assistant',
+    `Saya siap bantu untuk pemakaian modul ${moduleLabel}. Kamu bisa tanya alur kerja, arti status, approval, atau alasan sebuah aksi tidak bisa dijalankan.`,
+    { suggestions: quickSuggestions.value }
+  );
+}
+
+function formatAssistantMessage(text) {
+  const rawBlocks = String(text || '')
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  return rawBlocks.map((block) => {
+    const lines = block
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const isList = lines.length > 1 && lines.every((line) => line.startsWith('- '));
+
+    if (isList) {
+      return {
+        type: 'list',
+        items: lines.map((line) => line.replace(/^- /, '').trim()),
+      };
+    }
+
+    return {
+      type: 'paragraph',
+      content: lines.join(' '),
+    };
+  });
+}
+
+function generateAnswer(question) {
+  const explicitTopic = findBestTopic(question);
+
+  if (explicitTopic) {
+    lastTopicId.value = explicitTopic.id;
+    return buildTopicAnswer(explicitTopic, false);
+  }
+
+  const rememberedTopic = getTopicById(lastTopicId.value);
+  if (rememberedTopic && isFollowUpQuestion(question)) {
+    return buildTopicAnswer(rememberedTopic, true);
+  }
+
+  return fallbackAnswer(question);
+}
+
+function buildPageContext() {
+  return {
+    component: String(page.component || ''),
+    url: String(page.url || window.location.pathname || ''),
+    module: currentModule.value,
+    module_permissions: userPermissions.value,
+  };
+}
+
+function buildHistoryPayload() {
+  return messages.value.slice(-8).map((message) => ({
+    role: message.role,
+    text: message.text,
+  }));
+}
+
+async function fetchBackendAnswer(question) {
+  const response = await axios.post('/ai-help/chat', {
+    message: question,
+    page: buildPageContext(),
+    history: buildHistoryPayload(),
+  }, {
+    headers: {
+      'X-Skip-Global-Loading': '1',
+    },
+  });
+
+  return {
+    text: String(response.data?.answer || '').trim(),
+    provider: String(response.data?.provider || 'openai'),
+  };
+}
+
+function resolveMessagesElement() {
+  const element = messagesContainer.value;
+  if (!element) return null;
+
+  if (element instanceof HTMLElement) {
+    return element;
+  }
+
+  return element.$el instanceof HTMLElement ? element.$el : null;
+}
+
+function scrollToBottom() {
+  nextTick(() => {
+    const element = resolveMessagesElement();
+    if (!element) return;
+
+    window.requestAnimationFrame(() => {
+      element.scrollTo({
+        top: element.scrollHeight,
+        behavior: 'smooth',
+      });
+    });
+  });
+}
+
+async function pushAssistantReply(question) {
+  try {
+    const backend = await fetchBackendAnswer(question);
+    if (backend.text) {
+      lastProvider.value = backend.provider;
+      messages.value.push(createMessage('assistant', backend.text, {
+        suggestions: quickSuggestions.value,
+      }));
+      persistMessages();
+      scrollToBottom();
+      return;
+    }
+  } catch (error) {
+    // fallback to local help topics if OpenAI is unavailable
+  }
+
+  lastProvider.value = 'local';
+  const reply = generateAnswer(question);
+  messages.value.push(reply);
+  persistMessages();
+  scrollToBottom();
+}
+
+async function sendQuestion(question) {
+  const normalized = String(question || '').trim();
+  if (!normalized || isTyping.value) return;
+
+  messages.value.push(createMessage('user', normalized));
+  draft.value = '';
+  persistMessages();
+  scrollToBottom();
+
+  isTyping.value = true;
+  await new Promise((resolve) => window.setTimeout(resolve, 320));
+  await pushAssistantReply(normalized);
+  isTyping.value = false;
+}
+
+function submitQuestion() {
+  return sendQuestion(draft.value);
+}
+
+function handleComposerKeydown(event) {
+  if (event.key !== 'Enter' || event.shiftKey) {
+    return;
+  }
+
+  event.preventDefault();
+  submitQuestion();
+}
+
+function askSuggestion(suggestion) {
+  return sendQuestion(suggestion);
+}
+
+function resetChat() {
+  messages.value = [defaultWelcomeMessage()];
+  lastTopicId.value = null;
+  lastProvider.value = 'local';
+  draft.value = '';
+  isTyping.value = false;
+  persistMessages();
+  scrollToBottom();
+}
+
+function toggleOpen() {
+  open.value = !open.value;
+  if (open.value) {
+    scrollToBottom();
+  }
+}
+
+watch(currentModule, () => {
+  if (!messages.value.length) {
+    messages.value = [defaultWelcomeMessage()];
+  } else {
+    const lastAssistant = [...messages.value].reverse().find((message) => message.role === 'assistant');
+    if (lastAssistant) {
+      lastAssistant.suggestions = quickSuggestions.value;
+    }
+  }
+
+  persistMessages();
+});
+
+watch(storageKey, () => {
+  loadMessages();
+  scrollToBottom();
+});
+
+onMounted(() => {
+  loadMessages();
+  scrollToBottom();
+});
+</script>
