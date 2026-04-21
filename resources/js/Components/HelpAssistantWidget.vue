@@ -76,6 +76,16 @@
                         <span class="flex-1">{{ item }}</span>
                       </li>
                     </ul>
+                    <ol v-else-if="block.type === 'ordered-list'" class="space-y-2">
+                      <li
+                        v-for="(item, itemIndex) in block.items"
+                        :key="`${message.id}-ordered-item-${itemIndex}`"
+                        class="flex items-start gap-3 leading-6 text-slate-100"
+                      >
+                        <span class="min-w-[1.5rem] text-sky-300">{{ itemIndex + 1 }}.</span>
+                        <span class="flex-1">{{ item }}</span>
+                      </li>
+                    </ol>
                   </div>
                 </div>
               </template>
@@ -765,6 +775,29 @@ const knowledgeTopics = [
   },
 ];
 
+const defaultTopicByModule = {
+  attendance: 'attendance_overview',
+  leave_permission: 'leave_permission_overview',
+  overtime: 'overtime_overview',
+  roster: 'roster_overview',
+  ticket: 'ticket_overview',
+  checklist: 'checklist_overview',
+  request_access: 'request_access_overview',
+  check_inline: 'check_inline_overview',
+  berita_acara: 'berita_acara_overview',
+  date_code: 'date_code_overview',
+  stock_card: 'stock_card_overview',
+  plugging: 'plugging_overview',
+  electricity: 'electricity_overview',
+  water_meter: 'water_meter_overview',
+  utility_report: 'utility_report_overview',
+  visitor_form: 'visitor_form_overview',
+  exit_permit: 'exit_permit_overview',
+  master_data: 'master_data_overview',
+  control_panel: 'control_panel_overview',
+  dashboard: 'dashboard_overview',
+};
+
 const page = usePage();
 const open = ref(false);
 const draft = ref('');
@@ -937,6 +970,32 @@ function isFollowUpQuestion(question) {
   return followUpPhrases.some((phrase) => normalized.startsWith(phrase));
 }
 
+function isGenericExplainQuestion(question) {
+  const normalized = normalizeText(question);
+  const phrases = [
+    'jelaskan step by step',
+    'bisa jelaskan step by step',
+    'jelaskan',
+    'cara kerja nya',
+    'cara kerjanya',
+    'mulai dari mana',
+    'step by step',
+    'alur nya',
+    'alurnya',
+  ];
+
+  return phrases.some((phrase) => normalized === phrase || normalized.startsWith(phrase));
+}
+
+function wantsStepByStep(question) {
+  const normalized = normalizeText(question);
+  return normalized.includes('step by step')
+    || normalized.includes('langkah')
+    || normalized.includes('tahapan')
+    || normalized.includes('urutannya')
+    || normalized.includes('alur');
+}
+
 function scoreTopic(topic, question) {
   const normalizedQuestion = normalizeText(question);
 
@@ -965,15 +1024,23 @@ function joinDetailLines(lines) {
   return lines.map((line) => `- ${line}`).join('\n');
 }
 
-function buildTopicAnswer(topic, usedFollowUpContext = false) {
+function joinDetailSteps(lines) {
+  return lines.map((line, index) => `${index + 1}. ${line}`).join('\n');
+}
+
+function buildTopicAnswer(topic, usedFollowUpContext = false, stepByStep = false) {
   const moduleLabel = topic.module === 'general' ? 'aplikasi' : capitalize(topic.module);
   const opener = usedFollowUpContext
     ? `Masih nyambung dengan topik ${moduleLabel} tadi, ${topic.summary.toLowerCase()}`
     : topic.summary;
+  const body = stepByStep ? joinDetailSteps(topic.detail) : joinDetailLines(topic.detail);
+  const closing = stepByStep
+    ? 'Kalau mau, saya bisa lanjut jelaskan tiap langkahnya satu per satu juga.'
+    : 'Kalau mau, saya bisa bantu lanjut dari sisi yang lebih spesifik juga.';
 
   return createMessage(
     'assistant',
-    `${opener}\n\n${joinDetailLines(topic.detail)}\n\nKalau mau, saya bisa bantu lanjut dari sisi yang lebih spesifik juga.`,
+    `${opener}\n\n${body}\n\n${closing}`,
     { suggestions: suggestionsForTopic(topic) }
   );
 }
@@ -981,6 +1048,15 @@ function buildTopicAnswer(topic, usedFollowUpContext = false) {
 function fallbackAnswer(question) {
   const moduleLabel = currentModule.value === 'general' ? 'modul aplikasi ini' : currentModuleLabel.value;
   const normalized = normalizeText(question);
+  const stepByStep = wantsStepByStep(question);
+
+  if (stepByStep) {
+    return createMessage(
+      'assistant',
+      `Kalau kita jelaskan ${moduleLabel} secara step by step, alurnya biasanya seperti ini:\n\n1. buka modul atau halaman ${moduleLabel} yang ingin dipakai\n2. pahami fungsi utama halaman itu dari data, tombol, atau form yang tersedia\n3. isi, pilih, atau cek data yang dibutuhkan sesuai proses modulnya\n4. simpan, submit, atau jalankan aksi utama pada halaman tersebut\n5. periksa hasil akhirnya, termasuk status, detail, approval, atau output lain yang muncul\n\nKalau mau, saya bisa lanjut jelaskan step by step yang lebih spesifik untuk halaman ini.`,
+      { suggestions: quickSuggestions.value }
+    );
+  }
 
   if (normalized.includes('cara') || normalized.includes('bagaimana') || normalized.includes('kenapa')) {
     return createMessage(
@@ -1010,11 +1086,19 @@ function formatAssistantMessage(text) {
       .filter(Boolean);
 
     const isList = lines.length > 1 && lines.every((line) => line.startsWith('- '));
+    const isOrderedList = lines.length > 1 && lines.every((line) => /^\d+\.\s+/.test(line));
 
     if (isList) {
       return {
         type: 'list',
         items: lines.map((line) => line.replace(/^- /, '').trim()),
+      };
+    }
+
+    if (isOrderedList) {
+      return {
+        type: 'ordered-list',
+        items: lines.map((line) => line.replace(/^\d+\.\s+/, '').trim()),
       };
     }
 
@@ -1026,16 +1110,26 @@ function formatAssistantMessage(text) {
 }
 
 function generateAnswer(question) {
+  const stepByStep = wantsStepByStep(question);
   const explicitTopic = findBestTopic(question);
 
   if (explicitTopic) {
     lastTopicId.value = explicitTopic.id;
-    return buildTopicAnswer(explicitTopic, false);
+    return buildTopicAnswer(explicitTopic, false, stepByStep);
   }
 
   const rememberedTopic = getTopicById(lastTopicId.value);
   if (rememberedTopic && isFollowUpQuestion(question)) {
-    return buildTopicAnswer(rememberedTopic, true);
+    return buildTopicAnswer(rememberedTopic, true, stepByStep);
+  }
+
+  if (isGenericExplainQuestion(question)) {
+    const defaultTopicId = defaultTopicByModule[currentModule.value];
+    const defaultTopic = getTopicById(defaultTopicId);
+    if (defaultTopic) {
+      lastTopicId.value = defaultTopic.id;
+      return buildTopicAnswer(defaultTopic, false, true);
+    }
   }
 
   return fallbackAnswer(question);
