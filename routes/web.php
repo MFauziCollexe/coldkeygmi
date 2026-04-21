@@ -20,6 +20,15 @@ use Illuminate\Support\Facades\Auth;
 use App\Support\AccessRuleService;
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
+Route::get('/ai-help/history', [App\Http\Controllers\HelpAssistantController::class, 'history'])
+    ->middleware('auth')
+    ->name('ai-help.history');
+Route::post('/ai-help/history', [App\Http\Controllers\HelpAssistantController::class, 'storeMessage'])
+    ->middleware('auth')
+    ->name('ai-help.history.store');
+Route::delete('/ai-help/history', [App\Http\Controllers\HelpAssistantController::class, 'clearHistory'])
+    ->middleware('auth')
+    ->name('ai-help.history.clear');
 Route::post('/ai-help/chat', [App\Http\Controllers\HelpAssistantController::class, 'chat'])
     ->middleware('auth')
     ->name('ai-help.chat');

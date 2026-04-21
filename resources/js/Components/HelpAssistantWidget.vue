@@ -277,6 +277,89 @@ const moduleProfiles = [
   },
 ];
 
+const pageProfiles = [
+  {
+    key: 'attendance_log',
+    matches: ['gmihr/attendancelog/index', 'attendance-log'],
+    suggestions: ['Cara baca status attendance log', 'Kenapa status attendance bisa OFF?', 'Kenapa jam masuk dan pulang bisa kebalik?'],
+  },
+  {
+    key: 'fingerprint_index',
+    matches: ['gmihr/fingerprint/index', 'fingerprint'],
+    suggestions: ['Cara import fingerprint', 'Bagaimana preview data fingerprint?', 'Kenapa data fingerprint belum masuk?'],
+  },
+  {
+    key: 'roster_upload',
+    matches: ['gmihr/roster/upload', 'roster/upload'],
+    suggestions: ['Cara upload roster dari awal', 'Bagaimana preview roster?', 'Kenapa file roster gagal diproses?'],
+  },
+  {
+    key: 'roster_list',
+    matches: ['gmihr/roster/list', 'roster/list'],
+    suggestions: ['Apa bedanya pending dan current roster?', 'Cara approve roster', 'Bagaimana filter roster per bulan?'],
+  },
+  {
+    key: 'ticket_index',
+    matches: ['gmisl/utility/tickets/index', '/tickets'],
+    suggestions: ['Cara membuat ticket', 'Bagaimana filter ticket?', 'Apa arti status ticket?'],
+  },
+  {
+    key: 'ticket_create',
+    matches: ['gmisl/utility/tickets/create', '/tickets/create'],
+    suggestions: ['Cara membuat ticket secara detail', 'Field apa yang harus diisi saat membuat ticket?', 'Siapa yang menerima ticket setelah dibuat?'],
+  },
+  {
+    key: 'ticket_show',
+    matches: ['gmisl/utility/tickets/show', '/tickets/'],
+    suggestions: ['Kenapa ticket tidak bisa di-resolve?', 'Siapa yang bisa close ticket?', 'Apa yang bisa dilakukan di detail ticket ini?'],
+  },
+  {
+    key: 'checklist_create',
+    matches: ['gmiic/checklist/create', 'checklist/create'],
+    suggestions: ['Cara isi checklist', 'Bagaimana scan QRCode checklist?', 'Kenapa QRCode tidak sesuai area?'],
+  },
+  {
+    key: 'checklist_index',
+    matches: ['gmiic/checklist/index', 'gmiic/checklist'],
+    suggestions: ['Apa fungsi modul checklist?', 'Siapa yang bisa approve checklist?', 'Bagaimana melihat checklist yang sudah dibuat?'],
+  },
+  {
+    key: 'leave_permission_create',
+    matches: ['gmihr/leavepermission/create', 'leave-permission/create'],
+    suggestions: ['Cara buat leave permission', 'Data apa saja yang perlu diisi?', 'Siapa yang bisa approve leave permission?'],
+  },
+  {
+    key: 'leave_permission_index',
+    matches: ['gmihr/leavepermission/index', 'leave-permission'],
+    suggestions: ['Kenapa pengajuan saya belum approved?', 'Bagaimana lihat status leave permission?', 'Siapa yang bisa approve leave permission?'],
+  },
+  {
+    key: 'overtime_create',
+    matches: ['gmihr/overtime/create', 'overtime/create'],
+    suggestions: ['Cara buat overtime', 'Data apa saja yang perlu diisi untuk overtime?', 'Siapa yang bisa approve overtime?'],
+  },
+  {
+    key: 'visitor_form_create',
+    matches: ['gmivp/visitorform/create', 'visitor-form/create'],
+    suggestions: ['Cara buat visitor form', 'Data tamu apa saja yang perlu diisi?', 'Siapa yang bisa approve visitor form?'],
+  },
+  {
+    key: 'request_access_create',
+    matches: ['gmisl/utility/requestaccess/create', 'request-access/create'],
+    suggestions: ['Cara buat request access', 'Jenis request access apa saja?', 'Siapa yang bisa approve request access?'],
+  },
+  {
+    key: 'plugging_approval',
+    matches: ['gmium/plugging/approval', 'plugging/approval'],
+    suggestions: ['Bagaimana approval plugging?', 'Kenapa plugging belum approved?', 'Apa arti status plugging?'],
+  },
+  {
+    key: 'control_panel_logs',
+    matches: ['controlpanel/logs', 'control-panel/logs'],
+    suggestions: ['Bagaimana melihat log aktivitas?', 'Apa arti data di log?', 'Siapa yang bisa menghapus log?'],
+  },
+];
+
 const knowledgeTopics = [
   {
     id: 'attendance_overview',
@@ -578,6 +661,13 @@ const currentModule = computed(() => {
 const currentModuleLabel = computed(() => {
   return moduleProfiles.find((profile) => profile.key === currentModule.value)?.label || 'Aplikasi';
 });
+const currentPageProfile = computed(() => {
+  const pageName = String(page.component || '').toLowerCase().replace(/\s+/g, '');
+  const url = String(page.url || window.location.pathname || '').toLowerCase();
+  const combined = `${pageName} ${url}`;
+
+  return pageProfiles.find((profile) => profile.matches.some((match) => combined.includes(String(match).toLowerCase()))) || null;
+});
 
 const authUser = computed(() => page.props?.auth?.user || null);
 const userPermissions = computed(() => Array.isArray(page.props?.auth?.module_permissions) ? page.props.auth.module_permissions : []);
@@ -588,6 +678,10 @@ const roleName = computed(() => String(authUser.value?.position?.name || '').tri
 const storageKey = computed(() => `${STORAGE_KEY_PREFIX}:${authUser.value?.id || 'guest'}`);
 
 const quickSuggestions = computed(() => {
+  if (currentPageProfile.value?.suggestions?.length) {
+    return currentPageProfile.value.suggestions;
+  }
+
   const baseProfile = moduleProfiles.find((profile) => profile.key === currentModule.value);
   const baseSuggestions = baseProfile?.suggestions || ['Jelaskan modul ini dengan bahasa sederhana', 'Apa fungsi halaman ini?', 'Siapa yang bisa memakai modul ini?'];
 
@@ -651,7 +745,17 @@ function persistMessages() {
   }
 }
 
-function loadMessages() {
+async function fetchHistoryFromDatabase() {
+  const response = await axios.get('/ai-help/history', {
+    headers: {
+      'X-Skip-Global-Loading': '1',
+    },
+  });
+
+  return Array.isArray(response.data?.messages) ? response.data.messages : [];
+}
+
+function loadMessagesFromStorage() {
   try {
     const raw = localStorage.getItem(storageKey.value);
     const parsed = raw ? JSON.parse(raw) : null;
@@ -669,6 +773,23 @@ function loadMessages() {
   messages.value = [defaultWelcomeMessage()];
   lastTopicId.value = null;
   lastProvider.value = 'local';
+}
+
+async function loadMessages() {
+  try {
+    const databaseMessages = await fetchHistoryFromDatabase();
+    if (databaseMessages.length) {
+      messages.value = databaseMessages;
+      lastTopicId.value = null;
+      lastProvider.value = databaseMessages.at(-1)?.provider || 'database';
+      persistMessages();
+      return;
+    }
+  } catch (error) {
+    // fallback to storage if database history cannot be loaded
+  }
+
+  loadMessagesFromStorage();
 }
 
 function normalizeText(value) {
@@ -803,6 +924,27 @@ function buildPageContext() {
   };
 }
 
+async function saveMessageToDatabase(message) {
+  await axios.post('/ai-help/history', {
+    role: message.role,
+    text: message.text,
+    provider: message.provider || null,
+    page: buildPageContext(),
+  }, {
+    headers: {
+      'X-Skip-Global-Loading': '1',
+    },
+  });
+}
+
+async function clearHistoryInDatabase() {
+  await axios.delete('/ai-help/history', {
+    headers: {
+      'X-Skip-Global-Loading': '1',
+    },
+  });
+}
+
 function buildHistoryPayload() {
   return messages.value.slice(-8).map((message) => ({
     role: message.role,
@@ -857,9 +999,16 @@ async function pushAssistantReply(question) {
     const backend = await fetchBackendAnswer(question);
     if (backend.text) {
       lastProvider.value = backend.provider;
-      messages.value.push(createMessage('assistant', backend.text, {
+      const message = createMessage('assistant', backend.text, {
         suggestions: quickSuggestions.value,
-      }));
+      });
+      message.provider = backend.provider;
+      messages.value.push(message);
+      try {
+        await saveMessageToDatabase(message);
+      } catch (error) {
+        // ignore database sync failures
+      }
       persistMessages();
       scrollToBottom();
       return;
@@ -870,7 +1019,13 @@ async function pushAssistantReply(question) {
 
   lastProvider.value = 'local';
   const reply = generateAnswer(question);
+  reply.provider = 'local';
   messages.value.push(reply);
+  try {
+    await saveMessageToDatabase(reply);
+  } catch (error) {
+    // ignore database sync failures
+  }
   persistMessages();
   scrollToBottom();
 }
@@ -879,8 +1034,15 @@ async function sendQuestion(question) {
   const normalized = String(question || '').trim();
   if (!normalized || isTyping.value) return;
 
-  messages.value.push(createMessage('user', normalized));
+  const userMessage = createMessage('user', normalized);
+  userMessage.provider = 'user';
+  messages.value.push(userMessage);
   draft.value = '';
+  try {
+    await saveMessageToDatabase(userMessage);
+  } catch (error) {
+    // ignore database sync failures
+  }
   persistMessages();
   scrollToBottom();
 
@@ -913,6 +1075,8 @@ function resetChat() {
   lastProvider.value = 'local';
   draft.value = '';
   isTyping.value = false;
+  localStorage.removeItem(storageKey.value);
+  clearHistoryInDatabase().catch(() => {});
   persistMessages();
   scrollToBottom();
 }
@@ -943,7 +1107,9 @@ watch(storageKey, () => {
 });
 
 onMounted(() => {
-  loadMessages();
+  loadMessages().then(() => {
+    scrollToBottom();
+  });
   scrollToBottom();
 });
 </script>

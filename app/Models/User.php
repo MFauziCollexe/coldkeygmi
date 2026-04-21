@@ -152,4 +152,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(\App\Models\Employee::class);
     }
+
+    public function helpAssistantMessages()
+    {
+        return $this->hasMany(\App\Models\HelpAssistantMessage::class);
+    }
 }

@@ -76,6 +76,7 @@ class OpenAIHelpAssistantService
         $departmentLabel = trim((string) optional($user->department)->name) ?: '-';
         $permissionSummary = empty($permissions) ? '-' : implode(', ', array_slice($permissions, 0, 25));
         $moduleGuidance = $this->buildModuleGuidance($module, $pageName, $url, $permissions, $user);
+        $pageSpecificGuidance = $this->buildPageSpecificGuidance($pageName, $url);
 
         return implode("\n", [
             'Kamu adalah AI Help Assistant internal untuk aplikasi ColdKey GMI.',
@@ -107,6 +108,9 @@ class OpenAIHelpAssistantService
             '',
             'Knowledge modul:',
             $moduleGuidance,
+            '',
+            'Knowledge halaman spesifik:',
+            $pageSpecificGuidance,
         ]);
     }
 
@@ -364,6 +368,62 @@ class OpenAIHelpAssistantService
             'dashboard' => 'Halaman dashboard.',
             default => '',
         };
+    }
+
+    protected function buildPageSpecificGuidance(string $pageName, string $url): string
+    {
+        $value = strtolower(trim($pageName . ' ' . $url));
+
+        $guidance = match (true) {
+            str_contains($value, 'gmihr/attendancelog/index') || str_contains($value, 'attendance-log') => [
+                '- Halaman ini fokus pada pembacaan status attendance, filter data, jam masuk-pulang, dan hubungan attendance dengan roster.',
+                '- Jika user bertanya hasil yang terlihat aneh, arahkan ke logika shift, roster aktif, dan scan mentah.',
+            ],
+            str_contains($value, 'gmihr/fingerprint/index') || str_contains($value, 'fingerprint') => [
+                '- Halaman ini fokus pada import scan fingerprint, preview data, konfirmasi simpan, dan pembersihan preview bila perlu.',
+                '- Jika user bertanya kenapa data belum masuk, arahkan ke preview, confirm save, atau kualitas file input.',
+            ],
+            str_contains($value, 'gmihr/roster/upload') || str_contains($value, 'roster/upload') => [
+                '- Halaman ini fokus pada download template, isi file roster, preview, validasi, lalu upload.',
+                '- Jika user bertanya error file, arahkan ke format template, isi shift, dan hasil preview.',
+            ],
+            str_contains($value, 'gmihr/roster/list') || str_contains($value, 'roster/list') => [
+                '- Halaman ini fokus pada status batch roster, filter periode, approved/current, approve/reject, dan view detail batch.',
+            ],
+            str_contains($value, 'gmisl/utility/tickets/create') || str_contains($value, '/tickets/create') => [
+                '- Halaman ini fokus pada pembuatan ticket baru: isi department, judul, deskripsi, priority/deadline jika ada, dan lampiran bila tersedia.',
+            ],
+            str_contains($value, 'gmisl/utility/tickets/show') || preg_match('/tickets\/\d+/', $value) => [
+                '- Halaman ini fokus pada aksi detail ticket seperti comment, update status, resolve, close, reopen, atau distribute sesuai role.',
+                '- Jika user bertanya kenapa aksi tidak bisa dilakukan, arahkan ke role user dan status ticket saat ini.',
+            ],
+            str_contains($value, 'gmiic/checklist/create') || str_contains($value, 'checklist/create') => [
+                '- Halaman ini fokus pada pemilihan template checklist, pengisian item, scan QRCode bila diperlukan, lalu submit.',
+            ],
+            str_contains($value, 'gmihr/leavepermission/create') || str_contains($value, 'leave-permission/create') => [
+                '- Halaman ini fokus pada pembuatan pengajuan cuti/izin dengan tipe, tanggal, alasan, dan lampiran jika ada.',
+            ],
+            str_contains($value, 'gmihr/overtime/create') || str_contains($value, 'overtime/create') => [
+                '- Halaman ini fokus pada pembuatan lembur dengan tanggal, jam, alasan, dan detail pekerjaan.',
+            ],
+            str_contains($value, 'gmivp/visitorform/create') || str_contains($value, 'visitor-form/create') => [
+                '- Halaman ini fokus pada pengisian data tamu, tujuan kunjungan, tanggal/waktu, dan pihak yang dikunjungi.',
+            ],
+            str_contains($value, 'gmisl/utility/requestaccess/create') || str_contains($value, 'request-access/create') => [
+                '- Halaman ini fokus pada pembuatan request access beserta jenis request, target user, department, dan alasan.',
+            ],
+            str_contains($value, 'gmium/plugging/approval') || str_contains($value, 'plugging/approval') => [
+                '- Halaman ini fokus pada proses approval plugging dan pemahaman status approval yang berjalan.',
+            ],
+            str_contains($value, 'controlpanel/logs') || str_contains($value, 'control-panel/logs') => [
+                '- Halaman ini fokus pada pembacaan log aktivitas, pencarian log, dan tindakan administratif terkait log bila user berwenang.',
+            ],
+            default => [
+                '- Gunakan konteks modul aktif dan nama halaman untuk menjaga jawaban tetap relevan.',
+            ],
+        };
+
+        return implode("\n", $guidance);
     }
 
     protected function buildInput(array $history, string $message): array
