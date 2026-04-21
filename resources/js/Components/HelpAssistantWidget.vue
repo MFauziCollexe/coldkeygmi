@@ -169,120 +169,140 @@ const moduleProfiles = [
     key: 'attendance',
     label: 'Attendance',
     matches: ['gmihr/attendancelog', 'gmihr/absensi', 'gmihr/fingerprint', 'gmihr/thedays', 'gmihr/attendanceapproval', 'attendance-log', 'fingerprint', 'absensi', 'the-days'],
+    aliases: ['attendance', 'absensi', 'attendance log', 'fingerprint'],
     suggestions: ['Kenapa attendance saya OFF?', 'Cara baca status attendance log'],
   },
   {
     key: 'leave_permission',
     label: 'Leave & Permission',
     matches: ['gmihr/leavepermission', 'leave-permission'],
+    aliases: ['leave permission', 'leave & permission', 'leave and permission', 'cuti', 'izin'],
     suggestions: ['Cara buat leave permission', 'Siapa yang bisa approve leave permission?', 'Kenapa pengajuan saya belum approved?'],
   },
   {
     key: 'overtime',
     label: 'Overtime',
     matches: ['gmihr/overtime', 'overtime'],
+    aliases: ['overtime', 'lembur'],
     suggestions: ['Cara buat overtime', 'Siapa yang bisa approve overtime?', 'Kenapa overtime saya tidak muncul?'],
   },
   {
     key: 'roster',
     label: 'Roster',
     matches: ['gmihr/roster', '/roster'],
+    aliases: ['roster', 'jadwal roster'],
     suggestions: ['Cara upload roster dari awal', 'Apa bedanya pending dan current roster?', 'Cara approve roster'],
   },
   {
     key: 'ticket',
     label: 'Ticket',
     matches: ['gmisl/utility/tickets', '/tickets'],
+    aliases: ['ticket', 'tiket'],
     suggestions: ['Cara membuat ticket', 'Kenapa ticket tidak bisa di-resolve?', 'Siapa yang bisa close ticket?'],
   },
   {
     key: 'checklist',
     label: 'Checklist',
     matches: ['gmiic/checklist', 'checklist'],
+    aliases: ['checklist', 'ceklist'],
     suggestions: ['Cara isi checklist', 'Bagaimana scan QRCode checklist?', 'Siapa yang bisa approve checklist?'],
   },
   {
     key: 'request_access',
     label: 'Request Access',
     matches: ['gmisl/utility/requestaccess', 'request-access'],
+    aliases: ['request access', 'permintaan akses', 'akses'],
     suggestions: ['Cara buat request access', 'Siapa yang bisa approve request access?', 'Kenapa request access saya ditolak?'],
   },
   {
     key: 'check_inline',
     label: 'Check Inline',
     matches: ['gmisl/utility/checkinline', 'check-inline'],
+    aliases: ['check inline'],
     suggestions: ['Cara buat check inline', 'Siapa yang bisa update check inline?', 'Bagaimana lihat detail check inline?'],
   },
   {
     key: 'berita_acara',
     label: 'Berita Acara',
     matches: ['gmisl/utility/beritaacara', 'berita-acara'],
+    aliases: ['berita acara', 'ba'],
     suggestions: ['Cara membuat berita acara', 'Bagaimana print berita acara?', 'Siapa yang bisa hapus berita acara?'],
   },
   {
     key: 'date_code',
     label: 'Date Code',
     matches: ['gmisl/utility/datecode', 'date-code'],
+    aliases: ['date code', 'kode tanggal'],
     suggestions: ['Cara pakai date code', 'Bagaimana membaca hasil date code?', 'Apa fungsi modul date code?'],
   },
   {
     key: 'stock_card',
     label: 'Stock Card',
     matches: ['gmisl/utility/stockcard', 'masterdata/stockcard', 'stock-card'],
+    aliases: ['stock card', 'stok card'],
     suggestions: ['Cara stock in di stock card', 'Cara request item stock card', 'Siapa yang bisa approve request stock card?'],
   },
   {
     key: 'plugging',
     label: 'Plugging',
     matches: ['gmium/plugging', 'plugging'],
+    aliases: ['plugging'],
     suggestions: ['Cara buat plugging', 'Bagaimana approval plugging?', 'Kenapa plugging saya belum approved?'],
   },
   {
     key: 'electricity',
     label: 'Electricity Meter',
     matches: ['gmium/resourcemonitoring/electricity', 'standard-meter', 'hv-meter'],
+    aliases: ['electricity', 'electricity meter', 'meter listrik', 'listrik'],
     suggestions: ['Cara input meter listrik', 'Bagaimana edit log meter listrik?', 'Bagaimana export data meter listrik?'],
   },
   {
     key: 'water_meter',
     label: 'Water Meter',
     matches: ['gmium/resourcemonitoring/watermeter', 'water-meter'],
+    aliases: ['water meter', 'meter air', 'air meter'],
     suggestions: ['Cara input water meter', 'Bagaimana edit log water meter?', 'Bagaimana export water meter?'],
   },
   {
     key: 'utility_report',
     label: 'Utility Report',
     matches: ['gmium/utilityreport', 'utility-report'],
+    aliases: ['utility report', 'laporan utility'],
     suggestions: ['Apa fungsi utility report?', 'Bagaimana membaca utility report?', 'Data utility report berasal dari mana?'],
   },
   {
     key: 'visitor_form',
     label: 'Visitor Form',
     matches: ['gmivp/visitorform', 'visitor-form'],
+    aliases: ['visitor form', 'form tamu', 'visitor'],
     suggestions: ['Cara buat visitor form', 'Siapa yang bisa approve visitor form?', 'Kenapa visitor form saya belum approved?'],
   },
   {
     key: 'exit_permit',
     label: 'Exit Permit',
     matches: ['gmivp/exitpermit', 'exit-permit'],
+    aliases: ['exit permit'],
     suggestions: ['Cara buat exit permit', 'Siapa yang bisa approve exit permit?', 'Bagaimana update status exit permit?'],
   },
   {
     key: 'master_data',
     label: 'Master Data',
     matches: ['masterdata/', 'master-data/', 'masterdata'],
+    aliases: ['master data', 'master'],
     suggestions: ['Cara tambah master data', 'Bagaimana edit master data?', 'Siapa yang bisa mengelola master data?'],
   },
   {
     key: 'control_panel',
     label: 'Control Panel',
     matches: ['controlpanel/', 'control-panel/', 'controlpanel'],
+    aliases: ['control panel'],
     suggestions: ['Apa fungsi control panel?', 'Siapa yang bisa mengubah module control?', 'Bagaimana melihat log aktivitas?'],
   },
   {
     key: 'dashboard',
     label: 'Dashboard',
     matches: ['dashboard'],
+    aliases: ['dashboard'],
     suggestions: ['Apa fungsi dashboard?', 'Data dashboard ini dari mana?', 'Kenapa data dashboard berbeda?'],
   },
 ];
@@ -554,7 +574,7 @@ const knowledgeTopics = [
   {
     id: 'leave_permission_overview',
     module: 'leave_permission',
-    keywords: ['leave permission', 'cuti', 'izin', 'cara buat leave permission'],
+    keywords: ['leave permission', 'leave & permission', 'leave and permission', 'cuti', 'izin', 'cara buat leave permission', 'cara membuat leave permission', 'cara membuat leave & permission'],
     summary: 'Leave & Permission dipakai untuk mengajukan cuti atau izin lalu mengikuti alur approval.',
     detail: [
       'User biasanya membuat pengajuan dengan memilih tipe pengajuan, tanggal, dan alasan.',
@@ -998,32 +1018,7 @@ const roleName = computed(() => String(authUser.value?.position?.name || '').tri
 const storageKey = computed(() => `${STORAGE_KEY_PREFIX}:${authUser.value?.id || 'guest'}`);
 
 const quickSuggestions = computed(() => {
-  if (currentPageProfile.value?.suggestions?.length) {
-    return currentPageProfile.value.suggestions;
-  }
-
-  const baseProfile = moduleProfiles.find((profile) => profile.key === currentModule.value);
-  const baseSuggestions = baseProfile?.suggestions || ['Jelaskan modul ini dengan bahasa sederhana', 'Apa fungsi halaman ini?', 'Siapa yang bisa memakai modul ini?'];
-
-  if (currentModule.value === 'attendance') {
-    return isManager.value || isAdmin.value
-      ? ['Cara baca status attendance log', 'Kenapa attendance tim bisa OFF?', 'Apa yang perlu dicek saat hasil attendance aneh?']
-      : baseSuggestions;
-  }
-
-  if (currentModule.value === 'roster') {
-    return isManager.value || isAdmin.value
-      ? ['Cara approve roster', 'Apa bedanya pending dan current roster?', 'Kalau roster belum current apa dampaknya?']
-      : baseSuggestions;
-  }
-
-  if (currentModule.value === 'ticket') {
-    return isManager.value || isAdmin.value
-      ? ['Cara distribute ticket', 'Kenapa ticket tidak bisa di-resolve?', 'Siapa yang bisa close ticket?']
-      : baseSuggestions;
-  }
-
-  return baseSuggestions;
+  return getSuggestionsForModule(currentModule.value);
 });
 
 function createMessage(role, text, extra = {}) {
@@ -1113,11 +1108,66 @@ async function loadMessages() {
 }
 
 function normalizeText(value) {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, ' dan ')
+    .replace(/\s+/g, ' ');
 }
 
 function getTopicById(topicId) {
   return knowledgeTopics.find((topic) => topic.id === topicId) || null;
+}
+
+function getModuleProfileByKey(moduleKey) {
+  return moduleProfiles.find((profile) => profile.key === moduleKey) || null;
+}
+
+function getModuleLabelByKey(moduleKey) {
+  return getModuleProfileByKey(moduleKey)?.label || 'Aplikasi';
+}
+
+function getSuggestionsForModule(moduleKey) {
+  if (moduleKey === currentModule.value && currentPageProfile.value?.suggestions?.length) {
+    return currentPageProfile.value.suggestions;
+  }
+
+  const baseProfile = getModuleProfileByKey(moduleKey);
+  const baseSuggestions = baseProfile?.suggestions || ['Jelaskan modul ini dengan bahasa sederhana', 'Apa fungsi halaman ini?', 'Siapa yang bisa memakai modul ini?'];
+
+  if (moduleKey === 'attendance') {
+    return isManager.value || isAdmin.value
+      ? ['Cara baca status attendance log', 'Kenapa attendance tim bisa OFF?', 'Apa yang perlu dicek saat hasil attendance aneh?']
+      : baseSuggestions;
+  }
+
+  if (moduleKey === 'roster') {
+    return isManager.value || isAdmin.value
+      ? ['Cara approve roster', 'Apa bedanya pending dan current roster?', 'Kalau roster belum current apa dampaknya?']
+      : baseSuggestions;
+  }
+
+  if (moduleKey === 'ticket') {
+    return isManager.value || isAdmin.value
+      ? ['Cara distribute ticket', 'Kenapa ticket tidak bisa di-resolve?', 'Siapa yang bisa close ticket?']
+      : baseSuggestions;
+  }
+
+  return baseSuggestions;
+}
+
+function detectMentionedModule(question) {
+  const normalized = normalizeText(question);
+
+  return moduleProfiles.find((profile) => {
+    const aliases = [
+      profile.label,
+      profile.key.replace(/_/g, ' '),
+      ...(Array.isArray(profile.aliases) ? profile.aliases : []),
+    ];
+
+    return aliases.some((alias) => normalized.includes(normalizeText(alias)));
+  })?.key || null;
 }
 
 function isFollowUpQuestion(question) {
@@ -1159,10 +1209,11 @@ function wantsStepByStep(question) {
 
 function scoreTopic(topic, question) {
   const normalizedQuestion = normalizeText(question);
+  const mentionedModule = detectMentionedModule(question);
 
   return topic.keywords.reduce((score, keyword) => {
     return normalizedQuestion.includes(normalizeText(keyword)) ? score + 1 : score;
-  }, topic.module === currentModule.value ? 0.75 : 0);
+  }, topic.module === mentionedModule ? 1.25 : topic.module === currentModule.value ? 0.75 : 0);
 }
 
 function findBestTopic(question) {
@@ -1178,7 +1229,7 @@ function findBestTopic(question) {
 }
 
 function suggestionsForTopic(topic) {
-  return topic?.suggestions?.length ? topic.suggestions : quickSuggestions.value;
+  return topic?.suggestions?.length ? topic.suggestions : getSuggestionsForModule(topic?.module || currentModule.value);
 }
 
 function joinDetailLines(lines) {
@@ -1190,7 +1241,7 @@ function joinDetailSteps(lines) {
 }
 
 function buildTopicAnswer(topic, usedFollowUpContext = false, stepByStep = false) {
-  const moduleLabel = topic.module === 'general' ? 'aplikasi' : capitalize(topic.module);
+  const moduleLabel = topic.module === 'general' ? 'aplikasi' : getModuleLabelByKey(topic.module);
   const opener = usedFollowUpContext
     ? `Masih nyambung dengan topik ${moduleLabel} tadi, ${topic.summary.toLowerCase()}`
     : topic.summary;
@@ -1207,24 +1258,26 @@ function buildTopicAnswer(topic, usedFollowUpContext = false, stepByStep = false
 }
 
 function fallbackAnswer(question) {
-  const moduleLabel = currentModule.value === 'general' ? 'modul aplikasi ini' : currentModuleLabel.value;
+  const effectiveModuleKey = detectMentionedModule(question) || currentModule.value;
+  const moduleLabel = effectiveModuleKey === 'general' ? 'modul aplikasi ini' : getModuleLabelByKey(effectiveModuleKey);
   const normalized = normalizeText(question);
   const stepByStep = wantsStepByStep(question);
+  const effectiveSuggestions = getSuggestionsForModule(effectiveModuleKey);
 
   if (stepByStep) {
-    const fallbackSteps = moduleActionFallbacks[currentModule.value];
+    const fallbackSteps = moduleActionFallbacks[effectiveModuleKey];
     if (Array.isArray(fallbackSteps) && fallbackSteps.length) {
       return createMessage(
         'assistant',
         `Kalau kita jelaskan ${moduleLabel} secara step by step, alurnya biasanya seperti ini:\n\n${joinDetailSteps(fallbackSteps)}\n\nKalau mau, saya bisa lanjut jelaskan salah satu langkahnya lebih detail lagi.`,
-        { suggestions: quickSuggestions.value }
+        { suggestions: effectiveSuggestions }
       );
     }
 
     return createMessage(
       'assistant',
       `Kalau kita jelaskan ${moduleLabel} secara step by step, alurnya biasanya seperti ini:\n\n1. buka modul atau halaman ${moduleLabel} yang ingin dipakai\n2. pahami fungsi utama halaman itu dari data, tombol, atau form yang tersedia\n3. isi, pilih, atau cek data yang dibutuhkan sesuai proses modulnya\n4. simpan, submit, atau jalankan aksi utama pada halaman tersebut\n5. periksa hasil akhirnya, termasuk status, detail, approval, atau output lain yang muncul\n\nKalau mau, saya bisa lanjut jelaskan step by step yang lebih spesifik untuk halaman ini.`,
-      { suggestions: quickSuggestions.value }
+      { suggestions: effectiveSuggestions }
     );
   }
 
@@ -1232,14 +1285,14 @@ function fallbackAnswer(question) {
     return createMessage(
       'assistant',
       `Saya belum yakin menangkap maksudnya secara spesifik, tapi saya bisa bantu dari konteks ${moduleLabel}.\n\nCoba tulis pertanyaannya lebih langsung tentang langkah penggunaan, arti status, approval, atau alasan sebuah aksi tidak bisa dipakai di halaman ini.`,
-      { suggestions: quickSuggestions.value }
+      { suggestions: effectiveSuggestions }
     );
   }
 
   return createMessage(
     'assistant',
     `Saya siap bantu untuk pemakaian modul ${moduleLabel}. Kamu bisa tanya alur kerja, arti status, approval, atau alasan sebuah aksi tidak bisa dijalankan.`,
-    { suggestions: quickSuggestions.value }
+    { suggestions: effectiveSuggestions }
   );
 }
 
@@ -1294,7 +1347,8 @@ function generateAnswer(question) {
   }
 
   if (isGenericExplainQuestion(question)) {
-    const defaultTopicId = defaultTopicByModule[currentModule.value];
+    const effectiveModuleKey = detectMentionedModule(question) || currentModule.value;
+    const defaultTopicId = defaultTopicByModule[effectiveModuleKey];
     const defaultTopic = getTopicById(defaultTopicId);
     if (defaultTopic) {
       lastTopicId.value = defaultTopic.id;
