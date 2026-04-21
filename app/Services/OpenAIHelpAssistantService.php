@@ -81,7 +81,7 @@ class OpenAIHelpAssistantService
         return implode("\n", [
             'Kamu adalah AI Help Assistant internal untuk aplikasi ColdKey GMI.',
             'Tugasmu membantu cara pemakaian aplikasi ColdKey GMI untuk semua modul yang tersedia.',
-            'Jawab dalam Bahasa Indonesia yang natural, hangat, singkat, dan enak dibaca seperti assistant internal.',
+            'Jawab dalam Bahasa Indonesia yang natural, hangat, detail, dan enak dibaca seperti assistant internal.',
             'Utamakan jawaban berdasarkan konteks halaman aktif dan role user.',
             'Kalau user sedang di halaman tertentu, fokus dulu ke aksi, status, dan izin yang relevan untuk halaman itu.',
             'Kalau role user bukan approver/manager/admin, jangan arahkan ke langkah approval seolah-olah dia bisa melakukannya.',
@@ -89,9 +89,11 @@ class OpenAIHelpAssistantService
             'Kalau informasi tidak cukup, katakan dengan jujur bahwa kamu belum yakin lalu arahkan user untuk cek status, roster aktif, scan, assignee, atau approver yang relevan.',
             'Jangan mengarang fitur yang belum tentu ada.',
             'Gunakan paragraf pendek dan bullet seperlunya.',
-            'Jika user bertanya langkah penggunaan, jawab dengan urutan langkah yang praktis.',
+            'Jika user bertanya langkah penggunaan, jawab dengan urutan langkah yang praktis dan detail, idealnya 5-10 langkah bila konteksnya cukup jelas.',
             'Jika user bertanya kenapa sebuah aksi gagal, utamakan kemungkinan syarat, status, dan role yang belum terpenuhi.',
             'Kalau modul aktif tidak jelas, jawab umum dulu lalu ajak user menyebut halaman yang sedang dibuka.',
+            'Saat modul atau aksi sudah jelas, jelaskan field penting, status yang mungkin muncul, hasil setelah submit, dan tindak lanjut sesudahnya.',
+            'Jangan berhenti di overview singkat jika user meminta penjelasan cara pakai atau step by step.',
             '',
             "Konteks user:",
             "- Nama: {$user->name}",
@@ -114,6 +116,9 @@ class OpenAIHelpAssistantService
             '',
             'Peta modul aplikasi:',
             $this->buildApplicationKnowledge(),
+            '',
+            'Peta aksi utama modul:',
+            $this->buildApplicationActionKnowledge(),
         ]);
     }
 
@@ -455,6 +460,30 @@ class OpenAIHelpAssistantService
         ];
 
         return implode("\n- ", array_merge(['Gunakan referensi modul berikut sebagai knowledge umum aplikasi:'], $modules));
+    }
+
+    protected function buildApplicationActionKnowledge(): string
+    {
+        $actions = [
+            'Attendance: fingerprint punya alur preview -> confirm save -> clear; attendance log fokus filter, baca status, dan pemahaman hasil scan vs roster; absensi fokus submit kehadiran; the days fokus tambah/hapus hari khusus.',
+            'Leave Permission: index lihat daftar/status, create/store buat pengajuan, edit/update revisi data, show lihat detail, destroy hapus pengajuan bila diizinkan.',
+            'Overtime: index lihat daftar dan status, create/store buat lembur, show lihat detail, update revisi pengajuan lembur.',
+            'Roster: uploadPage/listPage membuka halaman utama, preview validasi file, upload simpan batch, approve/reject tindak lanjut batch, view/download lihat hasil batch, template unduh format roster.',
+            'Ticket: index daftar/filter, create/store buat ticket, show detail ticket, storeComment tambah komentar, update/edit ubah data, distribute assign ticket, updateStatus ubah status kerja, resolve selesaikan pekerjaan, close tutup ticket, reopen buka lagi, requestDeadlineChange dan approveDeadlineChange kelola deadline, attachment bisa delete/replace.',
+            'Checklist: index lihat daftar, create isi checklist dari template, QRCode bisa divalidasi terhadap area aktif, submit lalu mengikuti approval sesuai template.',
+            'Request Access: index daftar request, create/store buat request existing/new user, show detail request, approve/reject oleh reviewer, process oleh IT, getUsers bantu pemilihan user existing.',
+            'Check Inline: index daftar data, create/store buat entri, show membuka edit/detail, update revisi data dan gambar.',
+            'Berita Acara: index daftar dokumen, create/store buat dokumen, show detail, print tampilan cetak, downloadPdf unduh PDF, destroy hapus dokumen jika berwenang.',
+            'Stock Card: masterIndex/storeItem/updateItem kelola master barang, index lihat kartu stok dan pending request, storeStockIn tambah stok masuk, storeRequest buat permintaan stok, approveRequest setujui permintaan stok.',
+            'Plugging: index daftar, create/store buat data, edit/update revisi, approvalIndex daftar approval, approve set status selesai + PIC/signature, destroy hapus, export unduh CSV.',
+            'Electricity/Water Meter: index lihat log, store tambah log, update revisi log, export unduh data untuk meter yang mendukung export.',
+            'Visitor Form: index daftar, create/store buat form tamu, approve approval form, updateStatus ubah status kunjungan.',
+            'Exit Permit: index daftar, create/store buat permit, approve setujui permit.',
+            'Master Data: department/customer/vehicle type/position/employee/user/item type/unit/attendance lock area pada umumnya punya pola index, create/store, edit/update, destroy; employee juga punya resign/cancelResign/faceReferencePhoto.',
+            'Control Panel: module control index/save/forUser, access rules index/save/reset/rollback, logs index/show/clear, database backup index/store/start/stop/download/destroy/updatePath.',
+        ];
+
+        return implode("\n- ", array_merge(['Gunakan referensi aksi berikut untuk menjawab cara pakai secara detail:'], $actions));
     }
 
     protected function buildInput(array $history, string $message): array

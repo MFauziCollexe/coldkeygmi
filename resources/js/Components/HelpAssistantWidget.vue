@@ -569,9 +569,33 @@ const knowledgeTopics = [
     keywords: ['overtime', 'lembur', 'cara buat overtime'],
     summary: 'Overtime dipakai untuk mencatat dan mengajukan pekerjaan lembur sesuai kebutuhan kerja.',
     detail: [
-      'Biasanya user membuat form lembur dengan tanggal, jam, alasan, dan pekerjaan yang dilakukan.',
-      'Sesudah disubmit, overtime akan melewati proses review atau approval sesuai role.',
+      'Buka modul Overtime lalu masuk ke halaman Create atau tombol tambah lembur.',
+      'Isi tanggal lembur sesuai hari pekerjaan lembur dilakukan atau diajukan.',
+      'Isi jam mulai dan jam selesai lembur sesuai kebutuhan pada form.',
+      'Isi alasan lembur dengan jelas supaya approver paham kenapa pekerjaan itu perlu dilakukan di luar jam normal.',
+      'Isi detail pekerjaan atau aktivitas yang dikerjakan saat lembur.',
+      'Kalau form menyediakan lampiran, tambahkan file pendukung bila memang diperlukan.',
+      'Periksa lagi data yang sudah diisi, lalu submit atau simpan pengajuan lembur.',
+      'Sesudah disubmit, overtime akan masuk ke proses review atau approval sesuai role yang berlaku.',
       'Kalau overtime tidak muncul atau belum approved, cek status pengajuan dan pihak approver terkait.',
+    ],
+    suggestions: ['Siapa yang bisa approve overtime?', 'Kenapa overtime saya tidak muncul?'],
+  },
+  {
+    id: 'overtime_create',
+    module: 'overtime',
+    keywords: ['langkah membuat overtime', 'cara membuat overtime', 'buat overtime step by step', 'langkah2 overtime', 'membuat overtime'],
+    summary: 'Kalau tujuannya membuat overtime, langkahnya sebaiknya diikuti berurutan agar pengajuan tidak tertolak karena data kurang lengkap.',
+    detail: [
+      'Masuk ke modul Overtime lalu buka halaman Create.',
+      'Pilih tanggal lembur yang sesuai.',
+      'Isi jam mulai dan jam selesai lembur.',
+      'Isi alasan lembur secara singkat tapi jelas.',
+      'Isi pekerjaan yang dilakukan atau rencana pekerjaan saat lembur.',
+      'Upload lampiran jika form memang menyediakan dan jika ada dokumen pendukung.',
+      'Cek kembali semua isi form sebelum disubmit.',
+      'Klik simpan atau submit untuk mengirim pengajuan.',
+      'Setelah itu buka daftar Overtime untuk melihat status pengajuan apakah masih pending, sudah approved, atau perlu tindak lanjut.',
     ],
     suggestions: ['Siapa yang bisa approve overtime?', 'Kenapa overtime saya tidak muncul?'],
   },
@@ -796,6 +820,143 @@ const defaultTopicByModule = {
   master_data: 'master_data_overview',
   control_panel: 'control_panel_overview',
   dashboard: 'dashboard_overview',
+};
+
+const moduleActionFallbacks = {
+  attendance: [
+    'Buka halaman Attendance yang relevan, misalnya Fingerprint, Attendance Log, Absensi, atau The Days.',
+    'Kalau sedang import scan, lakukan preview dulu lalu confirm save agar data benar-benar masuk.',
+    'Kalau sedang membaca attendance log, cek filter tanggal, pin, nama, department, lalu lihat status yang muncul.',
+    'Bandingkan hasil attendance dengan roster aktif dan scan mentah jika ada hasil yang terasa aneh.',
+    'Lanjutkan ke approval atau tindak lanjut lain hanya jika role user memang memiliki aksesnya.',
+  ],
+  leave_permission: [
+    'Buka modul Leave & Permission lalu masuk ke halaman create jika ingin membuat pengajuan baru.',
+    'Pilih tipe pengajuan, isi tanggal, alasan, dan lampiran bila diperlukan.',
+    'Periksa lagi data pengajuan sebelum disubmit.',
+    'Setelah submit, buka daftar pengajuan untuk melihat statusnya.',
+    'Kalau belum diproses, cek approver terkait dan kelengkapan data pengajuan.',
+  ],
+  overtime: [
+    'Buka modul Overtime lalu masuk ke halaman Create.',
+    'Isi tanggal, jam mulai, jam selesai, alasan lembur, dan detail pekerjaan.',
+    'Tambahkan lampiran jika form menyediakan dan memang diperlukan.',
+    'Submit pengajuan lalu cek kembali di daftar Overtime.',
+    'Pantau statusnya apakah masih pending, sudah approved, atau butuh tindak lanjut.',
+  ],
+  roster: [
+    'Masuk ke halaman upload roster atau roster list sesuai kebutuhan.',
+    'Kalau membuat batch baru, unduh template lalu isi shift sesuai periode.',
+    'Preview file roster untuk memastikan format dan isinya valid.',
+    'Upload batch roster lalu tunggu approval.',
+    'Cek roster list untuk melihat status approved/current atau untuk approve/reject bila role mengizinkan.',
+  ],
+  ticket: [
+    'Masuk ke modul Ticket lalu pilih apakah ingin melihat daftar ticket, membuat ticket baru, atau membuka detail ticket.',
+    'Saat create, isi department, judul, deskripsi, dan data pendukung lain yang tersedia.',
+    'Di detail ticket, gunakan aksi yang sesuai seperti comment, update status, resolve, close, atau distribute sesuai role.',
+    'Perhatikan status ticket karena beberapa aksi hanya bisa dilakukan pada status tertentu.',
+    'Setelah aksi dilakukan, cek kembali detail ticket untuk memastikan perubahan berhasil tersimpan.',
+  ],
+  checklist: [
+    'Buka modul Checklist lalu pilih template atau halaman create jika ingin mengisi checklist baru.',
+    'Pilih area atau section yang sesuai dengan template yang digunakan.',
+    'Isi pertanyaan checklist satu per satu dan scan QRCode bila template mewajibkannya.',
+    'Pastikan QRCode sesuai dengan area aktif sebelum menyimpan.',
+    'Submit checklist lalu cek alur approval sesuai template dan role user.',
+  ],
+  request_access: [
+    'Masuk ke Request Access lalu buka halaman create.',
+    'Pilih jenis request untuk existing user atau new user.',
+    'Isi target user atau data user baru, pilih modul yang diminta, lalu tulis alasan request.',
+    'Submit request dan cek statusnya di halaman daftar atau detail.',
+    'Jika request sudah approved, proses berikutnya biasanya dilanjutkan oleh IT.',
+  ],
+  check_inline: [
+    'Buka modul Check Inline dan masuk ke halaman create bila ingin membuat data baru.',
+    'Isi data inti seperti customer, PO, batch, qty, tanggal, dan unggah gambar bila ada.',
+    'Simpan data lalu cek lagi di daftar Check Inline.',
+    'Jika perlu revisi, buka detail/edit untuk memperbarui data atau gambar.',
+    'Pastikan perubahan tersimpan sebelum kembali ke daftar.',
+  ],
+  berita_acara: [
+    'Masuk ke modul Berita Acara lalu buka halaman create.',
+    'Isi tanggal kejadian, tempat, waktu, customer, department, dan kronologi.',
+    'Simpan dokumen agar nomor dan data berita acara terbentuk.',
+    'Buka halaman detail untuk meninjau hasil dokumen.',
+    'Lanjutkan ke print, download PDF, atau hapus dokumen sesuai hak akses.',
+  ],
+  date_code: [
+    'Buka modul Date Code.',
+    'Masukkan atau pilih informasi yang ingin dibaca dari kode tanggal.',
+    'Perhatikan hasil pembacaan atau konversi yang ditampilkan pada halaman.',
+    'Kalau hasilnya membingungkan, cocokan lagi input dan format kode yang dipakai.',
+  ],
+  stock_card: [
+    'Masuk ke Stock Card atau master stock card sesuai tujuanmu.',
+    'Kalau mengelola master item, tambah atau edit data barang pada halaman master.',
+    'Kalau menambah stok, gunakan form stock in dan isi item, tanggal, serta jumlah.',
+    'Kalau meminta stok, buat request item lalu cek status pending/approved.',
+    'Pantau histori stok dan saldo item dari kartu stok yang tersedia.',
+  ],
+  plugging: [
+    'Buka modul Plugging lalu pilih create jika ingin membuat data baru.',
+    'Isi tanggal, jam, customer, kendaraan, suhu, lokasi, dan data pendukung lain yang ada di form.',
+    'Simpan data plugging lalu cek lagi di daftar.',
+    'Jika perlu revisi, buka edit untuk memperbarui data.',
+    'Untuk approval, buka halaman approval dan lengkapi PIC customer serta signature jika memang diwajibkan.',
+  ],
+  electricity: [
+    'Masuk ke halaman meter listrik yang sesuai, Standard Meter atau HV Meter.',
+    'Isi log pembacaan meter pada form input.',
+    'Simpan data lalu cek apakah log baru muncul di daftar.',
+    'Kalau perlu revisi, gunakan aksi update pada log yang tersedia.',
+    'Jika dibutuhkan, gunakan fitur export untuk mengunduh data.',
+  ],
+  water_meter: [
+    'Buka modul Water Meter.',
+    'Isi data pembacaan meter air pada form yang tersedia.',
+    'Simpan lalu cek hasilnya pada daftar log.',
+    'Update log bila ada kesalahan input.',
+    'Gunakan export jika ingin mengunduh data log.',
+  ],
+  utility_report: [
+    'Masuk ke Utility Report.',
+    'Baca ringkasan data yang tampil pada halaman laporan.',
+    'Cocokkan hasil laporan dengan periode atau konteks data yang sedang dilihat.',
+    'Jika angka terasa berbeda, cek sumber log dari modul utility yang terkait.',
+  ],
+  visitor_form: [
+    'Buka Visitor Form lalu masuk ke halaman create jika ingin membuat form baru.',
+    'Isi data tamu, tujuan kunjungan, tanggal, waktu, dan pihak yang dikunjungi.',
+    'Submit form lalu cek statusnya di halaman daftar.',
+    'Lanjutkan ke approval atau update status sesuai role yang dimiliki.',
+  ],
+  exit_permit: [
+    'Masuk ke Exit Permit lalu buka halaman create.',
+    'Isi data barang, tujuan, alasan keluar, dan informasi pendukung lainnya.',
+    'Submit permit lalu cek statusnya di daftar.',
+    'Jika role mengizinkan, lanjutkan ke approval atau tindak lanjut dokumen.',
+  ],
+  master_data: [
+    'Buka modul master data yang sesuai seperti Department, Employee, Position, Customer, Vehicle Type, atau lainnya.',
+    'Gunakan halaman create untuk menambah data baru atau edit untuk memperbarui data lama.',
+    'Isi field referensi dengan benar karena data ini biasanya dipakai modul lain.',
+    'Simpan perubahan lalu cek daftar data untuk memastikan hasilnya sudah masuk.',
+    'Jika ada aksi khusus seperti resign employee atau face reference photo, lakukan dari halaman yang memang menyediakan aksi itu.',
+  ],
+  control_panel: [
+    'Masuk ke halaman Control Panel yang sesuai seperti Module Control, Access Rules, Logs, atau Database Backup.',
+    'Pahami dulu fungsi halaman itu sebelum menjalankan aksi administratif.',
+    'Lakukan perubahan atau tindakan seperti save konfigurasi, rollback, clear log, atau start backup hanya jika memang berwenang.',
+    'Setelah aksi dilakukan, cek hasilnya di halaman yang sama atau pada data yang terdampak.',
+  ],
+  dashboard: [
+    'Buka Dashboard untuk melihat ringkasan data utama aplikasi.',
+    'Perhatikan kartu, indikator, atau widget yang tersedia.',
+    'Jika ada angka yang ingin dipahami, cocokkan dengan modul sumber datanya.',
+    'Gunakan dashboard sebagai titik awal sebelum masuk ke modul detail yang relevan.',
+  ],
 };
 
 const page = usePage();
@@ -1051,6 +1212,15 @@ function fallbackAnswer(question) {
   const stepByStep = wantsStepByStep(question);
 
   if (stepByStep) {
+    const fallbackSteps = moduleActionFallbacks[currentModule.value];
+    if (Array.isArray(fallbackSteps) && fallbackSteps.length) {
+      return createMessage(
+        'assistant',
+        `Kalau kita jelaskan ${moduleLabel} secara step by step, alurnya biasanya seperti ini:\n\n${joinDetailSteps(fallbackSteps)}\n\nKalau mau, saya bisa lanjut jelaskan salah satu langkahnya lebih detail lagi.`,
+        { suggestions: quickSuggestions.value }
+      );
+    }
+
     return createMessage(
       'assistant',
       `Kalau kita jelaskan ${moduleLabel} secara step by step, alurnya biasanya seperti ini:\n\n1. buka modul atau halaman ${moduleLabel} yang ingin dipakai\n2. pahami fungsi utama halaman itu dari data, tombol, atau form yang tersedia\n3. isi, pilih, atau cek data yang dibutuhkan sesuai proses modulnya\n4. simpan, submit, atau jalankan aksi utama pada halaman tersebut\n5. periksa hasil akhirnya, termasuk status, detail, approval, atau output lain yang muncul\n\nKalau mau, saya bisa lanjut jelaskan step by step yang lebih spesifik untuk halaman ini.`,
