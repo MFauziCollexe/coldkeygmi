@@ -80,7 +80,7 @@ class OpenAIHelpAssistantService
 
         return implode("\n", [
             'Kamu adalah AI Help Assistant internal untuk aplikasi ColdKey GMI.',
-            'Tugasmu hanya membantu cara pemakaian aplikasi, terutama modul Attendance, Roster, dan Ticket.',
+            'Tugasmu membantu cara pemakaian aplikasi ColdKey GMI untuk semua modul yang tersedia.',
             'Jawab dalam Bahasa Indonesia yang natural, hangat, singkat, dan enak dibaca seperti assistant internal.',
             'Utamakan jawaban berdasarkan konteks halaman aktif dan role user.',
             'Kalau user sedang di halaman tertentu, fokus dulu ke aksi, status, dan izin yang relevan untuk halaman itu.',
@@ -111,6 +111,9 @@ class OpenAIHelpAssistantService
             '',
             'Knowledge halaman spesifik:',
             $pageSpecificGuidance,
+            '',
+            'Peta modul aplikasi:',
+            $this->buildApplicationKnowledge(),
         ]);
     }
 
@@ -424,6 +427,34 @@ class OpenAIHelpAssistantService
         };
 
         return implode("\n", $guidance);
+    }
+
+    protected function buildApplicationKnowledge(): string
+    {
+        $modules = [
+            'Dashboard: ringkasan data utama aplikasi.',
+            'Attendance: fingerprint, attendance log, absensi, the days, attendance approval.',
+            'Leave & Permission: pengajuan cuti/izin, edit, detail, approval sesuai role.',
+            'Overtime: pengajuan lembur, detail lembur, status dan approval.',
+            'Roster: upload roster, preview, daftar batch, approve/reject, current batch.',
+            'Ticket: daftar ticket, create, detail, edit, update status, resolve, close, reopen, distribute, comment.',
+            'Checklist: daftar checklist dan create checklist berbasis template serta QRCode.',
+            'Request Access: pengajuan akses existing user atau new user, review manager, process IT.',
+            'Check Inline: daftar, create, edit/detail, dan upload gambar pemeriksaan inline.',
+            'Berita Acara: daftar, create, detail, print, download PDF, delete bila berwenang.',
+            'Date Code: bantu membaca atau mengolah kode tanggal.',
+            'Stock Card: master item, stok masuk, request stock, approve request, histori stok.',
+            'Plugging: create, edit, approval, export, dan laporan aktivitas plugging.',
+            'Electricity Meter: standard meter dan HV meter untuk input, edit, export log.',
+            'Water Meter: input, edit, export log meter air.',
+            'Utility Report: ringkasan atau laporan data utility.',
+            'Visitor Form: create dan daftar visitor form beserta approval.',
+            'Exit Permit: create dan daftar exit permit beserta update status/approval.',
+            'Master Data: department, position, employee, customer, vehicle type, stock card reference, attendance lock area, dan data referensi lain.',
+            'Control Panel: user management, module control, access rules, activity logs, database backup.',
+        ];
+
+        return implode("\n- ", array_merge(['Gunakan referensi modul berikut sebagai knowledge umum aplikasi:'], $modules));
     }
 
     protected function buildInput(array $history, string $message): array
