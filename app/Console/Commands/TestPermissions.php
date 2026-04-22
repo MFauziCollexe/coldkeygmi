@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\User;
+use Illuminate\Console\Command;
 
 class TestPermissions extends Command
 {
@@ -15,14 +15,16 @@ class TestPermissions extends Command
         $this->line('=== Testing Permission System ===');
         $this->line('');
 
-        // Check admin
         $admin = User::where('email', 'admin@coldkeygmi.com')->first();
+
         if ($admin) {
             $this->info('✓ Admin User Found:');
             $this->line('  Email: ' . $admin->email);
             $this->line('  is_admin: ' . ($admin->is_admin ? 'YES ✓' : 'NO ✗'));
+
             $perms = $admin->modulePermissions()->count();
             $this->line('  Permissions: ' . $perms . ' modules');
+
             if ($perms > 0) {
                 $keys = $admin->modulePermissions()->pluck('module_key')->toArray();
                 $this->line('  Modules: ' . implode(', ', array_slice($keys, 0, 3)) . (count($keys) > 3 ? ', ...' : ''));
@@ -33,19 +35,21 @@ class TestPermissions extends Command
 
         $this->line('');
 
-        // Check Fauzi - using name field
-        $fauzi = User::where('email', 'fauzi.muhammad@gmail.com')
-            ->orWhere(function ($q) {
-                $q->where('first_name', 'Muhammad')->where('last_name', 'Fauzi');
-            })
+        $fauzi = User::query()
+            ->where('email', 'fauzi.mukhammad@gmail.com')
+            ->orWhere('account', 'fauzi')
+            ->orWhere('name', 'fauzi')
             ->first();
 
         if ($fauzi) {
             $this->info('✓ Fauzi User Found:');
             $this->line('  Email: ' . $fauzi->email);
             $this->line('  is_admin: ' . ($fauzi->is_admin ? 'YES' : 'NO'));
+
             $perms = $fauzi->modulePermissions()->count();
             $this->line('  Permissions: ' . $perms . ' modules');
+            $this->line('  Compress PDF access: ' . ($fauzi->hasModulePermission('tools.compress_pdf') ? 'YES ✓' : 'NO ✗'));
+
             if ($perms > 0) {
                 $keys = $fauzi->modulePermissions()->pluck('module_key')->toArray();
                 foreach ($keys as $key) {
@@ -58,6 +62,7 @@ class TestPermissions extends Command
 
         $this->line('');
         $this->info('Test complete!');
+
         return 0;
     }
 }
