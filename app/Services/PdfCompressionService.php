@@ -56,14 +56,22 @@ class PdfCompressionService
 
             $originalSize = filesize($originalPath);
             $compressedSize = filesize($compressedPath);
-            $compressionRatio = $originalSize > 0 
+            $compressionRatio = $originalSize > 0
                 ? round(($originalSize - $compressedSize) / $originalSize * 100, 2)
                 : 0;
+
+            $usedOriginalAsBestResult = false;
+
+            if ($compressedSize >= $originalSize) {
+                $usedOriginalAsBestResult = true;
+                $compressedSize = $originalSize;
+                $compressionRatio = 0;
+            }
 
             $compressedStoragePath = self::COMPRESSED_PATH . '/' . $compressedFilename;
             $disk->put(
                 $compressedStoragePath,
-                file_get_contents($compressedPath)
+                file_get_contents($usedOriginalAsBestResult ? $originalPath : $compressedPath)
             );
 
             $job->update([
@@ -73,6 +81,9 @@ class PdfCompressionService
                 'original_size' => $originalSize,
                 'compressed_size' => $compressedSize,
                 'compression_ratio' => $compressionRatio,
+                'error_message' => $usedOriginalAsBestResult
+                    ? 'Ukuran file asli sudah lebih optimal. Sistem menyimpan versi asli sebagai hasil terbaik.'
+                    : null,
                 'completed_at' => now(),
             ]);
 
