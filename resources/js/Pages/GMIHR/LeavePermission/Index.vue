@@ -48,6 +48,31 @@
             </label>
           </div>
 
+          <div class="md:col-span-2 relative group">
+            <SearchableSelect
+              v-model="filters.type"
+              :options="typeOptions"
+              option-value="value"
+              option-label="label"
+              placeholder=" "
+              empty-label="Semua Jenis"
+              input-class="w-full h-[52px] pl-3 pr-10 pt-5 pb-2 !bg-slate-800 !border-slate-700 rounded-lg text-slate-100 placeholder-transparent"
+              button-class="h-[52px] border-0 border-l !border-slate-700 rounded-r-lg !bg-slate-800 text-slate-100"
+              @update:modelValue="fetchData"
+            />
+            <label
+              :class="[
+                'pointer-events-none absolute left-3 z-10 transition-all',
+                (filters.type
+                  ? 'px-1 text-xs text-slate-300 bg-slate-800 top-0 -translate-y-1/2'
+                  : 'px-0 text-base text-slate-400 bg-transparent top-1/2 -translate-y-1/2'),
+                'group-focus-within:px-1 group-focus-within:text-xs group-focus-within:text-slate-200 group-focus-within:bg-slate-800 group-focus-within:top-0 group-focus-within:-translate-y-1/2',
+              ]"
+            >
+              Jenis Pengajuan
+            </label>
+          </div>
+
           <div v-if="isAdmin" class="md:col-span-3 relative group">
             <SearchableSelect
               v-model="filters.department_id"
@@ -88,6 +113,7 @@
                 <th class="text-left py-2 pr-3 w-[56px]">No</th>
                 <th class="text-left py-2 pr-3 w-[132px]">Tanggal Pengajuan</th>
                 <th class="text-left py-2 pr-3 w-[160px]">Karyawan</th>
+                <th class="text-left py-2 pr-3 w-[110px]">Jenis</th>
                 <th class="text-left py-2 pr-3 w-[124px]">Department</th>
                 <th class="text-left py-2 pr-3 w-[110px]">Tanggal Mulai</th>
                 <th class="text-left py-2 pr-3 w-[110px]">Tanggal Selesai</th>
@@ -105,6 +131,7 @@
                 <td class="py-2 pr-3 align-top break-words" :title="item.employee?.name || item.user?.name || '-'">
                   {{ item.employee?.name || item.user?.name || '-' }}
                 </td>
+                <td class="py-2 pr-3 align-top whitespace-nowrap">{{ getTypeLabel(item.type) }}</td>
                 <td class="py-2 pr-3 align-top truncate" :title="item.employee?.department?.name || item.user?.department?.name || '-'">
                   {{ item.employee?.department?.name || item.user?.department?.name || '-' }}
                 </td>
@@ -415,6 +442,12 @@ const statusOptions = [
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
+];
+const typeOptions = [
+  { value: 'cuti', label: 'Cuti' },
+  { value: 'izin', label: 'Izin' },
+  { value: 'sakit', label: 'Sakit' },
+  { value: 'dinas_luar', label: 'Dinas Luar' },
 ];
 
 function fetchData() {

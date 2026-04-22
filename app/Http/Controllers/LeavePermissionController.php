@@ -264,6 +264,7 @@ class LeavePermissionController extends Controller
         $search = request('search');
         $status = request('status');
         $type = request('type');
+        $departmentId = (int) request('department_id');
         $startDate = request('start_date');
         $endDate = request('end_date');
 
@@ -287,6 +288,16 @@ class LeavePermissionController extends Controller
         // Filter type (tab) - only apply if type is not empty
         if (!empty($type)) {
             $query->where('type', $type);
+        }
+
+        if ($departmentId > 0 && in_array($departmentId, $visibleDeptIds, true)) {
+            $query->where(function ($q) use ($departmentId) {
+                $q->whereHas('employee', function ($qq) use ($departmentId) {
+                    $qq->where('department_id', $departmentId);
+                })->orWhereHas('user', function ($qq) use ($departmentId) {
+                    $qq->where('department_id', $departmentId);
+                });
+            });
         }
 
         if ($startDate) {
@@ -317,7 +328,7 @@ class LeavePermissionController extends Controller
 
         return Inertia::render('GMIHR/LeavePermission/Index', [
             'leavePermissions' => $leavePermissions,
-            'filters' => request()->only(['search', 'status', 'type', 'start_date', 'end_date', 'page']),
+            'filters' => request()->only(['search', 'status', 'type', 'department_id', 'start_date', 'end_date', 'page']),
             'departments' => $departments,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),

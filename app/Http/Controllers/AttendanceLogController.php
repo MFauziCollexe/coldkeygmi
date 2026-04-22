@@ -1896,6 +1896,24 @@ class AttendanceLogController extends Controller
             return null;
         }
 
+        $supportedFormats = [
+            'Y-m-d',
+            'd/m/Y',
+            'd-m-Y',
+            'Y/m/d',
+        ];
+
+        foreach ($supportedFormats as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $value);
+                if ($parsed !== false && $parsed->format($format) === $value) {
+                    return $parsed->toDateString();
+                }
+            } catch (\Throwable $e) {
+                // Try the next supported format.
+            }
+        }
+
         try {
             return Carbon::parse($value)->toDateString();
         } catch (\Throwable $e) {
