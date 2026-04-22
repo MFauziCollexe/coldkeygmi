@@ -1,5 +1,5 @@
 <template>
-  <AuthLayout>
+  <AppLayout>
     <div class="space-y-6">
       <!-- Header -->
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -258,13 +258,13 @@
         </div>
       </div>
     </div>
-  </AuthLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
-import AuthLayout from '@/Layouts/AuthLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
   jobs: Object,
