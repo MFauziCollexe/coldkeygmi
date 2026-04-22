@@ -137,6 +137,29 @@ Route::post('check-inline', [App\Http\Controllers\CheckInlineController::class, 
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.check_inline'])
     ->name('check-inline.store');
 
+// Compress PDF (GMISL > Tools > Compress PDF)
+Route::get('gmisl/tools/compress-pdf', [App\Http\Controllers\CompressPdfController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.compress_pdf'])
+    ->name('compress-pdf.index');
+Route::post('gmisl/tools/compress-pdf/upload', [App\Http\Controllers\CompressPdfController::class, 'upload'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.compress_pdf'])
+    ->name('compress-pdf.upload');
+Route::post('gmisl/tools/compress-pdf/batch', [App\Http\Controllers\CompressPdfController::class, 'batch'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.compress_pdf'])
+    ->name('compress-pdf.batch');
+Route::get('gmisl/tools/compress-pdf/{compressPdfJob}/download', [App\Http\Controllers\CompressPdfController::class, 'download'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.compress_pdf'])
+    ->name('compress-pdf.download');
+Route::get('gmisl/tools/compress-pdf/{compressPdfJob}', [App\Http\Controllers\CompressPdfController::class, 'show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.compress_pdf'])
+    ->name('compress-pdf.show');
+Route::delete('gmisl/tools/compress-pdf/{compressPdfJob}', [App\Http\Controllers\CompressPdfController::class, 'delete'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.compress_pdf'])
+    ->name('compress-pdf.delete');
+Route::get('gmisl/tools/compress-pdf-stats', [App\Http\Controllers\CompressPdfController::class, 'getStats'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.compress_pdf'])
+    ->name('compress-pdf.stats');
+
 // GMIUM - Plugging
 Route::get('gmium/plugging', [App\Http\Controllers\PluggingController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging'])
