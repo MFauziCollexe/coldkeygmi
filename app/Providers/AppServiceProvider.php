@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Employee;
 use App\Observers\UserObserver;
 use App\Observers\EmployeeObserver;
+use App\Services\PdfCompressionService;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -18,7 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(PdfCompressionService::class, function ($app) {
+            return new PdfCompressionService();
+        });
     }
 
     /**
