@@ -1513,7 +1513,7 @@ class AttendanceLogController extends Controller
             $inFrom = $anchorStart->copy()->subHours(2);
             $inTo = $anchorEnd->copy();
             $outFrom = $anchorEnd->copy();
-            $outTo = $this->resolveCheckoutWindowEnd($logDate, $nextDayStartTime);
+            $outTo = $this->resolveCheckoutWindowEnd($logDate, $startTime, $endTime, $nextDayStartTime);
 
             $checkinCandidates = $sorted->filter(function ($scan) use ($inFrom, $inTo) {
                 try {
@@ -1741,7 +1741,7 @@ class AttendanceLogController extends Controller
                 }
             }
 
-            $checkoutEnd = $this->resolveCheckoutWindowEnd($logDate, $nextDayStartTime);
+            $checkoutEnd = $this->resolveCheckoutWindowEnd($logDate, $startTime, $endTime, $nextDayStartTime);
             if ($checkoutEnd->toDateString() !== $logDate) {
                 $dates[] = $checkoutEnd->format('Y-m-d');
             }
@@ -1752,10 +1752,35 @@ class AttendanceLogController extends Controller
         return array_values(array_unique($dates));
     }
 
-    private function resolveCheckoutWindowEnd(string $logDate, ?string $nextDayStartTime = null): Carbon
+    private function resolveCheckoutWindowEnd(
+        string $logDate,
+        ?string $startTime = null,
+        ?string $endTime = null,
+        ?string $nextDayStartTime = null
+    ): Carbon
     {
         $nextStart = $this->normalizeTime($nextDayStartTime) ?? '08:00:00';
         $checkoutEnd = Carbon::parse($logDate . ' ' . $nextStart)->addDay()->subHours(2);
+
+        $normalizedStartTime = $this->normalizeTime($startTime);
+        $normalizedEndTime = $this->normalizeTime($endTime);
+        if (
+            $normalizedStartTime !== null
+            && $normalizedEndTime !== null
+            && !$this->isOvernightShift($normalizedStartTime, $normalizedEndTime)
+        ) {
+            try {
+                $scheduledEnd = Carbon::parse($logDate . ' ' . $normalizedEndTime);
+                $maxCheckoutEnd = $scheduledEnd->copy()->addHours(10);
+
+                if ($checkoutEnd->greaterThan($maxCheckoutEnd)) {
+                    $checkoutEnd = $maxCheckoutEnd;
+                }
+            } catch (\Throwable $e) {
+                // Keep the roster-based fallback cutoff.
+            }
+        }
+
         return $checkoutEnd;
     }
 
