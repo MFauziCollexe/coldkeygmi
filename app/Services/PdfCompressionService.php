@@ -215,3 +215,4 @@ class PdfCompressionService
             'Silakan install GhostScript dari https://www.ghostscriptplus.com/ atau gunakan package manager Anda.'
         );
     }
+}
