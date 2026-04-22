@@ -55,6 +55,20 @@ export const sidebarMenuConfig = [
                     },
                 ],
             },
+            {
+                id: "tools",
+                label: "Tools",
+                icon: "Wrench",
+                children: [
+                    {
+                        id: "compress-pdf",
+                        label: "Compress PDF",
+                        icon: "FileText",
+                        route: "/gmisl/tools/compress-pdf",
+                        module_key: "tools.compress_pdf",
+                    },
+                ],
+            },
         ],
     },
     {
@@ -92,14 +106,16 @@ export const sidebarMenuConfig = [
                                 label: "Standard Meter",
                                 icon: "FileText",
                                 route: "/gmium/resource-monitoring/electricity/standard-meter",
-                                module_key: "gmium.resource_monitoring.electricity.standard_meter",
+                                module_key:
+                                    "gmium.resource_monitoring.electricity.standard_meter",
                             },
                             {
                                 id: "hv-meter",
                                 label: "HV Meter",
                                 icon: "Activity",
                                 route: "/gmium/resource-monitoring/electricity/hv-meter",
-                                module_key: "gmium.resource_monitoring.electricity.hv_meter",
+                                module_key:
+                                    "gmium.resource_monitoring.electricity.hv_meter",
                             },
                         ],
                     },
@@ -254,15 +270,15 @@ export const sidebarMenuConfig = [
                 label: "Device Integration",
                 icon: "Monitor",
                 children: [
-                      {
-                          id: "fingerprint",
-                          label: "Fingerprint",
-                          icon: "Fingerprint",
-                          route: "/fingerprint",
-                          module_key: "gmihr.device.fingerprint",
-                      },
-                  ],
-              },
+                    {
+                        id: "fingerprint",
+                        label: "Fingerprint",
+                        icon: "Fingerprint",
+                        route: "/fingerprint",
+                        module_key: "gmihr.device.fingerprint",
+                    },
+                ],
+            },
         ],
     },
     {
@@ -381,4 +397,3 @@ export const sidebarMenuConfig = [
         ],
     },
 ];
-
