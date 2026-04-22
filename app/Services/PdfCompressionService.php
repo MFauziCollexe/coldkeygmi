@@ -17,6 +17,7 @@ class PdfCompressionService
     public function compress(CompressPdfJob $job): bool
     {
         $compressedPath = null;
+        $disk = Storage::disk(self::STORAGE_DISK);
 
         try {
             $this->ensureStorageDirectoriesExist();
@@ -32,7 +33,7 @@ class PdfCompressionService
                 'completed_at' => null,
             ]);
 
-            $originalPath = storage_path('app/' . $job->original_path);
+            $originalPath = $disk->path($job->original_path);
 
             if (!is_file($originalPath)) {
                 throw new RuntimeException('Original file not found: ' . $originalPath);
@@ -60,7 +61,7 @@ class PdfCompressionService
                 : 0;
 
             $compressedStoragePath = self::COMPRESSED_PATH . '/' . $compressedFilename;
-            Storage::disk(self::STORAGE_DISK)->put(
+            $disk->put(
                 $compressedStoragePath,
                 file_get_contents($compressedPath)
             );
@@ -93,7 +94,7 @@ class PdfCompressionService
 
     private function compressUsingGhostScript(string $inputPath, string $outputFilename, string $level = 'medium'): string
     {
-        $tempDir = storage_path('app/' . self::TEMP_PATH);
+        $tempDir = Storage::disk(self::STORAGE_DISK)->path(self::TEMP_PATH);
         File::ensureDirectoryExists($tempDir);
 
         $outputPath = $tempDir . '/' . $outputFilename;
@@ -228,9 +229,11 @@ class PdfCompressionService
 
     private function ensureStorageDirectoriesExist(): void
     {
-        File::ensureDirectoryExists(storage_path('app/' . self::COMPRESSED_PATH));
-        File::ensureDirectoryExists(storage_path('app/' . self::TEMP_PATH));
-        File::ensureDirectoryExists(storage_path('app/pdf-uploads'));
+        $disk = Storage::disk(self::STORAGE_DISK);
+
+        File::ensureDirectoryExists($disk->path(self::COMPRESSED_PATH));
+        File::ensureDirectoryExists($disk->path(self::TEMP_PATH));
+        File::ensureDirectoryExists($disk->path('pdf-uploads'));
     }
 
     private function escapeShellPath(string $path): string
