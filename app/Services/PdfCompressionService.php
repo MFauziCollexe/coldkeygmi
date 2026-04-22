@@ -108,34 +108,47 @@ class PdfCompressionService
         $tempDir = Storage::disk(self::STORAGE_DISK)->path(self::TEMP_PATH);
         File::ensureDirectoryExists($tempDir);
 
-        $outputPath = $tempDir . '/' . $outputFilename;
-
-        $quality = match($level) {
-            'high' => 'ebook',      // Lowest quality, smallest size
-            'medium' => 'screen',   // Medium quality
-            'low' => 'prepress',    // Highest quality
-            default => 'screen',
-        };
-
         $gsPath = $this->getGhostScriptPath();
+        $profiles = $this->compressionProfilesFor($level);
+        $bestOutputPath = null;
+        $bestOutputSize = null;
+        $errors = [];
 
-        $command = sprintf(
-            '%s -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/%s -dNOPAUSE -dQUIET -dBATCH -sOutputFile=%s %s',
-            $this->escapeShellPath($gsPath),
-            $quality,
-            $this->escapeShellPath($outputPath),
-            $this->escapeShellPath($inputPath)
-        );
+        foreach ($profiles as $index => $profile) {
+            $candidatePath = $tempDir . '/' . pathinfo($outputFilename, PATHINFO_FILENAME) . "_{$index}.pdf";
+            $command = $this->buildGhostscriptCommand($gsPath, $inputPath, $candidatePath, $profile);
 
-        exec($command, $output, $returnCode);
+            exec($command, $output, $returnCode);
 
-        if ($returnCode !== 0) {
+            if ($returnCode !== 0 || !is_file($candidatePath)) {
+                $errors[] = 'Profile ' . ($profile['name'] ?? ('#' . $index)) . ' failed with code ' . $returnCode;
+                if (is_file($candidatePath)) {
+                    @unlink($candidatePath);
+                }
+                continue;
+            }
+
+            $candidateSize = filesize($candidatePath);
+
+            if ($bestOutputPath === null || $candidateSize < $bestOutputSize) {
+                if ($bestOutputPath && is_file($bestOutputPath)) {
+                    @unlink($bestOutputPath);
+                }
+
+                $bestOutputPath = $candidatePath;
+                $bestOutputSize = $candidateSize;
+            } else {
+                @unlink($candidatePath);
+            }
+        }
+
+        if ($bestOutputPath === null) {
             throw new RuntimeException(
-                'Ghostscript compression failed with code ' . $returnCode . ': ' . implode("\n", $output)
+                'Ghostscript compression failed. ' . implode(' | ', $errors)
             );
         }
 
-        return $outputPath;
+        return $bestOutputPath;
     }
 
     public function downloadCompressed(CompressPdfJob $job): mixed
@@ -250,5 +263,105 @@ class PdfCompressionService
     private function escapeShellPath(string $path): string
     {
         return escapeshellarg($path);
+    }
+
+    private function buildGhostscriptCommand(string $gsPath, string $inputPath, string $outputPath, array $profile): string
+    {
+        $arguments = [
+            $this->escapeShellPath($gsPath),
+            '-sDEVICE=pdfwrite',
+            '-dCompatibilityLevel=1.4',
+            '-dNOPAUSE',
+            '-dQUIET',
+            '-dBATCH',
+            '-dDetectDuplicateImages=true',
+            '-dCompressFonts=true',
+            '-dSubsetFonts=true',
+            '-dAutoRotatePages=/None',
+            '-dPreserveAnnots=false',
+            '-dPreserveOverprintSettings=false',
+            '-dUCRandBGInfo=/Remove',
+            '-dPDFSETTINGS=/' . $profile['pdf_settings'],
+            '-dColorImageDownsampleType=/Bicubic',
+            '-dGrayImageDownsampleType=/Bicubic',
+            '-dMonoImageDownsampleType=/Subsample',
+            '-dColorImageResolution=' . $profile['color_dpi'],
+            '-dGrayImageResolution=' . $profile['gray_dpi'],
+            '-dMonoImageResolution=' . $profile['mono_dpi'],
+            '-dDownsampleColorImages=true',
+            '-dDownsampleGrayImages=true',
+            '-dDownsampleMonoImages=true',
+            '-dColorImageDownsampleThreshold=1.0',
+            '-dGrayImageDownsampleThreshold=1.0',
+            '-dMonoImageDownsampleThreshold=1.0',
+            '-dEmbedAllFonts=false',
+            '-dDiscardDocumentStructTree=true',
+            '-dOptimize=true',
+            '-sOutputFile=' . $this->escapeShellPath($outputPath),
+            $this->escapeShellPath($inputPath),
+        ];
+
+        return implode(' ', $arguments);
+    }
+
+    private function compressionProfilesFor(string $level): array
+    {
+        return match ($level) {
+            'low' => [
+                [
+                    'name' => 'low-balanced',
+                    'pdf_settings' => 'printer',
+                    'color_dpi' => 170,
+                    'gray_dpi' => 170,
+                    'mono_dpi' => 300,
+                ],
+                [
+                    'name' => 'low-compact',
+                    'pdf_settings' => 'ebook',
+                    'color_dpi' => 150,
+                    'gray_dpi' => 150,
+                    'mono_dpi' => 300,
+                ],
+            ],
+            'high' => [
+                [
+                    'name' => 'high-aggressive',
+                    'pdf_settings' => 'screen',
+                    'color_dpi' => 72,
+                    'gray_dpi' => 72,
+                    'mono_dpi' => 150,
+                ],
+                [
+                    'name' => 'high-readable',
+                    'pdf_settings' => 'ebook',
+                    'color_dpi' => 96,
+                    'gray_dpi' => 96,
+                    'mono_dpi' => 200,
+                ],
+                [
+                    'name' => 'high-text-priority',
+                    'pdf_settings' => 'screen',
+                    'color_dpi' => 110,
+                    'gray_dpi' => 110,
+                    'mono_dpi' => 200,
+                ],
+            ],
+            default => [
+                [
+                    'name' => 'medium-compact',
+                    'pdf_settings' => 'ebook',
+                    'color_dpi' => 110,
+                    'gray_dpi' => 110,
+                    'mono_dpi' => 200,
+                ],
+                [
+                    'name' => 'medium-readable',
+                    'pdf_settings' => 'screen',
+                    'color_dpi' => 125,
+                    'gray_dpi' => 125,
+                    'mono_dpi' => 200,
+                ],
+            ],
+        };
     }
 }
