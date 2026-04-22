@@ -18,6 +18,8 @@ return [
             ]],
             ['key' => 'gmisl.tools', 'label' => 'Tools', 'children' => [
                 ['key' => 'tools.compress_pdf', 'label' => 'Compress PDF'],
+                ['key' => 'tools.merge_pdf', 'label' => 'Merge PDF'],
+                ['key' => 'tools.split_pdf', 'label' => 'Split PDF'],
             ]],
         ],
     ],
@@ -103,4 +105,3 @@ return [
         ],
     ],
 ];
-

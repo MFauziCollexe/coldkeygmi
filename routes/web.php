@@ -160,6 +160,40 @@ Route::get('gmisl/tools/compress-pdf-stats', [App\Http\Controllers\CompressPdfCo
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.compress_pdf'])
     ->name('compress-pdf.stats');
 
+// Merge PDF (GMISL > Tools > Merge PDF)
+Route::get('gmisl/tools/merge-pdf', [App\Http\Controllers\MergePdfController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.merge_pdf'])
+    ->name('merge-pdf.index');
+Route::post('gmisl/tools/merge-pdf/upload', [App\Http\Controllers\MergePdfController::class, 'upload'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.merge_pdf'])
+    ->name('merge-pdf.upload');
+Route::get('gmisl/tools/merge-pdf/{mergePdfJob}/download', [App\Http\Controllers\MergePdfController::class, 'download'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.merge_pdf'])
+    ->name('merge-pdf.download');
+Route::get('gmisl/tools/merge-pdf/{mergePdfJob}', [App\Http\Controllers\MergePdfController::class, 'show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.merge_pdf'])
+    ->name('merge-pdf.show');
+Route::delete('gmisl/tools/merge-pdf/{mergePdfJob}', [App\Http\Controllers\MergePdfController::class, 'delete'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.merge_pdf'])
+    ->name('merge-pdf.delete');
+
+// Split PDF (GMISL > Tools > Split PDF)
+Route::get('gmisl/tools/split-pdf', [App\Http\Controllers\SplitPdfController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.split_pdf'])
+    ->name('split-pdf.index');
+Route::post('gmisl/tools/split-pdf/upload', [App\Http\Controllers\SplitPdfController::class, 'upload'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.split_pdf'])
+    ->name('split-pdf.upload');
+Route::get('gmisl/tools/split-pdf/{splitPdfJob}/download', [App\Http\Controllers\SplitPdfController::class, 'download'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.split_pdf'])
+    ->name('split-pdf.download');
+Route::get('gmisl/tools/split-pdf/{splitPdfJob}', [App\Http\Controllers\SplitPdfController::class, 'show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.split_pdf'])
+    ->name('split-pdf.show');
+Route::delete('gmisl/tools/split-pdf/{splitPdfJob}', [App\Http\Controllers\SplitPdfController::class, 'delete'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.split_pdf'])
+    ->name('split-pdf.delete');
+
 // GMIUM - Plugging
 Route::get('gmium/plugging', [App\Http\Controllers\PluggingController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging'])
