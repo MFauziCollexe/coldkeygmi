@@ -305,6 +305,7 @@ const moduleProfiles = [
     aliases: ['compress pdf', 'compress', 'kompresi pdf'],
     suggestions: ['Cara compress PDF', 'Bagaimana batch compress', 'Langkah compress PDF'],
   },
+];
 
 const pageProfiles = [
   {
