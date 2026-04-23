@@ -372,21 +372,40 @@ class PdfToolkitService
 
     private function getPdfPageCount(string $inputPath): int
     {
-        $command = implode(' ', [
-            $this->escapeShellPath($this->getGhostScriptPath()),
-            '-q',
-            '-dNODISPLAY',
-            '-c',
-            $this->escapeShellArgument(sprintf('(%s) (r) file runpdfbegin pdfpagecount = quit', str_replace('\\', '/', $inputPath))),
-        ]);
+        $ghostScriptPath = $this->getGhostScriptPath();
+        $pageCountScript = $this->escapeShellArgument(sprintf(
+            '(%s) (r) file runpdfbegin pdfpagecount = quit',
+            str_replace('\\', '/', $inputPath)
+        ));
 
-        exec($command, $output, $returnCode);
+        $attempts = [
+            ['-q', '-dNOSAFER', '-dNODISPLAY'],
+            ['-q', '-dNODISPLAY'],
+        ];
 
-        if ($returnCode !== 0 || empty($output)) {
-            throw new RuntimeException('Tidak dapat membaca jumlah halaman PDF.');
+        foreach ($attempts as $arguments) {
+            $command = implode(' ', [
+                $this->escapeShellPath($ghostScriptPath),
+                ...$arguments,
+                '-c',
+                $pageCountScript,
+            ]) . ' 2>&1';
+
+            $output = [];
+            $returnCode = 0;
+            exec($command, $output, $returnCode);
+
+            $pageCount = collect($output)
+                ->map(fn ($line) => trim((string) $line))
+                ->reverse()
+                ->first(fn ($line) => preg_match('/^\d+$/', $line) === 1);
+
+            if ($returnCode === 0 && $pageCount !== null) {
+                return max(0, (int) $pageCount);
+            }
         }
 
-        return max(0, (int) trim(end($output)));
+        throw new RuntimeException('Tidak dapat membaca jumlah halaman PDF.');
     }
 
     private function ensureDirectoriesExist(): void
