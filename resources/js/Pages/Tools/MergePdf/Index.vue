@@ -48,12 +48,17 @@
                 :key="`${file.name}-${index}`"
                 class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
               >
-                <div>
-                  <div class="font-medium">{{ index + 1 }}. {{ file.name }}</div>
+                <div class="min-w-0 flex-1 pr-4">
+                  <div
+                    class="font-medium text-gray-900 break-all"
+                    :title="file.name"
+                  >
+                    {{ index + 1 }}. {{ file.name }}
+                  </div>
                   <div class="text-xs text-gray-500">{{ formatFileSize(file.size) }}</div>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="flex shrink-0 items-center gap-3">
                   <button type="button" class="text-gray-600 hover:text-gray-800" :disabled="index === 0" @click="moveFile(index, -1)">
                     Up
                   </button>
@@ -107,7 +112,14 @@
             <tbody class="divide-y divide-gray-200">
               <tr v-for="job in jobs.data" :key="job.id">
                 <td class="px-6 py-4 text-sm text-gray-700">
-                  <div v-for="name in job.input_filenames" :key="name">{{ name }}</div>
+                  <div
+                    v-for="name in job.input_filenames"
+                    :key="name"
+                    class="break-all text-gray-900"
+                    :title="name"
+                  >
+                    {{ name }}
+                  </div>
                   <div v-if="job.error_message" class="mt-1 text-xs text-red-600">{{ job.error_message }}</div>
                 </td>
                 <td class="px-6 py-4 text-sm text-gray-700">
