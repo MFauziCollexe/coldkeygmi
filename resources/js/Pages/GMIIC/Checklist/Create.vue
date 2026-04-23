@@ -167,12 +167,18 @@
         :current-barcode="currentPatroliSecurityBarcode"
         :can-scan-barcode="canScanPatroliSecurity"
         :can-approve-entry="canApproveEntry"
+        :current-photo-url="currentPatroliSecurityPhotoUrl"
+        :current-photo-name="currentPatroliSecurityPhotoName"
+        :photo-uploading="patroliSecurityPhotoUploading"
+        :photo-error="patroliSecurityPhotoError"
         @approve="approveChecklist"
         @scan-barcode="scanPatroliSecurityBarcode"
         @update-date="updatePatroliSecurityDate"
         @update-area="updatePatroliSecurityArea"
         @cycle-row-status="cyclePatroliSecurityRowStatus"
         @update-note="updatePatroliSecurityNote"
+        @upload-photo="uploadPatroliSecurityPhoto"
+        @remove-photo="removePatroliSecurityPhoto"
       />
 
       <SiteVisitHseTemplate
@@ -329,6 +335,7 @@
 </template>
 
 <script setup>
+import axios from 'axios';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -566,6 +573,33 @@ const patroliSecurityNote = computed({
       [patroliSecurityTargetKey.value]: value,
     };
   },
+});
+
+const patroliSecurityPhotoUploading = ref(false);
+const patroliSecurityPhotoError = ref('');
+
+const currentPatroliSecurityPhotoUrl = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.area_photo_urls?.[patroliSecurityTargetKey.value] || '';
+});
+
+const currentPatroliSecurityPhotoName = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.area_photo_names?.[patroliSecurityTargetKey.value] || '';
+});
+
+const currentPatroliSecurityPhotoPath = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.area_photo_paths?.[patroliSecurityTargetKey.value] || '';
 });
 
 const patroliSecurityValidation = computed(() => {
@@ -1723,6 +1757,15 @@ function hydratePatroliSecurityEntry(savedEntry) {
       area_notes: {
         ...(savedEntry?.form?.area_notes || {}),
       },
+      area_photo_paths: {
+        ...(savedEntry?.form?.area_photo_paths || {}),
+      },
+      area_photo_urls: {
+        ...(savedEntry?.form?.area_photo_urls || {}),
+      },
+      area_photo_names: {
+        ...(savedEntry?.form?.area_photo_names || {}),
+      },
       area_scan_dates: {
         ...(savedEntry?.form?.area_scan_dates || {}),
       },
@@ -2246,6 +2289,83 @@ function updatePatroliSecurityNote(value) {
     ...(entry.value.form.area_notes || {}),
     [patroliSecurityTargetKey.value]: String(value || ''),
   };
+}
+
+function updatePatroliSecurityPhotoState(payload = {}) {
+  if (!entry.value || !isPatroliSecurity.value || !patroliSecurityTargetKey.value) {
+    return;
+  }
+
+  const targetKey = patroliSecurityTargetKey.value;
+  const nextPaths = {
+    ...(entry.value.form.area_photo_paths || {}),
+  };
+  const nextUrls = {
+    ...(entry.value.form.area_photo_urls || {}),
+  };
+  const nextNames = {
+    ...(entry.value.form.area_photo_names || {}),
+  };
+
+  if (payload.clear) {
+    delete nextPaths[targetKey];
+    delete nextUrls[targetKey];
+    delete nextNames[targetKey];
+  } else {
+    nextPaths[targetKey] = payload.path || '';
+    nextUrls[targetKey] = payload.url || '';
+    nextNames[targetKey] = payload.name || '';
+  }
+
+  entry.value.form.area_photo_paths = nextPaths;
+  entry.value.form.area_photo_urls = nextUrls;
+  entry.value.form.area_photo_names = nextNames;
+}
+
+async function uploadPatroliSecurityPhoto(file) {
+  if (!entry.value || !isPatroliSecurity.value || !patroliSecurityTargetKey.value || !file) {
+    return;
+  }
+
+  patroliSecurityPhotoUploading.value = true;
+  patroliSecurityPhotoError.value = '';
+
+  try {
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    const oldPath = String(currentPatroliSecurityPhotoPath.value || '').trim();
+    if (oldPath) {
+      formData.append('old_path', oldPath);
+    }
+
+    const response = await axios.post('/gmiic/checklist/patroli-security/photo', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    updatePatroliSecurityPhotoState({
+      path: response.data?.path || '',
+      url: response.data?.url || '',
+      name: response.data?.original_name || file.name || '',
+    });
+    upsertChecklistEntry(entry.value);
+  } catch (error) {
+    patroliSecurityPhotoError.value = error?.response?.data?.message || 'Foto gagal di-upload.';
+  } finally {
+    patroliSecurityPhotoUploading.value = false;
+  }
+}
+
+function removePatroliSecurityPhoto() {
+  if (!entry.value || !isPatroliSecurity.value || !patroliSecurityTargetKey.value) {
+    return;
+  }
+
+  patroliSecurityPhotoError.value = '';
+  updatePatroliSecurityPhotoState({ clear: true });
+  upsertChecklistEntry(entry.value);
 }
 
 function updateSiteVisitHseDate(value) {

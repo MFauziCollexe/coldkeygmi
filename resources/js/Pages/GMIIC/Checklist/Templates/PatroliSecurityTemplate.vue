@@ -167,10 +167,70 @@
         Isi catatan ini jika ada item bertanda silang.
       </div>
     </div>
+
+    <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
+      <div class="mb-2 flex items-center justify-between gap-3">
+        <div class="text-sm font-semibold">Foto Area</div>
+        <button
+          v-if="currentPhotoUrl && !isAreaApproved"
+          type="button"
+          class="text-xs font-semibold text-rose-600 hover:text-rose-500"
+          @click="$emit('remove-photo')"
+        >
+          Hapus Foto
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <label
+          class="inline-flex w-fit cursor-pointer items-center rounded px-4 py-2 text-sm font-semibold transition"
+          :class="isAreaApproved || photoUploading
+            ? 'cursor-not-allowed bg-slate-300 text-slate-500'
+            : 'bg-sky-600 text-white hover:bg-sky-500'"
+        >
+          <input
+            type="file"
+            accept="image/*"
+            class="hidden"
+            :disabled="isAreaApproved || photoUploading"
+            @change="onPhotoChange"
+          />
+          {{ photoUploading ? 'Uploading...' : (currentPhotoUrl ? 'Ganti Foto' : 'Upload Foto') }}
+        </label>
+
+        <div v-if="currentPhotoUrl" class="overflow-hidden rounded border border-slate-300 bg-white p-2">
+          <img
+            :src="currentPhotoUrl"
+            :alt="currentPhotoName || 'Foto patroli security'"
+            class="h-56 w-full rounded object-cover"
+          />
+          <div class="mt-2 text-xs text-slate-600">{{ currentPhotoName || 'Foto area patroli' }}</div>
+        </div>
+
+        <div v-if="photoError" class="rounded border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          {{ photoError }}
+        </div>
+
+        <div class="text-xs text-slate-600">
+          Foto akan di-upload ke server saat dipilih.
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
+function onPhotoChange(event) {
+  const file = event?.target?.files?.[0];
+  if (file) {
+    emit('upload-photo', file);
+  }
+
+  if (event?.target) {
+    event.target.value = '';
+  }
+}
+
 defineProps({
   entry: {
     type: Object,
@@ -212,7 +272,23 @@ defineProps({
     type: Boolean,
     required: true,
   },
+  currentPhotoUrl: {
+    type: String,
+    default: '',
+  },
+  currentPhotoName: {
+    type: String,
+    default: '',
+  },
+  photoUploading: {
+    type: Boolean,
+    default: false,
+  },
+  photoError: {
+    type: String,
+    default: '',
+  },
 });
 
-defineEmits(['approve', 'scan-barcode', 'update-date', 'update-area', 'cycle-row-status', 'update-note']);
+const emit = defineEmits(['approve', 'scan-barcode', 'update-date', 'update-area', 'cycle-row-status', 'update-note', 'upload-photo', 'remove-photo']);
 </script>
