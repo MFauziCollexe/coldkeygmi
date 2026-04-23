@@ -61,9 +61,15 @@
                   </a>
                 </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">
-                  <span :class="statusClass(batch.status)" class="inline-flex px-2 py-1 rounded text-xs font-semibold whitespace-nowrap">
-                    {{ statusLabel(batch.status) }}
+                  <span :class="statusClass(batch)" class="inline-flex px-2 py-1 rounded text-xs font-semibold whitespace-nowrap">
+                    {{ statusLabel(batch) }}
                   </span>
+                  <div
+                    v-if="isLatestPending(batch)"
+                    class="mt-1 text-[11px] font-medium text-emerald-300"
+                  >
+                    Pending terbaru
+                  </div>
                 </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ batch.saved_rows }}/{{ batch.total_rows }}</td>
                 <td class="py-2 pr-3 align-top truncate" :title="batch.uploader?.name || '-'">{{ batch.uploader?.name || '-' }}</td>
@@ -92,7 +98,7 @@
                       {{ viewLoadingId === batch.id ? 'Loading...' : 'View' }}
                     </button>
                     <button
-                      v-if="batch.can_approve && batch.status === 'pending'"
+                      v-if="canShowApprovalActions(batch)"
                       class="px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
                       :disabled="loadingId === batch.id"
                       @click="approveBatch(batch)"
@@ -100,13 +106,19 @@
                       {{ loadingId === batch.id ? 'Approving...' : 'Approve' }}
                     </button>
                     <button
-                      v-if="batch.can_approve && batch.status === 'pending'"
+                      v-if="canShowApprovalActions(batch)"
                       class="px-3 py-1.5 rounded bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-60"
                       :disabled="rejectingId === batch.id"
                       @click="rejectBatch(batch)"
                     >
                       {{ rejectingId === batch.id ? 'Rejecting...' : 'Reject' }}
                     </button>
+                    <span
+                      v-if="isLockedPending(batch)"
+                      class="text-xs text-amber-300"
+                    >
+                      Hanya pending terbaru yang bisa di-approve
+                    </span>
                   </div>
                 </td>
               </tr>
@@ -133,9 +145,15 @@
                   </span>
                 </div>
               </div>
-              <span :class="statusClass(batch.status)" class="inline-flex rounded px-2 py-1 text-xs font-semibold">
-                {{ statusLabel(batch.status) }}
+              <span :class="statusClass(batch)" class="inline-flex rounded px-2 py-1 text-xs font-semibold">
+                {{ statusLabel(batch) }}
               </span>
+            </div>
+            <div
+              v-if="isLatestPending(batch)"
+              class="-mt-1 mb-2 text-xs font-medium text-emerald-300"
+            >
+              Pending terbaru
             </div>
 
             <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -174,7 +192,7 @@
                 {{ viewLoadingId === batch.id ? 'Loading...' : 'View' }}
               </button>
               <button
-                v-if="batch.can_approve && batch.status === 'pending'"
+                v-if="canShowApprovalActions(batch)"
                 class="w-full rounded bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-500 disabled:opacity-60"
                 :disabled="loadingId === batch.id"
                 @click="approveBatch(batch)"
@@ -182,13 +200,19 @@
                 {{ loadingId === batch.id ? 'Approving...' : 'Approve' }}
               </button>
               <button
-                v-if="batch.can_approve && batch.status === 'pending'"
+                v-if="canShowApprovalActions(batch)"
                 class="w-full rounded bg-rose-600 px-3 py-2 text-white hover:bg-rose-500 disabled:opacity-60"
                 :disabled="rejectingId === batch.id"
                 @click="rejectBatch(batch)"
               >
                 {{ rejectingId === batch.id ? 'Rejecting...' : 'Reject' }}
               </button>
+              <div
+                v-if="isLockedPending(batch)"
+                class="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+              >
+                Pending lama. Approval hanya muncul di batch pending terbaru.
+              </div>
             </div>
           </div>
         </div>
@@ -436,18 +460,32 @@ function applyMonthFilter() {
   });
 }
 
-function statusClass(status) {
-  if (status === 'approved') return 'bg-emerald-600/30 text-emerald-200';
-  if (status === 'pending') return 'bg-amber-600/30 text-amber-200';
-  if (status === 'rejected') return 'bg-rose-600/30 text-rose-200';
+function isLatestPending(batch) {
+  return batch?.status === 'pending' && Boolean(batch?.is_latest_pending_for_department);
+}
+
+function isLockedPending(batch) {
+  return batch?.status === 'pending' && !isLatestPending(batch);
+}
+
+function canShowApprovalActions(batch) {
+  return batch?.status === 'pending' && Boolean(batch?.can_approve) && isLatestPending(batch);
+}
+
+function statusClass(batch) {
+  if (batch?.status === 'approved') return 'bg-emerald-600/30 text-emerald-200';
+  if (isLatestPending(batch)) return 'bg-emerald-600/30 text-emerald-200';
+  if (batch?.status === 'pending') return 'bg-amber-600/30 text-amber-200';
+  if (batch?.status === 'rejected') return 'bg-rose-600/30 text-rose-200';
   return 'bg-slate-600/30 text-slate-200';
 }
 
-function statusLabel(status) {
-  if (status === 'approved') return 'Approved';
-  if (status === 'pending') return 'Pending Manager';
-  if (status === 'rejected') return 'Rejected';
-  return status || '-';
+function statusLabel(batch) {
+  if (batch?.status === 'approved') return 'Approved';
+  if (isLatestPending(batch)) return 'Pending Approval';
+  if (batch?.status === 'pending') return 'Pending Lama';
+  if (batch?.status === 'rejected') return 'Rejected';
+  return batch?.status || '-';
 }
 
 function noteText(batch) {
