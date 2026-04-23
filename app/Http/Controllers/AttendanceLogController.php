@@ -1508,13 +1508,6 @@ class AttendanceLogController extends Controller
                 ->filter(fn ($scan) => $this->toDateString($scan->scan_date ?? null) === $logDate)
                 ->values();
 
-            if ($this->isOvernightShift($startTime, $endTime) && $sameDayScans->count() >= 2) {
-                return [
-                    $this->toDateTimeString(optional($sameDayScans->first())->scan_date ?? null),
-                    $this->toDateTimeString(optional($sameDayScans->last())->scan_date ?? null),
-                ];
-            }
-
             $anchorStart = Carbon::parse($logDate . ' ' . $startTime);
             $anchorEnd = Carbon::parse($logDate . ' ' . $endTime);
             if ($this->isOvernightShift($startTime, $endTime)) {
@@ -1543,6 +1536,30 @@ class AttendanceLogController extends Controller
                     return false;
                 }
             })->sortByDesc('scan_date')->values();
+
+            if ($sameDayScans->count() >= 2) {
+                return [
+                    $this->toDateTimeString(optional($sameDayScans->first())->scan_date ?? null),
+                    $this->toDateTimeString(optional($sameDayScans->last())->scan_date ?? null),
+                ];
+            }
+
+            if ($sameDayScans->count() === 1) {
+                $sameDayFirstScan = $sameDayScans->first();
+                $sameDayFirstDateTime = $this->toDateTimeString(optional($sameDayFirstScan)->scan_date ?? null);
+                $checkoutScan = $checkoutCandidates->first(function ($scan) use ($sameDayFirstDateTime) {
+                    return $this->toDateTimeString($scan->scan_date ?? null) !== $sameDayFirstDateTime;
+                });
+
+                if ($checkoutScan === null) {
+                    $checkoutScan = $this->resolveFallbackCheckoutScan($sorted, $sameDayFirstScan, $outTo);
+                }
+
+                return [
+                    $sameDayFirstDateTime,
+                    $this->toDateTimeString(optional($checkoutScan)->scan_date ?? null),
+                ];
+            }
 
             $checkinScan = $checkinCandidates->first();
             $checkoutScan = $checkoutCandidates->first();
