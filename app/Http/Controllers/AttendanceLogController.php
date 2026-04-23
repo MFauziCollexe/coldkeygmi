@@ -1504,6 +1504,17 @@ class AttendanceLogController extends Controller
 
         try {
             $sorted = $scans->sortBy('scan_date')->values();
+            $sameDayScans = $sorted
+                ->filter(fn ($scan) => $this->toDateString($scan->scan_date ?? null) === $logDate)
+                ->values();
+
+            if ($this->isOvernightShift($startTime, $endTime) && $sameDayScans->count() >= 2) {
+                return [
+                    $this->toDateTimeString(optional($sameDayScans->first())->scan_date ?? null),
+                    $this->toDateTimeString(optional($sameDayScans->last())->scan_date ?? null),
+                ];
+            }
+
             $anchorStart = Carbon::parse($logDate . ' ' . $startTime);
             $anchorEnd = Carbon::parse($logDate . ' ' . $endTime);
             if ($this->isOvernightShift($startTime, $endTime)) {
