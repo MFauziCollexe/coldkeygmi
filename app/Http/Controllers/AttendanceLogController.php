@@ -1504,9 +1504,6 @@ class AttendanceLogController extends Controller
 
         try {
             $sorted = $scans->sortBy('scan_date')->values();
-            $sameDayScans = $sorted
-                ->filter(fn ($scan) => $this->toDateString($scan->scan_date ?? null) === $logDate)
-                ->values();
 
             $anchorStart = Carbon::parse($logDate . ' ' . $startTime);
             $anchorEnd = Carbon::parse($logDate . ' ' . $endTime);
@@ -1518,12 +1515,14 @@ class AttendanceLogController extends Controller
             $inTo = $anchorEnd->copy();
             $outFrom = $anchorEnd->copy();
             $outTo = $this->resolveCheckoutWindowEnd($logDate, $startTime, $endTime, $nextDayStartTime);
-            $sameDayScansForPairing = $this->filterSameDayScansForSchedulePairing(
-                $sameDayScans,
-                $inFrom,
-                $startTime,
-                $endTime
-            );
+            $sessionScans = $sorted->filter(function ($scan) use ($inFrom, $outTo) {
+                try {
+                    $scanAt = Carbon::parse($scan->scan_date);
+                    return $scanAt->greaterThanOrEqualTo($inFrom) && $scanAt->lt($outTo);
+                } catch (\Throwable $e) {
+                    return false;
+                }
+            })->sortBy('scan_date')->values();
 
             $checkinCandidates = $sorted->filter(function ($scan) use ($inFrom, $inTo) {
                 try {
@@ -1543,28 +1542,23 @@ class AttendanceLogController extends Controller
                 }
             })->sortByDesc('scan_date')->values();
 
-            if ($sameDayScansForPairing->count() >= 2) {
+            if ($sessionScans->count() >= 2) {
                 return [
-                    $this->toDateTimeString(optional($sameDayScansForPairing->first())->scan_date ?? null),
-                    $this->toDateTimeString(optional($sameDayScansForPairing->last())->scan_date ?? null),
+                    $this->toDateTimeString(optional($sessionScans->first())->scan_date ?? null),
+                    $this->toDateTimeString(optional($sessionScans->last())->scan_date ?? null),
                 ];
             }
 
-            if ($sameDayScansForPairing->count() === 1) {
-                $sameDayFirstScan = $sameDayScansForPairing->first();
-                $sameDayFirstDateTime = $this->toDateTimeString(optional($sameDayFirstScan)->scan_date ?? null);
-                $checkoutScan = $checkoutCandidates->first(function ($scan) use ($sameDayFirstDateTime) {
-                    return $this->toDateTimeString($scan->scan_date ?? null) !== $sameDayFirstDateTime;
-                });
+            if ($sessionScans->count() === 1) {
+                $onlyScan = $sessionScans->first();
+                $onlyScanDateTime = $this->toDateTimeString(optional($onlyScan)->scan_date ?? null);
+                $onlyScanTime = $this->normalizeTime(optional($onlyScan)->scan_date ?? null);
 
-                if ($checkoutScan === null) {
-                    $checkoutScan = $this->resolveFallbackCheckoutScan($sorted, $sameDayFirstScan, $outTo);
+                if ($this->isLikelyCheckoutTime($onlyScanTime, $startTime, $endTime)) {
+                    return [null, $onlyScanDateTime];
                 }
 
-                return [
-                    $sameDayFirstDateTime,
-                    $this->toDateTimeString(optional($checkoutScan)->scan_date ?? null),
-                ];
+                return [$onlyScanDateTime, null];
             }
 
             $checkinScan = $checkinCandidates->first();
@@ -1580,56 +1574,6 @@ class AttendanceLogController extends Controller
         } catch (\Throwable $e) {
             return [null, null];
         }
-    }
-
-    private function filterSameDayScansForSchedulePairing(
-        Collection $sameDayScans,
-        Carbon $checkinWindowStart,
-        string $startTime,
-        string $endTime
-    ): Collection {
-        if ($sameDayScans->isEmpty()) {
-            return $sameDayScans;
-        }
-
-        if ($this->isOvernightShift($startTime, $endTime)) {
-            $sameDayNonEarlyMorningScans = $sameDayScans
-                ->reject(fn ($scan) => $this->isEarlyMorningTime($this->normalizeTime($scan->scan_date ?? null)))
-                ->values();
-
-            return $sameDayNonEarlyMorningScans->isNotEmpty()
-                ? $sameDayNonEarlyMorningScans
-                : $sameDayScans;
-        }
-
-        $hasCurrentShiftSameDayScan = $sameDayScans->contains(function ($scan) use ($checkinWindowStart) {
-            try {
-                return Carbon::parse($scan->scan_date)->greaterThanOrEqualTo($checkinWindowStart);
-            } catch (\Throwable $e) {
-                return false;
-            }
-        });
-
-        if (!$hasCurrentShiftSameDayScan) {
-            return $sameDayScans;
-        }
-
-        $filtered = $sameDayScans
-            ->reject(function ($scan) use ($checkinWindowStart) {
-                $time = $this->normalizeTime($scan->scan_date ?? null);
-                if (!$this->isEarlyMorningTime($time)) {
-                    return false;
-                }
-
-                try {
-                    return Carbon::parse($scan->scan_date)->lt($checkinWindowStart);
-                } catch (\Throwable $e) {
-                    return false;
-                }
-            })
-            ->values();
-
-        return $filtered->isNotEmpty() ? $filtered : $sameDayScans;
     }
 
     private function resolveFallbackCheckoutScan(Collection $sortedScans, $checkinScan, ?Carbon $windowEnd = null)

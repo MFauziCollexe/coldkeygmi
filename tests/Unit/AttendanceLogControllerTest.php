@@ -52,6 +52,46 @@ class AttendanceLogControllerTest extends TestCase
         $this->assertSame('2026-04-18 18:01:11', $lastScan);
     }
 
+    public function test_resolve_by_schedule_windows_marks_single_late_scan_as_checkout_only(): void
+    {
+        $controller = new AttendanceLogController();
+
+        [$firstScan, $lastScan] = $this->invokeResolveByScheduleWindows(
+            $controller,
+            $this->makeScans([
+                '2026-04-04 14:00:00',
+            ]),
+            '08:00:00',
+            '13:00:00',
+            '2026-04-04',
+            '08:00:00'
+        );
+
+        $this->assertNull($firstScan);
+        $this->assertSame('2026-04-04 14:00:00', $lastScan);
+    }
+
+    public function test_resolve_by_schedule_windows_uses_previous_day_checkin_for_midnight_shift(): void
+    {
+        $controller = new AttendanceLogController();
+
+        [$firstScan, $lastScan] = $this->invokeResolveByScheduleWindows(
+            $controller,
+            $this->makeScans([
+                '2026-04-10 23:55:29',
+                '2026-04-11 08:12:58',
+                '2026-04-11 23:53:42',
+            ]),
+            '00:00:00',
+            '08:00:00',
+            '2026-04-11',
+            '00:00:00'
+        );
+
+        $this->assertSame('2026-04-10 23:55:29', $firstScan);
+        $this->assertSame('2026-04-11 08:12:58', $lastScan);
+    }
+
     private function invokeResolveByScheduleWindows(
         AttendanceLogController $controller,
         Collection $scans,
