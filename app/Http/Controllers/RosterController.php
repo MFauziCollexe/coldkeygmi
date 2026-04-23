@@ -363,7 +363,7 @@ class RosterController extends Controller
 
         if (!$this->isLatestPendingBatchForScope($batch)) {
             return response()->json([
-                'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru dari uploader yang sama pada departemen ini.',
+                'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.',
             ], 422);
         }
 
@@ -455,7 +455,7 @@ class RosterController extends Controller
 
         if (!$this->isLatestPendingBatchForScope($batch)) {
             return response()->json([
-                'message' => 'Roster ini tidak bisa di-reject karena sudah ada upload roster yang lebih baru dari uploader yang sama pada departemen ini.',
+                'message' => 'Roster ini tidak bisa di-reject karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.',
             ], 422);
         }
 
@@ -1405,12 +1405,14 @@ class RosterController extends Controller
     {
         return RosterUploadBatch::query()
             ->where('status', 'pending')
-            ->selectRaw('department_id, uploaded_by, MAX(id) as latest_id')
-            ->groupBy('department_id', 'uploaded_by')
+            ->selectRaw('department_id, month, year, uploaded_by, MAX(id) as latest_id')
+            ->groupBy('department_id', 'month', 'year', 'uploaded_by')
             ->get()
             ->mapWithKeys(function ($row) {
                 $key = $this->latestPendingScopeKey(
                     (int) ($row->department_id ?? 0),
+                    (int) ($row->month ?? 0),
+                    (int) ($row->year ?? 0),
                     (int) ($row->uploaded_by ?? 0)
                 );
 
@@ -1423,13 +1425,13 @@ class RosterController extends Controller
             ->all();
     }
 
-    private function latestPendingScopeKey(int $departmentId, int $uploadedBy): ?string
+    private function latestPendingScopeKey(int $departmentId, int $month, int $year, int $uploadedBy): ?string
     {
-        if ($departmentId <= 0) {
+        if ($departmentId <= 0 || $month <= 0 || $year <= 0) {
             return null;
         }
 
-        return $departmentId . '|' . max(0, $uploadedBy);
+        return implode('|', [$departmentId, $month, $year, max(0, $uploadedBy)]);
     }
 
     private function isLatestPendingBatchForScope(RosterUploadBatch $batch, ?array $latestPendingBatchIdsByScope = null): bool
@@ -1443,7 +1445,12 @@ class RosterController extends Controller
             return true;
         }
 
-        $scopeKey = $this->latestPendingScopeKey($departmentId, (int) $batch->uploaded_by);
+        $scopeKey = $this->latestPendingScopeKey(
+            $departmentId,
+            (int) $batch->month,
+            (int) $batch->year,
+            (int) $batch->uploaded_by
+        );
         if ($scopeKey === null) {
             return true;
         }
@@ -1460,6 +1467,6 @@ class RosterController extends Controller
             return null;
         }
 
-        return 'Approval dinonaktifkan karena sudah ada upload roster yang lebih baru dari uploader yang sama pada departemen ini.';
+        return 'Approval dinonaktifkan karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.';
     }
 }
