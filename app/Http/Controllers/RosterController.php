@@ -47,7 +47,7 @@ class RosterController extends Controller
         $canViewAllDepartments = $this->canViewAllRosterDepartments($user);
         $canApproveAllDepartments = $this->canApproveAllRosterDepartments($user);
         $canApproveAnyBatch = $this->canApproveAnyRosterBatch($user);
-        $latestPendingBatchIdsByDepartment = $this->latestPendingBatchIdsByDepartment();
+        $latestPendingBatchIdsByScope = $this->latestPendingBatchIdsByScope();
         $selectedMonth = request()->has('month')
             ? (int) request('month', 0)
             : (int) now()->month;
@@ -102,11 +102,11 @@ class RosterController extends Controller
                 'created_at',
             ])
             ->withQueryString()
-            ->through(function ($batch) use ($user, $latestPendingBatchIdsByDepartment) {
-                $isLatestPendingForDepartment = $this->isLatestPendingBatchForDepartment($batch, $latestPendingBatchIdsByDepartment);
-                $batch->is_latest_pending_for_department = $isLatestPendingForDepartment;
-                $batch->approval_locked_reason = $this->approvalLockedReason($batch, $isLatestPendingForDepartment);
-                $batch->can_approve = $this->canApproveBatch($user, $batch) && $isLatestPendingForDepartment;
+            ->through(function ($batch) use ($user, $latestPendingBatchIdsByScope) {
+                $isLatestPendingForScope = $this->isLatestPendingBatchForScope($batch, $latestPendingBatchIdsByScope);
+                $batch->is_latest_pending_for_department = $isLatestPendingForScope;
+                $batch->approval_locked_reason = $this->approvalLockedReason($batch, $isLatestPendingForScope);
+                $batch->can_approve = $this->canApproveBatch($user, $batch) && $isLatestPendingForScope;
                 return $batch;
             });
 
@@ -361,9 +361,9 @@ class RosterController extends Controller
             ], 403);
         }
 
-        if (!$this->isLatestPendingBatchForDepartment($batch)) {
+        if (!$this->isLatestPendingBatchForScope($batch)) {
             return response()->json([
-                'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru pada departemen yang sama.',
+                'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru dari uploader yang sama pada departemen ini.',
             ], 422);
         }
 
@@ -453,9 +453,9 @@ class RosterController extends Controller
             ], 403);
         }
 
-        if (!$this->isLatestPendingBatchForDepartment($batch)) {
+        if (!$this->isLatestPendingBatchForScope($batch)) {
             return response()->json([
-                'message' => 'Roster ini tidak bisa di-reject karena sudah ada upload roster yang lebih baru pada departemen yang sama.',
+                'message' => 'Roster ini tidak bisa di-reject karena sudah ada upload roster yang lebih baru dari uploader yang sama pada departemen ini.',
             ], 422);
         }
 
@@ -1401,18 +1401,38 @@ class RosterController extends Controller
         return $this->accessRules()->canViewAllDepartments($user, self::ACCESS_MODULE, 'view_list');
     }
 
-    private function latestPendingBatchIdsByDepartment(): array
+    private function latestPendingBatchIdsByScope(): array
     {
         return RosterUploadBatch::query()
             ->where('status', 'pending')
-            ->selectRaw('department_id, MAX(id) as latest_id')
-            ->groupBy('department_id')
-            ->pluck('latest_id', 'department_id')
-            ->mapWithKeys(fn($batchId, $departmentId) => [(int) $departmentId => (int) $batchId])
+            ->selectRaw('department_id, uploaded_by, MAX(id) as latest_id')
+            ->groupBy('department_id', 'uploaded_by')
+            ->get()
+            ->mapWithKeys(function ($row) {
+                $key = $this->latestPendingScopeKey(
+                    (int) ($row->department_id ?? 0),
+                    (int) ($row->uploaded_by ?? 0)
+                );
+
+                if ($key === null) {
+                    return [];
+                }
+
+                return [$key => (int) ($row->latest_id ?? 0)];
+            })
             ->all();
     }
 
-    private function isLatestPendingBatchForDepartment(RosterUploadBatch $batch, ?array $latestPendingBatchIdsByDepartment = null): bool
+    private function latestPendingScopeKey(int $departmentId, int $uploadedBy): ?string
+    {
+        if ($departmentId <= 0) {
+            return null;
+        }
+
+        return $departmentId . '|' . max(0, $uploadedBy);
+    }
+
+    private function isLatestPendingBatchForScope(RosterUploadBatch $batch, ?array $latestPendingBatchIdsByScope = null): bool
     {
         if ($batch->status !== 'pending') {
             return true;
@@ -1423,18 +1443,23 @@ class RosterController extends Controller
             return true;
         }
 
-        $latestPendingBatchIdsByDepartment ??= $this->latestPendingBatchIdsByDepartment();
-        $latestBatchId = (int) ($latestPendingBatchIdsByDepartment[$departmentId] ?? 0);
+        $scopeKey = $this->latestPendingScopeKey($departmentId, (int) $batch->uploaded_by);
+        if ($scopeKey === null) {
+            return true;
+        }
+
+        $latestPendingBatchIdsByScope ??= $this->latestPendingBatchIdsByScope();
+        $latestBatchId = (int) ($latestPendingBatchIdsByScope[$scopeKey] ?? 0);
 
         return $latestBatchId > 0 && $latestBatchId === (int) $batch->id;
     }
 
-    private function approvalLockedReason(RosterUploadBatch $batch, bool $isLatestPendingForDepartment): ?string
+    private function approvalLockedReason(RosterUploadBatch $batch, bool $isLatestPendingForScope): ?string
     {
-        if ($batch->status !== 'pending' || $isLatestPendingForDepartment) {
+        if ($batch->status !== 'pending' || $isLatestPendingForScope) {
             return null;
         }
 
-        return 'Approval dinonaktifkan karena sudah ada upload roster yang lebih baru untuk departemen ini.';
+        return 'Approval dinonaktifkan karena sudah ada upload roster yang lebih baru dari uploader yang sama pada departemen ini.';
     }
 }
