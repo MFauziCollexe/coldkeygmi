@@ -11,7 +11,6 @@ class ChecklistMediaController extends Controller
     {
         $validated = $request->validate([
             'photo' => ['required', 'image', 'max:4096'],
-            'old_path' => ['nullable', 'string', 'max:500'],
         ]);
 
         $userId = (int) optional($request->user())->id;
@@ -27,16 +26,31 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        $oldPath = trim((string) ($validated['old_path'] ?? ''));
-        if ($oldPath !== '' && str_starts_with($oldPath, 'checklist/patroli-security/')) {
-            Storage::disk('public')->delete($oldPath);
-        }
-
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
             'url' => Storage::disk('public')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
+        ]);
+    }
+
+    public function deletePatroliSecurityPhoto(Request $request)
+    {
+        $validated = $request->validate([
+            'path' => ['required', 'string', 'max:500'],
+        ]);
+
+        $path = trim((string) $validated['path']);
+        if ($path === '' || !str_starts_with($path, 'checklist/patroli-security/')) {
+            return response()->json([
+                'message' => 'Path foto tidak valid.',
+            ], 422);
+        }
+
+        Storage::disk('public')->delete($path);
+
+        return response()->json([
+            'message' => 'Foto berhasil dihapus.',
         ]);
     }
 }

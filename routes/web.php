@@ -361,6 +361,9 @@ Route::get('gmiic/checklist/create', function (Request $request) use ($resolveCh
 Route::post('gmiic/checklist/patroli-security/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadPatroliSecurityPhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.patroli-security.photo');
+Route::delete('gmiic/checklist/patroli-security/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deletePatroliSecurityPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.patroli-security.photo.delete');
 
 // GMIVP - Visitor Form
 Route::get('gmi-visitor-permit/visitor-form', [App\Http\Controllers\VisitorFormController::class, 'index'])

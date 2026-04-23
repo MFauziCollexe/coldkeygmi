@@ -167,8 +167,7 @@
         :current-barcode="currentPatroliSecurityBarcode"
         :can-scan-barcode="canScanPatroliSecurity"
         :can-approve-entry="canApproveEntry"
-        :current-photo-url="currentPatroliSecurityPhotoUrl"
-        :current-photo-name="currentPatroliSecurityPhotoName"
+        :current-photos="currentPatroliSecurityPhotos"
         :photo-uploading="patroliSecurityPhotoUploading"
         :photo-error="patroliSecurityPhotoError"
         @approve="approveChecklist"
@@ -177,7 +176,7 @@
         @update-area="updatePatroliSecurityArea"
         @cycle-row-status="cyclePatroliSecurityRowStatus"
         @update-note="updatePatroliSecurityNote"
-        @upload-photo="uploadPatroliSecurityPhoto"
+        @open-camera="openPatroliSecurityCamera"
         @remove-photo="removePatroliSecurityPhoto"
       />
 
@@ -280,8 +279,8 @@
         <div class="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
           <div class="mb-4 flex items-center justify-between gap-4">
             <div>
-              <h3 class="text-lg font-semibold text-white">Ambil Foto Petugas Pengangkut</h3>
-              <p class="text-sm text-slate-400">Gunakan kamera HP atau laptop, lalu ambil foto langsung.</p>
+              <h3 class="text-lg font-semibold text-white">{{ photoModalTitle }}</h3>
+              <p class="text-sm text-slate-400">{{ photoModalDescription }}</p>
             </div>
 
             <button
@@ -323,9 +322,9 @@
               type="button"
               :disabled="photoLoading"
               class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-600"
-              @click="captureWasteTransportPhoto"
+              @click="capturePhoto"
             >
-              Ambil Foto
+              {{ photoCaptureButtonLabel }}
             </button>
           </div>
         </div>
@@ -454,6 +453,7 @@ const photoModalOpen = ref(false);
 const photoLoading = ref(false);
 const photoError = ref('');
 const photoCaptureDay = ref(null);
+const photoCaptureMode = ref('');
 const photoVideoRef = ref(null);
 
 let html5QrcodeInstance = null;
@@ -465,6 +465,29 @@ const currentUser = computed(() => page.props.auth?.user || null);
 const checklistAbilities = computed(() => props.checklistAbilities || page.props.checklistAbilities || {});
 const canApproveKotakP3KHse = computed(() => Boolean(checklistAbilities.value.kotak_p3k_hse_approve));
 const canApproveWarehouseFinal = computed(() => Boolean(checklistAbilities.value.warehouse_final_approve));
+const photoModalTitle = computed(() => {
+  if (photoCaptureMode.value === 'patroli_security') {
+    return 'Ambil Foto Patroli Security';
+  }
+
+  return 'Ambil Foto Petugas Pengangkut';
+});
+
+const photoModalDescription = computed(() => {
+  if (photoCaptureMode.value === 'patroli_security') {
+    return 'Gunakan kamera HP atau laptop, lalu ambil foto area patroli secara langsung.';
+  }
+
+  return 'Gunakan kamera HP atau laptop, lalu ambil foto langsung.';
+});
+
+const photoCaptureButtonLabel = computed(() => {
+  if (photoCaptureMode.value === 'patroli_security') {
+    return 'Capture & Upload';
+  }
+
+  return 'Ambil Foto';
+});
 
 const isKotakP3K = computed(() => selectedChecklist.value === 'kotak_p3k');
 const isSanitation = computed(() => selectedChecklist.value === 'non_warehouse_sanitation');
@@ -578,28 +601,50 @@ const patroliSecurityNote = computed({
 const patroliSecurityPhotoUploading = ref(false);
 const patroliSecurityPhotoError = ref('');
 
-const currentPatroliSecurityPhotoUrl = computed(() => {
-  if (!isPatroliSecurity.value || !entry.value) {
-    return '';
+function normalizePatroliSecurityPhotoBucket(bucket) {
+  if (Array.isArray(bucket)) {
+    return bucket.filter((item) => String(item || '').trim() !== '');
   }
 
-  return entry.value.form.area_photo_urls?.[patroliSecurityTargetKey.value] || '';
+  const single = String(bucket || '').trim();
+  return single ? [single] : [];
+}
+
+const currentPatroliSecurityPhotoPaths = computed(() => {
+  if (!isPatroliSecurity.value || !entry.value) {
+    return [];
+  }
+
+  return normalizePatroliSecurityPhotoBucket(entry.value.form.area_photo_paths?.[patroliSecurityTargetKey.value]);
 });
 
-const currentPatroliSecurityPhotoName = computed(() => {
+const currentPatroliSecurityPhotoUrls = computed(() => {
   if (!isPatroliSecurity.value || !entry.value) {
-    return '';
+    return [];
   }
 
-  return entry.value.form.area_photo_names?.[patroliSecurityTargetKey.value] || '';
+  return normalizePatroliSecurityPhotoBucket(entry.value.form.area_photo_urls?.[patroliSecurityTargetKey.value]);
 });
 
-const currentPatroliSecurityPhotoPath = computed(() => {
+const currentPatroliSecurityPhotoNames = computed(() => {
   if (!isPatroliSecurity.value || !entry.value) {
-    return '';
+    return [];
   }
 
-  return entry.value.form.area_photo_paths?.[patroliSecurityTargetKey.value] || '';
+  return normalizePatroliSecurityPhotoBucket(entry.value.form.area_photo_names?.[patroliSecurityTargetKey.value]);
+});
+
+const currentPatroliSecurityPhotos = computed(() => {
+  const paths = currentPatroliSecurityPhotoPaths.value;
+  const urls = currentPatroliSecurityPhotoUrls.value;
+  const names = currentPatroliSecurityPhotoNames.value;
+  const length = Math.max(paths.length, urls.length, names.length);
+
+  return Array.from({ length }, (_, index) => ({
+    path: paths[index] || '',
+    url: urls[index] || '',
+    name: names[index] || '',
+  })).filter((photo) => String(photo.url || photo.path || '').trim() !== '');
 });
 
 const patroliSecurityValidation = computed(() => {
@@ -2307,14 +2352,28 @@ function updatePatroliSecurityPhotoState(payload = {}) {
     ...(entry.value.form.area_photo_names || {}),
   };
 
-  if (payload.clear) {
+  const pathBucket = normalizePatroliSecurityPhotoBucket(nextPaths[targetKey]);
+  const urlBucket = normalizePatroliSecurityPhotoBucket(nextUrls[targetKey]);
+  const nameBucket = normalizePatroliSecurityPhotoBucket(nextNames[targetKey]);
+
+  if (typeof payload.removeIndex === 'number') {
+    pathBucket.splice(payload.removeIndex, 1);
+    urlBucket.splice(payload.removeIndex, 1);
+    nameBucket.splice(payload.removeIndex, 1);
+  } else if (!payload.clear) {
+    pathBucket.push(payload.path || '');
+    urlBucket.push(payload.url || '');
+    nameBucket.push(payload.name || '');
+  }
+
+  if (payload.clear || pathBucket.length === 0) {
     delete nextPaths[targetKey];
     delete nextUrls[targetKey];
     delete nextNames[targetKey];
   } else {
-    nextPaths[targetKey] = payload.path || '';
-    nextUrls[targetKey] = payload.url || '';
-    nextNames[targetKey] = payload.name || '';
+    nextPaths[targetKey] = pathBucket;
+    nextUrls[targetKey] = urlBucket;
+    nextNames[targetKey] = nameBucket;
   }
 
   entry.value.form.area_photo_paths = nextPaths;
@@ -2333,11 +2392,6 @@ async function uploadPatroliSecurityPhoto(file) {
   try {
     const formData = new FormData();
     formData.append('photo', file);
-
-    const oldPath = String(currentPatroliSecurityPhotoPath.value || '').trim();
-    if (oldPath) {
-      formData.append('old_path', oldPath);
-    }
 
     const response = await axios.post('/gmiic/checklist/patroli-security/photo', formData, {
       headers: {
@@ -2358,14 +2412,31 @@ async function uploadPatroliSecurityPhoto(file) {
   }
 }
 
-function removePatroliSecurityPhoto() {
+async function removePatroliSecurityPhoto(index) {
   if (!entry.value || !isPatroliSecurity.value || !patroliSecurityTargetKey.value) {
     return;
   }
 
   patroliSecurityPhotoError.value = '';
-  updatePatroliSecurityPhotoState({ clear: true });
-  upsertChecklistEntry(entry.value);
+  const photo = currentPatroliSecurityPhotos.value[Number(index)];
+  if (!photo) {
+    return;
+  }
+
+  try {
+    if (String(photo.path || '').trim()) {
+      await axios.delete('/gmiic/checklist/patroli-security/photo', {
+        data: {
+          path: photo.path,
+        },
+      });
+    }
+
+    updatePatroliSecurityPhotoState({ removeIndex: Number(index) });
+    upsertChecklistEntry(entry.value);
+  } catch (error) {
+    patroliSecurityPhotoError.value = error?.response?.data?.message || 'Foto gagal dihapus.';
+  }
 }
 
 function updateSiteVisitHseDate(value) {
@@ -2919,7 +2990,23 @@ async function openWasteTransportCamera(day) {
     return;
   }
 
+  photoCaptureMode.value = 'waste_transport';
   photoCaptureDay.value = day;
+  photoError.value = '';
+  photoLoading.value = true;
+  photoModalOpen.value = true;
+
+  await nextTick();
+  await startPhotoCamera();
+}
+
+async function openPatroliSecurityCamera() {
+  if (!entry.value || !isPatroliSecurity.value || !patroliSecurityTargetKey.value) {
+    return;
+  }
+
+  photoCaptureMode.value = 'patroli_security';
+  photoCaptureDay.value = null;
   photoError.value = '';
   photoLoading.value = true;
   photoModalOpen.value = true;
@@ -3051,8 +3138,21 @@ async function startPhotoCamera() {
   }
 }
 
-async function captureWasteTransportPhoto() {
-  if (!entry.value || !isWasteTransport.value || !photoVideoRef.value || !photoCaptureDay.value) {
+function canvasToJpegFile(canvas, fileName) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('Foto gagal diproses.'));
+        return;
+      }
+
+      resolve(new File([blob], fileName, { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.9);
+  });
+}
+
+async function capturePhoto() {
+  if (!entry.value || !photoVideoRef.value) {
     return;
   }
 
@@ -3072,20 +3172,49 @@ async function captureWasteTransportPhoto() {
 
   context.drawImage(video, 0, 0, width, height);
 
-  const preview = canvas.toDataURL('image/jpeg', 0.9);
-  const fileName = `foto-pengangkut-hari-${photoCaptureDay.value}.jpg`;
+  try {
+    if (photoCaptureMode.value === 'waste_transport') {
+      if (!isWasteTransport.value || !photoCaptureDay.value) {
+        return;
+      }
 
-  entry.value.form.rows = wasteTransportRows.value.map((row) => (
-    row.day === photoCaptureDay.value
-      ? {
-          ...row,
-          collector_photo_name: fileName,
-          collector_photo_preview: preview,
-        }
-      : row
-  ));
+      const preview = canvas.toDataURL('image/jpeg', 0.9);
+      const fileName = `foto-pengangkut-hari-${photoCaptureDay.value}.jpg`;
 
-  await closePhotoModal();
+      entry.value.form.rows = wasteTransportRows.value.map((row) => (
+        row.day === photoCaptureDay.value
+          ? {
+              ...row,
+              collector_photo_name: fileName,
+              collector_photo_preview: preview,
+            }
+          : row
+      ));
+
+      await closePhotoModal();
+      return;
+    }
+
+    if (photoCaptureMode.value === 'patroli_security') {
+      if (!isPatroliSecurity.value || !patroliSecurityTargetKey.value) {
+        return;
+      }
+
+      const selectedAreaLabel = getPatroliSecurityAreaLabel(entry.value.form.selected_area)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      const file = await canvasToJpegFile(
+        canvas,
+        `patroli-security-${selectedAreaLabel || 'area'}-${Date.now()}.jpg`
+      );
+
+      await uploadPatroliSecurityPhoto(file);
+      await closePhotoModal();
+    }
+  } catch (error) {
+    photoError.value = error?.message || 'Foto gagal diproses.';
+  }
 }
 
 async function startBarcodeScanner() {
@@ -3288,6 +3417,7 @@ async function closePhotoModal() {
   photoLoading.value = false;
   photoError.value = '';
   photoCaptureDay.value = null;
+  photoCaptureMode.value = '';
   await stopPhotoCamera();
 }
 
