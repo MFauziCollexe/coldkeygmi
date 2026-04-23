@@ -1507,6 +1507,17 @@ class AttendanceLogController extends Controller
             $sameDayScans = $sorted
                 ->filter(fn ($scan) => $this->toDateString($scan->scan_date ?? null) === $logDate)
                 ->values();
+            $sameDayScansForPairing = $sameDayScans;
+
+            if ($this->isOvernightShift($startTime, $endTime)) {
+                $sameDayNonEarlyMorningScans = $sameDayScans
+                    ->reject(fn ($scan) => $this->isEarlyMorningTime($this->normalizeTime($scan->scan_date ?? null)))
+                    ->values();
+
+                if ($sameDayNonEarlyMorningScans->isNotEmpty()) {
+                    $sameDayScansForPairing = $sameDayNonEarlyMorningScans;
+                }
+            }
 
             $anchorStart = Carbon::parse($logDate . ' ' . $startTime);
             $anchorEnd = Carbon::parse($logDate . ' ' . $endTime);
@@ -1537,15 +1548,15 @@ class AttendanceLogController extends Controller
                 }
             })->sortByDesc('scan_date')->values();
 
-            if ($sameDayScans->count() >= 2) {
+            if ($sameDayScansForPairing->count() >= 2) {
                 return [
-                    $this->toDateTimeString(optional($sameDayScans->first())->scan_date ?? null),
-                    $this->toDateTimeString(optional($sameDayScans->last())->scan_date ?? null),
+                    $this->toDateTimeString(optional($sameDayScansForPairing->first())->scan_date ?? null),
+                    $this->toDateTimeString(optional($sameDayScansForPairing->last())->scan_date ?? null),
                 ];
             }
 
-            if ($sameDayScans->count() === 1) {
-                $sameDayFirstScan = $sameDayScans->first();
+            if ($sameDayScansForPairing->count() === 1) {
+                $sameDayFirstScan = $sameDayScansForPairing->first();
                 $sameDayFirstDateTime = $this->toDateTimeString(optional($sameDayFirstScan)->scan_date ?? null);
                 $checkoutScan = $checkoutCandidates->first(function ($scan) use ($sameDayFirstDateTime) {
                     return $this->toDateTimeString($scan->scan_date ?? null) !== $sameDayFirstDateTime;
