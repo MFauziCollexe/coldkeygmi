@@ -1776,8 +1776,26 @@ const canApproveEntry = computed(() => {
   return false;
 });
 
-function createEntryByTemplate(templateId) {
+function findOpenPatroliSecurityDraft(entries = []) {
+  const todayValue = toDateInputValue(new Date());
+  const candidates = Array.isArray(entries) ? entries : [];
+
+  return candidates.find((candidate) => {
+    if (candidate?.template_id !== 'patroli_security') {
+      return false;
+    }
+
+    if (Boolean(candidate?.form?.approved)) {
+      return false;
+    }
+
+    return String(candidate?.form?.date_value || '').trim() === todayValue;
+  }) || null;
+}
+
+function createEntryByTemplate(templateId, options = {}) {
   const userName = page.props.auth?.user?.name || 'User Login';
+  const continuableEntry = options.continuableEntry || null;
 
   if (templateId === 'kotak_p3k') {
     return createKotakP3KEntry(userName);
@@ -1808,6 +1826,10 @@ function createEntryByTemplate(templateId) {
   }
 
   if (templateId === 'patroli_security') {
+    if (continuableEntry) {
+      return hydrateChecklistEntry(continuableEntry);
+    }
+
     return createPatroliSecurityEntry(userName);
   }
 
@@ -2118,7 +2140,13 @@ function createInitialEntry() {
     return hydratedEntry;
   }
 
-  return createEntryByTemplate(selectedChecklist.value);
+  const continuablePatroliSecurityEntry = selectedChecklist.value === 'patroli_security'
+    ? findOpenPatroliSecurityDraft(props.existingEntries)
+    : null;
+
+  return createEntryByTemplate(selectedChecklist.value, {
+    continuableEntry: continuablePatroliSecurityEntry,
+  });
 }
 
 function refreshEntry() {
@@ -2126,12 +2154,30 @@ function refreshEntry() {
     return;
   }
 
-  entry.value = createEntryByTemplate(selectedChecklist.value);
+  const continuablePatroliSecurityEntry = selectedChecklist.value === 'patroli_security'
+    ? findOpenPatroliSecurityDraft(knownChecklistEntries.value)
+    : null;
+
+  entry.value = createEntryByTemplate(selectedChecklist.value, {
+    continuableEntry: continuablePatroliSecurityEntry,
+  });
+
+  if (continuablePatroliSecurityEntry && entry.value?.id === continuablePatroliSecurityEntry.id) {
+    syncCurrentEntryUrl(entry.value);
+  }
 }
 
+const autoOpenedPatroliSecurityDraft = !props.entryId
+  && entry.value?.template_id === 'patroli_security'
+  && findOpenPatroliSecurityDraft(props.existingEntries)?.id === entry.value?.id;
+
 lastSavedEntrySignature = buildEntrySignature(entry.value);
-if (props.entryId && props.savedEntry) {
+if ((props.entryId && props.savedEntry) || autoOpenedPatroliSecurityDraft) {
   saveState.value = 'saved';
+}
+
+if (autoOpenedPatroliSecurityDraft) {
+  syncCurrentEntryUrl(entry.value);
 }
 
 async function approveChecklist() {
