@@ -1057,7 +1057,7 @@ export function getPatroliSecurityAreaLabel(areaId) {
 
 export function getPatroliSecurityBarcodeAliases(areaId) {
   const aliases = {
-    pos_security: 'Lantai 1 - Area Luar Depan',
+    pos_security: 'Lantai 1 - Depan dan Luar',
     loading_dock_luar: 'Lantai 1 - Area Dalam (Ateroom, Loading Dock)',
     travo_pln_depan: 'Lantai 1 - Area Depan (Travo Pln Depan)',
     tanah_kosong_dan_sekitar_bangunan: 'Lantai 1 Area Luar Timur',
