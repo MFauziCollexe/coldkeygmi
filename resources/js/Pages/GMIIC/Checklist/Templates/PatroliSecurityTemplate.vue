@@ -109,19 +109,21 @@
       </div>
     </div>
 
-    <div class="overflow-x-auto border border-black">
-      <table class="min-w-full border-collapse text-sm">
+    <div class="border border-black">
+      <table class="w-full table-fixed border-collapse text-xs sm:text-sm sm:table-auto">
         <thead>
           <tr class="bg-slate-100">
-            <th class="w-12 border border-black px-2 py-2 text-center">No</th>
-            <th class="min-w-[420px] border border-black px-2 py-2 text-center">ITEM</th>
-            <th class="min-w-[220px] border border-black px-2 py-2 text-center">Kondisi</th>
+            <th class="w-10 border border-black px-1 py-2 text-center sm:w-12 sm:px-2">No</th>
+            <th class="border border-black px-2 py-2 text-center sm:min-w-[420px]">ITEM</th>
+            <th class="w-[84px] border border-black px-1 py-2 text-center text-[11px] leading-tight whitespace-normal sm:min-w-[220px] sm:px-2 sm:text-sm">
+              Kondisi
+            </th>
           </tr>
         </thead>
         <tbody>
           <template v-if="currentSection">
             <tr class="bg-slate-50">
-              <td colspan="3" class="border border-black px-2 py-2 text-base font-bold">
+              <td colspan="3" class="border border-black px-2 py-2 text-sm font-bold sm:text-base">
                 {{ currentSection.title }}
               </td>
             </tr>
@@ -129,12 +131,12 @@
               v-for="item in currentSection.items"
               :key="item.id"
             >
-              <td class="border border-black px-2 py-1 text-center">{{ item.no }}</td>
-              <td class="border border-black px-2 py-1">{{ item.name }}</td>
+              <td class="border border-black px-1 py-1 text-center align-top sm:px-2">{{ item.no }}</td>
+              <td class="border border-black px-2 py-1 leading-snug break-words">{{ item.name }}</td>
               <td class="border border-black p-0 text-center">
                 <button
                   type="button"
-                  class="flex h-10 w-full items-center justify-center text-lg font-semibold"
+                  class="flex h-9 w-full items-center justify-center text-base font-semibold sm:h-10 sm:text-lg"
                   :disabled="approvedAreas.includes(entry.form.selected_area)"
                   @click="$emit('cycle-row-status', currentSection.id, item.id)"
                 >
