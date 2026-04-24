@@ -557,6 +557,19 @@ function upsertKnownChecklistEntries(entries = []) {
   entries.forEach((savedEntry) => upsertKnownChecklistEntry(savedEntry));
 }
 
+function syncCurrentEntryUrl(targetEntry = entry.value) {
+  if (typeof window === 'undefined' || !targetEntry?.id || !targetEntry?.template_id) {
+    return;
+  }
+
+  const params = new URLSearchParams({
+    template: String(targetEntry.template_id),
+    entry_id: String(targetEntry.id),
+  });
+
+  window.history.replaceState({}, '', `/gmiic/checklist/create?${params.toString()}`);
+}
+
 async function persistChecklistEntry(targetEntry = entry.value, options = {}) {
   if (!targetEntry?.id || !targetEntry?.template_id || !supportedTemplates.includes(targetEntry.template_id)) {
     return targetEntry;
@@ -585,6 +598,8 @@ async function persistChecklistEntry(targetEntry = entry.value, options = {}) {
     if (entry.value?.id === savedEntry.id) {
       entry.value = hydrateChecklistEntry(savedEntry);
     }
+
+    syncCurrentEntryUrl(savedEntry);
 
     if (requestId === saveRequestSequence) {
       saveState.value = 'saved';
@@ -624,6 +639,7 @@ async function persistChecklistEntries(entries = []) {
       if (currentSavedEntry) {
         entry.value = hydrateChecklistEntry(currentSavedEntry);
         lastSavedEntrySignature = buildEntrySignature(currentSavedEntry);
+        syncCurrentEntryUrl(currentSavedEntry);
       }
     }
     saveState.value = 'saved';
@@ -2147,7 +2163,6 @@ async function approveChecklist() {
     }
 
     await persistChecklistEntry(entry.value, { force: true });
-    router.visit('/gmiic/checklist');
     return;
   }
 
@@ -2163,7 +2178,6 @@ async function approveChecklist() {
     entry.value.form.approved = true;
     persistCurrentFireSafetyState();
     await persistChecklistEntry(entry.value, { force: true });
-    router.visit('/gmiic/checklist');
     return;
   }
 
@@ -2197,7 +2211,6 @@ async function approveChecklist() {
 
     entry.value.form.approved = warehousePreparedApproved.value;
     await persistChecklistEntry(entry.value, { force: true });
-    router.visit('/gmiic/checklist');
     return;
   }
 
@@ -2223,7 +2236,6 @@ async function approveChecklist() {
     ];
     entry.value.form.approved = patroliSecurityAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id));
     await persistChecklistEntry(entry.value, { force: true });
-    router.visit('/gmiic/checklist');
     return;
   }
 
@@ -2235,13 +2247,11 @@ async function approveChecklist() {
     ];
     entry.value.form.approved = siteVisitHseAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id));
     await persistChecklistEntry(entry.value, { force: true });
-    router.visit('/gmiic/checklist');
     return;
   }
 
   entry.value.form.approved = true;
   await persistChecklistEntry(entry.value, { force: true });
-  router.visit('/gmiic/checklist');
 }
 
 async function scanBarcode() {
