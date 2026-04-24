@@ -8,7 +8,7 @@ use App\Models\ChecklistState;
 use App\Models\ChecklistTemplate;
 use App\Models\Employee;
 use App\Models\LeavePermission;
-use App\Services\AccessRuleService;
+use App\Support\AccessRuleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
