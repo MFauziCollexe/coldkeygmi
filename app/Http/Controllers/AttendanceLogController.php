@@ -119,6 +119,7 @@ class AttendanceLogController extends Controller
                     ],
                 ];
             });
+        $employeePinByIdentity = $this->buildEmployeePinByIdentityMap($employeeInfoByPin);
 
         $employeeStatusByPin = collect();
         if (Schema::hasColumn('employees', 'employment_status')) {
@@ -151,17 +152,27 @@ class AttendanceLogController extends Controller
             }, function ($query) {
                 $query->whereRaw('1 = 0');
             })
-            ->whereNotNull('re.employee_nrp')
-            ->where('re.employee_nrp', '<>', '')
-            ->get([
-                're.roster_date as log_date',
-                're.employee_nrp as pin',
-                're.employee_name as roster_name',
-                're.shift_code',
-                're.is_off',
-                're.start_time',
-                're.end_time',
-            ]);
+            ->where(function ($query) {
+                $query
+                    ->whereNotNull('re.employee_nrp')
+                    ->where('re.employee_nrp', '<>', '')
+                    ->orWhere(function ($nested) {
+                        $nested
+                            ->whereNotNull('re.employee_key')
+                            ->where('re.employee_key', '<>', '');
+                    });
+            })
+            ->selectRaw("
+                re.roster_date as log_date,
+                COALESCE(NULLIF(re.employee_nrp, ''), NULLIF(re.employee_key, '')) as pin,
+                re.employee_name as roster_name,
+                re.shift_code,
+                re.is_off,
+                re.start_time,
+                re.end_time
+            ")
+            ->get();
+        $rosterRows = $this->remapRosterRowsToKnownEmployeePins($rosterRows, $employeeInfoByPin, $employeePinByIdentity);
 
         $rosterScheduleIndex = $this->buildRosterScheduleIndex($rosterRows);
 
@@ -928,6 +939,74 @@ class AttendanceLogController extends Controller
             ->all();
     }
 
+    private function buildEmployeePinByIdentityMap(Collection $employeeInfoByPin): array
+    {
+        $identityBuckets = [];
+
+        foreach ($employeeInfoByPin as $pin => $employeeInfo) {
+            $normalizedPin = $this->normalizePin((string) $pin);
+            if ($normalizedPin === '') {
+                continue;
+            }
+
+            foreach ([
+                $this->normalizeEmployeeIdentity((string) ($employeeInfo['name'] ?? '')),
+                $this->normalizeEmployeeIdentity((string) ($employeeInfo['alias_name'] ?? '')),
+            ] as $identity) {
+                if ($identity === '') {
+                    continue;
+                }
+
+                $identityBuckets[$identity] = $identityBuckets[$identity] ?? [];
+                $identityBuckets[$identity][$normalizedPin] = true;
+            }
+        }
+
+        $resolved = [];
+        foreach ($identityBuckets as $identity => $pins) {
+            if (count($pins) === 1) {
+                $resolved[$identity] = array_key_first($pins);
+            }
+        }
+
+        return $resolved;
+    }
+
+    private function remapRosterRowsToKnownEmployeePins(
+        Collection $rosterRows,
+        Collection $employeeInfoByPin,
+        array $employeePinByIdentity
+    ): Collection {
+        return $rosterRows->map(function ($row) use ($employeeInfoByPin, $employeePinByIdentity) {
+            $normalizedPin = $this->normalizePin((string) ($row->pin ?? ''));
+            if ($normalizedPin !== '' && $employeeInfoByPin->has($normalizedPin)) {
+                $row->pin = $normalizedPin;
+                return $row;
+            }
+
+            $identity = $this->normalizeEmployeeIdentity((string) ($row->roster_name ?? ''));
+            $fallbackPin = $identity !== '' ? (string) ($employeePinByIdentity[$identity] ?? '') : '';
+            if ($fallbackPin !== '') {
+                $row->pin = $fallbackPin;
+            } else {
+                $row->pin = $normalizedPin;
+            }
+
+            return $row;
+        });
+    }
+
+    private function normalizeEmployeeIdentity(?string $value): string
+    {
+        $text = mb_strtoupper(trim((string) ($value ?? '')));
+        if ($text === '') {
+            return '';
+        }
+
+        $text = preg_replace('/[^A-Z0-9]+/u', ' ', $text) ?? '';
+        return trim(preg_replace('/\s+/u', ' ', $text) ?? '');
+    }
+
     private function buildMonthlyLateAbsentInsights(?string $dateFrom, ?string $dateTo, ?string $forcedDepartmentName = null): array
     {
         $now = Carbon::now();
@@ -1094,17 +1173,26 @@ class AttendanceLogController extends Controller
             }, function ($query) {
                 $query->whereRaw('1 = 0');
             })
-            ->whereNotNull('re.employee_nrp')
-            ->where('re.employee_nrp', '<>', '')
-            ->get([
-                're.roster_date as log_date',
-                're.employee_nrp as pin',
-                're.employee_name as roster_name',
-                're.shift_code',
-                're.is_off',
-                're.start_time',
-                're.end_time',
-            ]);
+            ->where(function ($query) {
+                $query
+                    ->whereNotNull('re.employee_nrp')
+                    ->where('re.employee_nrp', '<>', '')
+                    ->orWhere(function ($nested) {
+                        $nested
+                            ->whereNotNull('re.employee_key')
+                            ->where('re.employee_key', '<>', '');
+                    });
+            })
+            ->selectRaw("
+                re.roster_date as log_date,
+                COALESCE(NULLIF(re.employee_nrp, ''), NULLIF(re.employee_key, '')) as pin,
+                re.employee_name as roster_name,
+                re.shift_code,
+                re.is_off,
+                re.start_time,
+                re.end_time
+            ")
+            ->get();
 
         $rosterScheduleIndex = $this->buildRosterScheduleIndex($rosterRows);
 
