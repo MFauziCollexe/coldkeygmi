@@ -473,7 +473,6 @@ let html5QrcodeInstance = null;
 let scannerStarting = false;
 let scannerFinishing = false;
 let photoStream = null;
-let autosaveTimer = null;
 let saveRequestSequence = 0;
 let lastSavedEntrySignature = '';
 
@@ -563,11 +562,6 @@ async function persistChecklistEntry(targetEntry = entry.value, options = {}) {
     return targetEntry;
   }
 
-  if (autosaveTimer) {
-    clearTimeout(autosaveTimer);
-    autosaveTimer = null;
-  }
-
   const normalizedEntry = cloneChecklistEntry(targetEntry);
   const signature = buildEntrySignature(normalizedEntry);
 
@@ -641,29 +635,14 @@ async function persistChecklistEntries(entries = []) {
   }
 }
 
-function queueChecklistAutosave() {
+function syncSaveStateWithEntry() {
   if (!entry.value?.id || !supportedTemplates.includes(entry.value?.template_id || '')) {
+    saveState.value = 'idle';
     return;
   }
 
   const signature = buildEntrySignature(entry.value);
-  if (signature !== '' && signature === lastSavedEntrySignature) {
-    return;
-  }
-
-  if (autosaveTimer) {
-    clearTimeout(autosaveTimer);
-  }
-
-  saveState.value = 'dirty';
-  autosaveTimer = setTimeout(async () => {
-    autosaveTimer = null;
-
-    try {
-      await persistChecklistEntry(entry.value);
-    } catch (error) {
-    }
-  }, 700);
+  saveState.value = signature !== '' && signature === lastSavedEntrySignature ? 'saved' : 'dirty';
 }
 const photoModalTitle = computed(() => {
   if (photoCaptureMode.value === 'patroli_security') {
@@ -2611,7 +2590,7 @@ async function uploadPatroliSecurityPhoto(file) {
       url: response.data?.url || '',
       name: response.data?.original_name || file.name || '',
     });
-    await persistChecklistEntry(entry.value, { force: true });
+    syncSaveStateWithEntry();
   } catch (error) {
     patroliSecurityPhotoError.value = error?.response?.data?.message || 'Foto gagal di-upload.';
   } finally {
@@ -2640,7 +2619,7 @@ async function removePatroliSecurityPhoto(index) {
     }
 
     updatePatroliSecurityPhotoState({ removeIndex: Number(index) });
-    await persistChecklistEntry(entry.value, { force: true });
+    syncSaveStateWithEntry();
   } catch (error) {
     patroliSecurityPhotoError.value = error?.response?.data?.message || 'Foto gagal dihapus.';
   }
@@ -3733,9 +3712,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleOutsideLocationMenu);
-  if (autosaveTimer) {
-    clearTimeout(autosaveTimer);
-  }
   stopBarcodeScanner();
   stopPhotoCamera();
 });
@@ -3761,7 +3737,7 @@ watch(
 watch(
   entry,
   () => {
-    queueChecklistAutosave();
+    syncSaveStateWithEntry();
   },
   { deep: true }
 );
