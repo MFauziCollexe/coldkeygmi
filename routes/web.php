@@ -1,8 +1,5 @@
 <?php
 
-use App\Models\AttendanceHoliday;
-use App\Models\Employee;
-use App\Models\LeavePermission;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -13,11 +10,9 @@ use App\Http\Controllers\PositionController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\VehicleTypeController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Support\AccessRuleService;
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
 Route::get('/ai-help/history', [App\Http\Controllers\HelpAssistantController::class, 'history'])
@@ -266,98 +261,21 @@ Route::get('gmium/utility-report', [App\Http\Controllers\UtilityReportController
     ->name('gmium.utility-report.index');
 
 // GMIIC - Checklist
-$resolveChecklistAbilities = static function (Request $request): array {
-    $accessRules = app(AccessRuleService::class);
-    $user = $request->user();
-
-    return [
-        'delete_entries' => $accessRules->allows($user, 'gmiic_checklist', 'delete_entries'),
-        'kotak_p3k_hse_approve' => $accessRules->allows($user, 'gmiic_checklist', 'kotak_p3k_hse_approve'),
-        'warehouse_final_approve' => $accessRules->allows($user, 'gmiic_checklist', 'warehouse_final_approve'),
-    ];
-};
-
-Route::get('gmiic/checklist', function (Request $request) use ($resolveChecklistAbilities) {
-    return Inertia::render('GMIIC/Checklist/Index', [
-        'checklistAbilities' => $resolveChecklistAbilities($request),
-    ]);
-})->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+Route::get('gmiic/checklist', [App\Http\Controllers\ChecklistEntryController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.index');
-Route::get('gmiic/checklist/create', function (Request $request) use ($resolveChecklistAbilities) {
-    $employees = Employee::query()
-        ->with([
-            'position:id,name,department_id',
-            'position.department:id,name',
-            'department:id,name',
-            'user:id,position_id',
-            'user.position:id,name,department_id',
-            'user.position.department:id,name',
-        ])
-        ->when(Schema::hasColumn('employees', 'employment_status'), function ($query) {
-            $query->where('employment_status', 'active');
-        })
-        ->orderBy('name')
-        ->get();
-
-    $employeeNikById = $employees
-        ->filter(fn (Employee $employee) => !empty($employee->nik))
-        ->mapWithKeys(fn (Employee $employee) => [$employee->id => $employee->nik]);
-
-    $employeeNikByUserId = $employees
-        ->filter(fn (Employee $employee) => !empty($employee->nik) && !empty($employee->user_id))
-        ->mapWithKeys(fn (Employee $employee) => [$employee->user_id => $employee->nik]);
-
-    $leaveDatesByNik = LeavePermission::query()
-        ->where('status', 'approved')
-        ->where('type', 'cuti')
-        ->get(['employee_id', 'user_id', 'start_date', 'end_date'])
-        ->reduce(function ($carry, LeavePermission $leave) use ($employeeNikById, $employeeNikByUserId) {
-            $nik = $employeeNikById->get($leave->employee_id) ?: $employeeNikByUserId->get($leave->user_id);
-            if (!$nik || !$leave->start_date || !$leave->end_date) {
-                return $carry;
-            }
-
-            $cursor = \Illuminate\Support\Carbon::parse($leave->start_date)->startOfDay();
-            $end = \Illuminate\Support\Carbon::parse($leave->end_date)->startOfDay();
-
-            while ($cursor->lte($end)) {
-                $carry[$nik] = $carry[$nik] ?? [];
-                $carry[$nik][] = $cursor->format('Y-m-d');
-                $cursor->addDay();
-            }
-
-            return $carry;
-        }, []);
-
-    return Inertia::render('GMIIC/Checklist/Create', [
-        'selectedTemplate' => $request->string('template')->toString(),
-        'entryId' => $request->string('entry_id')->toString(),
-        'checklistAbilities' => $resolveChecklistAbilities($request),
-        'holidayDates' => AttendanceHoliday::query()
-            ->orderBy('holiday_date')
-            ->pluck('holiday_date')
-            ->map(fn ($date) => \Illuminate\Support\Carbon::parse($date)->format('Y-m-d'))
-            ->values(),
-        'leaveDatesByNik' => collect($leaveDatesByNik)
-            ->map(fn ($dates) => array_values(array_unique($dates)))
-            ->all(),
-        'employees' => $employees
-            ->map(function (Employee $employee) {
-                $positionName = $employee->position?->name ?: $employee->user?->position?->name;
-
-                return [
-                    'id' => $employee->id,
-                    'nik' => $employee->nik,
-                    'name' => $employee->name,
-                    'gender' => $employee->gender,
-                    'bagian' => $positionName,
-                    'position' => $positionName,
-                ];
-            })
-            ->values(),
-    ]);
-})->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+Route::get('gmiic/checklist/create', [App\Http\Controllers\ChecklistEntryController::class, 'create'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.create');
+Route::post('gmiic/checklist/entries/save', [App\Http\Controllers\ChecklistEntryController::class, 'save'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.entries.save');
+Route::post('gmiic/checklist/entries/bulk-save', [App\Http\Controllers\ChecklistEntryController::class, 'saveMany'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.entries.bulk-save');
+Route::delete('gmiic/checklist/entries', [App\Http\Controllers\ChecklistEntryController::class, 'destroyMany'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.entries.delete');
 Route::post('gmiic/checklist/patroli-security/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadPatroliSecurityPhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.patroli-security.photo');

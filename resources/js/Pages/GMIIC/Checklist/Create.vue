@@ -5,6 +5,9 @@
         <div>
           <h2 class="text-2xl font-bold">New Checklist</h2>
           <Link href="/gmiic/checklist" class="text-sm text-indigo-400 hover:underline">&lt; Back to List</Link>
+          <div v-if="selectedChecklist" class="mt-1 text-xs" :class="saveStateClass">
+            {{ saveStateLabel }}
+          </div>
         </div>
 
         <div class="w-full sm:w-[360px]">
@@ -411,8 +414,6 @@ import {
   toWeekInputValue,
   warehouseAreaOptions,
 } from './checklistConfig';
-import { findChecklistEntry, loadChecklistEntries, upsertChecklistEntry } from './checklistStorage';
-
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
 
 const props = defineProps({
@@ -423,6 +424,14 @@ const props = defineProps({
   entryId: {
     type: String,
     default: '',
+  },
+  savedEntry: {
+    type: Object,
+    default: null,
+  },
+  existingEntries: {
+    type: Array,
+    default: () => [],
   },
   holidayDates: {
     type: Array,
@@ -456,16 +465,206 @@ const photoError = ref('');
 const photoCaptureDay = ref(null);
 const photoCaptureMode = ref('');
 const photoVideoRef = ref(null);
+const knownChecklistEntries = ref(Array.isArray(props.existingEntries) ? [...props.existingEntries] : []);
+const saveState = ref('idle');
+const saveError = ref('');
 
 let html5QrcodeInstance = null;
 let scannerStarting = false;
 let scannerFinishing = false;
 let photoStream = null;
+let autosaveTimer = null;
+let saveRequestSequence = 0;
+let lastSavedEntrySignature = '';
 
 const currentUser = computed(() => page.props.auth?.user || null);
 const checklistAbilities = computed(() => props.checklistAbilities || page.props.checklistAbilities || {});
 const canApproveKotakP3KHse = computed(() => Boolean(checklistAbilities.value.kotak_p3k_hse_approve));
 const canApproveWarehouseFinal = computed(() => Boolean(checklistAbilities.value.warehouse_final_approve));
+const saveStateLabel = computed(() => {
+  if (!selectedChecklist.value) {
+    return '';
+  }
+
+  if (saveState.value === 'saving') {
+    return 'Menyimpan ke database...';
+  }
+
+  if (saveState.value === 'saved') {
+    return 'Tersimpan di database';
+  }
+
+  if (saveState.value === 'error') {
+    return saveError.value || 'Gagal menyimpan ke database.';
+  }
+
+  if (saveState.value === 'dirty') {
+    return 'Perubahan belum tersimpan';
+  }
+
+  return 'Belum ada perubahan';
+});
+const saveStateClass = computed(() => {
+  if (saveState.value === 'error') {
+    return 'text-rose-300';
+  }
+
+  if (saveState.value === 'saved') {
+    return 'text-emerald-300';
+  }
+
+  if (saveState.value === 'saving') {
+    return 'text-sky-300';
+  }
+
+  return 'text-slate-400';
+});
+
+function cloneChecklistEntry(targetEntry) {
+  return JSON.parse(JSON.stringify(targetEntry || null));
+}
+
+function buildEntrySignature(targetEntry) {
+  if (!targetEntry) {
+    return '';
+  }
+
+  try {
+    return JSON.stringify(cloneChecklistEntry(targetEntry));
+  } catch (error) {
+    return '';
+  }
+}
+
+function upsertKnownChecklistEntry(savedEntry) {
+  if (!savedEntry?.id) {
+    return;
+  }
+
+  const nextEntry = cloneChecklistEntry(savedEntry);
+  const existingIndex = knownChecklistEntries.value.findIndex((item) => item?.id === nextEntry.id);
+
+  if (existingIndex === -1) {
+    knownChecklistEntries.value = [nextEntry, ...knownChecklistEntries.value];
+    return;
+  }
+
+  const nextEntries = [...knownChecklistEntries.value];
+  nextEntries[existingIndex] = nextEntry;
+  knownChecklistEntries.value = nextEntries;
+}
+
+function upsertKnownChecklistEntries(entries = []) {
+  entries.forEach((savedEntry) => upsertKnownChecklistEntry(savedEntry));
+}
+
+async function persistChecklistEntry(targetEntry = entry.value, options = {}) {
+  if (!targetEntry?.id || !targetEntry?.template_id || !supportedTemplates.includes(targetEntry.template_id)) {
+    return targetEntry;
+  }
+
+  if (autosaveTimer) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+  }
+
+  const normalizedEntry = cloneChecklistEntry(targetEntry);
+  const signature = buildEntrySignature(normalizedEntry);
+
+  if (!options.force && signature !== '' && signature === lastSavedEntrySignature) {
+    return normalizedEntry;
+  }
+
+  const requestId = ++saveRequestSequence;
+  saveState.value = 'saving';
+  saveError.value = '';
+
+  try {
+    const response = await axios.post('/gmiic/checklist/entries/save', {
+      entry: normalizedEntry,
+    });
+    const savedEntry = response.data?.entry || normalizedEntry;
+
+    upsertKnownChecklistEntry(savedEntry);
+    lastSavedEntrySignature = buildEntrySignature(savedEntry);
+
+    if (entry.value?.id === savedEntry.id) {
+      entry.value = hydrateChecklistEntry(savedEntry);
+    }
+
+    if (requestId === saveRequestSequence) {
+      saveState.value = 'saved';
+    }
+
+    return savedEntry;
+  } catch (error) {
+    if (requestId === saveRequestSequence) {
+      saveState.value = 'error';
+      saveError.value = error?.response?.data?.message || 'Gagal menyimpan checklist.';
+    }
+
+    throw error;
+  }
+}
+
+async function persistChecklistEntries(entries = []) {
+  const normalizedEntries = entries
+    .map((targetEntry) => cloneChecklistEntry(targetEntry))
+    .filter((targetEntry) => targetEntry?.id && targetEntry?.template_id);
+
+  if (!normalizedEntries.length) {
+    return [];
+  }
+
+  saveState.value = 'saving';
+  saveError.value = '';
+
+  try {
+    const response = await axios.post('/gmiic/checklist/entries/bulk-save', {
+      entries: normalizedEntries,
+    });
+    const savedEntries = Array.isArray(response.data?.entries) ? response.data.entries : normalizedEntries;
+    upsertKnownChecklistEntries(savedEntries);
+    if (entry.value?.id) {
+      const currentSavedEntry = savedEntries.find((savedEntry) => savedEntry?.id === entry.value?.id);
+      if (currentSavedEntry) {
+        entry.value = hydrateChecklistEntry(currentSavedEntry);
+        lastSavedEntrySignature = buildEntrySignature(currentSavedEntry);
+      }
+    }
+    saveState.value = 'saved';
+    return savedEntries;
+  } catch (error) {
+    saveState.value = 'error';
+    saveError.value = error?.response?.data?.message || 'Gagal menyimpan checklist.';
+    throw error;
+  }
+}
+
+function queueChecklistAutosave() {
+  if (!entry.value?.id || !supportedTemplates.includes(entry.value?.template_id || '')) {
+    return;
+  }
+
+  const signature = buildEntrySignature(entry.value);
+  if (signature !== '' && signature === lastSavedEntrySignature) {
+    return;
+  }
+
+  if (autosaveTimer) {
+    clearTimeout(autosaveTimer);
+  }
+
+  saveState.value = 'dirty';
+  autosaveTimer = setTimeout(async () => {
+    autosaveTimer = null;
+
+    try {
+      await persistChecklistEntry(entry.value);
+    } catch (error) {
+    }
+  }, 700);
+}
 const photoModalTitle = computed(() => {
   if (photoCaptureMode.value === 'patroli_security') {
     return 'Ambil Foto Patroli Security';
@@ -1907,19 +2106,21 @@ function hydrateSiteVisitMaintenanceEntry(savedEntry) {
   };
 }
 
+function hydrateChecklistEntry(savedEntry) {
+  const fireSafetyHydratedEntry = hydrateFireSafetyEntry(savedEntry);
+  const saranaPrasaranaHydratedEntry = hydrateSaranaPrasaranaEntry(fireSafetyHydratedEntry);
+  const patroliSecurityHydratedEntry = hydratePatroliSecurityEntry(saranaPrasaranaHydratedEntry);
+  const personalHygieneHydratedEntry = hydratePersonalHygieneEntry(patroliSecurityHydratedEntry);
+  const siteVisitHseHydratedEntry = hydrateSiteVisitHseEntry(personalHygieneHydratedEntry);
+
+  return hydrateSiteVisitMaintenanceEntry(siteVisitHseHydratedEntry);
+}
+
 function createInitialEntry() {
-  if (props.entryId) {
-    const savedEntry = findChecklistEntry(props.entryId);
-    if (savedEntry) {
-      const fireSafetyHydratedEntry = hydrateFireSafetyEntry(savedEntry);
-      const saranaPrasaranaHydratedEntry = hydrateSaranaPrasaranaEntry(fireSafetyHydratedEntry);
-      const patroliSecurityHydratedEntry = hydratePatroliSecurityEntry(saranaPrasaranaHydratedEntry);
-      const personalHygieneHydratedEntry = hydratePersonalHygieneEntry(patroliSecurityHydratedEntry);
-      const siteVisitHseHydratedEntry = hydrateSiteVisitHseEntry(personalHygieneHydratedEntry);
-      const hydratedEntry = hydrateSiteVisitMaintenanceEntry(siteVisitHseHydratedEntry);
-      selectedChecklist.value = hydratedEntry.template_id;
-      return hydratedEntry;
-    }
+  if (props.entryId && props.savedEntry) {
+    const hydratedEntry = hydrateChecklistEntry(props.savedEntry);
+    selectedChecklist.value = hydratedEntry.template_id;
+    return hydratedEntry;
   }
 
   return createEntryByTemplate(selectedChecklist.value);
@@ -1933,7 +2134,12 @@ function refreshEntry() {
   entry.value = createEntryByTemplate(selectedChecklist.value);
 }
 
-function approveChecklist() {
+lastSavedEntrySignature = buildEntrySignature(entry.value);
+if (props.entryId && props.savedEntry) {
+  saveState.value = 'saved';
+}
+
+async function approveChecklist() {
   if (!entry.value || !canApproveEntry.value) {
     return;
   }
@@ -1961,7 +2167,7 @@ function approveChecklist() {
       entry.value.form.approved = false;
     }
 
-    upsertChecklistEntry(entry.value);
+    await persistChecklistEntry(entry.value, { force: true });
     router.visit('/gmiic/checklist');
     return;
   }
@@ -1977,7 +2183,7 @@ function approveChecklist() {
     };
     entry.value.form.approved = true;
     persistCurrentFireSafetyState();
-    upsertChecklistEntry(entry.value);
+    await persistChecklistEntry(entry.value, { force: true });
     router.visit('/gmiic/checklist');
     return;
   }
@@ -2011,7 +2217,7 @@ function approveChecklist() {
     };
 
     entry.value.form.approved = warehousePreparedApproved.value;
-    upsertChecklistEntry(entry.value);
+    await persistChecklistEntry(entry.value, { force: true });
     router.visit('/gmiic/checklist');
     return;
   }
@@ -2037,7 +2243,7 @@ function approveChecklist() {
       ...new Set([...(entry.value.form.approved_areas || []), selectedArea]),
     ];
     entry.value.form.approved = patroliSecurityAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id));
-    upsertChecklistEntry(entry.value);
+    await persistChecklistEntry(entry.value, { force: true });
     router.visit('/gmiic/checklist');
     return;
   }
@@ -2049,13 +2255,13 @@ function approveChecklist() {
       ...new Set([...(entry.value.form.approved_areas || []), selectedArea]),
     ];
     entry.value.form.approved = siteVisitHseAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id));
-    upsertChecklistEntry(entry.value);
+    await persistChecklistEntry(entry.value, { force: true });
     router.visit('/gmiic/checklist');
     return;
   }
 
   entry.value.form.approved = true;
-  upsertChecklistEntry(entry.value);
+  await persistChecklistEntry(entry.value, { force: true });
   router.visit('/gmiic/checklist');
 }
 
@@ -2405,7 +2611,7 @@ async function uploadPatroliSecurityPhoto(file) {
       url: response.data?.url || '',
       name: response.data?.original_name || file.name || '',
     });
-    upsertChecklistEntry(entry.value);
+    await persistChecklistEntry(entry.value, { force: true });
   } catch (error) {
     patroliSecurityPhotoError.value = error?.response?.data?.message || 'Foto gagal di-upload.';
   } finally {
@@ -2434,7 +2640,7 @@ async function removePatroliSecurityPhoto(index) {
     }
 
     updatePatroliSecurityPhotoState({ removeIndex: Number(index) });
-    upsertChecklistEntry(entry.value);
+    await persistChecklistEntry(entry.value, { force: true });
   } catch (error) {
     patroliSecurityPhotoError.value = error?.response?.data?.message || 'Foto gagal dihapus.';
   }
@@ -2780,19 +2986,20 @@ function createGeneratedPersonalHygieneRows(periodValue, employeeNik, existingRo
   });
 }
 
-function generatePersonalHygieneFullMonth() {
+async function generatePersonalHygieneFullMonth() {
   if (!entry.value || !isPersonalHygiene.value) {
     return;
   }
 
   const targetPeriod = entry.value.form.period || toPeriodValue(new Date());
   const targetYear = String(targetPeriod || '').split('-')[0] || String(new Date().getFullYear());
-  const existingEntries = loadChecklistEntries().filter((savedEntry) => {
+  const existingEntries = knownChecklistEntries.value.filter((savedEntry) => {
     return savedEntry?.template_id === 'personal_hygiene_karyawan'
       && String(savedEntry?.form?.period || '') === targetPeriod;
   });
   let createdCount = 0;
   let skippedCount = 0;
+  const entriesToSave = [];
 
   (props.employees || []).forEach((employee, index) => {
     const employeeNik = String(employee?.nik || '').trim();
@@ -2823,9 +3030,13 @@ function generatePersonalHygieneFullMonth() {
     );
     nextEntry.form.generated_employees = [];
 
-    upsertChecklistEntry(nextEntry);
+    entriesToSave.push(nextEntry);
     createdCount += 1;
   });
+
+  if (entriesToSave.length) {
+    await persistChecklistEntries(entriesToSave);
+  }
 
   if (typeof window !== 'undefined') {
     if (createdCount === 0 && skippedCount > 0) {
@@ -3522,12 +3733,17 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleOutsideLocationMenu);
+  if (autosaveTimer) {
+    clearTimeout(autosaveTimer);
+  }
   stopBarcodeScanner();
   stopPhotoCamera();
 });
 
 watch(selectedChecklist, () => {
   locationMenuOpen.value = false;
+  saveError.value = '';
+  saveState.value = 'idle';
   refreshEntry();
 });
 
@@ -3540,5 +3756,13 @@ watch(
     syncWarehouseAreaRows();
   },
   { immediate: true }
+);
+
+watch(
+  entry,
+  () => {
+    queueChecklistAutosave();
+  },
+  { deep: true }
 );
 </script>

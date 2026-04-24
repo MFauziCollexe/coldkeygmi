@@ -131,17 +131,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import axios from 'axios';
+import { computed, ref } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 import { swalConfirm } from '@/Utils/swalConfirm';
 import { checklistOptions, getChecklistEntryAreaLabel } from './checklistConfig';
-import { loadChecklistEntries, removeChecklistEntries } from './checklistStorage';
 
 const page = usePage();
 const selectedChecklist = ref('');
-const checklistEntries = ref([]);
+const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : []);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});
@@ -195,8 +195,17 @@ async function removeSelectedChecklists() {
     return;
   }
 
-  checklistEntries.value = removeChecklistEntries(selectedEntryIds.value);
-  selectedEntryIds.value = [];
+  try {
+    await axios.delete('/gmiic/checklist/entries', {
+      data: {
+        entry_ids: selectedEntryIds.value,
+      },
+    });
+    checklistEntries.value = checklistEntries.value.filter((entry) => !selectedEntryIds.value.includes(entry.id));
+    selectedEntryIds.value = [];
+  } catch (error) {
+    window.alert(error?.response?.data?.message || 'Checklist gagal dihapus.');
+  }
 }
 
 function getChecklistStatusLabel(entry) {
@@ -238,9 +247,4 @@ function getChecklistStatusClass(entry) {
 
   return 'bg-amber-600 text-white';
 }
-
-onMounted(() => {
-  checklistEntries.value = loadChecklistEntries();
-  selectedEntryIds.value = [];
-});
 </script>
