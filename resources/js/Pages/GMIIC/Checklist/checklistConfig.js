@@ -1056,7 +1056,23 @@ export function getPatroliSecurityAreaLabel(areaId) {
 }
 
 export function getPatroliSecurityBarcodeAliases(areaId) {
-  const fullTitle = patroliSecuritySections.find((section) => section.id === areaId)?.title || '';
+  const aliases = {
+    pos_security: 'Lantai 1 - Area Luar Depan',
+    loading_dock_luar: 'Lantai 1 - Area Dalam (Ateroom, Loading Dock)',
+    travo_pln_depan: 'Lantai 1 - Area Depan (Travo Pln Depan)',
+    tanah_kosong_dan_sekitar_bangunan: 'Lantai 1 Area Luar Timur',
+    travo_pln_belakang: 'Lantai 1 - Area Belakang (Travo Pln Belakang)',
+    genset: 'Lantai 1 - Area Belakang (Genset)',
+    ruang_mesin_ruang_kontrol: 'Lantai 1 - Area Belakang (R. Mesin, R. Kontrol)',
+    sekitar_bangunan: 'Lantai 1 Area Luar Barat',
+    loading_dock_dalam: 'Lantai 1 - Area Dalam (Loading Dock Dalam)',
+    anteroom_cold_storage: 'Lantai 1 - Area Dalam (Anteroom, Cold Storage)',
+    lobby_ruang_loker: 'Lantai 1 - Area Dalam (Lobby, Ruang Loker)',
+    ruang_baterai: 'Lantai 1 - Ruang Baterai',
+    lantai_2: 'Lantai 2',
+    lantai_3: 'Lantai 3',
+  };
+  const fullTitle = aliases[areaId] || patroliSecuritySections.find((section) => section.id === areaId)?.title || '';
   const shortLabel = getPatroliSecurityAreaLabel(areaId);
 
   return [...new Set([fullTitle, shortLabel].filter((value) => String(value || '').trim() !== ''))];
