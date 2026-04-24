@@ -142,7 +142,13 @@ class RosterController extends Controller
         }
 
         $user = Auth::user();
-        $targetDepartmentId = $this->resolveDepartmentIdForTemplateType($templateType) ?: $user?->department_id;
+        $targetDepartmentId = (int) ($user?->department_id ?? 0);
+
+        if ($targetDepartmentId <= 0) {
+            return response()->json([
+                'message' => 'User tidak memiliki departemen. Preview roster ditolak.',
+            ], 422);
+        }
 
         try {
             $result = $this->parseRosterFile(
@@ -249,10 +255,6 @@ class RosterController extends Controller
         }
 
         $templateType = $this->normalizeTemplateType((string) $request->input('template_type', (string) ($previewData['template_type'] ?? 'inventory')));
-        $targetDepartmentId = (int) ($previewData['target_department_id'] ?? 0);
-        if ($targetDepartmentId <= 0) {
-            $targetDepartmentId = (int) ($this->resolveDepartmentIdForTemplateType($templateType) ?? 0);
-        }
 
         $sourceRows = $request->input('edited_rows');
         if (empty($sourceRows)) {
@@ -265,6 +267,8 @@ class RosterController extends Controller
                 'message' => 'User tidak memiliki departemen. Upload roster ditolak.',
             ], 422);
         }
+
+        $targetDepartmentId = (int) $user->department_id;
 
         $validRows = [];
         foreach ($sourceRows as $row) {
