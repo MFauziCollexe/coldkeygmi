@@ -29,7 +29,7 @@
       <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div v-if="!batches.data.length" class="text-slate-400 text-sm">Belum ada data roster.</div>
         <div v-else class="hidden overflow-auto lg:block">
-          <table class="w-full min-w-[1120px] text-sm table-fixed">
+          <table class="w-full min-w-[1260px] text-sm table-fixed">
             <thead class="text-slate-400 border-b border-slate-700">
               <tr>
                 <th class="text-left py-2 pr-3 w-[96px]">Periode</th>
@@ -38,6 +38,7 @@
                 <th class="text-left py-2 pr-3 w-[124px]">Status</th>
                 <th class="text-left py-2 pr-3 w-[92px]">Rows</th>
                 <th class="text-left py-2 pr-3 w-[132px]">Uploader</th>
+                <th class="text-left py-2 pr-3 w-[156px]">Dept. Uploader</th>
                 <th class="text-left py-2 pr-3 w-[132px]">Approver</th>
                 <th class="text-left py-2 pr-3 w-[320px]">Catatan</th>
                 <th class="text-left py-2 pr-3 w-[176px]">Waktu</th>
@@ -73,6 +74,7 @@
                 </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ batch.saved_rows }}/{{ batch.total_rows }}</td>
                 <td class="py-2 pr-3 align-top truncate" :title="batch.uploader?.name || '-'">{{ batch.uploader?.name || '-' }}</td>
+                <td class="py-2 pr-3 align-top truncate" :title="batch.uploader?.department?.name || '-'">{{ batch.uploader?.department?.name || '-' }}</td>
                 <td class="py-2 pr-3 align-top truncate" :title="batch.approver?.name || '-'">{{ batch.approver?.name || '-' }}</td>
                 <td class="py-2 pr-3 align-top overflow-visible">
                   <div class="roster-note-wrap">
@@ -174,7 +176,10 @@
                 </div>
                 <div class="flex items-start justify-between gap-3">
                   <div>{{ batch.approver?.name || '-' }}</div>
-                  <div class="text-right text-xs text-slate-400">{{ batch.uploader?.name || '-' }}</div>
+                  <div class="text-right text-xs text-slate-400">
+                    <div>{{ batch.uploader?.name || '-' }}</div>
+                    <div>{{ batch.uploader?.department?.name || '-' }}</div>
+                  </div>
                 </div>
               </div>
               <div class="sm:col-span-2">

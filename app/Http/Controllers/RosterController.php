@@ -59,7 +59,8 @@ class RosterController extends Controller
         $batches = RosterUploadBatch::query()
             ->with([
                 'department:id,name,code',
-                'uploader:id,name',
+                'uploader:id,name,department_id',
+                'uploader.department:id,name,code',
                 'approver:id,name',
                 'revisionOf:id,version',
             ])
