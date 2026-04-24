@@ -47,22 +47,22 @@
     </div>
 
     <div class="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-      <div class="flex flex-col gap-3 text-lg font-semibold lg:flex-row lg:items-center">
-        <div class="flex items-center gap-3">
-          <span class="min-w-24">Tanggal:</span>
+      <div class="flex flex-col gap-3 font-semibold lg:flex-row lg:items-center">
+        <div class="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
+          <span class="text-base sm:min-w-24 sm:text-lg">Tanggal:</span>
           <input
             :value="entry.form.date_value"
             type="date"
-            class="rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900"
+            class="w-full max-w-[220px] rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 sm:max-w-none"
             @input="$emit('update-date', $event.target.value)"
           />
         </div>
 
-        <div class="flex items-center gap-3">
-          <span class="min-w-24">Area:</span>
+        <div class="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
+          <span class="text-base sm:min-w-24 sm:text-lg">Area:</span>
           <select
             :value="entry.form.selected_area"
-            class="rounded border border-slate-400 bg-white px-3 py-2 text-sm font-normal text-slate-900"
+            class="w-full max-w-[240px] rounded border border-slate-400 bg-white px-3 py-2 text-sm font-normal text-slate-900 sm:max-w-none"
             @change="$emit('update-area', $event.target.value)"
           >
             <option
