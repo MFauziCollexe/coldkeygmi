@@ -139,12 +139,18 @@ class AttendanceLogController extends Controller
             ->groupBy(fn($row) => $this->toDateString($row->log_date) . '|' . $this->normalizePin((string) $row->pin))
             ->map(fn(Collection $group) => $group->sortBy('scan_date')->values());
 
+        $effectiveCurrentBatchIds = $this->effectiveRosterCurrentBatchIds($dateFrom, $dateTo);
+
         $rosterRows = DB::table('roster_entries as re')
             ->join('roster_upload_batches as rub', 'rub.id', '=', 're.batch_id')
             ->when($dateFrom !== null, fn($query) => $query->whereDate('re.roster_date', '>=', $dateFrom))
             ->when($dateTo !== null, fn($query) => $query->whereDate('re.roster_date', '<=', $dateTo))
             ->where('rub.status', 'approved')
-            ->where('rub.is_current', true)
+            ->when(!empty($effectiveCurrentBatchIds), function ($query) use ($effectiveCurrentBatchIds) {
+                $query->whereIn('rub.id', $effectiveCurrentBatchIds);
+            }, function ($query) {
+                $query->whereRaw('1 = 0');
+            })
             ->whereNotNull('re.employee_nrp')
             ->where('re.employee_nrp', '<>', '')
             ->get([
@@ -857,6 +863,71 @@ class AttendanceLogController extends Controller
         return $normalizedLeft !== '' && $normalizedRight !== '' && $normalizedLeft === $normalizedRight;
     }
 
+    private function effectiveRosterCurrentBatchIds(
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?int $year = null,
+        ?int $month = null
+    ): array {
+        $query = DB::table('roster_upload_batches')
+            ->where('status', 'approved');
+
+        if ($year !== null && $year > 0) {
+            $query->where('year', $year);
+        }
+
+        if ($month !== null && $month > 0) {
+            $query->where('month', $month);
+        }
+
+        if (($year === null || $year <= 0) && ($month === null || $month <= 0) && ($dateFrom || $dateTo)) {
+            $start = $dateFrom ? Carbon::parse($dateFrom)->startOfMonth() : null;
+            $end = $dateTo ? Carbon::parse($dateTo)->startOfMonth() : null;
+
+            if ($start === null && $end !== null) {
+                $start = $end->copy();
+            }
+
+            if ($end === null && $start !== null) {
+                $end = $start->copy();
+            }
+
+            if ($start !== null && $end !== null) {
+                if ($start->gt($end)) {
+                    [$start, $end] = [$end, $start];
+                }
+
+                $periods = [];
+                $cursor = $start->copy();
+                while ($cursor->lte($end)) {
+                    $periods[] = [
+                        'year' => (int) $cursor->year,
+                        'month' => (int) $cursor->month,
+                    ];
+                    $cursor->addMonth();
+                }
+
+                $query->where(function ($nested) use ($periods) {
+                    foreach ($periods as $period) {
+                        $nested->orWhere(function ($periodQuery) use ($period) {
+                            $periodQuery
+                                ->where('year', $period['year'])
+                                ->where('month', $period['month']);
+                        });
+                    }
+                });
+            }
+        }
+
+        return $query
+            ->selectRaw('department_id, year, month, MAX(id) as latest_id')
+            ->groupBy('department_id', 'year', 'month')
+            ->pluck('latest_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
     private function buildMonthlyLateAbsentInsights(?string $dateFrom, ?string $dateTo, ?string $forcedDepartmentName = null): array
     {
         $now = Carbon::now();
@@ -1011,12 +1082,18 @@ class AttendanceLogController extends Controller
                 return [$pin => trim((string) ($row->department_name ?? ''))];
             });
 
+        $effectiveCurrentBatchIds = $this->effectiveRosterCurrentBatchIds(null, null, $year, $month);
+
         $rosterRows = DB::table('roster_entries as re')
             ->join('roster_upload_batches as rub', 'rub.id', '=', 're.batch_id')
             ->whereYear('re.roster_date', $year)
             ->whereMonth('re.roster_date', $month)
             ->where('rub.status', 'approved')
-            ->where('rub.is_current', true)
+            ->when(!empty($effectiveCurrentBatchIds), function ($query) use ($effectiveCurrentBatchIds) {
+                $query->whereIn('rub.id', $effectiveCurrentBatchIds);
+            }, function ($query) {
+                $query->whereRaw('1 = 0');
+            })
             ->whereNotNull('re.employee_nrp')
             ->where('re.employee_nrp', '<>', '')
             ->get([

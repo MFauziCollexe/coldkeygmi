@@ -48,6 +48,7 @@ class RosterController extends Controller
         $canApproveAllDepartments = $this->canApproveAllRosterDepartments($user);
         $canApproveAnyBatch = $this->canApproveAnyRosterBatch($user);
         $latestPendingBatchIdsByScope = $this->latestPendingBatchIdsByScope();
+        $effectiveCurrentBatchIds = $this->effectiveApprovedBatchIds(!empty($departmentIds) ? $departmentIds : null);
         $selectedMonth = request()->has('month')
             ? (int) request('month', 0)
             : (int) now()->month;
@@ -80,7 +81,7 @@ class RosterController extends Controller
                 });
             })
             ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
-            ->orderByDesc('is_current')
+            ->orderByRaw($this->effectiveCurrentOrderBySql($effectiveCurrentBatchIds))
             ->orderByDesc('id')
             ->paginate(8, [
                 'id',
@@ -103,8 +104,9 @@ class RosterController extends Controller
                 'created_at',
             ])
             ->withQueryString()
-            ->through(function ($batch) use ($user, $latestPendingBatchIdsByScope) {
+            ->through(function ($batch) use ($user, $latestPendingBatchIdsByScope, $effectiveCurrentBatchIds) {
                 $isLatestPendingForScope = $this->isLatestPendingBatchForScope($batch, $latestPendingBatchIdsByScope);
+                $batch->is_current = in_array((int) $batch->id, $effectiveCurrentBatchIds, true);
                 $batch->is_latest_pending_for_department = $isLatestPendingForScope;
                 $batch->approval_locked_reason = $this->approvalLockedReason($batch, $isLatestPendingForScope);
                 $batch->can_approve = $this->canApproveBatch($user, $batch) && $isLatestPendingForScope;
@@ -279,14 +281,11 @@ class RosterController extends Controller
         }
 
         $changeReason = trim((string) $request->input('change_reason', ''));
-        $currentApprovedBatch = RosterUploadBatch::query()
-            ->where('department_id', $targetDepartmentId ?: $user->department_id)
-            ->where('year', $year)
-            ->where('month', $month)
-            ->where('status', 'approved')
-            ->where('is_current', true)
-            ->orderByDesc('id')
-            ->first();
+        $currentApprovedBatch = $this->effectiveApprovedBatchForPeriod(
+            (int) ($targetDepartmentId ?: $user->department_id),
+            $year,
+            $month
+        );
 
         if ($currentApprovedBatch && $changeReason === '') {
             return response()->json([
@@ -1400,6 +1399,47 @@ class RosterController extends Controller
         }
 
         return $this->accessRules()->canViewAllDepartments($user, self::ACCESS_MODULE, 'view_list');
+    }
+
+    private function effectiveApprovedBatchIds(?array $departmentIds = null): array
+    {
+        return RosterUploadBatch::query()
+            ->where('status', 'approved')
+            ->when(!empty($departmentIds), function ($query) use ($departmentIds) {
+                $query->whereIn('department_id', array_map('intval', $departmentIds));
+            })
+            ->selectRaw('department_id, year, month, MAX(id) as latest_id')
+            ->groupBy('department_id', 'year', 'month')
+            ->pluck('latest_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    private function effectiveApprovedBatchForPeriod(int $departmentId, int $year, int $month): ?RosterUploadBatch
+    {
+        if ($departmentId <= 0 || $year <= 0 || $month <= 0) {
+            return null;
+        }
+
+        return RosterUploadBatch::query()
+            ->where('department_id', $departmentId)
+            ->where('year', $year)
+            ->where('month', $month)
+            ->where('status', 'approved')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    private function effectiveCurrentOrderBySql(array $effectiveCurrentBatchIds): string
+    {
+        if (empty($effectiveCurrentBatchIds)) {
+            return '0 DESC';
+        }
+
+        $ids = implode(',', array_map('intval', $effectiveCurrentBatchIds));
+
+        return "CASE WHEN id IN ({$ids}) THEN 1 ELSE 0 END DESC";
     }
 
     private function latestPendingBatchIdsByScope(): array
