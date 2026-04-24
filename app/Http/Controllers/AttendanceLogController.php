@@ -1100,6 +1100,7 @@ class AttendanceLogController extends Controller
                 're.roster_date as log_date',
                 're.employee_nrp as pin',
                 're.employee_name as roster_name',
+                're.shift_code',
                 're.is_off',
                 're.start_time',
                 're.end_time',
