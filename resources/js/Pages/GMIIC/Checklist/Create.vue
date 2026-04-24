@@ -380,6 +380,7 @@ import {
   getKotakP3KMonthLabel,
   getLocationLabel,
   getLocationBarcodeAliases,
+  getPatroliSecurityBarcodeAliases,
   getPatroliSecurityAreaLabel,
   getSanitationAreaLabel,
   getSanitationAreaBarcodeAliases,
@@ -3093,7 +3094,7 @@ function getExpectedBarcodeValuesForCurrentScannerMode() {
   }
 
   if (scannerMode.value === 'patroli_security') {
-    return [getPatroliSecurityAreaLabel(entry.value.form.selected_area)];
+    return getPatroliSecurityBarcodeAliases(entry.value.form.selected_area);
   }
 
   if (scannerMode.value === 'site_visit_maintenance') {

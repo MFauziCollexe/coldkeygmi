@@ -1055,6 +1055,13 @@ export function getPatroliSecurityAreaLabel(areaId) {
   return patroliSecurityAreaOptions.find((area) => area.id === areaId)?.name || '-';
 }
 
+export function getPatroliSecurityBarcodeAliases(areaId) {
+  const fullTitle = patroliSecuritySections.find((section) => section.id === areaId)?.title || '';
+  const shortLabel = getPatroliSecurityAreaLabel(areaId);
+
+  return [...new Set([fullTitle, shortLabel].filter((value) => String(value || '').trim() !== ''))];
+}
+
 export function createWarehouseSanitationEntry(userName) {
   const now = new Date();
   const period = toPeriodValue(now);
