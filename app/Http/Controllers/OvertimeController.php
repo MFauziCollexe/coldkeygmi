@@ -578,6 +578,76 @@ class OvertimeController extends Controller
             abort(403);
         }
 
+        if ((string) $request->input('action') === 'edit') {
+            if (!$this->isAdmin($userId)) {
+                abort(403, 'Hanya admin yang dapat mengedit detail overtime.');
+            }
+
+            $data = $request->validate([
+                'action' => 'required|in:edit',
+                'overtime_date' => 'required|date',
+                'start_time' => 'required|date_format:H:i',
+                'end_time' => [
+                    'required',
+                    'date_format:H:i',
+                    function ($attribute, $value, $fail) use ($request) {
+                        $startTime = (string) $request->input('start_time', '');
+                        if ($startTime === '' || $value === '') {
+                            return;
+                        }
+
+                        if ($startTime === $value) {
+                            $fail('Jam selesai harus berbeda dari jam mulai.');
+                        }
+                    },
+                ],
+                'reason' => 'required|string|min:5',
+                'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+                'remove_attachment' => 'nullable|boolean',
+            ]);
+
+            $oldData = $overtime->toArray();
+            $payload = [
+                'overtime_date' => $data['overtime_date'],
+                'start_time' => $data['start_time'],
+                'end_time' => $data['end_time'],
+                'reason' => $data['reason'],
+                'hours' => Overtime::calculateHours($data['start_time'], $data['end_time']),
+            ];
+
+            $removeAttachment = $request->boolean('remove_attachment');
+            $currentAttachmentPath = trim((string) ($overtime->attachment_path ?? ''));
+
+            if ($removeAttachment && $currentAttachmentPath !== '') {
+                Storage::disk('public')->delete($currentAttachmentPath);
+                $payload['attachment_path'] = null;
+                $payload['attachment_original_name'] = null;
+            }
+
+            if ($request->hasFile('attachment')) {
+                if ($currentAttachmentPath !== '') {
+                    Storage::disk('public')->delete($currentAttachmentPath);
+                }
+
+                $file = $request->file('attachment');
+                $payload['attachment_original_name'] = $file->getClientOriginalName();
+                $payload['attachment_path'] = $file->storePublicly('overtime_attachments', ['disk' => 'public']);
+            }
+
+            $overtime->update($payload);
+
+            $this->logActivity(
+                'overtimes',
+                $overtime->id,
+                'updated',
+                $oldData,
+                $overtime->fresh()?->toArray(),
+                'Updated overtime request details'
+            );
+
+            return redirect()->back()->with('success', 'Detail overtime berhasil diperbarui.');
+        }
+
         $overtime->loadMissing(['employee:id,department_id', 'user:id,department_id']);
         $targetDeptId = (int) optional($overtime->employee)->department_id;
         if ($targetDeptId <= 0) {
