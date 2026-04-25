@@ -342,6 +342,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 import FireSafetyTemplate from './Templates/FireSafetyTemplate.vue';
 import KotakP3KTemplate from './Templates/KotakP3KTemplate.vue';
 import NonWarehouseSanitationTemplate from './Templates/NonWarehouseSanitationTemplate.vue';
@@ -2670,6 +2671,18 @@ async function removePatroliSecurityPhoto(index) {
     return;
   }
 
+  const confirmed = await swalConfirm({
+    title: 'Hapus Foto',
+    text: 'Foto area ini akan dihapus. Lanjutkan?',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Tidak',
+    confirmButtonColor: '#dc2626',
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
   try {
     if (String(photo.path || '').trim()) {
       await axios.delete('/gmiic/checklist/patroli-security/photo', {
@@ -3373,6 +3386,9 @@ async function startPhotoCamera() {
       audio: false,
       video: {
         facingMode: { ideal: 'environment' },
+        width: { ideal: 1920, min: 1280 },
+        height: { ideal: 1080, min: 720 },
+        aspectRatio: { ideal: 1.777778 },
       },
     });
 
@@ -3399,7 +3415,7 @@ function canvasToJpegFile(canvas, fileName) {
       }
 
       resolve(new File([blob], fileName, { type: 'image/jpeg' }));
-    }, 'image/jpeg', 0.9);
+    }, 'image/jpeg', 0.98);
   });
 }
 
@@ -3549,8 +3565,14 @@ function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
   const verifiedText = 'Diverifikasi oleh Marki';
 
   context.save();
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  context.shadowBlur = Math.max(1, scale * 1.4);
+  context.shadowOffsetX = 0;
+  context.shadowOffsetY = Math.max(1, scale * 0.8);
 
-  context.fillStyle = 'rgba(19, 26, 38, 0.74)';
+  context.fillStyle = 'rgba(15, 20, 30, 0.88)';
   context.fillRect(cardX, cardY, cardWidth, cardHeight);
 
   context.strokeStyle = 'rgba(72, 111, 212, 0.95)';
@@ -3560,14 +3582,14 @@ function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
   context.fillStyle = '#2f5fc5';
   context.fillRect(cardX, cardY, cardWidth, headerHeight);
   context.fillStyle = '#ffffff';
-  context.font = `700 ${Math.round(14 * scale)}px Arial`;
+  context.font = `700 ${Math.round(14 * scale)}px "Arial", sans-serif`;
   context.textBaseline = 'middle';
   context.fillText('SECURITY GMI', cardX + sidePadding, cardY + headerHeight / 2);
 
   const timeBaselineY = cardY + headerHeight + Math.round(46 * scale);
   context.fillStyle = '#ffffff';
   context.textBaseline = 'alphabetic';
-  context.font = `700 ${Math.round(28 * scale)}px Arial`;
+  context.font = `700 ${Math.round(30 * scale)}px "Arial", sans-serif`;
   context.fillText(timeText, cardX + sidePadding, timeBaselineY);
 
   const timeMetrics = context.measureText(timeText);
@@ -3580,9 +3602,9 @@ function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
   context.stroke();
 
   const dayDateX = separatorX + Math.round(8 * scale);
-  context.font = `700 ${Math.round(12 * scale)}px Arial`;
+  context.font = `700 ${Math.round(12 * scale)}px "Arial", sans-serif`;
   context.fillText(dayText, dayDateX, cardY + headerHeight + Math.round(24 * scale));
-  context.font = `700 ${Math.round(11 * scale)}px Arial`;
+  context.font = `700 ${Math.round(11 * scale)}px "Arial", sans-serif`;
   context.fillText(dateText, dayDateX, cardY + headerHeight + Math.round(42 * scale));
 
   drawPatroliSecurityDivider(
@@ -3599,7 +3621,7 @@ function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
   const addressX = cardX + sidePadding + Math.round(22 * scale);
   let addressY = cardY + headerHeight + Math.round(80 * scale);
   drawPatroliSecurityMapPin(context, mapIconX, addressY - Math.round(6 * scale), mapIconSize);
-  context.font = `700 ${Math.round(9.5 * scale)}px Arial`;
+  context.font = `700 ${Math.round(10 * scale)}px "Arial", sans-serif`;
   context.fillStyle = '#ffffff';
   addressY = drawWrappedPatroliSecurityText(
     context,
@@ -3613,7 +3635,7 @@ function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
   const personIconSize = Math.round(11 * scale);
   const personRowY = addressY + Math.round(4 * scale);
   drawPatroliSecurityPersonIcon(context, mapIconX, personRowY - Math.round(2 * scale), personIconSize);
-  context.font = `700 ${Math.round(9.5 * scale)}px Arial`;
+  context.font = `700 ${Math.round(10 * scale)}px "Arial", sans-serif`;
   context.fillText(personnelText, addressX, personRowY + Math.round(3 * scale));
 
   drawPatroliSecurityDivider(
@@ -3629,7 +3651,7 @@ function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
   const verifiedY = cardY + cardHeight - Math.round(10 * scale);
   drawPatroliSecurityShieldIcon(context, mapIconX, verifiedY - Math.round(2 * scale), shieldIconSize);
   context.fillStyle = '#cfd5df';
-  context.font = `700 ${Math.round(8.5 * scale)}px Arial`;
+  context.font = `700 ${Math.round(9 * scale)}px "Arial", sans-serif`;
   context.fillText(verifiedText, addressX, verifiedY + Math.round(2 * scale));
 
   context.restore();

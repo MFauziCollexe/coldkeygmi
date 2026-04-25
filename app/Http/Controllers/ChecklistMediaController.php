@@ -10,7 +10,7 @@ class ChecklistMediaController extends Controller
     public function uploadPatroliSecurityPhoto(Request $request)
     {
         $validated = $request->validate([
-            'photo' => ['required', 'image', 'max:4096'],
+            'photo' => ['required', 'image', 'max:8192'],
         ]);
 
         $userId = (int) optional($request->user())->id;
