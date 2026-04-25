@@ -1777,7 +1777,6 @@ const canApproveEntry = computed(() => {
 });
 
 function findOpenPatroliSecurityDraft(entries = []) {
-  const todayValue = toDateInputValue(new Date());
   const candidates = Array.isArray(entries) ? entries : [];
 
   return candidates.find((candidate) => {
@@ -1789,7 +1788,7 @@ function findOpenPatroliSecurityDraft(entries = []) {
       return false;
     }
 
-    return String(candidate?.form?.date_value || '').trim() === todayValue;
+    return true;
   }) || null;
 }
 
