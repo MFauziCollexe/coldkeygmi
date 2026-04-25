@@ -1,5 +1,14 @@
 <template>
-  <div v-show="widgetVisible" ref="widgetRoot" class="fixed bottom-5 right-5 z-40">
+  <div ref="widgetRoot" class="fixed bottom-5 right-5 z-40">
+    <button
+      v-if="!widgetVisible"
+      type="button"
+      class="absolute bottom-0 right-0 h-24 w-40 bg-transparent"
+      aria-label="Show Assistant Help"
+      @mouseenter="revealAssistantWidget"
+      @focus="revealAssistantWidget"
+    ></button>
+
     <transition
       enter-active-class="transition duration-200 ease-out"
       enter-from-class="translate-y-2 opacity-0"
@@ -9,7 +18,7 @@
       leave-to-class="translate-y-2 opacity-0"
     >
       <div
-        v-if="open"
+        v-if="widgetVisible && open"
         class="mb-3 flex h-[min(72vh,680px)] w-[min(92vw,400px)] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
         @pointerdown="markAssistantActivity"
         @keydown="markAssistantActivity"
@@ -144,6 +153,7 @@
     </transition>
 
     <button
+      v-if="widgetVisible"
       type="button"
       class="group flex items-center gap-3 rounded-full border border-sky-500/40 bg-sky-600 px-4 py-3 text-white shadow-xl transition hover:bg-sky-500"
       @click="toggleOpen"
@@ -1462,6 +1472,11 @@ function markAssistantActivity() {
   scheduleAutoHide();
 }
 
+function revealAssistantWidget() {
+  widgetVisible.value = true;
+  scheduleAutoHide();
+}
+
 function closeAssistantPanel() {
   open.value = false;
   clearAutoHideTimer();
@@ -1486,8 +1501,6 @@ function handleGlobalActivity(event) {
   }
 
   if (!widgetVisible.value) {
-    widgetVisible.value = true;
-    scheduleAutoHide();
     return;
   }
 
