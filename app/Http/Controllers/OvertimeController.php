@@ -411,10 +411,18 @@ class OvertimeController extends Controller
             $overtime->load(['user', 'user.department', 'reviewer']);
         }
 
+        $targetDeptId = (int) optional($overtime->employee)->department_id;
+        if ($targetDeptId <= 0) {
+            $targetDeptId = (int) optional($overtime->user)->department_id;
+        }
+
+        $canEditDetails = $this->isAdmin($userId) || $this->canApproveDepartment($userId, $targetDeptId);
+
         return Inertia::render('GMIHR/Overtime/Show', [
             'overtime' => $overtime,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
+            'canEditDetails' => $canEditDetails,
         ]);
     }
 
@@ -579,8 +587,14 @@ class OvertimeController extends Controller
         }
 
         if ((string) $request->input('action') === 'edit') {
-            if (!$this->isAdmin($userId)) {
-                abort(403, 'Hanya admin yang dapat mengedit detail overtime.');
+            $overtime->loadMissing(['employee:id,department_id', 'user:id,department_id']);
+            $editTargetDeptId = (int) optional($overtime->employee)->department_id;
+            if ($editTargetDeptId <= 0) {
+                $editTargetDeptId = (int) optional($overtime->user)->department_id;
+            }
+
+            if (!$this->isAdmin($userId) && !$this->canApproveDepartment($userId, $editTargetDeptId)) {
+                abort(403, 'Anda tidak memiliki izin untuk mengedit detail overtime ini.');
             }
 
             $data = $request->validate([

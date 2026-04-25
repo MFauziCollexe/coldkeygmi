@@ -9,7 +9,7 @@
           <h2 class="text-2xl font-bold">Detail Permintaan Lembur</h2>
         </div>
         <button
-          v-if="isAdmin"
+          v-if="canEditDetails"
           type="button"
           class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500"
           @click="openEditForm"
@@ -133,7 +133,7 @@
         </div>
       </div>
 
-      <div v-if="isAdmin && isEditing" class="mt-6 rounded bg-slate-800 p-4 md:p-6">
+      <div v-if="canEditDetails && isEditing" class="mt-6 rounded bg-slate-800 p-4 md:p-6">
         <div class="mb-4 flex items-center justify-between gap-3">
           <h3 class="text-lg font-semibold text-indigo-400">Edit Detail Overtime</h3>
           <button
@@ -240,6 +240,7 @@ const props = defineProps({
   overtime: Object,
   isAdmin: Boolean,
   isManager: Boolean,
+  canEditDetails: Boolean,
 });
 
 const isEditing = ref(false);
