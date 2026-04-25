@@ -1,9 +1,9 @@
 <template>
-  <div ref="widgetRoot" class="fixed bottom-5 right-5 z-40">
+  <div ref="widgetRoot" class="fixed bottom-5 left-5 z-40">
     <button
       v-if="!widgetVisible"
       type="button"
-      class="absolute bottom-0 right-0 h-24 w-40 bg-transparent"
+      class="absolute bottom-0 left-0 h-24 w-40 bg-transparent"
       aria-label="Show Assistant Help"
       @mouseenter="revealAssistantWidget"
       @focus="revealAssistantWidget"
