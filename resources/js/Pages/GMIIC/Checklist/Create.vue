@@ -2603,25 +2603,54 @@ function updatePatroliSecurityPhotoState(payload = {}) {
   const pathBucket = normalizePatroliSecurityPhotoBucket(nextPaths[targetKey]);
   const urlBucket = normalizePatroliSecurityPhotoBucket(nextUrls[targetKey]);
   const nameBucket = normalizePatroliSecurityPhotoBucket(nextNames[targetKey]);
+  const length = Math.max(pathBucket.length, urlBucket.length, nameBucket.length);
 
-  if (typeof payload.removeIndex === 'number') {
-    pathBucket.splice(payload.removeIndex, 1);
-    urlBucket.splice(payload.removeIndex, 1);
-    nameBucket.splice(payload.removeIndex, 1);
-  } else if (!payload.clear) {
-    pathBucket.push(payload.path || '');
-    urlBucket.push(payload.url || '');
-    nameBucket.push(payload.name || '');
+  let photoEntries = Array.from({ length }, (_, index) => ({
+    path: pathBucket[index] || '',
+    url: urlBucket[index] || '',
+    name: nameBucket[index] || '',
+  })).filter((photo) => String(photo.path || photo.url || photo.name || '').trim() !== '');
+
+  if (payload.clear) {
+    photoEntries = [];
+  } else if (payload.removePhoto) {
+    let removed = false;
+    photoEntries = photoEntries.filter((photo) => {
+      if (removed) {
+        return true;
+      }
+
+      const isMatch = (
+        (payload.removePhoto.path && photo.path === payload.removePhoto.path)
+        || (payload.removePhoto.url && photo.url === payload.removePhoto.url)
+        || (payload.removePhoto.name && photo.name === payload.removePhoto.name)
+      );
+
+      if (isMatch) {
+        removed = true;
+        return false;
+      }
+
+      return true;
+    });
+  } else if (typeof payload.removeIndex === 'number') {
+    photoEntries.splice(payload.removeIndex, 1);
+  } else {
+    photoEntries.push({
+      path: payload.path || '',
+      url: payload.url || '',
+      name: payload.name || '',
+    });
   }
 
-  if (payload.clear || pathBucket.length === 0) {
+  if (photoEntries.length === 0) {
     delete nextPaths[targetKey];
     delete nextUrls[targetKey];
     delete nextNames[targetKey];
   } else {
-    nextPaths[targetKey] = pathBucket;
-    nextUrls[targetKey] = urlBucket;
-    nextNames[targetKey] = nameBucket;
+    nextPaths[targetKey] = photoEntries.map((photo) => photo.path || '');
+    nextUrls[targetKey] = photoEntries.map((photo) => photo.url || '');
+    nextNames[targetKey] = photoEntries.map((photo) => photo.name || '');
   }
 
   entry.value.form.area_photo_paths = nextPaths;
@@ -2692,7 +2721,10 @@ async function removePatroliSecurityPhoto(index) {
       });
     }
 
-    updatePatroliSecurityPhotoState({ removeIndex: Number(index) });
+    updatePatroliSecurityPhotoState({
+      removeIndex: Number(index),
+      removePhoto: photo,
+    });
     syncSaveStateWithEntry();
   } catch (error) {
     patroliSecurityPhotoError.value = error?.response?.data?.message || 'Foto gagal dihapus.';
