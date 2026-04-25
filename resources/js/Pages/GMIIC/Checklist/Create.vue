@@ -477,6 +477,12 @@ let saveRequestSequence = 0;
 let lastSavedEntrySignature = '';
 
 const currentUser = computed(() => page.props.auth?.user || null);
+const patroliSecurityOverlayAddressLines = [
+  'Jl. Rungkut Industri Raya II',
+  'No.45 B, Kali Rungkut, Kec.',
+  'Rungkut, Kota SBY, Jawa',
+  'Timur 60293, Indonesia',
+];
 const checklistAbilities = computed(() => props.checklistAbilities || page.props.checklistAbilities || {});
 const canApproveKotakP3KHse = computed(() => Boolean(checklistAbilities.value.kotak_p3k_hse_approve));
 const canApproveWarehouseFinal = computed(() => Boolean(checklistAbilities.value.warehouse_final_approve));
@@ -3397,6 +3403,236 @@ function canvasToJpegFile(canvas, fileName) {
   });
 }
 
+function formatPatroliSecurityOverlayTime(date = new Date()) {
+  return new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date).replace('.', ':');
+}
+
+function formatPatroliSecurityOverlayDay(date = new Date()) {
+  const formatted = new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(date);
+  return formatted ? formatted.charAt(0).toUpperCase() + formatted.slice(1) : '-';
+}
+
+function formatPatroliSecurityOverlayDate(date = new Date()) {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear());
+
+  return `${day}-${month}-${year}`;
+}
+
+function getPatroliSecurityPersonnelName() {
+  const aliasName = String(currentUser.value?.alias_name || '').trim();
+  if (aliasName) {
+    return aliasName;
+  }
+
+  return String(currentUser.value?.name || 'Personil Security').trim() || 'Personil Security';
+}
+
+function drawPatroliSecurityDivider(context, x, y, width, dashWidth, gapWidth) {
+  context.save();
+  context.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  context.lineWidth = Math.max(2, dashWidth * 0.18);
+  context.setLineDash([dashWidth, gapWidth]);
+  context.beginPath();
+  context.moveTo(x, y);
+  context.lineTo(x + width, y);
+  context.stroke();
+  context.restore();
+}
+
+function drawPatroliSecurityMapPin(context, x, y, size) {
+  context.save();
+  context.fillStyle = '#ffffff';
+  context.beginPath();
+  context.arc(x, y - size * 0.1, size * 0.32, Math.PI, 0);
+  context.lineTo(x + size * 0.24, y + size * 0.08);
+  context.quadraticCurveTo(x, y + size * 0.62, x - size * 0.24, y + size * 0.08);
+  context.closePath();
+  context.fill();
+
+  context.fillStyle = 'rgba(52, 92, 191, 0.85)';
+  context.beginPath();
+  context.arc(x, y - size * 0.12, size * 0.11, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
+}
+
+function drawPatroliSecurityPersonIcon(context, x, y, size) {
+  context.save();
+  context.fillStyle = '#ffffff';
+  context.beginPath();
+  context.arc(x, y - size * 0.32, size * 0.2, 0, Math.PI * 2);
+  context.fill();
+  context.beginPath();
+  context.arc(x, y + size * 0.18, size * 0.34, Math.PI, 0);
+  context.lineTo(x + size * 0.34, y + size * 0.5);
+  context.lineTo(x - size * 0.34, y + size * 0.5);
+  context.closePath();
+  context.fill();
+  context.restore();
+}
+
+function drawPatroliSecurityShieldIcon(context, x, y, size) {
+  context.save();
+  context.strokeStyle = '#cfd5df';
+  context.lineWidth = Math.max(2, size * 0.09);
+  context.beginPath();
+  context.moveTo(x, y - size * 0.48);
+  context.lineTo(x + size * 0.34, y - size * 0.24);
+  context.lineTo(x + size * 0.24, y + size * 0.24);
+  context.quadraticCurveTo(x, y + size * 0.54, x - size * 0.24, y + size * 0.24);
+  context.lineTo(x - size * 0.34, y - size * 0.24);
+  context.closePath();
+  context.stroke();
+
+  context.beginPath();
+  context.moveTo(x - size * 0.12, y + size * 0.02);
+  context.lineTo(x - size * 0.01, y + size * 0.14);
+  context.lineTo(x + size * 0.17, y - size * 0.1);
+  context.stroke();
+  context.restore();
+}
+
+function drawWrappedPatroliSecurityText(context, textLines, x, startY, maxWidth, lineHeight) {
+  let cursorY = startY;
+
+  textLines.forEach((line) => {
+    const words = String(line || '').split(/\s+/).filter(Boolean);
+    let currentLine = '';
+
+    words.forEach((word) => {
+      const candidate = currentLine ? `${currentLine} ${word}` : word;
+      if (context.measureText(candidate).width <= maxWidth || currentLine === '') {
+        currentLine = candidate;
+        return;
+      }
+
+      context.fillText(currentLine, x, cursorY);
+      cursorY += lineHeight;
+      currentLine = word;
+    });
+
+    if (currentLine) {
+      context.fillText(currentLine, x, cursorY);
+      cursorY += lineHeight;
+    }
+  });
+
+  return cursorY;
+}
+
+function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Overlay foto gagal diproses.');
+  }
+
+  const width = canvas.width;
+  const height = canvas.height;
+  const scale = Math.max(0.7, width / 720);
+  const headerHeight = Math.round(74 * scale);
+  const panelHeight = Math.round(292 * scale);
+  const sidePadding = Math.round(18 * scale);
+  const panelY = height - panelHeight - Math.round(12 * scale);
+  const dividerWidth = width - sidePadding * 2;
+  const timeText = formatPatroliSecurityOverlayTime(capturedAt);
+  const dayText = formatPatroliSecurityOverlayDay(capturedAt);
+  const dateText = formatPatroliSecurityOverlayDate(capturedAt);
+  const personnelText = `Personil: ${getPatroliSecurityPersonnelName()}`;
+  const verifiedText = 'Diverifikasi oleh Marki';
+
+  context.save();
+
+  context.fillStyle = '#2f5fc5';
+  context.fillRect(0, 0, width, headerHeight);
+  context.fillStyle = '#ffffff';
+  context.font = `700 ${Math.round(26 * scale)}px Arial`;
+  context.textBaseline = 'middle';
+  context.fillText('SECURITY GMI', sidePadding, headerHeight / 2);
+
+  context.fillStyle = 'rgba(25, 31, 43, 0.62)';
+  context.fillRect(0, panelY, width, panelHeight);
+
+  context.strokeStyle = 'rgba(67, 104, 200, 0.95)';
+  context.lineWidth = Math.max(4, scale * 2.2);
+  context.strokeRect(0, 0, width, height);
+
+  const timeBaselineY = panelY + Math.round(72 * scale);
+  context.fillStyle = '#ffffff';
+  context.textBaseline = 'alphabetic';
+  context.font = `700 ${Math.round(54 * scale)}px Arial`;
+  context.fillText(timeText, sidePadding, timeBaselineY);
+
+  const timeMetrics = context.measureText(timeText);
+  const separatorX = sidePadding + timeMetrics.width + Math.round(18 * scale);
+  context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+  context.lineWidth = Math.max(3, scale * 1.8);
+  context.beginPath();
+  context.moveTo(separatorX, panelY + Math.round(22 * scale));
+  context.lineTo(separatorX, panelY + Math.round(92 * scale));
+  context.stroke();
+
+  const dayDateX = separatorX + Math.round(18 * scale);
+  context.font = `700 ${Math.round(24 * scale)}px Arial`;
+  context.fillText(dayText, dayDateX, panelY + Math.round(46 * scale));
+  context.font = `700 ${Math.round(22 * scale)}px Arial`;
+  context.fillText(dateText, dayDateX, panelY + Math.round(84 * scale));
+
+  drawPatroliSecurityDivider(
+    context,
+    sidePadding,
+    panelY + Math.round(112 * scale),
+    dividerWidth,
+    Math.round(10 * scale),
+    Math.round(6 * scale),
+  );
+
+  const mapIconSize = Math.round(24 * scale);
+  const mapIconX = sidePadding + Math.round(14 * scale);
+  const addressX = sidePadding + Math.round(44 * scale);
+  let addressY = panelY + Math.round(138 * scale);
+  drawPatroliSecurityMapPin(context, mapIconX, addressY - Math.round(6 * scale), mapIconSize);
+  context.font = `700 ${Math.round(18 * scale)}px Arial`;
+  context.fillStyle = '#ffffff';
+  addressY = drawWrappedPatroliSecurityText(
+    context,
+    patroliSecurityOverlayAddressLines,
+    addressX,
+    addressY,
+    width - addressX - sidePadding,
+    Math.round(24 * scale),
+  );
+
+  const personIconSize = Math.round(22 * scale);
+  const personRowY = addressY + Math.round(10 * scale);
+  drawPatroliSecurityPersonIcon(context, mapIconX, personRowY - Math.round(2 * scale), personIconSize);
+  context.font = `700 ${Math.round(18 * scale)}px Arial`;
+  context.fillText(personnelText, addressX, personRowY + Math.round(6 * scale));
+
+  drawPatroliSecurityDivider(
+    context,
+    sidePadding,
+    panelY + panelHeight - Math.round(42 * scale),
+    dividerWidth,
+    Math.round(10 * scale),
+    Math.round(6 * scale),
+  );
+
+  const shieldIconSize = Math.round(20 * scale);
+  const verifiedY = panelY + panelHeight - Math.round(18 * scale);
+  drawPatroliSecurityShieldIcon(context, mapIconX, verifiedY - Math.round(2 * scale), shieldIconSize);
+  context.fillStyle = '#cfd5df';
+  context.font = `700 ${Math.round(16 * scale)}px Arial`;
+  context.fillText(verifiedText, addressX, verifiedY + Math.round(4 * scale));
+
+  context.restore();
+}
+
 async function capturePhoto() {
   if (!entry.value || !photoVideoRef.value) {
     return;
@@ -3445,6 +3681,8 @@ async function capturePhoto() {
       if (!isPatroliSecurity.value || !patroliSecurityTargetKey.value) {
         return;
       }
+
+      applyPatroliSecurityPhotoOverlay(canvas, new Date());
 
       const selectedAreaLabel = getPatroliSecurityAreaLabel(entry.value.form.selected_area)
         .toLowerCase()

@@ -59,11 +59,13 @@ class HandleInertiaRequests extends Middleware
         $user->loadMissing([
             'position:id,name,code,is_manager',
             'department:id,name,code',
+            'employee:id,user_id,alias_name,name',
         ]);
 
         return [
             'id' => $user->id,
             'name' => $user->name,
+            'alias_name' => $user->employee?->alias_name ?: $user->employee?->name,
             'first_name' => $user->first_name ?? null,
             'last_name' => $user->last_name ?? null,
             'email' => $user->email,
