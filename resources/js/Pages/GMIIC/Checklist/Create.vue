@@ -3534,12 +3534,14 @@ function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
 
   const width = canvas.width;
   const height = canvas.height;
-  const scale = Math.max(0.7, width / 720);
-  const headerHeight = Math.round(74 * scale);
-  const panelHeight = Math.round(292 * scale);
-  const sidePadding = Math.round(18 * scale);
-  const panelY = height - panelHeight - Math.round(12 * scale);
-  const dividerWidth = width - sidePadding * 2;
+  const cardWidth = Math.max(180, Math.min(270, Math.round(width * 0.29)));
+  const scale = cardWidth / 230;
+  const cardHeight = Math.round(214 * scale);
+  const cardX = Math.round(18 * scale);
+  const cardY = height - cardHeight - Math.round(18 * scale);
+  const headerHeight = Math.round(34 * scale);
+  const sidePadding = Math.round(10 * scale);
+  const dividerWidth = cardWidth - sidePadding * 2;
   const timeText = formatPatroliSecurityOverlayTime(capturedAt);
   const dayText = formatPatroliSecurityOverlayDay(capturedAt);
   const dateText = formatPatroliSecurityOverlayDate(capturedAt);
@@ -3548,87 +3550,87 @@ function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
 
   context.save();
 
+  context.fillStyle = 'rgba(19, 26, 38, 0.74)';
+  context.fillRect(cardX, cardY, cardWidth, cardHeight);
+
+  context.strokeStyle = 'rgba(72, 111, 212, 0.95)';
+  context.lineWidth = Math.max(2, scale * 1.4);
+  context.strokeRect(cardX, cardY, cardWidth, cardHeight);
+
   context.fillStyle = '#2f5fc5';
-  context.fillRect(0, 0, width, headerHeight);
+  context.fillRect(cardX, cardY, cardWidth, headerHeight);
   context.fillStyle = '#ffffff';
-  context.font = `700 ${Math.round(26 * scale)}px Arial`;
+  context.font = `700 ${Math.round(14 * scale)}px Arial`;
   context.textBaseline = 'middle';
-  context.fillText('SECURITY GMI', sidePadding, headerHeight / 2);
+  context.fillText('SECURITY GMI', cardX + sidePadding, cardY + headerHeight / 2);
 
-  context.fillStyle = 'rgba(25, 31, 43, 0.62)';
-  context.fillRect(0, panelY, width, panelHeight);
-
-  context.strokeStyle = 'rgba(67, 104, 200, 0.95)';
-  context.lineWidth = Math.max(4, scale * 2.2);
-  context.strokeRect(0, 0, width, height);
-
-  const timeBaselineY = panelY + Math.round(72 * scale);
+  const timeBaselineY = cardY + headerHeight + Math.round(46 * scale);
   context.fillStyle = '#ffffff';
   context.textBaseline = 'alphabetic';
-  context.font = `700 ${Math.round(54 * scale)}px Arial`;
-  context.fillText(timeText, sidePadding, timeBaselineY);
+  context.font = `700 ${Math.round(28 * scale)}px Arial`;
+  context.fillText(timeText, cardX + sidePadding, timeBaselineY);
 
   const timeMetrics = context.measureText(timeText);
-  const separatorX = sidePadding + timeMetrics.width + Math.round(18 * scale);
+  const separatorX = cardX + sidePadding + timeMetrics.width + Math.round(8 * scale);
   context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
-  context.lineWidth = Math.max(3, scale * 1.8);
+  context.lineWidth = Math.max(2, scale * 1.1);
   context.beginPath();
-  context.moveTo(separatorX, panelY + Math.round(22 * scale));
-  context.lineTo(separatorX, panelY + Math.round(92 * scale));
+  context.moveTo(separatorX, cardY + headerHeight + Math.round(10 * scale));
+  context.lineTo(separatorX, cardY + headerHeight + Math.round(52 * scale));
   context.stroke();
 
-  const dayDateX = separatorX + Math.round(18 * scale);
-  context.font = `700 ${Math.round(24 * scale)}px Arial`;
-  context.fillText(dayText, dayDateX, panelY + Math.round(46 * scale));
-  context.font = `700 ${Math.round(22 * scale)}px Arial`;
-  context.fillText(dateText, dayDateX, panelY + Math.round(84 * scale));
+  const dayDateX = separatorX + Math.round(8 * scale);
+  context.font = `700 ${Math.round(12 * scale)}px Arial`;
+  context.fillText(dayText, dayDateX, cardY + headerHeight + Math.round(24 * scale));
+  context.font = `700 ${Math.round(11 * scale)}px Arial`;
+  context.fillText(dateText, dayDateX, cardY + headerHeight + Math.round(42 * scale));
 
   drawPatroliSecurityDivider(
     context,
-    sidePadding,
-    panelY + Math.round(112 * scale),
+    cardX + sidePadding,
+    cardY + headerHeight + Math.round(64 * scale),
     dividerWidth,
-    Math.round(10 * scale),
-    Math.round(6 * scale),
+    Math.max(4, Math.round(5 * scale)),
+    Math.max(3, Math.round(3 * scale)),
   );
 
-  const mapIconSize = Math.round(24 * scale);
-  const mapIconX = sidePadding + Math.round(14 * scale);
-  const addressX = sidePadding + Math.round(44 * scale);
-  let addressY = panelY + Math.round(138 * scale);
+  const mapIconSize = Math.round(12 * scale);
+  const mapIconX = cardX + sidePadding + Math.round(5 * scale);
+  const addressX = cardX + sidePadding + Math.round(22 * scale);
+  let addressY = cardY + headerHeight + Math.round(80 * scale);
   drawPatroliSecurityMapPin(context, mapIconX, addressY - Math.round(6 * scale), mapIconSize);
-  context.font = `700 ${Math.round(18 * scale)}px Arial`;
+  context.font = `700 ${Math.round(9.5 * scale)}px Arial`;
   context.fillStyle = '#ffffff';
   addressY = drawWrappedPatroliSecurityText(
     context,
     patroliSecurityOverlayAddressLines,
     addressX,
     addressY,
-    width - addressX - sidePadding,
-    Math.round(24 * scale),
+    cardX + cardWidth - addressX - sidePadding,
+    Math.round(12 * scale),
   );
 
-  const personIconSize = Math.round(22 * scale);
-  const personRowY = addressY + Math.round(10 * scale);
+  const personIconSize = Math.round(11 * scale);
+  const personRowY = addressY + Math.round(4 * scale);
   drawPatroliSecurityPersonIcon(context, mapIconX, personRowY - Math.round(2 * scale), personIconSize);
-  context.font = `700 ${Math.round(18 * scale)}px Arial`;
-  context.fillText(personnelText, addressX, personRowY + Math.round(6 * scale));
+  context.font = `700 ${Math.round(9.5 * scale)}px Arial`;
+  context.fillText(personnelText, addressX, personRowY + Math.round(3 * scale));
 
   drawPatroliSecurityDivider(
     context,
-    sidePadding,
-    panelY + panelHeight - Math.round(42 * scale),
+    cardX + sidePadding,
+    cardY + cardHeight - Math.round(26 * scale),
     dividerWidth,
-    Math.round(10 * scale),
-    Math.round(6 * scale),
+    Math.max(4, Math.round(5 * scale)),
+    Math.max(3, Math.round(3 * scale)),
   );
 
-  const shieldIconSize = Math.round(20 * scale);
-  const verifiedY = panelY + panelHeight - Math.round(18 * scale);
+  const shieldIconSize = Math.round(10 * scale);
+  const verifiedY = cardY + cardHeight - Math.round(10 * scale);
   drawPatroliSecurityShieldIcon(context, mapIconX, verifiedY - Math.round(2 * scale), shieldIconSize);
   context.fillStyle = '#cfd5df';
-  context.font = `700 ${Math.round(16 * scale)}px Arial`;
-  context.fillText(verifiedText, addressX, verifiedY + Math.round(4 * scale));
+  context.font = `700 ${Math.round(8.5 * scale)}px Arial`;
+  context.fillText(verifiedText, addressX, verifiedY + Math.round(2 * scale));
 
   context.restore();
 }
