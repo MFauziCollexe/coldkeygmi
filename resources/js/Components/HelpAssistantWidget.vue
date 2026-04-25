@@ -11,6 +11,9 @@
       <div
         v-if="open"
         class="mb-3 flex h-[min(72vh,680px)] w-[min(92vw,400px)] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+        @pointerdown="markAssistantActivity"
+        @keydown="markAssistantActivity"
+        @focusin="markAssistantActivity"
       >
         <div class="border-b border-slate-700 bg-slate-950/80 px-4 py-3">
           <div class="flex items-start justify-between gap-3">
@@ -159,10 +162,11 @@
 
 <script setup>
 import axios from 'axios';
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 
 const STORAGE_KEY_PREFIX = 'gmi-help-assistant-chat-v3';
+const AUTO_HIDE_DELAY_MS = 2 * 60 * 1000;
 
 const moduleProfiles = [
   {
@@ -1355,6 +1359,7 @@ const messagesContainer = ref(null);
 const isTyping = ref(false);
 const lastTopicId = ref(null);
 const lastProvider = ref('local');
+let autoHideTimer = null;
 
 const currentModule = computed(() => {
   const pageName = String(page.component || '').toLowerCase();
@@ -1426,6 +1431,31 @@ function persistMessages() {
   } catch (error) {
     // ignore localStorage issues
   }
+}
+
+function clearAutoHideTimer() {
+  if (autoHideTimer) {
+    window.clearTimeout(autoHideTimer);
+    autoHideTimer = null;
+  }
+}
+
+function scheduleAutoHide() {
+  clearAutoHideTimer();
+
+  if (!open.value || isTyping.value) {
+    return;
+  }
+
+  autoHideTimer = window.setTimeout(() => {
+    if (!isTyping.value) {
+      open.value = false;
+    }
+  }, AUTO_HIDE_DELAY_MS);
+}
+
+function markAssistantActivity() {
+  scheduleAutoHide();
 }
 
 async function fetchHistoryFromDatabase() {
@@ -1823,6 +1853,7 @@ async function pushAssistantReply(question) {
       }
       persistMessages();
       scrollToBottom();
+      scheduleAutoHide();
       return;
     }
   } catch (error) {
@@ -1840,6 +1871,7 @@ async function pushAssistantReply(question) {
   }
   persistMessages();
   scrollToBottom();
+  scheduleAutoHide();
 }
 
 async function sendQuestion(question) {
@@ -1857,11 +1889,14 @@ async function sendQuestion(question) {
   }
   persistMessages();
   scrollToBottom();
+  scheduleAutoHide();
 
   isTyping.value = true;
+  clearAutoHideTimer();
   await new Promise((resolve) => window.setTimeout(resolve, 320));
   await pushAssistantReply(normalized);
   isTyping.value = false;
+  scheduleAutoHide();
 }
 
 function submitQuestion() {
@@ -1891,13 +1926,18 @@ function resetChat() {
   clearHistoryInDatabase().catch(() => {});
   persistMessages();
   scrollToBottom();
+  scheduleAutoHide();
 }
 
 function toggleOpen() {
   open.value = !open.value;
   if (open.value) {
     scrollToBottom();
+    scheduleAutoHide();
+    return;
   }
+
+  clearAutoHideTimer();
 }
 
 watch(currentModule, () => {
@@ -1916,6 +1956,25 @@ watch(currentModule, () => {
 watch(storageKey, () => {
   loadMessages();
   scrollToBottom();
+  scheduleAutoHide();
+});
+
+watch(open, (isOpen) => {
+  if (isOpen) {
+    scheduleAutoHide();
+    return;
+  }
+
+  clearAutoHideTimer();
+});
+
+watch(isTyping, (typing) => {
+  if (typing) {
+    clearAutoHideTimer();
+    return;
+  }
+
+  scheduleAutoHide();
 });
 
 onMounted(() => {
@@ -1923,5 +1982,9 @@ onMounted(() => {
     scrollToBottom();
   });
   scrollToBottom();
+});
+
+onBeforeUnmount(() => {
+  clearAutoHideTimer();
 });
 </script>
