@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed bottom-5 right-5 z-40">
+  <div ref="widgetRoot" class="fixed bottom-5 right-5 z-40">
     <transition
       enter-active-class="transition duration-200 ease-out"
       enter-from-class="translate-y-2 opacity-0"
@@ -31,7 +31,7 @@
               <button
                 type="button"
                 class="rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-slate-700 hover:text-white"
-                @click="open = false"
+                @click="closeAssistantPanel"
               >
                 Close
               </button>
@@ -166,7 +166,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { usePage } from '@inertiajs/vue3';
 
 const STORAGE_KEY_PREFIX = 'gmi-help-assistant-chat-v3';
-const AUTO_HIDE_DELAY_MS = 2 * 60 * 1000;
+const AUTO_HIDE_DELAY_MS = 5 * 1000;
 
 const moduleProfiles = [
   {
@@ -1352,6 +1352,7 @@ const moduleActionFallbacks = {
 };
 
 const page = usePage();
+const widgetRoot = ref(null);
 const open = ref(false);
 const draft = ref('');
 const messages = ref([]);
@@ -1360,6 +1361,7 @@ const isTyping = ref(false);
 const lastTopicId = ref(null);
 const lastProvider = ref('local');
 let autoHideTimer = null;
+const outsideCloseEvents = ['pointerdown', 'wheel', 'touchstart', 'keydown'];
 
 const currentModule = computed(() => {
   const pageName = String(page.component || '').toLowerCase();
@@ -1456,6 +1458,31 @@ function scheduleAutoHide() {
 
 function markAssistantActivity() {
   scheduleAutoHide();
+}
+
+function closeAssistantPanel() {
+  open.value = false;
+  clearAutoHideTimer();
+}
+
+function isEventInsideWidget(event) {
+  const root = widgetRoot.value;
+  const target = event?.target;
+
+  return Boolean(root && target instanceof Node && root.contains(target));
+}
+
+function handleGlobalActivity(event) {
+  if (!open.value || isTyping.value) {
+    return;
+  }
+
+  if (isEventInsideWidget(event)) {
+    scheduleAutoHide();
+    return;
+  }
+
+  closeAssistantPanel();
 }
 
 async function fetchHistoryFromDatabase() {
@@ -1982,9 +2009,15 @@ onMounted(() => {
     scrollToBottom();
   });
   scrollToBottom();
+  outsideCloseEvents.forEach((eventName) => {
+    window.addEventListener(eventName, handleGlobalActivity, true);
+  });
 });
 
 onBeforeUnmount(() => {
   clearAutoHideTimer();
+  outsideCloseEvents.forEach((eventName) => {
+    window.removeEventListener(eventName, handleGlobalActivity, true);
+  });
 });
 </script>
