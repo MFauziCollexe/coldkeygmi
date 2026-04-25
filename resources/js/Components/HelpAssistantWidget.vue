@@ -1,5 +1,5 @@
 <template>
-  <div ref="widgetRoot" class="fixed bottom-5 right-5 z-40">
+  <div v-show="widgetVisible" ref="widgetRoot" class="fixed bottom-5 right-5 z-40">
     <transition
       enter-active-class="transition duration-200 ease-out"
       enter-from-class="translate-y-2 opacity-0"
@@ -1353,6 +1353,7 @@ const moduleActionFallbacks = {
 
 const page = usePage();
 const widgetRoot = ref(null);
+const widgetVisible = ref(true);
 const open = ref(false);
 const draft = ref('');
 const messages = ref([]);
@@ -1445,23 +1446,30 @@ function clearAutoHideTimer() {
 function scheduleAutoHide() {
   clearAutoHideTimer();
 
-  if (!open.value || isTyping.value) {
+  if (!widgetVisible.value || isTyping.value) {
     return;
   }
 
   autoHideTimer = window.setTimeout(() => {
     if (!isTyping.value) {
-      open.value = false;
+      hideAssistantWidget();
     }
   }, AUTO_HIDE_DELAY_MS);
 }
 
 function markAssistantActivity() {
+  widgetVisible.value = true;
   scheduleAutoHide();
 }
 
 function closeAssistantPanel() {
   open.value = false;
+  clearAutoHideTimer();
+}
+
+function hideAssistantWidget() {
+  open.value = false;
+  widgetVisible.value = false;
   clearAutoHideTimer();
 }
 
@@ -1473,7 +1481,13 @@ function isEventInsideWidget(event) {
 }
 
 function handleGlobalActivity(event) {
-  if (!open.value || isTyping.value) {
+  if (isTyping.value) {
+    return;
+  }
+
+  if (!widgetVisible.value) {
+    widgetVisible.value = true;
+    scheduleAutoHide();
     return;
   }
 
@@ -1482,7 +1496,11 @@ function handleGlobalActivity(event) {
     return;
   }
 
-  closeAssistantPanel();
+  if (open.value) {
+    closeAssistantPanel();
+  }
+
+  scheduleAutoHide();
 }
 
 async function fetchHistoryFromDatabase() {
@@ -1957,6 +1975,7 @@ function resetChat() {
 }
 
 function toggleOpen() {
+  widgetVisible.value = true;
   open.value = !open.value;
   if (open.value) {
     scrollToBottom();
@@ -1964,7 +1983,7 @@ function toggleOpen() {
     return;
   }
 
-  clearAutoHideTimer();
+  scheduleAutoHide();
 }
 
 watch(currentModule, () => {
@@ -1992,7 +2011,12 @@ watch(open, (isOpen) => {
     return;
   }
 
-  clearAutoHideTimer();
+  if (!widgetVisible.value) {
+    clearAutoHideTimer();
+    return;
+  }
+
+  scheduleAutoHide();
 });
 
 watch(isTyping, (typing) => {
