@@ -69,6 +69,18 @@ class AccessRuleController extends Controller
                         ->all();
                 }
 
+                if (isset($config['template_permissions']) && is_array($config['template_permissions'])) {
+                    $nextConfig['template_permissions'] = collect($config['template_permissions'])
+                        ->filter(fn ($templateConfig, $templateKey) => is_string($templateKey) && trim($templateKey) !== '' && is_array($templateConfig))
+                        ->map(function (array $templateConfig) {
+                            return collect($templateConfig)
+                                ->filter(fn ($rules, $actionKey) => is_string($actionKey) && trim($actionKey) !== '' && is_array($rules))
+                                ->map(fn ($rules) => array_values(array_filter($rules, fn ($rule) => is_array($rule) || is_string($rule))))
+                                ->all();
+                        })
+                        ->all();
+                }
+
                 return $nextConfig;
             })
             ->all();

@@ -92,7 +92,7 @@
             <div v-if="currentStep === 1" class="rounded border border-indigo-500/40 bg-indigo-600/10 p-6">
               <h3 class="text-lg font-semibold text-white">Step 1: Pilih Module</h3>
               <p class="mt-1 text-sm text-slate-300">
-                Pilih module di panel kiri. Setelah itu Anda bisa lanjut ke compare, edit scope, edit ability, lalu audit.
+                Pilih module di panel kiri. Setelah itu Anda bisa lanjut ke compare, edit scope, edit ability, cek akses template spesifik bila ada, lalu audit.
               </p>
               <div class="mt-4 rounded border border-slate-700 bg-slate-900 p-4">
                 <p class="text-xs uppercase tracking-wide text-slate-400">Module Terpilih</p>
@@ -443,6 +443,171 @@
                   </div>
                 </div>
               </div>
+
+              <div v-if="selected.template_permissions.length || base.template_permissions.length" class="rounded border border-slate-700 bg-slate-900 p-4">
+                <div class="mb-3 flex items-center justify-between">
+                  <div>
+                    <h4 class="text-sm font-semibold text-slate-200">Template Permissions</h4>
+                    <p class="text-xs text-slate-400">Atur akses `view` dan `approve` untuk template spesifik dalam module ini.</p>
+                  </div>
+                  <span class="text-xs text-slate-400">{{ selected.template_permissions.length }} item</span>
+                </div>
+
+                <div class="mb-3 flex flex-wrap gap-2">
+                  <button type="button" class="rounded bg-slate-700 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-600" @click="addTemplatePermission">Add Template</button>
+                </div>
+
+                <div class="space-y-3">
+                  <div
+                    v-for="(templatePermission, templateIndex) in selected.template_permissions"
+                    :key="`template-permission-${templateIndex}`"
+                    class="rounded border border-slate-700 bg-slate-800 p-3"
+                  >
+                    <div class="flex gap-2">
+                      <select v-model="templatePermission.key" class="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white">
+                        <option value="">Pilih template key</option>
+                        <option v-for="option in templatePermissionKeyOptions(templatePermission.key)" :key="`template-key-${option}`" :value="option">{{ option }}</option>
+                      </select>
+                      <button type="button" class="rounded bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500" @click="selected.template_permissions.splice(templateIndex, 1)">Remove</button>
+                    </div>
+
+                    <p class="mt-2 text-xs text-slate-500">Default view: {{ describeDefaultTemplatePermission(templatePermission.key, 'view') }}</p>
+                    <p class="mt-1 text-xs text-slate-500">Default approve: {{ describeDefaultTemplatePermission(templatePermission.key, 'approve') }}</p>
+
+                    <div class="mt-3 grid gap-3 xl:grid-cols-2">
+                      <div class="rounded border border-slate-700 bg-slate-950/50 p-3">
+                        <div class="mb-2 flex items-center justify-between">
+                          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">view</p>
+                          <button type="button" class="rounded bg-slate-700 px-2 py-1 text-[11px] font-semibold text-white hover:bg-slate-600" @click="templatePermission.view_conditions.push(makeCondition())">Add Condition</button>
+                        </div>
+
+                        <div class="space-y-2">
+                          <div
+                            v-for="(rule, ruleIndex) in templatePermission.view_conditions"
+                            :key="`template-view-${templateIndex}-${ruleIndex}`"
+                            class="grid gap-2 md:grid-cols-[170px_minmax(0,1fr)_auto]"
+                          >
+                            <select v-model="rule.type" class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white">
+                              <option v-for="option in typeOptions(rule.type)" :key="option.value" :value="option.value">{{ option.label }}</option>
+                            </select>
+                            <div>
+                              <select
+                                v-if="usesDropdownValue(rule.type)"
+                                v-model="rule.value"
+                                class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                              >
+                                <option value="">Pilih value</option>
+                                <option v-for="option in valueOptionsForType(rule.type)" :key="`template-view-single-${rule.type}-${option.value}`" :value="option.value">
+                                  {{ option.label }}
+                                </option>
+                              </select>
+                              <input v-else-if="needsValue(rule.type)" v-model="rule.value" type="text" placeholder="value" class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
+                              <div v-else-if="needsValues(rule.type)" class="space-y-2">
+                                <div class="flex gap-2">
+                                  <select v-model="rule.pendingValue" class="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white">
+                                    <option value="">Pilih value</option>
+                                    <option v-for="option in valueOptionsForType(rule.type, rule.values)" :key="`template-view-multi-${rule.type}-${option.value}`" :value="option.value">
+                                      {{ option.label }}
+                                    </option>
+                                  </select>
+                                  <button
+                                    type="button"
+                                    class="rounded bg-slate-700 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-600 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+                                    :disabled="!rule.pendingValue"
+                                    @click="addRuleValue(rule)"
+                                  >
+                                    Add
+                                  </button>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                  <span
+                                    v-for="(item, itemIndex) in rule.values"
+                                    :key="`template-view-multi-tag-${rule.type}-${item}`"
+                                    class="inline-flex items-center gap-1 rounded bg-indigo-600/20 px-2 py-1 text-xs text-indigo-200"
+                                  >
+                                    {{ item }}
+                                    <button type="button" class="text-indigo-100 hover:text-white" @click="rule.values.splice(itemIndex, 1)">x</button>
+                                  </span>
+                                </div>
+                              </div>
+                              <p v-else class="rounded border border-dashed border-slate-700 px-3 py-2 text-xs text-slate-400">Tanpa value.</p>
+                            </div>
+                            <button type="button" class="rounded bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500" @click="templatePermission.view_conditions.splice(ruleIndex, 1)">Remove</button>
+                          </div>
+                          <p v-if="templatePermission.view_conditions.length === 0" class="text-xs text-slate-500">Belum ada condition untuk view.</p>
+                        </div>
+                      </div>
+
+                      <div class="rounded border border-slate-700 bg-slate-950/50 p-3">
+                        <div class="mb-2 flex items-center justify-between">
+                          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">approve</p>
+                          <button type="button" class="rounded bg-slate-700 px-2 py-1 text-[11px] font-semibold text-white hover:bg-slate-600" @click="templatePermission.approve_conditions.push(makeCondition())">Add Condition</button>
+                        </div>
+
+                        <div class="space-y-2">
+                          <div
+                            v-for="(rule, ruleIndex) in templatePermission.approve_conditions"
+                            :key="`template-approve-${templateIndex}-${ruleIndex}`"
+                            class="grid gap-2 md:grid-cols-[170px_minmax(0,1fr)_auto]"
+                          >
+                            <select v-model="rule.type" class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white">
+                              <option v-for="option in typeOptions(rule.type)" :key="option.value" :value="option.value">{{ option.label }}</option>
+                            </select>
+                            <div>
+                              <select
+                                v-if="usesDropdownValue(rule.type)"
+                                v-model="rule.value"
+                                class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                              >
+                                <option value="">Pilih value</option>
+                                <option v-for="option in valueOptionsForType(rule.type)" :key="`template-approve-single-${rule.type}-${option.value}`" :value="option.value">
+                                  {{ option.label }}
+                                </option>
+                              </select>
+                              <input v-else-if="needsValue(rule.type)" v-model="rule.value" type="text" placeholder="value" class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
+                              <div v-else-if="needsValues(rule.type)" class="space-y-2">
+                                <div class="flex gap-2">
+                                  <select v-model="rule.pendingValue" class="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white">
+                                    <option value="">Pilih value</option>
+                                    <option v-for="option in valueOptionsForType(rule.type, rule.values)" :key="`template-approve-multi-${rule.type}-${option.value}`" :value="option.value">
+                                      {{ option.label }}
+                                    </option>
+                                  </select>
+                                  <button
+                                    type="button"
+                                    class="rounded bg-slate-700 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-600 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+                                    :disabled="!rule.pendingValue"
+                                    @click="addRuleValue(rule)"
+                                  >
+                                    Add
+                                  </button>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                  <span
+                                    v-for="(item, itemIndex) in rule.values"
+                                    :key="`template-approve-multi-tag-${rule.type}-${item}`"
+                                    class="inline-flex items-center gap-1 rounded bg-indigo-600/20 px-2 py-1 text-xs text-indigo-200"
+                                  >
+                                    {{ item }}
+                                    <button type="button" class="text-indigo-100 hover:text-white" @click="rule.values.splice(itemIndex, 1)">x</button>
+                                  </span>
+                                </div>
+                              </div>
+                              <p v-else class="rounded border border-dashed border-slate-700 px-3 py-2 text-xs text-slate-400">Tanpa value.</p>
+                            </div>
+                            <button type="button" class="rounded bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500" @click="templatePermission.approve_conditions.splice(ruleIndex, 1)">Remove</button>
+                          </div>
+                          <p v-if="templatePermission.approve_conditions.length === 0" class="text-xs text-slate-500">Belum ada condition untuk approve.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-if="selected.template_permissions.length === 0" class="rounded border border-dashed border-slate-700 bg-slate-800 p-4 text-xs text-slate-400">
+                    Module ini belum punya template permission di draft.
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div v-if="currentStep === 4" class="rounded border border-slate-700 bg-slate-900 p-4">
@@ -541,7 +706,7 @@
                         </span>
                       </div>
 
-                      <div class="mt-3 grid gap-3 xl:grid-cols-2">
+                      <div class="mt-3 grid gap-3 xl:grid-cols-3">
                         <div class="rounded border border-slate-700 bg-slate-800 p-3">
                           <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Scopes</p>
                           <div class="mt-2 space-y-3">
@@ -602,6 +767,38 @@
                             </div>
                             <p v-if="!moduleChange.abilities_added?.length && !moduleChange.abilities_removed?.length && !(moduleChange.abilities_changed || []).length" class="text-xs text-slate-500">
                               Tidak ada perubahan ability.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div class="rounded border border-slate-700 bg-slate-800 p-3">
+                          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Template Permissions</p>
+                          <div class="mt-2 space-y-3">
+                            <div v-if="moduleChange.template_permissions_added?.length" class="text-xs text-slate-300">
+                              <span class="font-semibold text-emerald-300">Added:</span> {{ moduleChange.template_permissions_added.join(', ') }}
+                            </div>
+                            <div v-if="moduleChange.template_permissions_removed?.length" class="text-xs text-slate-300">
+                              <span class="font-semibold text-rose-300">Removed:</span> {{ moduleChange.template_permissions_removed.join(', ') }}
+                            </div>
+                            <div
+                              v-for="ruleDiff in moduleChange.template_permissions_changed || []"
+                              :key="`${entry.id}-${moduleChange.module}-template-${ruleDiff.key}`"
+                              class="rounded border border-slate-700 bg-slate-900 p-3"
+                            >
+                              <p class="text-sm font-semibold text-white">{{ ruleDiff.key }}</p>
+                              <div class="mt-2 grid gap-3 lg:grid-cols-2">
+                                <div>
+                                  <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Before</p>
+                                  <pre class="overflow-auto rounded bg-slate-950 p-2 text-[11px] text-slate-300">{{ formatRuleValue(ruleDiff.before) }}</pre>
+                                </div>
+                                <div>
+                                  <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">After</p>
+                                  <pre class="overflow-auto rounded bg-slate-950 p-2 text-[11px] text-slate-300">{{ formatRuleValue(ruleDiff.after) }}</pre>
+                                </div>
+                              </div>
+                            </div>
+                            <p v-if="!moduleChange.template_permissions_added?.length && !moduleChange.template_permissions_removed?.length && !(moduleChange.template_permissions_changed || []).length" class="text-xs text-slate-500">
+                              Tidak ada perubahan template permission.
                             </p>
                           </div>
                         </div>
@@ -705,7 +902,7 @@ const currentStep = ref(1);
 const wizardSteps = [
   { number: 1, short: 'Module', title: 'Pilih Module', description: 'Tentukan module yang ingin diatur terlebih dahulu.' },
   { number: 2, short: 'Scopes', title: 'Atur Scope', description: 'Kelola siapa yang bisa melihat data dan jangkauan departemennya.' },
-  { number: 3, short: 'Abilities', title: 'Atur Ability', description: 'Kelola siapa yang bisa melakukan aksi seperti approve, delete, atau export.' },
+  { number: 3, short: 'Abilities', title: 'Atur Ability & Template', description: 'Kelola siapa yang bisa melakukan aksi module dan mengakses template spesifik bila tersedia.' },
   { number: 4, short: 'Audit', title: 'Audit & Rollback', description: 'Tinjau riwayat perubahan dan rollback bila diperlukan.' },
 ];
 
@@ -714,7 +911,7 @@ const filteredModuleKeys = computed(() => {
   return Object.keys(states.value).filter((key) => !query || key.toLowerCase().includes(query));
 });
 const selected = computed(() => states.value[selectedModuleKey.value] || null);
-const base = computed(() => defaultStates[selectedModuleKey.value] || { scopes: [], abilities: [] });
+const base = computed(() => defaultStates[selectedModuleKey.value] || { scopes: [], abilities: [], template_permissions: [] });
 const hasSelectedModule = computed(() => Boolean(selectedModuleKey.value && selected.value));
 const canGoNext = computed(() => {
   if (currentStep.value >= wizardSteps.length) {
@@ -766,6 +963,11 @@ function makeStates(modules) {
     abilities: Object.entries(config?.abilities || {}).map(([key, value]) => ({
       key,
       conditions: makeConditions(value || []),
+    })),
+    template_permissions: Object.entries(config?.template_permissions || {}).map(([key, value]) => ({
+      key,
+      view_conditions: makeConditions(value?.view || []),
+      approve_conditions: makeConditions(value?.approve || []),
     })),
   }]));
 }
@@ -878,8 +1080,9 @@ function normalizeCondition(rule) {
 }
 
 function serialize() {
-  return Object.fromEntries(Object.entries(states.value).map(([moduleKey, config]) => [moduleKey, {
-    scopes: Object.fromEntries((config.scopes || []).filter((scope) => String(scope.key || '').trim()).map((scope) => {
+  return Object.fromEntries(Object.entries(states.value).map(([moduleKey, config]) => {
+    const moduleData = {};
+    const scopes = Object.fromEntries((config.scopes || []).filter((scope) => String(scope.key || '').trim()).map((scope) => {
       const data = {};
       const allIf = (scope.all_if || []).filter((rule) => String(rule.type || '').trim()).map(normalizeCondition);
       const idsFrom = cleanArray(scope.ids_from || []);
@@ -891,12 +1094,33 @@ function serialize() {
       if (idsFrom.length) data.ids_from = idsFrom;
       if (appendIdsIf.length) data.append_ids_if = appendIdsIf;
       return [String(scope.key).trim(), data];
-    })),
-    abilities: Object.fromEntries((config.abilities || []).filter((ability) => String(ability.key || '').trim()).map((ability) => [
+    }));
+    const abilities = Object.fromEntries((config.abilities || []).filter((ability) => String(ability.key || '').trim()).map((ability) => [
       String(ability.key).trim(),
       (ability.conditions || []).filter((rule) => String(rule.type || '').trim()).map(normalizeCondition),
-    ])),
-  }]));
+    ]));
+    const templatePermissions = Object.fromEntries((config.template_permissions || []).filter((templatePermission) => String(templatePermission.key || '').trim()).map((templatePermission) => [
+      String(templatePermission.key).trim(),
+      {
+        view: (templatePermission.view_conditions || []).filter((rule) => String(rule.type || '').trim()).map(normalizeCondition),
+        approve: (templatePermission.approve_conditions || []).filter((rule) => String(rule.type || '').trim()).map(normalizeCondition),
+      },
+    ]));
+
+    if (Object.keys(scopes).length > 0) {
+      moduleData.scopes = scopes;
+    }
+
+    if (Object.keys(abilities).length > 0) {
+      moduleData.abilities = abilities;
+    }
+
+    if (Object.keys(templatePermissions).length > 0) {
+      moduleData.template_permissions = templatePermissions;
+    }
+
+    return [moduleKey, moduleData];
+  }));
 }
 
 function stable(value) {
@@ -920,6 +1144,11 @@ function summarizeSection(items, kind) {
           item.ids_from?.length ? `ids_from(${item.ids_from.join(', ')})` : null,
           item.append_ids_if?.length ? `append(${item.append_ids_if.map((appendRule) => `${appendRule.if.map(summarizeCondition).join(' | ')} => ${appendRule.department_codes.join(', ')}`).join(' ; ')})` : null,
         ].filter(Boolean).join(' ; ') || 'Kosong'
+      : kind === 'template_permission'
+        ? [
+            item.view_conditions?.length ? `view(${item.view_conditions.map(summarizeCondition).join(' | ')})` : 'view(kosong)',
+            item.approve_conditions?.length ? `approve(${item.approve_conditions.map(summarizeCondition).join(' | ')})` : 'approve(kosong)',
+          ].join(' ; ')
       : (item.conditions || []).map(summarizeCondition).join(' | ') || 'Kosong',
   }));
 }
@@ -938,6 +1167,17 @@ function describeDefaultAbility(abilityKey) {
   if (!String(abilityKey || '').trim()) return 'Isi key ability untuk melihat pembanding default.';
   const item = (base.value.abilities || []).find((ability) => ability.key === abilityKey);
   return item ? summarizeSection([item], 'ability')[0].text : 'Ability ini belum ada di default.';
+}
+
+function describeDefaultTemplatePermission(templateKey, actionKey) {
+  if (!String(templateKey || '').trim()) return 'Isi key template untuk melihat pembanding default.';
+  const item = (base.value.template_permissions || []).find((templatePermission) => templatePermission.key === templateKey);
+  if (!item) {
+    return 'Template permission ini belum ada di default.';
+  }
+
+  const conditions = actionKey === 'approve' ? item.approve_conditions : item.view_conditions;
+  return conditions.length ? conditions.map(summarizeCondition).join(' | ') : 'Kosong';
 }
 
 function humanReadableIdsFrom(idsFrom = []) {
@@ -1050,6 +1290,27 @@ function abilityKeyOptions(currentKey = '') {
   return Array.from(keys).sort();
 }
 
+function templatePermissionKeyOptions(currentKey = '') {
+  const keys = new Set();
+
+  (base.value.template_permissions || []).forEach((templatePermission) => {
+    const key = String(templatePermission?.key || '').trim();
+    if (key) keys.add(key);
+  });
+
+  (selected.value?.template_permissions || []).forEach((templatePermission) => {
+    const key = String(templatePermission?.key || '').trim();
+    if (key) keys.add(key);
+  });
+
+  const current = String(currentKey || '').trim();
+  if (current) {
+    keys.add(current);
+  }
+
+  return Array.from(keys).sort();
+}
+
 function availableDepartmentCodeOptions(selectedCodes = []) {
   const selected = new Set(cleanArray(selectedCodes));
 
@@ -1100,6 +1361,12 @@ function addAbility() {
   if (!selected.value) return;
   const firstAvailableKey = abilityKeyOptions('').find((key) => !(selected.value?.abilities || []).some((ability) => String(ability?.key || '').trim() === key)) || '';
   selected.value.abilities.push({ key: firstAvailableKey, conditions: [] });
+}
+
+function addTemplatePermission() {
+  if (!selected.value) return;
+  const firstAvailableKey = templatePermissionKeyOptions('').find((key) => !(selected.value?.template_permissions || []).some((templatePermission) => String(templatePermission?.key || '').trim() === key)) || '';
+  selected.value.template_permissions.push({ key: firstAvailableKey, view_conditions: [], approve_conditions: [] });
 }
 
 function goToStep(stepNumber) {
@@ -1311,6 +1578,18 @@ function formatChangedModules(items) {
       details.push(`~ability:${item.abilities_changed.map((rule) => rule.key).join('/')}`);
     }
 
+    if (Array.isArray(item.template_permissions_added) && item.template_permissions_added.length > 0) {
+      details.push(`+template:${item.template_permissions_added.join('/')}`);
+    }
+
+    if (Array.isArray(item.template_permissions_removed) && item.template_permissions_removed.length > 0) {
+      details.push(`-template:${item.template_permissions_removed.join('/')}`);
+    }
+
+    if (Array.isArray(item.template_permissions_changed) && item.template_permissions_changed.length > 0) {
+      details.push(`~template:${item.template_permissions_changed.map((rule) => rule.key).join('/')}`);
+    }
+
     return details.length > 0 ? `${item.module} (${details.join(', ')})` : item.module;
   }).join(' ; ');
 }
@@ -1339,8 +1618,11 @@ function detailHeader(moduleChange) {
   if (moduleChange.abilities_added?.length) details.push(`ability baru ${moduleChange.abilities_added.length}`);
   if (moduleChange.abilities_removed?.length) details.push(`ability dihapus ${moduleChange.abilities_removed.length}`);
   if (moduleChange.abilities_changed?.length) details.push(`ability diubah ${moduleChange.abilities_changed.length}`);
+  if (moduleChange.template_permissions_added?.length) details.push(`template baru ${moduleChange.template_permissions_added.length}`);
+  if (moduleChange.template_permissions_removed?.length) details.push(`template dihapus ${moduleChange.template_permissions_removed.length}`);
+  if (moduleChange.template_permissions_changed?.length) details.push(`template diubah ${moduleChange.template_permissions_changed.length}`);
 
-  return details.length > 0 ? details.join(' • ') : 'Perubahan struktur module';
+  return details.length > 0 ? details.join(' | ') : 'Perubahan struktur module';
 }
 
 function moduleChangeCount(moduleChange) {
@@ -1349,7 +1631,10 @@ function moduleChangeCount(moduleChange) {
     + (moduleChange.scopes_changed?.length || 0)
     + (moduleChange.abilities_added?.length || 0)
     + (moduleChange.abilities_removed?.length || 0)
-    + (moduleChange.abilities_changed?.length || 0);
+    + (moduleChange.abilities_changed?.length || 0)
+    + (moduleChange.template_permissions_added?.length || 0)
+    + (moduleChange.template_permissions_removed?.length || 0)
+    + (moduleChange.template_permissions_changed?.length || 0);
 }
 
 function formatRuleValue(value) {
