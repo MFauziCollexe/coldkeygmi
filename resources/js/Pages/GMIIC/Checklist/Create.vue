@@ -457,9 +457,9 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
-  allowedChecklistTemplateIds: {
-    type: Array,
-    default: () => [],
+  checklistTemplatePermissions: {
+    type: Object,
+    default: () => ({}),
   },
 });
 
@@ -489,15 +489,15 @@ let saveRequestSequence = 0;
 let lastSavedEntrySignature = '';
 
 const currentUser = computed(() => page.props.auth?.user || null);
-const allowedChecklistTemplateIds = computed(() => Array.isArray(props.allowedChecklistTemplateIds) ? props.allowedChecklistTemplateIds : []);
+const checklistTemplatePermissions = computed(() => props.checklistTemplatePermissions || page.props.checklistTemplatePermissions || {});
 const availableChecklistOptions = computed(() => {
-  const allowedIds = new Set(allowedChecklistTemplateIds.value);
-
-  return checklistOptions.filter((option) => allowedIds.has(option.id));
+  return checklistOptions.filter((option) => Boolean(checklistTemplatePermissions.value?.[option.id]?.view));
 });
+const currentChecklistTemplatePermissions = computed(() => checklistTemplatePermissions.value?.[selectedChecklist.value] || {});
 const canUseSelectedChecklist = computed(() => {
-  return supportedTemplates.includes(selectedChecklist.value) && allowedChecklistTemplateIds.value.includes(selectedChecklist.value);
+  return supportedTemplates.includes(selectedChecklist.value) && Boolean(currentChecklistTemplatePermissions.value.view);
 });
+const canApproveCurrentTemplate = computed(() => Boolean(currentChecklistTemplatePermissions.value.approve));
 const patroliSecurityOverlayAddressLines = [
   'Jl. Rungkut Industri Raya II',
   'No.45 B, Kali Rungkut, Kec.',
@@ -616,6 +616,7 @@ async function persistChecklistEntry(targetEntry = entry.value, options = {}) {
   try {
     const response = await axios.post('/gmiic/checklist/entries/save', {
       entry: normalizedEntry,
+      approval_action: Boolean(options.approvalAction),
     });
     const savedEntry = response.data?.entry || normalizedEntry;
 
@@ -1643,6 +1644,10 @@ const canApproveEntry = computed(() => {
     return false;
   }
 
+  if (!canApproveCurrentTemplate.value) {
+    return false;
+  }
+
   if (isKotakP3K.value) {
     if (isActiveKotakP3KMonthApproved.value) {
       return false;
@@ -2234,7 +2239,7 @@ async function approveChecklist() {
       entry.value.form.approved = false;
     }
 
-    await persistChecklistEntry(entry.value, { force: true });
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
     return;
   }
 
@@ -2249,7 +2254,7 @@ async function approveChecklist() {
     };
     entry.value.form.approved = true;
     persistCurrentFireSafetyState();
-    await persistChecklistEntry(entry.value, { force: true });
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
     return;
   }
 
@@ -2282,7 +2287,7 @@ async function approveChecklist() {
     };
 
     entry.value.form.approved = warehousePreparedApproved.value;
-    await persistChecklistEntry(entry.value, { force: true });
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
     return;
   }
 
@@ -2307,7 +2312,7 @@ async function approveChecklist() {
       ...new Set([...(entry.value.form.approved_areas || []), selectedArea]),
     ];
     entry.value.form.approved = patroliSecurityAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id));
-    await persistChecklistEntry(entry.value, { force: true });
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
     return;
   }
 
@@ -2318,12 +2323,12 @@ async function approveChecklist() {
       ...new Set([...(entry.value.form.approved_areas || []), selectedArea]),
     ];
     entry.value.form.approved = siteVisitHseAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id));
-    await persistChecklistEntry(entry.value, { force: true });
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
     return;
   }
 
   entry.value.form.approved = true;
-  await persistChecklistEntry(entry.value, { force: true });
+  await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
 }
 
 async function scanBarcode() {

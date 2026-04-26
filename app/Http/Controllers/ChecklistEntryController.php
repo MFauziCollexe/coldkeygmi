@@ -20,22 +20,6 @@ use Inertia\Response;
 class ChecklistEntryController extends Controller
 {
     private const CHECKLIST_MODULE = 'gmiic.checklist';
-    private const HSE_TEMPLATE_IDS = [
-        'non_warehouse_sanitation',
-        'kotak_p3k',
-        'apar_smoke_detector_fire_alarm',
-        'pengangkutan_sampah_pt_sier',
-        'personal_hygiene_karyawan',
-        'site_visit_hse',
-        'warehouse_sanitation_1',
-    ];
-    private const SECURITY_TEMPLATE_IDS = [
-        'patroli_security',
-    ];
-    private const MAINTENANCE_TEMPLATE_IDS = [
-        'site_visit_maintenance',
-        'sarana_dan_prasarana',
-    ];
 
     protected function accessRules(): AccessRuleService
     {
@@ -44,19 +28,22 @@ class ChecklistEntryController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = $request->user();
+
         return Inertia::render('GMIIC/Checklist/Index', [
             'checklistAbilities' => $this->resolveChecklistAbilities($request),
-            'entries' => $this->getChecklistEntries($request->user()),
-            'allowedChecklistTemplateIds' => $this->getAllowedChecklistTemplateIds($request->user()),
+            'entries' => $this->getChecklistEntries($user),
+            'checklistTemplatePermissions' => $this->getChecklistTemplatePermissions($user),
         ]);
     }
 
     public function create(Request $request): Response
     {
-        $allowedChecklistTemplateIds = $this->getAllowedChecklistTemplateIds($request->user());
+        $user = $request->user();
+        $checklistTemplatePermissions = $this->getChecklistTemplatePermissions($user);
         $selectedTemplate = $request->string('template')->toString();
-        if ($selectedTemplate !== '' && !$this->canAccessChecklistTemplate($request->user(), $selectedTemplate)) {
-            abort(403, 'Template checklist ini berada di luar akses departement Anda.');
+        if ($selectedTemplate !== '' && !$this->canAccessChecklistTemplate($user, $selectedTemplate, 'view')) {
+            abort(403, 'Template checklist ini berada di luar akses Anda.');
         }
 
         $employees = Employee::query()
@@ -109,9 +96,9 @@ class ChecklistEntryController extends Controller
         return Inertia::render('GMIIC/Checklist/Create', [
             'selectedTemplate' => $selectedTemplate,
             'entryId' => $entryId,
-            'savedEntry' => $entryId !== '' ? $this->findChecklistEntry($entryId, $request->user(), true) : null,
-            'existingEntries' => $this->getChecklistEntries($request->user()),
-            'allowedChecklistTemplateIds' => $allowedChecklistTemplateIds,
+            'savedEntry' => $entryId !== '' ? $this->findChecklistEntry($entryId, $user, true) : null,
+            'existingEntries' => $this->getChecklistEntries($user),
+            'checklistTemplatePermissions' => $checklistTemplatePermissions,
             'checklistAbilities' => $this->resolveChecklistAbilities($request),
             'holidayDates' => AttendanceHoliday::query()
                 ->orderBy('holiday_date')
@@ -142,10 +129,16 @@ class ChecklistEntryController extends Controller
     {
         $payload = $request->validate([
             'entry' => ['required', 'array'],
+            'approval_action' => ['sometimes', 'boolean'],
         ]);
 
         $entry = $this->normalizeEntryPayload($payload['entry']);
-        $this->authorizeChecklistTemplate($request->user(), $entry['template_id']);
+        $this->authorizeChecklistTemplate($request->user(), $entry['template_id'], 'view');
+
+        if ((bool) ($payload['approval_action'] ?? false)) {
+            $this->authorizeChecklistTemplate($request->user(), $entry['template_id'], 'approve');
+        }
+
         $savedEntry = DB::transaction(fn () => $this->persistEntry($entry, $request));
 
         return response()->json([
@@ -165,7 +158,7 @@ class ChecklistEntryController extends Controller
             return collect($payload['entries'])
                 ->map(function ($entry) use ($request) {
                     $normalizedEntry = $this->normalizeEntryPayload($entry);
-                    $this->authorizeChecklistTemplate($request->user(), $normalizedEntry['template_id']);
+                    $this->authorizeChecklistTemplate($request->user(), $normalizedEntry['template_id'], 'view');
 
                     return $this->persistEntry($normalizedEntry, $request);
                 })
@@ -215,7 +208,7 @@ class ChecklistEntryController extends Controller
 
     private function getChecklistEntries($user = null): array
     {
-        $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user);
+        $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
 
         return ChecklistHeader::query()
             ->with('template:id,code,module')
@@ -246,7 +239,7 @@ class ChecklistEntryController extends Controller
             return null;
         }
 
-        if ($enforceScope && !$this->canAccessChecklistTemplate($user, (string) $header->template?->code)) {
+        if ($enforceScope && !$this->canAccessChecklistTemplate($user, (string) $header->template?->code, 'view')) {
             abort(403, 'Checklist ini berada di luar akses template departement Anda.');
         }
 
@@ -255,41 +248,72 @@ class ChecklistEntryController extends Controller
         return is_array($entry) ? $entry : null;
     }
 
-    private function getAllowedChecklistTemplateIds($user): array
+    private function getChecklistTemplatePermissionConfig(): array
     {
-        $accessRules = $this->accessRules();
-        $allowedTemplateIds = [];
-
-        if ($accessRules->allows($user, 'gmiic_checklist', 'manage_hse_templates')) {
-            $allowedTemplateIds = array_merge($allowedTemplateIds, self::HSE_TEMPLATE_IDS);
-        }
-
-        if ($accessRules->allows($user, 'gmiic_checklist', 'manage_security_templates')) {
-            $allowedTemplateIds = array_merge($allowedTemplateIds, self::SECURITY_TEMPLATE_IDS);
-        }
-
-        if ($accessRules->allows($user, 'gmiic_checklist', 'manage_maintenance_templates')) {
-            $allowedTemplateIds = array_merge($allowedTemplateIds, self::MAINTENANCE_TEMPLATE_IDS);
-        }
-
-        return array_values(array_unique($allowedTemplateIds));
+        return (array) data_get(
+            $this->accessRules()->modules(),
+            'gmiic_checklist.template_permissions',
+            []
+        );
     }
 
-    private function canAccessChecklistTemplate($user, string $templateId): bool
+    private function getChecklistTemplatePermissions($user): array
+    {
+        $permissions = [];
+
+        foreach ($this->getChecklistTemplatePermissionConfig() as $templateId => $actions) {
+            $permissions[$templateId] = [];
+
+            foreach ((array) $actions as $action => $rules) {
+                $permissions[$templateId][$action] = $this->accessRules()->allowsRules(
+                    $user,
+                    (array) $rules
+                );
+            }
+        }
+
+        return $permissions;
+    }
+
+    private function getAllowedChecklistTemplateIds($user, string $action = 'view'): array
+    {
+        return array_values(array_keys(array_filter(
+            $this->getChecklistTemplatePermissions($user),
+            fn ($permissions) => !empty($permissions[$action])
+        )));
+    }
+
+    private function canAccessChecklistTemplate($user, string $templateId, string $action = 'view'): bool
     {
         $normalizedTemplateId = trim($templateId);
         if ($normalizedTemplateId === '') {
             return false;
         }
 
-        return in_array($normalizedTemplateId, $this->getAllowedChecklistTemplateIds($user), true);
+        $rules = (array) data_get(
+            $this->getChecklistTemplatePermissionConfig(),
+            "{$normalizedTemplateId}.{$action}",
+            []
+        );
+
+        if (empty($rules)) {
+            return false;
+        }
+
+        return $this->accessRules()->allowsRules($user, $rules);
     }
 
-    private function authorizeChecklistTemplate($user, string $templateId): void
+    private function authorizeChecklistTemplate($user, string $templateId, string $action = 'view'): void
     {
-        if (!$this->canAccessChecklistTemplate($user, $templateId)) {
-            abort(403, 'Template checklist ini berada di luar akses departement Anda.');
+        if ($this->canAccessChecklistTemplate($user, $templateId, $action)) {
+            return;
         }
+
+        if ($action === 'approve') {
+            abort(403, 'Anda tidak memiliki akses approve untuk template checklist ini.');
+        }
+
+        abort(403, 'Template checklist ini berada di luar akses Anda.');
     }
 
     private function extractEntryFromHeader(ChecklistHeader $header): ?array

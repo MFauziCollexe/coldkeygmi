@@ -152,17 +152,15 @@ const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});
-const allowedChecklistTemplateIds = computed(() => Array.isArray(page.props.allowedChecklistTemplateIds) ? page.props.allowedChecklistTemplateIds : []);
+const checklistTemplatePermissions = computed(() => page.props.checklistTemplatePermissions || {});
 const availableChecklistOptions = computed(() => {
-  const allowedIds = new Set(allowedChecklistTemplateIds.value);
-
-  return checklistOptions.filter((option) => allowedIds.has(option.id));
+  return checklistOptions.filter((option) => Boolean(checklistTemplatePermissions.value?.[option.id]?.view));
 });
 const canDeleteChecklistEntries = computed(() => Boolean(checklistAbilities.value.delete_entries));
 
 const canOpenCreatePage = computed(() => {
   return !selectedChecklist.value
-    || (supportedTemplates.includes(selectedChecklist.value) && allowedChecklistTemplateIds.value.includes(selectedChecklist.value));
+    || (supportedTemplates.includes(selectedChecklist.value) && Boolean(checklistTemplatePermissions.value?.[selectedChecklist.value]?.view));
 });
 
 const createChecklistHref = computed(() => {

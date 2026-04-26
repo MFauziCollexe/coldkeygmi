@@ -197,6 +197,15 @@ class AccessRuleService
         return $this->matchesAnyRule($user, $rules, $context);
     }
 
+    public function allowsRules(User|int|null $user, array $rules, array $context = []): bool
+    {
+        if (empty($rules)) {
+            return false;
+        }
+
+        return $this->matchesAnyRule($user, $rules, $context);
+    }
+
     public function canViewAllDepartments(User|int|null $user, string $moduleKey, string $scope = 'view_list'): bool
     {
         $rules = (array) data_get($this->modules(), "{$moduleKey}.scopes.{$scope}.all_if", []);
