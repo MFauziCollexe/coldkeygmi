@@ -1,5 +1,74 @@
 <?php
 
+$itChecklistRules = [
+    ['type' => 'admin'],
+    ['type' => 'department_code', 'value' => 'IT'],
+    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
+];
+
+$hseChecklistRules = [
+    ['type' => 'department_code', 'value' => 'HSE'],
+    ['type' => 'department_name_contains', 'value' => 'HSE'],
+    ['type' => 'position_code', 'value' => 'HSE'],
+    ['type' => 'position_name_contains', 'value' => 'HSE'],
+];
+
+$securityChecklistRules = [
+    ['type' => 'department_code', 'value' => 'SEC'],
+    ['type' => 'department_name_contains', 'value' => 'SECURITY'],
+    ['type' => 'position_name_contains', 'value' => 'SECURITY'],
+];
+
+$maintenanceChecklistRules = [
+    ['type' => 'department_code', 'value' => 'MNT'],
+    ['type' => 'department_name_contains', 'value' => 'MAINT'],
+    ['type' => 'position_name_contains', 'value' => 'MAINT'],
+];
+
+$mergeChecklistRules = static fn (array ...$groups) => array_values(array_merge(...$groups));
+
+$buildTemplatePermissions = static function (array $templateIds, array $viewRules, ?array $approveRules = null): array {
+    $permissions = [];
+    $approveRules ??= $viewRules;
+
+    foreach ($templateIds as $templateId) {
+        $permissions[$templateId] = [
+            'view' => $viewRules,
+            'approve' => $approveRules,
+        ];
+    }
+
+    return $permissions;
+};
+
+$templatePermissions = array_merge(
+    $buildTemplatePermissions(
+        [
+            'non_warehouse_sanitation',
+            'kotak_p3k',
+            'apar_smoke_detector_fire_alarm',
+            'pengangkutan_sampah_pt_sier',
+            'warehouse_sanitation_1',
+            'personal_hygiene_karyawan',
+            'site_visit_hse',
+        ],
+        $mergeChecklistRules($itChecklistRules, $hseChecklistRules)
+    ),
+    $buildTemplatePermissions(
+        [
+            'sarana_dan_prasarana',
+            'site_visit_maintenance',
+        ],
+        $mergeChecklistRules($itChecklistRules, $maintenanceChecklistRules)
+    ),
+    $buildTemplatePermissions(
+        [
+            'patroli_security',
+        ],
+        $mergeChecklistRules($itChecklistRules, $securityChecklistRules)
+    )
+);
+
 return [
     'modules' => [
         'overtime' => [
@@ -262,202 +331,7 @@ return [
             ],
         ],
         'gmiic_checklist' => [
-            'template_permissions' => [
-                'non_warehouse_sanitation' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                ],
-                'kotak_p3k' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                ],
-                'apar_smoke_detector_fire_alarm' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                ],
-                'pengangkutan_sampah_pt_sier' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                ],
-                'warehouse_sanitation_1' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                ],
-                'personal_hygiene_karyawan' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                ],
-                'sarana_dan_prasarana' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'MNT'],
-                        ['type' => 'department_name_contains', 'value' => 'MAINT'],
-                        ['type' => 'position_name_contains', 'value' => 'MAINT'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'MNT'],
-                        ['type' => 'department_name_contains', 'value' => 'MAINT'],
-                        ['type' => 'position_name_contains', 'value' => 'MAINT'],
-                    ],
-                ],
-                'patroli_security' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'SEC'],
-                        ['type' => 'department_name_contains', 'value' => 'SECURITY'],
-                        ['type' => 'position_name_contains', 'value' => 'SECURITY'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'SEC'],
-                        ['type' => 'department_name_contains', 'value' => 'SECURITY'],
-                        ['type' => 'position_name_contains', 'value' => 'SECURITY'],
-                    ],
-                ],
-                'site_visit_hse' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'HSE'],
-                        ['type' => 'department_name_contains', 'value' => 'HSE'],
-                        ['type' => 'position_code', 'value' => 'HSE'],
-                        ['type' => 'position_name_contains', 'value' => 'HSE'],
-                    ],
-                ],
-                'site_visit_maintenance' => [
-                    'view' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'MNT'],
-                        ['type' => 'department_name_contains', 'value' => 'MAINT'],
-                        ['type' => 'position_name_contains', 'value' => 'MAINT'],
-                    ],
-                    'approve' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'MNT'],
-                        ['type' => 'department_name_contains', 'value' => 'MAINT'],
-                        ['type' => 'position_name_contains', 'value' => 'MAINT'],
-                    ],
-                ],
-            ],
+            'template_permissions' => $templatePermissions,
             'abilities' => [
                 'delete_entries' => [
                     ['type' => 'admin'],
