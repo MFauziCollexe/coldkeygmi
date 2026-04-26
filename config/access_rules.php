@@ -263,6 +263,31 @@ return [
         ],
         'gmiic_checklist' => [
             'abilities' => [
+                'manage_hse_templates' => [
+                    ['type' => 'admin'],
+                    ['type' => 'department_code', 'value' => 'IT'],
+                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
+                    ['type' => 'department_code', 'value' => 'HSE'],
+                    ['type' => 'department_name_contains', 'value' => 'HSE'],
+                    ['type' => 'position_code', 'value' => 'HSE'],
+                    ['type' => 'position_name_contains', 'value' => 'HSE'],
+                ],
+                'manage_security_templates' => [
+                    ['type' => 'admin'],
+                    ['type' => 'department_code', 'value' => 'IT'],
+                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
+                    ['type' => 'department_code', 'value' => 'SEC'],
+                    ['type' => 'department_name_contains', 'value' => 'SECURITY'],
+                    ['type' => 'position_name_contains', 'value' => 'SECURITY'],
+                ],
+                'manage_maintenance_templates' => [
+                    ['type' => 'admin'],
+                    ['type' => 'department_code', 'value' => 'IT'],
+                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
+                    ['type' => 'department_code', 'value' => 'MNT'],
+                    ['type' => 'department_name_contains', 'value' => 'MAINT'],
+                    ['type' => 'position_name_contains', 'value' => 'MAINT'],
+                ],
                 'delete_entries' => [
                     ['type' => 'admin'],
                     ['type' => 'department_code', 'value' => 'IT'],

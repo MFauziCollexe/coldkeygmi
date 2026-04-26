@@ -8,7 +8,7 @@
           <div class="w-full sm:w-[360px]">
             <SearchableSelect
               v-model="selectedChecklist"
-              :options="checklistOptions"
+              :options="availableChecklistOptions"
               option-value="id"
               option-label="name"
               placeholder="Pilih Checklist..."
@@ -26,6 +26,13 @@
             New Checklist
           </Link>
         </div>
+      </div>
+
+      <div
+        v-if="!availableChecklistOptions.length"
+        class="mb-4 text-sm text-amber-300"
+      >
+        Belum ada template checklist yang tersedia untuk departement Anda.
       </div>
 
       <div
@@ -145,10 +152,17 @@ const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});
+const allowedChecklistTemplateIds = computed(() => Array.isArray(page.props.allowedChecklistTemplateIds) ? page.props.allowedChecklistTemplateIds : []);
+const availableChecklistOptions = computed(() => {
+  const allowedIds = new Set(allowedChecklistTemplateIds.value);
+
+  return checklistOptions.filter((option) => allowedIds.has(option.id));
+});
 const canDeleteChecklistEntries = computed(() => Boolean(checklistAbilities.value.delete_entries));
 
 const canOpenCreatePage = computed(() => {
-  return !selectedChecklist.value || supportedTemplates.includes(selectedChecklist.value);
+  return !selectedChecklist.value
+    || (supportedTemplates.includes(selectedChecklist.value) && allowedChecklistTemplateIds.value.includes(selectedChecklist.value));
 });
 
 const createChecklistHref = computed(() => {

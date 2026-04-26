@@ -13,7 +13,7 @@
         <div class="w-full sm:w-[360px]">
           <SearchableSelect
             v-model="selectedChecklist"
-            :options="checklistOptions"
+            :options="availableChecklistOptions"
             option-value="id"
             option-label="name"
             placeholder="Pilih Checklist..."
@@ -25,10 +25,17 @@
       </div>
 
       <div
-        v-if="selectedChecklist && !supportedTemplates.includes(selectedChecklist)"
+        v-if="!availableChecklistOptions.length"
         class="rounded bg-slate-800 p-4 text-sm text-amber-300"
       >
-        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, `Sarana dan Prasarana`, `Patroli Security`, `Site Visit HSE`, dan `Site Visit Maintenance`.
+        Belum ada template checklist yang tersedia untuk departement Anda.
+      </div>
+
+      <div
+        v-else-if="selectedChecklist && !canUseSelectedChecklist"
+        class="rounded bg-slate-800 p-4 text-sm text-amber-300"
+      >
+        Template checklist ini tidak tersedia untuk departement Anda.
       </div>
 
       <div
@@ -450,6 +457,10 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  allowedChecklistTemplateIds: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 const page = usePage();
@@ -478,6 +489,15 @@ let saveRequestSequence = 0;
 let lastSavedEntrySignature = '';
 
 const currentUser = computed(() => page.props.auth?.user || null);
+const allowedChecklistTemplateIds = computed(() => Array.isArray(props.allowedChecklistTemplateIds) ? props.allowedChecklistTemplateIds : []);
+const availableChecklistOptions = computed(() => {
+  const allowedIds = new Set(allowedChecklistTemplateIds.value);
+
+  return checklistOptions.filter((option) => allowedIds.has(option.id));
+});
+const canUseSelectedChecklist = computed(() => {
+  return supportedTemplates.includes(selectedChecklist.value) && allowedChecklistTemplateIds.value.includes(selectedChecklist.value);
+});
 const patroliSecurityOverlayAddressLines = [
   'Jl. Rungkut Industri Raya II',
   'No.45 B, Kali Rungkut, Kec.',
@@ -3594,7 +3614,7 @@ function applyPatroliSecurityPhotoOverlay(canvas, capturedAt = new Date()) {
   const dayText = formatPatroliSecurityOverlayDay(capturedAt);
   const dateText = formatPatroliSecurityOverlayDate(capturedAt);
   const personnelText = `Personil: ${getPatroliSecurityPersonnelName()}`;
-  const verifiedText = 'Diverifikasi oleh Marki';
+  const verifiedText = 'Diverifikasi oleh Tim GMI';
 
   context.save();
   context.imageSmoothingEnabled = true;
