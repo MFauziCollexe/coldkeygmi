@@ -136,7 +136,8 @@
               <td class="border border-black p-0 text-center">
                 <button
                   type="button"
-                  class="flex h-9 w-full items-center justify-center text-base font-semibold sm:h-10 sm:text-lg"
+                  class="flex h-10 w-full items-center justify-center text-lg font-semibold leading-none sm:h-11 sm:text-xl"
+                  :class="item.status && isLandscapeOrientation ? 'transform rotate-90' : ''"
                   :disabled="approvedAreas.includes(entry.form.selected_area)"
                   @click="$emit('cycle-row-status', currentSection.id, item.id)"
                 >
@@ -273,7 +274,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 defineProps({
   entry: {
@@ -331,6 +332,21 @@ defineProps({
 });
 
 const previewPhoto = ref(null);
+const isLandscapeOrientation = ref(false);
+let orientationMediaQuery = null;
+
+function updateOrientationState() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (window.matchMedia) {
+    isLandscapeOrientation.value = window.matchMedia('(orientation: landscape)').matches;
+    return;
+  }
+
+  isLandscapeOrientation.value = window.innerWidth > window.innerHeight;
+}
 
 function openPhotoPreview(photo, index) {
   if (!photo?.url) {
@@ -346,6 +362,42 @@ function openPhotoPreview(photo, index) {
 function closePhotoPreview() {
   previewPhoto.value = null;
 }
+
+onMounted(() => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  updateOrientationState();
+
+  if (window.matchMedia) {
+    orientationMediaQuery = window.matchMedia('(orientation: landscape)');
+
+    if (typeof orientationMediaQuery.addEventListener === 'function') {
+      orientationMediaQuery.addEventListener('change', updateOrientationState);
+    } else if (typeof orientationMediaQuery.addListener === 'function') {
+      orientationMediaQuery.addListener(updateOrientationState);
+    }
+  }
+
+  window.addEventListener('orientationchange', updateOrientationState);
+  window.addEventListener('resize', updateOrientationState);
+});
+
+onBeforeUnmount(() => {
+  if (orientationMediaQuery) {
+    if (typeof orientationMediaQuery.removeEventListener === 'function') {
+      orientationMediaQuery.removeEventListener('change', updateOrientationState);
+    } else if (typeof orientationMediaQuery.removeListener === 'function') {
+      orientationMediaQuery.removeListener(updateOrientationState);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('orientationchange', updateOrientationState);
+    window.removeEventListener('resize', updateOrientationState);
+  }
+});
 
 defineEmits(['approve', 'scan-barcode', 'update-date', 'update-area', 'cycle-row-status', 'update-note', 'open-camera', 'remove-photo']);
 </script>
