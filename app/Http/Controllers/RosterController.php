@@ -142,7 +142,8 @@ class RosterController extends Controller
         }
 
         $user = Auth::user();
-        $targetDepartmentId = (int) ($user?->department_id ?? 0);
+        $targetDepartmentId = $this->resolveDepartmentIdForTemplateType($templateType)
+            ?: (int) ($user?->department_id ?? 0);
 
         if ($targetDepartmentId <= 0) {
             return response()->json([
@@ -268,7 +269,8 @@ class RosterController extends Controller
             ], 422);
         }
 
-        $targetDepartmentId = (int) $user->department_id;
+        $targetDepartmentId = $this->resolveDepartmentIdForTemplateType($templateType)
+            ?: (int) $user->department_id;
 
         $validRows = [];
         foreach ($sourceRows as $row) {
@@ -1271,6 +1273,10 @@ class RosterController extends Controller
 
     private function resolveDefaultWorkHours(Carbon $rosterDate, ?int $departmentId = null): int
     {
+        if ($this->isSecurityDepartment($departmentId)) {
+            return 12;
+        }
+
         if ($this->isMaintananceDepartment($departmentId)) {
             return 8;
         }
@@ -1292,6 +1298,22 @@ class RosterController extends Controller
         }
 
         return (int) $departmentId === (int) $maintananceDepartmentId;
+    }
+
+    private function isSecurityDepartment(?int $departmentId): bool
+    {
+        if (!$departmentId) {
+            return false;
+        }
+
+        static $securityDepartmentId = null;
+        if ($securityDepartmentId === null) {
+            $securityDepartmentId = (int) Department::query()
+                ->where('code', 'SEC')
+                ->value('id');
+        }
+
+        return (int) $departmentId === (int) $securityDepartmentId;
     }
 
     private function isMaintananceEmployee(string $employeeNrp, string $employeeName = ''): bool

@@ -273,8 +273,7 @@ function normalizeRowOnClient(row) {
   const shiftCode = String(row.shift_code || '').trim().toUpperCase();
   const date = new Date(`${row.roster_date}T00:00:00`);
   const isDateValid = !Number.isNaN(date.getTime());
-  const isSaturday = isDateValid ? date.getDay() === 6 : false;
-  const defaultHours = isSaturday ? 4 : 8;
+  const defaultHours = resolveDefaultHoursOnClient(date);
 
   const normalized = {
     ...row,
@@ -316,6 +315,20 @@ function normalizeRowOnClient(row) {
   normalized.end_time = `${pad((hour + defaultHours) % 24)}:00:00`;
   normalized.work_hours = defaultHours;
   return normalized;
+}
+
+function resolveDefaultHoursOnClient(date) {
+  if (String(form.templateType || '').trim() === 'security') {
+    return 12;
+  }
+
+  if (String(form.templateType || '').trim() === 'maintanance') {
+    return 8;
+  }
+
+  const isDateValid = date instanceof Date && !Number.isNaN(date.getTime());
+  const isSaturday = isDateValid ? date.getDay() === 6 : false;
+  return isSaturday ? 4 : 8;
 }
 
 function detectTemplateTypeFromFilename(filename) {
