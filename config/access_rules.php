@@ -198,6 +198,13 @@ return [
         ],
         'attendance_log' => [
             'abilities' => [
+                'view_correction_totals' => [
+                    ['type' => 'admin'],
+                    ['type' => 'department_code', 'value' => 'IT'],
+                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
+                    ['type' => 'position_code', 'value' => 'IT'],
+                    ['type' => 'position_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
+                ],
                 'manage_corrections' => [
                     ['type' => 'admin'],
                     ['type' => 'department_code', 'value' => 'IT'],

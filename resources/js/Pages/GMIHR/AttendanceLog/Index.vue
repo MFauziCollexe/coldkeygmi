@@ -169,7 +169,7 @@
                 <th class="text-left py-2 pr-3">Terlambat</th>
                 <th class="text-left py-2 pr-3">Absen</th>
                 <th class="text-left py-2 pr-3">Lain-lain</th>
-                <th v-if="canShowCorrectionColumn" class="text-left py-2">Koreksi</th>
+                <th v-if="canViewCorrectionTotals" class="text-left py-2">Koreksi</th>
               </tr>
             </thead>
             <tbody>
@@ -200,7 +200,7 @@
                       {{ group.totalLain }}
                     </span>
                   </td>
-                  <td v-if="canShowCorrectionColumn" class="py-2">
+                  <td v-if="canViewCorrectionTotals" class="py-2">
                     <span class="inline-flex min-w-[2rem] justify-center px-2 py-0.5 rounded-md text-xs font-semibold border bg-indigo-500/20 text-indigo-200 border-indigo-400/40">
                       {{ group.totalKoreksi }}
                     </span>
@@ -208,7 +208,7 @@
                 </tr>
 
                 <tr v-if="isGroupExpanded(group.key)" class="border-b border-slate-700/50 bg-slate-900/30">
-                  <td :colspan="canShowCorrectionColumn ? 9 : 8" class="py-3">
+                  <td :colspan="canViewCorrectionTotals ? 9 : 8" class="py-3">
                     <div class="overflow-auto">
                       <table class="w-full text-sm">
                         <thead class="border-b border-slate-700 text-slate-400">
@@ -344,7 +344,7 @@
               </div>
             </button>
 
-            <div :class="canShowCorrectionColumn ? 'mt-4 grid grid-cols-4 gap-2 text-center text-sm' : 'mt-4 grid grid-cols-3 gap-2 text-center text-sm'">
+            <div :class="canViewCorrectionTotals ? 'mt-4 grid grid-cols-4 gap-2 text-center text-sm' : 'mt-4 grid grid-cols-3 gap-2 text-center text-sm'">
               <div class="rounded-lg border border-slate-700 bg-slate-800/80 p-2">
                 <div class="text-[11px] text-slate-400">Absensi</div>
                 <div class="font-semibold text-white">{{ group.totalAbsensi }}</div>
@@ -357,7 +357,7 @@
                 <div class="text-[11px] text-rose-200">Absen/Lain</div>
                 <div class="font-semibold text-rose-100">{{ group.totalAbsen + group.totalLain }}</div>
               </div>
-              <div v-if="canShowCorrectionColumn" class="rounded-lg border border-indigo-400/30 bg-indigo-500/10 p-2">
+              <div v-if="canViewCorrectionTotals" class="rounded-lg border border-indigo-400/30 bg-indigo-500/10 p-2">
                 <div class="text-[11px] text-indigo-200">Koreksi</div>
                 <div class="font-semibold text-indigo-100">{{ group.totalKoreksi }}</div>
               </div>
@@ -742,6 +742,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  canViewCorrectionTotals: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const page = usePage();
@@ -776,6 +780,7 @@ watch(
 );
 
 const canManageCorrections = props.canManageCorrections === true;
+const canViewCorrectionTotals = props.canViewCorrectionTotals === true;
 const currentUser = computed(() => page.props.auth?.user || {});
 const isCurrentUserItDepartment = computed(() => {
   const departmentCode = String(

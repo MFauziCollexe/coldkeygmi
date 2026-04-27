@@ -32,6 +32,7 @@ class AttendanceLogController extends Controller
     public function index(Request $request)
     {
         $canManageCorrections = $this->canManageCorrections($request->user());
+        $canViewCorrectionTotals = $this->canViewCorrectionTotals($request->user());
         $forcedDepartmentName = $this->resolveForcedAttendanceDepartment($request->user());
 
         $monthInput = $request->input('month');
@@ -810,6 +811,7 @@ class AttendanceLogController extends Controller
             'summary' => $summary,
             'monthlyInsights' => $monthlyInsights,
             'canManageCorrections' => $canManageCorrections,
+            'canViewCorrectionTotals' => $canViewCorrectionTotals,
             'filters' => [
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
@@ -4211,6 +4213,11 @@ class AttendanceLogController extends Controller
     private function canManageCorrections($user): bool
     {
         return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'manage_corrections');
+    }
+
+    private function canViewCorrectionTotals($user): bool
+    {
+        return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'view_correction_totals');
     }
 
     private function evaluateCheckIn(?string $startTime, ?string $firstScanTime, ?string $firstScanDateTime = null, ?string $logDate = null): array
