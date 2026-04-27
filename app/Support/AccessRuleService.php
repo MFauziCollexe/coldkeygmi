@@ -295,6 +295,13 @@ class AccessRuleService
             'admin' => $this->isAdmin($user),
             'manager' => $this->isManager($user),
             'supervisor' => $this->isSupervisor($user),
+            'user_id' => (string) $user->getKey() === trim((string) ($rule['value'] ?? '')),
+            'user_email' => strtoupper(trim((string) $user->email)) === strtoupper(trim((string) ($rule['value'] ?? ''))),
+            'user_account' => strtoupper(trim((string) ($user->account ?? ''))) === strtoupper(trim((string) ($rule['value'] ?? ''))),
+            'user_name_contains' => str_contains(
+                strtoupper(trim((string) $user->name)),
+                strtoupper(trim((string) ($rule['value'] ?? '')))
+            ),
             'manager_in_department_codes' => $this->isManager($user)
                 && in_array(
                     strtoupper((string) ($this->resolveDepartment($user, $employee)?->code ?? '')),

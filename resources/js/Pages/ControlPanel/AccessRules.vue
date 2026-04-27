@@ -835,13 +835,26 @@ const types = [
   ['admin', 'Admin'],
   ['manager', 'Manager'],
   ['supervisor', 'Supervisor'],
+  ['user_id', 'User ID'],
+  ['user_email', 'User Email'],
+  ['user_account', 'User Account'],
+  ['user_name_contains', 'User Name Contains'],
   ['department_code', 'Department Code'],
   ['department_name_contains', 'Department Name Contains'],
   ['position_code', 'Position Code'],
   ['position_name_contains', 'Position Name Contains'],
   ['manager_in_department_codes', 'Manager In Department Codes'],
 ];
-const valueTypes = new Set(['department_code', 'department_name_contains', 'position_code', 'position_name_contains']);
+const valueTypes = new Set([
+  'user_id',
+  'user_email',
+  'user_account',
+  'user_name_contains',
+  'department_code',
+  'department_name_contains',
+  'position_code',
+  'position_name_contains',
+]);
 const valuesTypes = new Set(['manager_in_department_codes']);
 const idsFromOptions = [
   { value: 'own_department', label: 'own_department' },
