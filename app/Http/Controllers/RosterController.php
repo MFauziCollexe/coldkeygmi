@@ -803,34 +803,21 @@ class RosterController extends Controller
                     continue;
                 }
 
-                $defaultHours = $this->resolveDefaultWorkHours($rosterDate, $departmentId);
-                if ($this->isMaintananceEmployee($employeeNrp, $employeeName)) {
-                    $defaultHours = 8;
-                }
                 $dayName = $rosterDate->locale('id')->translatedFormat('D');
-
-                $isOff = false;
-                $startTime = null;
-                $endTime = null;
-                $workHours = 0;
-                $error = null;
-
-                if (in_array($rawCode, ['OFF', 'NONE'], true)) {
-                    $isOff = true;
-                } elseif (is_numeric($rawCode)) {
-                    $hour = (int) $rawCode;
-                    if ($hour < 0 || $hour > 23) {
-                        $error = "Jam tidak valid: {$rawCode}";
-                    } else {
-                        $start = Carbon::createFromTime($hour, 0, 0);
-                        $end = (clone $start)->addHours($defaultHours);
-                        $startTime = $start->format('H:i:s');
-                        $endTime = $end->format('H:i:s');
-                        $workHours = $defaultHours;
-                    }
-                } else {
-                    $error = "Kode shift tidak dikenali: {$rawCode}";
-                }
+                [
+                    'is_off' => $isOff,
+                    'start_time' => $startTime,
+                    'end_time' => $endTime,
+                    'work_hours' => $workHours,
+                    'error' => $error,
+                ] = $this->resolveRosterShiftTiming(
+                    $rawCode,
+                    $rosterDate,
+                    $departmentId,
+                    $employeeKey,
+                    $employeeNrp,
+                    $employeeName
+                );
 
                 $parsed = [
                     'employee_key' => $employeeKey,
@@ -1000,34 +987,21 @@ class RosterController extends Controller
             return null;
         }
 
-        $defaultHours = $this->resolveDefaultWorkHours($rosterDate, $departmentId);
-        if ($this->isMaintananceEmployee($employeeNrp, $employeeName)) {
-            $defaultHours = 8;
-        }
         $dayName = $rosterDate->locale('id')->translatedFormat('D');
-
-        $isOff = false;
-        $startTime = null;
-        $endTime = null;
-        $workHours = 0;
-        $error = null;
-
-        if (in_array($rawCode, ['OFF', 'NONE'], true)) {
-            $isOff = true;
-        } elseif (is_numeric($rawCode)) {
-            $hour = (int) $rawCode;
-            if ($hour < 0 || $hour > 23) {
-                $error = "Jam tidak valid: {$rawCode}";
-            } else {
-                $start = Carbon::createFromTime($hour, 0, 0);
-                $end = (clone $start)->addHours($defaultHours);
-                $startTime = $start->format('H:i:s');
-                $endTime = $end->format('H:i:s');
-                $workHours = $defaultHours;
-            }
-        } else {
-            $error = "Kode shift tidak dikenali: {$rawCode}";
-        }
+        [
+            'is_off' => $isOff,
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'work_hours' => $workHours,
+            'error' => $error,
+        ] = $this->resolveRosterShiftTiming(
+            $rawCode,
+            $rosterDate,
+            $departmentId,
+            $employeeKey,
+            $employeeNrp,
+            $employeeName
+        );
 
         return [
             'employee_key' => $employeeKey,
@@ -1271,6 +1245,110 @@ class RosterController extends Controller
         ]);
     }
 
+    private function resolveRosterShiftTiming(
+        string $rawCode,
+        Carbon $rosterDate,
+        ?int $departmentId = null,
+        string $employeeKey = '',
+        string $employeeNrp = '',
+        string $employeeName = ''
+    ): array {
+        $defaultHours = $this->resolveDefaultWorkHours($rosterDate, $departmentId);
+        if ($this->isMaintananceEmployee($employeeNrp, $employeeName)) {
+            $defaultHours = 8;
+        }
+
+        if (in_array($rawCode, ['OFF', 'NONE'], true)) {
+            return [
+                'is_off' => true,
+                'start_time' => null,
+                'end_time' => null,
+                'work_hours' => 0,
+                'error' => null,
+            ];
+        }
+
+        if ($this->isSecurityDepartment($departmentId)) {
+            return $this->resolveSecurityShiftTiming($rawCode, $employeeKey, $employeeNrp);
+        }
+
+        if (is_numeric($rawCode)) {
+            $hour = (int) $rawCode;
+            if ($hour < 0 || $hour > 23) {
+                return [
+                    'is_off' => false,
+                    'start_time' => null,
+                    'end_time' => null,
+                    'work_hours' => 0,
+                    'error' => "Jam tidak valid: {$rawCode}",
+                ];
+            }
+
+            $start = Carbon::createFromTime($hour, 0, 0);
+            $end = (clone $start)->addHours($defaultHours);
+
+            return [
+                'is_off' => false,
+                'start_time' => $start->format('H:i:s'),
+                'end_time' => $end->format('H:i:s'),
+                'work_hours' => $defaultHours,
+                'error' => null,
+            ];
+        }
+
+        return [
+            'is_off' => false,
+            'start_time' => null,
+            'end_time' => null,
+            'work_hours' => 0,
+            'error' => "Kode shift tidak dikenali: {$rawCode}",
+        ];
+    }
+
+    private function resolveSecurityShiftTiming(string $rawCode, string $employeeKey = '', string $employeeNrp = ''): array
+    {
+        if ($this->isFixedSecurityDayPin($employeeKey, $employeeNrp)) {
+            return [
+                'is_off' => false,
+                'start_time' => '08:00:00',
+                'end_time' => '16:00:00',
+                'work_hours' => 8,
+                'error' => null,
+            ];
+        }
+
+        return match ($rawCode) {
+            'P' => [
+                'is_off' => false,
+                'start_time' => '07:00:00',
+                'end_time' => '19:00:00',
+                'work_hours' => 12,
+                'error' => null,
+            ],
+            'M' => [
+                'is_off' => false,
+                'start_time' => '19:00:00',
+                'end_time' => '07:00:00',
+                'work_hours' => 12,
+                'error' => null,
+            ],
+            'H' => [
+                'is_off' => false,
+                'start_time' => '08:00:00',
+                'end_time' => '16:00:00',
+                'work_hours' => 8,
+                'error' => null,
+            ],
+            default => [
+                'is_off' => false,
+                'start_time' => null,
+                'end_time' => null,
+                'work_hours' => 0,
+                'error' => "Kode shift security tidak dikenali: {$rawCode}",
+            ],
+        };
+    }
+
     private function resolveDefaultWorkHours(Carbon $rosterDate, ?int $departmentId = null): int
     {
         if ($this->isSecurityDepartment($departmentId)) {
@@ -1314,6 +1392,16 @@ class RosterController extends Controller
         }
 
         return (int) $departmentId === (int) $securityDepartmentId;
+    }
+
+    private function isFixedSecurityDayPin(string $employeeKey = '', string $employeeNrp = ''): bool
+    {
+        $candidates = [
+            strtoupper(str_replace(' ', '', trim($employeeKey))),
+            strtoupper(str_replace(' ', '', trim($employeeNrp))),
+        ];
+
+        return in_array('T2P241201001', array_filter($candidates), true);
     }
 
     private function isMaintananceEmployee(string $employeeNrp, string $employeeName = ''): bool

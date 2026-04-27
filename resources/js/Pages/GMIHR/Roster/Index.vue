@@ -273,7 +273,6 @@ function normalizeRowOnClient(row) {
   const shiftCode = String(row.shift_code || '').trim().toUpperCase();
   const date = new Date(`${row.roster_date}T00:00:00`);
   const isDateValid = !Number.isNaN(date.getTime());
-  const defaultHours = resolveDefaultHoursOnClient(date);
 
   const normalized = {
     ...row,
@@ -297,12 +296,47 @@ function normalizeRowOnClient(row) {
     return normalized;
   }
 
+  if (String(form.templateType || '').trim() === 'security') {
+    if (isFixedSecurityPin(row)) {
+      normalized.start_time = '08:00:00';
+      normalized.end_time = '16:00:00';
+      normalized.work_hours = 8;
+      return normalized;
+    }
+
+    if (shiftCode === 'P') {
+      normalized.start_time = '07:00:00';
+      normalized.end_time = '19:00:00';
+      normalized.work_hours = 12;
+      return normalized;
+    }
+
+    if (shiftCode === 'M') {
+      normalized.start_time = '19:00:00';
+      normalized.end_time = '07:00:00';
+      normalized.work_hours = 12;
+      return normalized;
+    }
+
+    if (shiftCode === 'H') {
+      normalized.start_time = '08:00:00';
+      normalized.end_time = '16:00:00';
+      normalized.work_hours = 8;
+      return normalized;
+    }
+
+    normalized.is_valid = false;
+    normalized.error = `Kode shift security tidak dikenali: ${shiftCode}`;
+    return normalized;
+  }
+
   if (!/^\d+$/.test(shiftCode)) {
     normalized.is_valid = false;
     normalized.error = `Kode shift tidak dikenali: ${shiftCode}`;
     return normalized;
   }
 
+  const defaultHours = resolveDefaultHoursOnClient(date);
   const hour = Number(shiftCode);
   if (hour < 0 || hour > 23) {
     normalized.is_valid = false;
@@ -318,10 +352,6 @@ function normalizeRowOnClient(row) {
 }
 
 function resolveDefaultHoursOnClient(date) {
-  if (String(form.templateType || '').trim() === 'security') {
-    return 12;
-  }
-
   if (String(form.templateType || '').trim() === 'maintanance') {
     return 8;
   }
@@ -329,6 +359,17 @@ function resolveDefaultHoursOnClient(date) {
   const isDateValid = date instanceof Date && !Number.isNaN(date.getTime());
   const isSaturday = isDateValid ? date.getDay() === 6 : false;
   return isSaturday ? 4 : 8;
+}
+
+function isFixedSecurityPin(row) {
+  const candidates = [
+    String(row?.employee_key || '').trim(),
+    String(row?.employee_nrp || '').trim(),
+  ]
+    .map((value) => value.replaceAll(' ', '').toUpperCase())
+    .filter(Boolean);
+
+  return candidates.includes('T2P241201001');
 }
 
 function detectTemplateTypeFromFilename(filename) {
