@@ -323,6 +323,7 @@ function detectTemplateTypeFromFilename(filename) {
   if (name.includes('admin_loket') || name.includes('admin-loket') || name.includes('loket')) return 'admin_loket';
   if (name.includes('risk_control') || name.includes('risk-control') || name.includes('risk')) return 'risk_control';
   if (name.includes('maintanance') || name.includes('maintenance') || name.includes('mnt')) return 'maintanance';
+  if (name.includes('security') || name.includes('satpam')) return 'security';
   if (name.includes('inventory') || name.includes('inv')) return 'inventory';
   return null;
 }

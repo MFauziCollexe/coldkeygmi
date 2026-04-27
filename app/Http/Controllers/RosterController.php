@@ -129,7 +129,7 @@ class RosterController extends Controller
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
             'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
-            'template_type' => 'nullable|string|in:inventory,risk_control,admin_loket,maintanance,maintenance',
+            'template_type' => 'nullable|string|in:inventory,risk_control,admin_loket,maintanance,maintenance,security',
         ]);
 
         $month = (int) $request->input('month');
@@ -225,7 +225,7 @@ class RosterController extends Controller
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
             'preview_key' => 'required|string',
-            'template_type' => 'nullable|string|in:inventory,risk_control,admin_loket,maintanance,maintenance',
+            'template_type' => 'nullable|string|in:inventory,risk_control,admin_loket,maintanance,maintenance,security',
             'change_reason' => 'nullable|string|max:1000',
             'edited_rows' => 'nullable|array',
             'edited_rows.*.employee_key' => 'required_with:edited_rows|string|max:120',
@@ -630,7 +630,7 @@ class RosterController extends Controller
         $request->validate([
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
-            'type' => 'nullable|string|in:inventory,risk_control,admin_loket,maintanance,maintenance',
+            'type' => 'nullable|string|in:inventory,risk_control,admin_loket,maintanance,maintenance,security',
         ]);
 
         $month = (int) $request->input('month');
@@ -652,7 +652,7 @@ class RosterController extends Controller
         $endCol = $startCol + $daysInMonth - 1;
         $endColLetter = $this->columnLetter($endCol);
 
-        $sheet->setCellValue('A1', 'NRP');
+        $sheet->setCellValue('A1', $type === 'security' ? 'PIN' : 'NRP');
         $sheet->setCellValue('B1', 'Nama');
         $sheet->mergeCells("C1:{$endColLetter}1");
         $sheet->setCellValue("C1", "{$monthLabel} {$year}");
@@ -1049,7 +1049,7 @@ class RosterController extends Controller
         if ($type === 'maintenance') {
             $type = 'maintanance';
         }
-        if (!in_array($type, ['inventory', 'risk_control', 'admin_loket', 'maintanance'], true)) {
+        if (!in_array($type, ['inventory', 'risk_control', 'admin_loket', 'maintanance', 'security'], true)) {
             return 'inventory';
         }
         return $type;
@@ -1063,6 +1063,7 @@ class RosterController extends Controller
             'risk_control' => 'RSC',
             'admin_loket' => 'ADL',
             'maintanance' => 'MNT',
+            'security' => 'SEC',
         ];
         $departmentCode = $codeMap[$normalized] ?? null;
         if (!$departmentCode) {
@@ -1087,6 +1088,9 @@ class RosterController extends Controller
         }
         if (str_contains($name, 'maintanance') || str_contains($name, 'maintenance') || str_contains($name, 'mnt')) {
             return 'maintanance';
+        }
+        if (str_contains($name, 'security') || str_contains($name, 'satpam')) {
+            return 'security';
         }
         if (str_contains($name, 'inventory') || str_contains($name, 'inv')) {
             return 'inventory';
@@ -1145,6 +1149,18 @@ class RosterController extends Controller
                 ['nrp' => '25111731', 'name' => 'RAHAYU ANJAS SARI'],
                 ['nrp' => '25110316', 'name' => 'AINUR RAFIQ SAIFULLAH'],
                 ['nrp' => '25111730', 'name' => 'SOFIA NOVA PRADANI'],
+            ];
+        }
+
+        if ($type === 'security') {
+            return [
+                ['nrp' => 'T2P251001006', 'name' => 'ARI BUDI HANDOKO'],
+                ['nrp' => 'T2P241201001', 'name' => 'DAUD SETIAWAN'],
+                ['nrp' => 'T2P250209004', 'name' => 'HERIYANTO'],
+                ['nrp' => 'T2P2511170005', 'name' => 'MUHAMMAD ALI GUFRON'],
+                ['nrp' => 'T2P251117007', 'name' => 'MUHAMMAD RAMLI'],
+                ['nrp' => 'T2P251215002', 'name' => 'THOLUT KHOLIFATULLOH'],
+                ['nrp' => 'T2P251117003', 'name' => 'YUNANDA TRI BINTANG PAMUNGKAS'],
             ];
         }
 

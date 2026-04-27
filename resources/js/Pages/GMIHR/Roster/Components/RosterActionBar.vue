@@ -87,5 +87,6 @@ const templateOptions = [
   { value: 'risk_control', label: 'Risk Control' },
   { value: 'admin_loket', label: 'Admin Loket' },
   { value: 'maintanance', label: 'Maintanance' },
+  { value: 'security', label: 'Security' },
 ];
 </script>
