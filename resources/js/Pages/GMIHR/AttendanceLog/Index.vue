@@ -109,6 +109,7 @@
                 <option value="cuti">Cuti</option>
                 <option value="dinas_luar">Dinas Luar</option>
                 <option value="off">OFF</option>
+                <option value="offday_scan">OFF tapi Scan</option>
                 <option value="libur_nasional">Libur Nasional</option>
                 <option value="cek_lagi">Cek Lagi</option>
                 <option value="no_roster">Tanpa Roster</option>
@@ -305,6 +306,15 @@
                                     Koreksi
                                   </button>
 
+                                  <button
+                                    v-if="canShowCorrectionColumn && row.correction?.id"
+                                    type="button"
+                                    class="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-[12px] font-semibold"
+                                    @click="deleteCorrection(row)"
+                                  >
+                                    Hapus Koreksi
+                                  </button>
+
                                   <span v-if="!canShowCorrectionColumn && !row.correction" class="text-[11px] text-slate-500">-</span>
                                 </div>
                               </div>
@@ -457,13 +467,23 @@
                 </div>
 
                 <div v-if="canShowCorrectionColumn" class="mt-4">
-                  <button
-                    type="button"
-                    class="w-full rounded bg-indigo-600 px-3 py-2 text-[12px] font-semibold hover:bg-indigo-500"
-                    @click="openCorrectionSwal(row)"
-                  >
-                    Koreksi
-                  </button>
+                  <div class="grid gap-2" :class="row.correction?.id ? 'grid-cols-2' : 'grid-cols-1'">
+                    <button
+                      type="button"
+                      class="w-full rounded bg-indigo-600 px-3 py-2 text-[12px] font-semibold hover:bg-indigo-500"
+                      @click="openCorrectionSwal(row)"
+                    >
+                      Koreksi
+                    </button>
+                    <button
+                      v-if="row.correction?.id"
+                      type="button"
+                      class="w-full rounded bg-rose-600 px-3 py-2 text-[12px] font-semibold hover:bg-rose-500"
+                      @click="deleteCorrection(row)"
+                    >
+                      Hapus Koreksi
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -837,6 +857,7 @@ function summaryColorClass(label) {
   if (value === 'tidak scan masuk') return 'bg-orange-400 border-orange-200';
   if (value === 'tidak scan pulang') return 'bg-orange-400 border-orange-200';
   if (value === 'off') return 'bg-slate-400 border-slate-200';
+  if (value === 'off tapi scan') return 'bg-amber-500 border-amber-200';
   if (value === 'cek lagi') return 'bg-pink-400 border-pink-200';
   if (value === 'libur nasional') return 'bg-slate-300 border-slate-200';
   if (value === 'izin') return 'bg-violet-400 border-violet-200';
@@ -854,6 +875,7 @@ function shortLabel(label) {
   if (raw.toLowerCase() === 'tidak masuk') return 'Absen';
   if (raw.toLowerCase() === 'terlambat') return 'Late';
   if (raw.toLowerCase() === 'on time') return 'On Time';
+  if (raw.toLowerCase() === 'off tapi scan') return 'OFF+Scan';
   if (raw.toLowerCase() === 'cek lagi') return 'Cek';
   if (raw.toLowerCase() === 'dinas luar') return 'DL';
   return raw.length > 10 ? raw.slice(0, 10) + '…' : raw;
@@ -878,6 +900,7 @@ const summaryBars = computed(() => {
     'Tidak Masuk',
     'Tidak Scan masuk',
     'Tidak Scan pulang',
+    'OFF tapi Scan',
     'Izin',
     'Sakit',
     'Cuti',
@@ -1671,6 +1694,39 @@ async function openCorrectionSwal(row) {
   });
 }
 
+async function deleteCorrection(row) {
+  const correctionId = row?.correction?.id;
+  if (!correctionId) return;
+
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: 'Hapus Koreksi?',
+    text: `Koreksi attendance untuk ${row?.name || '-'} (${row?.pin || '-'}) akan dihapus.`,
+    showCancelButton: true,
+    confirmButtonText: 'Hapus',
+    cancelButtonText: 'Batal',
+    confirmButtonColor: '#dc2626',
+  });
+
+  if (!result.isConfirmed) return;
+
+  router.delete(`/attendance-log/corrections/${encodeURIComponent(correctionId)}`, {
+    preserveScroll: true,
+    onError: (errors) => {
+      const messages = Object.values(errors || {})
+        .flat()
+        .map((message) => String(message || '').trim())
+        .filter(Boolean);
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Hapus Koreksi Gagal',
+        text: messages[0] || 'Koreksi attendance belum berhasil dihapus.',
+      });
+    },
+  });
+}
+
 function normalizePromptTime(value) {
   const v = String(value || '').trim();
   if (!v) return null;
@@ -1826,6 +1882,7 @@ function statusPillClass(expected) {
   if (value === 'dinas luar') return 'bg-teal-500/20 text-teal-200 border-teal-400/40';
   if (value === 'cek lagi') return 'bg-pink-500/20 text-pink-200 border-pink-400/40';
   if (value === 'off') return 'bg-slate-500/20 text-slate-200 border-slate-400/30';
+  if (value === 'off tapi scan') return 'bg-amber-600/20 text-amber-200 border-amber-400/40';
   if (value === 'libur nasional') return 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40';
   return 'bg-slate-600/20 text-slate-200 border-slate-500/30';
 }
@@ -1843,6 +1900,7 @@ function statusDotClass(expected) {
   if (value === 'dinas luar') return 'bg-teal-300';
   if (value === 'cek lagi') return 'bg-pink-300';
   if (value === 'off') return 'bg-slate-300';
+  if (value === 'off tapi scan') return 'bg-amber-300';
   if (value === 'libur nasional') return 'bg-cyan-300';
   return 'bg-slate-300';
 }

@@ -482,6 +482,9 @@ Route::post('attendance-log/corrections/{correction}/approve', [App\Http\Control
 Route::post('attendance-log/corrections/{correction}/reject', [App\Http\Controllers\AttendanceLogController::class, 'rejectCorrection'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.log'])
     ->name('attendance-log.corrections.reject');
+Route::delete('attendance-log/corrections/{correction}', [App\Http\Controllers\AttendanceLogController::class, 'destroyCorrection'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.log'])
+    ->name('attendance-log.corrections.destroy');
 
 Route::get('absensi', [App\Http\Controllers\AbsensiController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.absensi'])

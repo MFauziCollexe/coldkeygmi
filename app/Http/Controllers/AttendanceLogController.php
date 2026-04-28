@@ -303,10 +303,14 @@ class AttendanceLogController extends Controller
                 }
             }
             $scans = $scans->sortBy('scan_date')->values();
+            $isSecurityDepartment = $this->departmentMatches(
+                (string) ($employeeInfoByPin->get($pin)['department_name'] ?? ''),
+                'Security'
+            );
             if ($isOff) {
                 $scans = $this->filterOffdayBoundaryScans($scans);
-                [$firstScan, $lastScan] = $this->resolveOffdayScanWindow($scans, $logDate);
-                $scanCount = ($firstScan !== null && $lastScan !== null) ? $scans->count() : 0;
+                [$firstScan, $lastScan] = $this->resolveOffdayScanWindow($scans, $logDate, $isSecurityDepartment);
+                $scanCount = ($firstScan !== null || $lastScan !== null) ? $scans->count() : 0;
             } else {
                 $scanCount = $scans->count();
                 [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate, $nextDayStartTime);
@@ -321,12 +325,18 @@ class AttendanceLogController extends Controller
                 }
             }
             if ($isOff) {
-                if ($firstScan === null || $lastScan === null) {
+                if ($firstScan === null && $lastScan === null) {
                     $firstScan = null;
                     $lastScan = null;
                     $scanCount = 0;
-                } else {
+                } elseif ($isSecurityDepartment && ($firstScan !== null || $lastScan !== null)) {
+                    $scanCount = max($scanCount, 1);
+                } elseif ($firstScan !== null && $lastScan !== null) {
                     $scanCount = max($scanCount, 2);
+                } else {
+                    $firstScan = null;
+                    $lastScan = null;
+                    $scanCount = 0;
                 }
             }
             $firstScanTime = $this->normalizeTime($firstScan);
@@ -349,6 +359,10 @@ class AttendanceLogController extends Controller
                 $rowStatus = 'holiday_national';
                 $expected = 'Libur Nasional';
                 $reason = $holidayName !== '' ? 'Libur Nasional: ' . $holidayName : 'Libur Nasional.';
+            } elseif ($isOff && $isSecurityDepartment && $scanCount > 0) {
+                $rowStatus = 'offday_scan';
+                $expected = 'OFF tapi Scan';
+                $reason = 'Jadwal OFF, tetapi scan security tetap ditampilkan karena ada aktivitas.';
             } elseif ($isOff && $scanCount > 0) {
                 $rowStatus = 'check_again';
                 $expected = 'Cek Lagi';
@@ -1651,6 +1665,17 @@ class AttendanceLogController extends Controller
         return redirect()->back()->with('success', 'Koreksi attendance ditolak.');
     }
 
+    public function destroyCorrection(Request $request, AttendanceLogCorrection $correction)
+    {
+        if (!$this->canManageCorrections($request->user())) {
+            abort(403, 'Hanya IT/HRD yang dapat menghapus koreksi attendance.');
+        }
+
+        $correction->delete();
+
+        return redirect()->back()->with('success', 'Koreksi attendance berhasil dihapus.');
+    }
+
     private function resolveScanWindow(
         Collection $scans,
         ?string $startTime,
@@ -2228,7 +2253,7 @@ class AttendanceLogController extends Controller
         })->values();
     }
 
-    private function resolveOffdayScanWindow(Collection $scans, ?string $logDate): array
+    private function resolveOffdayScanWindow(Collection $scans, ?string $logDate, bool $allowSingleScan = false): array
     {
         if ($logDate === null) {
             return [null, null];
@@ -2237,6 +2262,13 @@ class AttendanceLogController extends Controller
         $sameDayScans = $scans->filter(function ($scan) use ($logDate) {
             return $this->toDateString($scan->scan_date ?? null) === $logDate;
         })->sortBy('scan_date')->values();
+
+        if ($allowSingleScan && $sameDayScans->count() === 1) {
+            return [
+                $this->toDateTimeString(optional($sameDayScans->first())->scan_date ?? null),
+                null,
+            ];
+        }
 
         if ($sameDayScans->count() < 2) {
             return [null, null];
@@ -4080,6 +4112,7 @@ class AttendanceLogController extends Controller
             'missing_checkin' => ['label' => 'Tidak Scan masuk', 'description' => 'Hanya ada scan pulang, scan masuk tidak ditemukan.'],
             'missing_checkout' => ['label' => 'Tidak Scan pulang', 'description' => 'Hanya ada scan masuk, scan pulang tidak ditemukan.'],
             'offday' => ['label' => 'OFF', 'description' => 'Hari OFF sesuai roster atau aturan default.'],
+            'offday_scan' => ['label' => 'OFF tapi Scan', 'description' => 'Hari OFF, tetapi scan security tetap ditampilkan karena ada aktivitas.'],
             'holiday_national' => ['label' => 'Libur Nasional', 'description' => 'Tanggal termasuk hari libur nasional.'],
             'check_again' => ['label' => 'Cek Lagi', 'description' => 'Data perlu dicek lagi karena kondisi scan atau jadwal tidak normal.'],
             'izin' => ['label' => 'Izin', 'description' => 'Izin yang sudah disetujui.'],
