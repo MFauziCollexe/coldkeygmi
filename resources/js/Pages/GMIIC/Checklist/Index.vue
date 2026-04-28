@@ -18,6 +18,14 @@
             />
           </div>
 
+          <div class="w-full sm:w-[180px]">
+            <input
+              v-model="selectedDate"
+              type="date"
+              class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+            />
+          </div>
+
           <Link
             :href="createChecklistHref"
             class="rounded bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-indigo-500"
@@ -44,7 +52,7 @@
 
       <div class="rounded bg-slate-800 p-4">
         <div
-          v-if="canDeleteChecklistEntries && checklistEntries.length"
+          v-if="canDeleteChecklistEntries && filteredChecklistEntries.length"
           class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <div class="text-sm text-slate-400">
@@ -64,7 +72,7 @@
           </button>
         </div>
 
-        <div v-if="checklistEntries.length" class="overflow-x-auto">
+        <div v-if="filteredChecklistEntries.length" class="overflow-x-auto">
           <table class="w-full table-auto">
             <thead>
               <tr class="text-left text-slate-400">
@@ -87,7 +95,7 @@
             </thead>
             <tbody>
               <tr
-                v-for="(entry, index) in checklistEntries"
+                v-for="(entry, index) in filteredChecklistEntries"
                 :key="entry.id"
                 class="border-t border-slate-700"
               >
@@ -130,7 +138,7 @@
         </div>
 
         <div class="mt-4 text-sm text-slate-400">
-          Showing {{ checklistEntries.length ? 1 : 0 }} to {{ checklistEntries.length }} of {{ checklistEntries.length }} checklist
+          Showing {{ filteredChecklistEntries.length ? 1 : 0 }} to {{ filteredChecklistEntries.length }} of {{ checklistEntries.length }} checklist
         </div>
       </div>
     </div>
@@ -139,7 +147,7 @@
 
 <script setup>
 import axios from 'axios';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
@@ -148,6 +156,7 @@ import { checklistOptions, getChecklistEntryAreaLabel } from './checklistConfig'
 
 const page = usePage();
 const selectedChecklist = ref('');
+const selectedDate = ref(toDateInputValue(new Date()));
 const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : []);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
@@ -171,9 +180,32 @@ const createChecklistHref = computed(() => {
   return '/gmiic/checklist/create';
 });
 
+const filteredChecklistEntries = computed(() => {
+  return checklistEntries.value.filter((entry) => {
+    if (selectedChecklist.value && entry?.template_id !== selectedChecklist.value) {
+      return false;
+    }
+
+    if (!selectedDate.value) {
+      return true;
+    }
+
+    return getChecklistEntryDateValue(entry) === selectedDate.value;
+  });
+});
+
 const hasSelectedEntries = computed(() => selectedEntryIds.value.length > 0);
 const areAllEntriesSelected = computed(() => {
-  return checklistEntries.value.length > 0 && selectedEntryIds.value.length === checklistEntries.value.length;
+  if (!filteredChecklistEntries.value.length) {
+    return false;
+  }
+
+  return filteredChecklistEntries.value.every((entry) => selectedEntryIds.value.includes(entry.id));
+});
+
+watch(filteredChecklistEntries, (entries) => {
+  const visibleIds = new Set(entries.map((entry) => entry.id));
+  selectedEntryIds.value = selectedEntryIds.value.filter((entryId) => visibleIds.has(entryId));
 });
 
 function toggleEntrySelection(id, checked) {
@@ -186,7 +218,14 @@ function toggleEntrySelection(id, checked) {
 }
 
 function toggleSelectAll(checked) {
-  selectedEntryIds.value = checked ? checklistEntries.value.map((entry) => entry.id) : [];
+  const visibleIds = filteredChecklistEntries.value.map((entry) => entry.id);
+
+  if (checked) {
+    selectedEntryIds.value = Array.from(new Set([...selectedEntryIds.value, ...visibleIds]));
+    return;
+  }
+
+  selectedEntryIds.value = selectedEntryIds.value.filter((entryId) => !visibleIds.includes(entryId));
 }
 
 async function removeSelectedChecklists() {
@@ -258,5 +297,68 @@ function getChecklistStatusClass(entry) {
   }
 
   return 'bg-amber-600 text-white';
+}
+
+function toDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function getChecklistEntryDateValue(entry) {
+  const directValue = normalizeIsoDate(entry?.form?.date_value);
+  if (directValue) {
+    return directValue;
+  }
+
+  const displayValue = parseChecklistDisplayDate(entry?.form?.date);
+  if (displayValue) {
+    return displayValue;
+  }
+
+  return null;
+}
+
+function normalizeIsoDate(value) {
+  const normalized = String(value || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+}
+
+function parseChecklistDisplayDate(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const match = normalized.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, dayRaw, monthRaw, yearRaw] = match;
+  const monthMap = {
+    januari: '01',
+    februari: '02',
+    maret: '03',
+    april: '04',
+    mei: '05',
+    juni: '06',
+    juli: '07',
+    agustus: '08',
+    september: '09',
+    oktober: '10',
+    november: '11',
+    desember: '12',
+  };
+
+  const month = monthMap[String(monthRaw || '').toLowerCase()];
+  if (!month) {
+    return null;
+  }
+
+  const day = String(Number(dayRaw)).padStart(2, '0');
+  return `${yearRaw}-${month}-${day}`;
 }
 </script>
