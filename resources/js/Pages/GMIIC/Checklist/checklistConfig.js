@@ -86,7 +86,7 @@ export const fireSafetyItemsByType = {
 export const sanitationAreaOptions = [
   {
     id: 'lantai_1',
-    name: groupedLocationLabels.lantai_1_area_dalam,
+    name: 'Lantai 1 Dalam',
     items: [
       'Ruang Admin',
       'Ruang Repacking',
@@ -100,7 +100,7 @@ export const sanitationAreaOptions = [
   },
   {
     id: 'lantai_2',
-    name: groupedLocationLabels.lantai_2,
+    name: 'Lantai 2 Office',
     items: [
       'Ruang Direktur',
       'Ruang Meeting',
@@ -111,14 +111,20 @@ export const sanitationAreaOptions = [
     ],
   },
   {
-    id: 'area_luar_bangunan',
-    name: groupedLocationLabels.lantai_1_area_luar,
+    id: 'lantai_1_depan',
+    name: 'Lantai 1 Depan',
     items: [
       'Pos Security',
       'Musholla',
       'Ruang Laktasi',
       'Ruang Istirahat',
       'Ruang Kesehatan',
+    ],
+  },
+  {
+    id: 'lantai_1_belakang',
+    name: 'Lantai 1 Belakang',
+    items: [
       'Ruang Mesin',
       'Ruang Kontrol',
       'Ruang Baterai',
@@ -1465,14 +1471,20 @@ export function getLocationBarcodeAliases(locationId) {
 }
 
 export function getSanitationAreaLabel(areaId) {
+  if (areaId === 'area_luar_bangunan') {
+    return 'Lantai 1 Depan';
+  }
+
   return sanitationAreaOptions.find((area) => area.id === areaId)?.name || '-';
 }
 
 export function getSanitationAreaBarcodeAliases(areaId) {
   const aliases = {
-    lantai_1: ['Lantai 1 Dalam', 'Lantai 1'],
+    lantai_1: ['Lantai 1 Dalam', 'Lantai 1', 'Lobby', 'Ruang Loker', 'Lobby, Ruang Loker'],
     lantai_2: ['Lantai 2 Office', 'Lantai 2'],
-    area_luar_bangunan: ['Lantai 1 Depan Dan Luar', 'Area Luar Bangunan'],
+    lantai_1_depan: ['Lantai 1 Depan', 'Pos Security'],
+    lantai_1_belakang: ['Lantai 1 Belakang', 'Ruang Mesin', 'Ruang Kontrol', 'Ruang Baterai'],
+    area_luar_bangunan: ['Lantai 1 Depan', 'Lantai 1 Depan Dan Luar', 'Area Luar Bangunan', 'Pos Security'],
   };
 
   return aliases[areaId] || [getSanitationAreaLabel(areaId)];

@@ -2107,6 +2107,37 @@ function hydratePersonalHygieneEntry(savedEntry) {
   };
 }
 
+function hydrateSanitationEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'non_warehouse_sanitation') {
+    return savedEntry;
+  }
+
+  const legacyBackItems = new Set(['Ruang Mesin', 'Ruang Kontrol', 'Ruang Baterai']);
+  const rowsByArea = { ...(savedEntry?.form?.rows_by_area || {}) };
+  const legacyOutsideRows = Array.isArray(rowsByArea.area_luar_bangunan) ? rowsByArea.area_luar_bangunan : [];
+
+  if (!Array.isArray(rowsByArea.lantai_1_depan) && legacyOutsideRows.length) {
+    rowsByArea.lantai_1_depan = legacyOutsideRows.filter((row) => !legacyBackItems.has(String(row?.name || '').trim()));
+  }
+
+  if (!Array.isArray(rowsByArea.lantai_1_belakang) && legacyOutsideRows.length) {
+    rowsByArea.lantai_1_belakang = legacyOutsideRows.filter((row) => legacyBackItems.has(String(row?.name || '').trim()));
+  }
+
+  const normalizedArea = String(savedEntry?.form?.area || '').trim() === 'area_luar_bangunan'
+    ? 'lantai_1_depan'
+    : String(savedEntry?.form?.area || '').trim();
+
+  return {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      area: normalizedArea || 'lantai_1',
+      rows_by_area: rowsByArea,
+    },
+  };
+}
+
 function hydrateSaranaPrasaranaEntry(savedEntry) {
   if (savedEntry?.template_id !== 'sarana_dan_prasarana') {
     return savedEntry;
@@ -2268,7 +2299,8 @@ function hydrateSiteVisitMaintenanceEntry(savedEntry) {
 
 function hydrateChecklistEntry(savedEntry) {
   const fireSafetyHydratedEntry = hydrateFireSafetyEntry(savedEntry);
-  const saranaPrasaranaHydratedEntry = hydrateSaranaPrasaranaEntry(fireSafetyHydratedEntry);
+  const sanitationHydratedEntry = hydrateSanitationEntry(fireSafetyHydratedEntry);
+  const saranaPrasaranaHydratedEntry = hydrateSaranaPrasaranaEntry(sanitationHydratedEntry);
   const patroliSecurityHydratedEntry = hydratePatroliSecurityEntry(saranaPrasaranaHydratedEntry);
   const personalHygieneHydratedEntry = hydratePersonalHygieneEntry(patroliSecurityHydratedEntry);
   const siteVisitHseHydratedEntry = hydrateSiteVisitHseEntry(personalHygieneHydratedEntry);
