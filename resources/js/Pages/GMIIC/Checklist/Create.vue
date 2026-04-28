@@ -1936,6 +1936,26 @@ function findOpenPatroliSecurityDraft(entries = []) {
   }) || null;
 }
 
+function findOpenSanitationDraft(entries = []) {
+  const candidates = Array.isArray(entries) ? entries : [];
+
+  return candidates.find((candidate) => {
+    if (candidate?.template_id !== 'non_warehouse_sanitation') {
+      return false;
+    }
+
+    if (Boolean(candidate?.form?.approved)) {
+      return false;
+    }
+
+    if (Array.isArray(candidate?.form?.submitted_days) && candidate.form.submitted_days.length > 0) {
+      return false;
+    }
+
+    return true;
+  }) || null;
+}
+
 function createEntryByTemplate(templateId, options = {}) {
   const userName = page.props.auth?.user?.name || 'User Login';
   const continuableEntry = options.continuableEntry || null;
@@ -1945,6 +1965,10 @@ function createEntryByTemplate(templateId, options = {}) {
   }
 
   if (templateId === 'non_warehouse_sanitation') {
+    if (continuableEntry) {
+      return hydrateChecklistEntry(continuableEntry);
+    }
+
     return createNonWarehouseSanitationEntry(userName);
   }
 
@@ -2315,12 +2339,15 @@ function createInitialEntry() {
     return hydratedEntry;
   }
 
+  const continuableSanitationEntry = selectedChecklist.value === 'non_warehouse_sanitation'
+    ? findOpenSanitationDraft(props.existingEntries)
+    : null;
   const continuablePatroliSecurityEntry = selectedChecklist.value === 'patroli_security'
     ? findOpenPatroliSecurityDraft(props.existingEntries)
     : null;
 
   return createEntryByTemplate(selectedChecklist.value, {
-    continuableEntry: continuablePatroliSecurityEntry,
+    continuableEntry: continuableSanitationEntry || continuablePatroliSecurityEntry,
   });
 }
 
@@ -2329,29 +2356,38 @@ function refreshEntry() {
     return;
   }
 
+  const continuableSanitationEntry = selectedChecklist.value === 'non_warehouse_sanitation'
+    ? findOpenSanitationDraft(knownChecklistEntries.value)
+    : null;
   const continuablePatroliSecurityEntry = selectedChecklist.value === 'patroli_security'
     ? findOpenPatroliSecurityDraft(knownChecklistEntries.value)
     : null;
 
   entry.value = createEntryByTemplate(selectedChecklist.value, {
-    continuableEntry: continuablePatroliSecurityEntry,
+    continuableEntry: continuableSanitationEntry || continuablePatroliSecurityEntry,
   });
 
-  if (continuablePatroliSecurityEntry && entry.value?.id === continuablePatroliSecurityEntry.id) {
+  if (
+    (continuableSanitationEntry && entry.value?.id === continuableSanitationEntry.id)
+    || (continuablePatroliSecurityEntry && entry.value?.id === continuablePatroliSecurityEntry.id)
+  ) {
     syncCurrentEntryUrl(entry.value);
   }
 }
 
+const autoOpenedSanitationDraft = !props.entryId
+  && entry.value?.template_id === 'non_warehouse_sanitation'
+  && findOpenSanitationDraft(props.existingEntries)?.id === entry.value?.id;
 const autoOpenedPatroliSecurityDraft = !props.entryId
   && entry.value?.template_id === 'patroli_security'
   && findOpenPatroliSecurityDraft(props.existingEntries)?.id === entry.value?.id;
 
 lastSavedEntrySignature = buildEntrySignature(entry.value);
-if ((props.entryId && props.savedEntry) || autoOpenedPatroliSecurityDraft) {
+if ((props.entryId && props.savedEntry) || autoOpenedSanitationDraft || autoOpenedPatroliSecurityDraft) {
   saveState.value = 'saved';
 }
 
-if (autoOpenedPatroliSecurityDraft) {
+if (autoOpenedSanitationDraft || autoOpenedPatroliSecurityDraft) {
   syncCurrentEntryUrl(entry.value);
 }
 

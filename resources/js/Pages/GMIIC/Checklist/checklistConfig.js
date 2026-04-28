@@ -1506,7 +1506,7 @@ export function getChecklistEntryAreaLabel(entry) {
   }
 
   if (entry?.template_id === 'non_warehouse_sanitation') {
-    return getSanitationAreaLabel(entry.form?.area);
+    return sanitationAreaOptions.map((area) => area.name).join(', ');
   }
 
   if (entry?.template_id === 'pengangkutan_sampah_pt_sier') {
