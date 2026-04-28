@@ -488,6 +488,14 @@ class ChecklistEntryController extends Controller
             return 'approved';
         }
 
+        if (
+            $entry['template_id'] === 'non_warehouse_sanitation'
+            && is_array(data_get($entry, 'form.submitted_days'))
+            && count(data_get($entry, 'form.submitted_days')) > 0
+        ) {
+            return 'waiting_hse';
+        }
+
         if ($entry['template_id'] === 'kotak_p3k' && is_array(data_get($entry, 'form.submitted_months')) && count(data_get($entry, 'form.submitted_months')) > 0) {
             return 'waiting_hse';
         }

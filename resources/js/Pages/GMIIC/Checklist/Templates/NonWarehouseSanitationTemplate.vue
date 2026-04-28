@@ -92,7 +92,7 @@
             : 'cursor-not-allowed bg-slate-300 text-slate-500'"
           @click="$emit('approve')"
         >
-          Approval
+          {{ approvalButtonLabel }}
         </button>
       </div>
     </div>
@@ -186,6 +186,10 @@ defineProps({
   canApproveEntry: {
     type: Boolean,
     required: true,
+  },
+  approvalButtonLabel: {
+    type: String,
+    default: 'Approval',
   },
   note: {
     type: String,

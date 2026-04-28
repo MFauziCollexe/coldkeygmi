@@ -45,6 +45,15 @@ $templatePermissions = array_merge(
     $buildTemplatePermissions(
         [
             'non_warehouse_sanitation',
+        ],
+        $mergeChecklistRules($itChecklistRules, $hseChecklistRules),
+        $mergeChecklistRules(
+            [['type' => 'admin']],
+            $hseChecklistRules
+        )
+    ),
+    $buildTemplatePermissions(
+        [
             'kotak_p3k',
             'apar_smoke_detector_fire_alarm',
             'pengangkutan_sampah_pt_sier',

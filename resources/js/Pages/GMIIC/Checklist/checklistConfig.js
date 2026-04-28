@@ -1641,6 +1641,8 @@ export function createNonWarehouseSanitationEntry(userName) {
       rev: '00',
       approved: false,
       approved_days: [],
+      submitted_days: [],
+      approval_requests_by_day: {},
       area_scans_by_day: {},
       area_notes: {},
       date: formatDateDisplay(now),

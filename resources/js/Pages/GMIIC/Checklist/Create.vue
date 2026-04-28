@@ -103,6 +103,7 @@
         :next-pending-day="nextPendingSanitationDay"
         :can-scan-area="canScanSanitationArea"
         :can-approve-entry="canApproveEntry"
+        :approval-button-label="sanitationApprovalButtonLabel"
         :note="sanitationNote"
         :note-label="sanitationNoteLabel"
         :can-edit-note="canEditSanitationNote"
@@ -1390,6 +1391,45 @@ const sanitationApprovedDays = computed(() => {
   return Array.isArray(entry.value.form.approved_days) ? entry.value.form.approved_days : [];
 });
 
+const sanitationSubmittedDays = computed(() => {
+  if (!isSanitation.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.submitted_days) ? entry.value.form.submitted_days : [];
+});
+
+const currentSanitationApprovalRequest = computed(() => {
+  if (!isSanitation.value || !entry.value || !nextPendingSanitationDay.value) {
+    return null;
+  }
+
+  return entry.value.form.approval_requests_by_day?.[nextPendingSanitationDay.value.day] || null;
+});
+
+const isNextPendingSanitationDaySubmitted = computed(() => {
+  if (!isSanitation.value || !nextPendingSanitationDay.value) {
+    return false;
+  }
+
+  return sanitationSubmittedDays.value.includes(nextPendingSanitationDay.value.day);
+});
+
+const canApprovePendingSanitationSubmission = computed(() => {
+  if (!isSanitation.value || !isNextPendingSanitationDaySubmitted.value) {
+    return false;
+  }
+
+  if (!canApproveCurrentTemplate.value) {
+    return false;
+  }
+
+  const currentUserId = Number(currentUser.value?.id || 0);
+  const submittedById = Number(currentSanitationApprovalRequest.value?.submitted_by_id || 0);
+
+  return currentUserId > 0 && currentUserId !== submittedById;
+});
+
 const currentSanitationScan = computed(() => {
   if (!isSanitation.value || !entry.value || !nextPendingSanitationDay.value) {
     return null;
@@ -1417,6 +1457,26 @@ const canScanSanitationArea = computed(() => {
   }
 
   return currentSanitationAreaCompleted.value;
+});
+
+const sanitationApprovalButtonLabel = computed(() => {
+  if (!isSanitation.value || !entry.value) {
+    return 'Approval';
+  }
+
+  if (!nextPendingSanitationDay.value) {
+    return Boolean(entry.value.form.approved) ? 'Approved' : 'Approval';
+  }
+
+  if (isNextPendingSanitationDaySubmitted.value) {
+    if (canApprovePendingSanitationSubmission.value) {
+      return 'Approve HSE';
+    }
+
+    return 'Menunggu HSE';
+  }
+
+  return 'Kirim Approval';
 });
 
 const sanitationNoteTargetKey = computed(() => {
@@ -1644,11 +1704,11 @@ const canApproveEntry = computed(() => {
     return false;
   }
 
-  if (!canApproveCurrentTemplate.value) {
-    return false;
-  }
-
   if (isKotakP3K.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
     if (isActiveKotakP3KMonthApproved.value) {
       return false;
     }
@@ -1665,16 +1725,26 @@ const canApproveEntry = computed(() => {
       return false;
     }
 
+    if (isNextPendingSanitationDaySubmitted.value) {
+      return canApprovePendingSanitationSubmission.value;
+    }
+
     const pendingDay = nextPendingSanitationDay.value.day;
     const allAreasScanned = sanitationAreaOptions.every((area) => {
       const dayScans = entry.value.form.area_scans_by_day?.[pendingDay] || {};
       return Boolean(dayScans?.[area.id]?.barcode);
     });
 
-    return allAreasScanned && sanitationCompletedDays.value.some((day) => day.day === pendingDay);
+    return Boolean(currentChecklistTemplatePermissions.value.view)
+      && allAreasScanned
+      && sanitationCompletedDays.value.some((day) => day.day === pendingDay);
   }
 
   if (isFireSafety.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
     if (isActiveFireSafetyMonthApproved.value) {
       return false;
     }
@@ -1688,6 +1758,10 @@ const canApproveEntry = computed(() => {
   }
 
   if (isWasteTransport.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
     if (!nextPendingWasteTransportDay.value) {
       return false;
     }
@@ -1701,6 +1775,10 @@ const canApproveEntry = computed(() => {
   }
 
   if (isWarehouseSanitation.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
     const hasValidSchedule = entry.value.form.frequency === 'monthly'
       ? Boolean(String(entry.value.form.period || '').trim())
       : Boolean(String(entry.value.form.date || '').trim());
@@ -1738,6 +1816,10 @@ const canApproveEntry = computed(() => {
   }
 
   if (isPersonalHygiene.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
     if (generatedPersonalHygieneEmployees.value.length > 0) {
       return true;
     }
@@ -1759,6 +1841,10 @@ const canApproveEntry = computed(() => {
   }
 
   if (isSaranaPrasarana.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
     if (!nextPendingSaranaPrasaranaDay.value) {
       return false;
     }
@@ -1770,6 +1856,10 @@ const canApproveEntry = computed(() => {
   }
 
   if (isSiteVisitMaintenance.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
     const visitType = String(entry.value.form.visit_type || '').trim();
     const hasSchedule = visitType === 'maintenance_mingguan'
       ? Boolean(String(entry.value.form.period_value || '').trim())
@@ -1784,6 +1874,10 @@ const canApproveEntry = computed(() => {
   }
 
   if (isSiteVisitHse.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
     const selectedArea = String(entry.value.form.selected_area || '').trim();
 
     return Boolean(String(entry.value.form.date_value || '').trim())
@@ -1795,6 +1889,10 @@ const canApproveEntry = computed(() => {
   }
 
   if (isPatroliSecurity.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
     const selectedArea = String(entry.value.form.selected_area || '').trim();
 
     return Boolean(String(entry.value.form.date_value || '').trim())
@@ -1805,8 +1903,22 @@ const canApproveEntry = computed(() => {
       && (!patroliSecurityValidation.value.hasNoAnswer || patroliSecurityValidation.value.hasRequiredNote);
   }
 
-  return false;
+  return canApproveCurrentTemplate.value;
 });
+
+function getSanitationBusinessDays(periodValue) {
+  return getDaysInPeriod(periodValue)
+    .filter((day) => !day.isSunday)
+    .map((day) => day.day)
+    .sort((a, b) => a - b);
+}
+
+function isSanitationChecklistFullyApproved(targetEntry) {
+  const businessDays = getSanitationBusinessDays(String(targetEntry?.form?.period || '').trim());
+  const approvedDays = Array.isArray(targetEntry?.form?.approved_days) ? targetEntry.form.approved_days : [];
+
+  return businessDays.length > 0 && businessDays.every((day) => approvedDays.includes(day));
+}
 
 function findOpenPatroliSecurityDraft(entries = []) {
   const candidates = Array.isArray(entries) ? entries : [];
@@ -2259,9 +2371,44 @@ async function approveChecklist() {
   }
 
   if (isSanitation.value && nextPendingSanitationDay.value) {
-    entry.value.form.approved_days = [
-      ...new Set([...(entry.value.form.approved_days || []), nextPendingSanitationDay.value.day]),
+    const pendingDay = nextPendingSanitationDay.value.day;
+    const currentRequests = {
+      ...(entry.value.form.approval_requests_by_day || {}),
+    };
+
+    if (isNextPendingSanitationDaySubmitted.value) {
+      entry.value.form.approved_days = [
+        ...new Set([...(entry.value.form.approved_days || []), pendingDay]),
+      ].sort((a, b) => a - b);
+      entry.value.form.submitted_days = (entry.value.form.submitted_days || []).filter((day) => day !== pendingDay);
+      currentRequests[pendingDay] = {
+        ...(currentRequests[pendingDay] || {}),
+        approved_by_id: currentUser.value?.id || null,
+        approved_by_name: approverName,
+        approved_at: formatDateTimeDisplay(now),
+      };
+      entry.value.form.approval_requests_by_day = currentRequests;
+      entry.value.form.approved = isSanitationChecklistFullyApproved(entry.value);
+      await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
+      return;
+    }
+
+    entry.value.form.submitted_days = [
+      ...new Set([...(entry.value.form.submitted_days || []), pendingDay]),
     ].sort((a, b) => a - b);
+    currentRequests[pendingDay] = {
+      ...(currentRequests[pendingDay] || {}),
+      submitted_by_id: currentUser.value?.id || null,
+      submitted_by_name: approverName,
+      submitted_at: formatDateTimeDisplay(now),
+      approved_by_id: null,
+      approved_by_name: null,
+      approved_at: null,
+    };
+    entry.value.form.approval_requests_by_day = currentRequests;
+    entry.value.form.approved = false;
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: false });
+    return;
   }
 
   if (isWasteTransport.value && nextPendingWasteTransportDay.value) {

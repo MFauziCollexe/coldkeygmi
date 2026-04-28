@@ -260,6 +260,10 @@ async function removeSelectedChecklists() {
 }
 
 function getChecklistStatusLabel(entry) {
+  if (entry?.template_id === 'non_warehouse_sanitation' && Array.isArray(entry?.form?.submitted_days) && entry.form.submitted_days.length) {
+    return 'Waiting HSE';
+  }
+
   if (entry?.template_id === 'kotak_p3k' && Array.isArray(entry?.form?.submitted_months) && entry.form.submitted_months.length) {
     return 'Waiting HSE';
   }
@@ -280,6 +284,10 @@ function getChecklistStatusLabel(entry) {
 }
 
 function getChecklistStatusClass(entry) {
+  if (entry?.template_id === 'non_warehouse_sanitation' && Array.isArray(entry?.form?.submitted_days) && entry.form.submitted_days.length) {
+    return 'bg-sky-600 text-white';
+  }
+
   if (entry?.template_id === 'kotak_p3k' && Array.isArray(entry?.form?.submitted_months) && entry.form.submitted_months.length) {
     return 'bg-sky-600 text-white';
   }
