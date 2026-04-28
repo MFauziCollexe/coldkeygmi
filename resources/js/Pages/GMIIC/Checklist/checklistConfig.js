@@ -1480,10 +1480,10 @@ export function getSanitationAreaLabel(areaId) {
 
 export function getSanitationAreaBarcodeAliases(areaId) {
   const aliases = {
-    lantai_1: ['Lantai 1 Dalam', 'Lantai 1', 'Lobby', 'Ruang Loker', 'Lobby, Ruang Loker'],
-    lantai_2: ['Lantai 2 Office', 'Lantai 2'],
-    lantai_1_depan: ['Lantai 1 Depan', 'Pos Security'],
-    lantai_1_belakang: ['Lantai 1 Belakang', 'Ruang Mesin', 'Ruang Kontrol', 'Ruang Baterai'],
+    lantai_1: ['Lobby', 'Ruang Loker'],
+    lantai_2: ['Lantai 2'],
+    lantai_1_depan: ['Pos Security'],
+    lantai_1_belakang: ['Ruang Mesin', 'Ruang Kontrol'],
     area_luar_bangunan: ['Lantai 1 Depan', 'Lantai 1 Depan Dan Luar', 'Area Luar Bangunan', 'Pos Security'],
   };
 
