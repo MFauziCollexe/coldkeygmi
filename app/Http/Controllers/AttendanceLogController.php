@@ -370,6 +370,10 @@ class AttendanceLogController extends Controller
                     $rowStatus = 'time_mismatch';
                     $expected = 'Terlambat';
                     $reason = $evaluationReason;
+                } elseif ($this->isCheckoutWindowStillOpen($logDate, $startTime, $endTime, $nextDayStartTime)) {
+                    $rowStatus = 'awaiting_checkout';
+                    $expected = 'Menunggu Scan pulang';
+                    $reason = 'Shift masih berjalan atau masih dalam batas waktu scan pulang.';
                 } else {
                     $rowStatus = 'missing_checkout';
                     $expected = 'Tidak Scan pulang';
@@ -589,6 +593,10 @@ class AttendanceLogController extends Controller
                             $rowStatus = 'time_mismatch';
                             $expected = 'Terlambat';
                             $reason = $evaluationReason;
+                        } elseif ($this->isCheckoutWindowStillOpen($logDate, $defaultStartTime, $defaultEndTime, $defaultNextDayStartTime)) {
+                            $rowStatus = 'awaiting_checkout';
+                            $expected = 'Menunggu Scan pulang';
+                            $reason = 'Shift masih berjalan atau masih dalam batas waktu scan pulang.';
                         } else {
                             $rowStatus = 'missing_checkout';
                             $expected = 'Tidak Scan pulang';
@@ -1348,7 +1356,13 @@ class AttendanceLogController extends Controller
                 $expected = 'Tidak Masuk';
             } elseif ($hasFirstScan && !$hasLastScan) {
                 [$evaluationExpected] = $this->evaluateCheckIn($startTime, $firstScanTime, $firstScan, $logDate);
-                $expected = $evaluationExpected === 'Terlambat' ? 'Terlambat' : 'Tidak Scan pulang';
+                if ($evaluationExpected === 'Terlambat') {
+                    $expected = 'Terlambat';
+                } elseif ($this->isCheckoutWindowStillOpen($logDate, $startTime, $endTime, $nextDayStartTime)) {
+                    $expected = 'Menunggu Scan pulang';
+                } else {
+                    $expected = 'Tidak Scan pulang';
+                }
             } elseif (!$hasFirstScan && $hasLastScan) {
                 $expected = 'Tidak Scan masuk';
             } elseif ($timeMatched) {
@@ -1474,7 +1488,13 @@ class AttendanceLogController extends Controller
                     $expected = 'Tidak Masuk';
                 } elseif ($hasFirstScan && !$hasLastScan) {
                     [$evaluationExpected] = $this->evaluateCheckIn($defaultStartTime, $firstScanTime, $firstScan, $logDate);
-                    $expected = $evaluationExpected === 'Terlambat' ? 'Terlambat' : 'Tidak Scan pulang';
+                    if ($evaluationExpected === 'Terlambat') {
+                        $expected = 'Terlambat';
+                    } elseif ($this->isCheckoutWindowStillOpen($logDate, $defaultStartTime, $defaultEndTime, $defaultNextDayStartTime)) {
+                        $expected = 'Menunggu Scan pulang';
+                    } else {
+                        $expected = 'Tidak Scan pulang';
+                    }
                 } elseif (!$hasFirstScan && $hasLastScan) {
                     $expected = 'Tidak Scan masuk';
                 } else {
@@ -1963,14 +1983,21 @@ class AttendanceLogController extends Controller
         if (
             $normalizedStartTime !== null
             && $normalizedEndTime !== null
-            && !$this->isOvernightShift($normalizedStartTime, $normalizedEndTime)
         ) {
             try {
                 $scheduledEnd = Carbon::parse($logDate . ' ' . $normalizedEndTime);
+                if ($this->isOvernightShift($normalizedStartTime, $normalizedEndTime)) {
+                    $scheduledEnd->addDay();
+                    $minimumCheckoutEnd = $scheduledEnd->copy()->addHours(6);
+                    if ($checkoutEnd->lessThan($minimumCheckoutEnd)) {
+                        $checkoutEnd = $minimumCheckoutEnd;
+                    }
+                } else {
                 $maxCheckoutEnd = $scheduledEnd->copy()->addHours(10);
 
-                if ($checkoutEnd->greaterThan($maxCheckoutEnd)) {
-                    $checkoutEnd = $maxCheckoutEnd;
+                    if ($checkoutEnd->greaterThan($maxCheckoutEnd)) {
+                        $checkoutEnd = $maxCheckoutEnd;
+                    }
                 }
             } catch (\Throwable $e) {
                 // Keep the roster-based fallback cutoff.
@@ -1978,6 +2005,24 @@ class AttendanceLogController extends Controller
         }
 
         return $checkoutEnd;
+    }
+
+    private function isCheckoutWindowStillOpen(
+        ?string $logDate,
+        ?string $startTime,
+        ?string $endTime,
+        ?string $nextDayStartTime = null
+    ): bool {
+        if ($logDate === null || $startTime === null || $endTime === null) {
+            return false;
+        }
+
+        try {
+            $checkoutWindowEnd = $this->resolveCheckoutWindowEnd($logDate, $startTime, $endTime, $nextDayStartTime);
+            return Carbon::now()->lt($checkoutWindowEnd);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     private function buildRosterScheduleIndex(Collection $rosterRows): array
@@ -4061,6 +4106,7 @@ class AttendanceLogController extends Controller
         $statusMeta = [
             'matched' => ['label' => 'On Time', 'description' => 'Scan masuk sesuai jadwal kerja.'],
             'time_mismatch' => ['label' => 'Terlambat', 'description' => 'Jam scan masuk tidak sesuai jadwal kerja.'],
+            'awaiting_checkout' => ['label' => 'Menunggu Scan pulang', 'description' => 'Scan masuk sudah ada, tetapi window scan pulang masih berjalan.'],
             'missing_scan' => ['label' => 'Tidak Masuk', 'description' => 'Tidak ada scan masuk maupun scan pulang pada hari kerja.'],
             'missing_checkin' => ['label' => 'Tidak Scan masuk', 'description' => 'Hanya ada scan pulang, scan masuk tidak ditemukan.'],
             'missing_checkout' => ['label' => 'Tidak Scan pulang', 'description' => 'Hanya ada scan masuk, scan pulang tidak ditemukan.'],
