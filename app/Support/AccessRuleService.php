@@ -501,6 +501,8 @@ class AccessRuleService
             $afterScopeKeys = array_keys((array) ($afterModule['scopes'] ?? []));
             $beforeAbilityKeys = array_keys((array) ($beforeModule['abilities'] ?? []));
             $afterAbilityKeys = array_keys((array) ($afterModule['abilities'] ?? []));
+            $beforeSettingKeys = array_keys((array) ($beforeModule['settings'] ?? []));
+            $afterSettingKeys = array_keys((array) ($afterModule['settings'] ?? []));
             $beforeTemplatePermissionKeys = array_keys((array) ($beforeModule['template_permissions'] ?? []));
             $afterTemplatePermissionKeys = array_keys((array) ($afterModule['template_permissions'] ?? []));
 
@@ -536,6 +538,22 @@ class AccessRuleService
                 ];
             }
 
+            $settingsChanged = [];
+            foreach (array_values(array_intersect($beforeSettingKeys, $afterSettingKeys)) as $settingKey) {
+                $beforeSetting = data_get($beforeModule, "settings.{$settingKey}");
+                $afterSetting = data_get($afterModule, "settings.{$settingKey}");
+
+                if ($this->stableJson($beforeSetting) === $this->stableJson($afterSetting)) {
+                    continue;
+                }
+
+                $settingsChanged[] = [
+                    'key' => $settingKey,
+                    'before' => $beforeSetting,
+                    'after' => $afterSetting,
+                ];
+            }
+
             $templatePermissionsChanged = [];
             foreach (array_values(array_intersect($beforeTemplatePermissionKeys, $afterTemplatePermissionKeys)) as $templatePermissionKey) {
                 $beforeTemplatePermission = data_get($beforeModule, "template_permissions.{$templatePermissionKey}", []);
@@ -560,6 +578,9 @@ class AccessRuleService
                 'abilities_added' => array_values(array_diff($afterAbilityKeys, $beforeAbilityKeys)),
                 'abilities_removed' => array_values(array_diff($beforeAbilityKeys, $afterAbilityKeys)),
                 'abilities_changed' => $abilitiesChanged,
+                'settings_added' => array_values(array_diff($afterSettingKeys, $beforeSettingKeys)),
+                'settings_removed' => array_values(array_diff($beforeSettingKeys, $afterSettingKeys)),
+                'settings_changed' => $settingsChanged,
                 'template_permissions_added' => array_values(array_diff($afterTemplatePermissionKeys, $beforeTemplatePermissionKeys)),
                 'template_permissions_removed' => array_values(array_diff($beforeTemplatePermissionKeys, $afterTemplatePermissionKeys)),
                 'template_permissions_changed' => $templatePermissionsChanged,

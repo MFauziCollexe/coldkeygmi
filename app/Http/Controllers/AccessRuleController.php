@@ -69,6 +69,21 @@ class AccessRuleController extends Controller
                         ->all();
                 }
 
+                if (isset($config['settings']) && is_array($config['settings'])) {
+                    $nextConfig['settings'] = collect($config['settings'])
+                        ->filter(fn ($settingValue, $settingKey) => is_string($settingKey) && trim($settingKey) !== '')
+                        ->map(function ($settingValue, string $settingKey) {
+                            if ($settingKey === 'late_tolerance_minutes') {
+                                return max(0, (int) $settingValue);
+                            }
+
+                            return is_bool($settingValue) || is_int($settingValue) || is_float($settingValue) || is_string($settingValue) || $settingValue === null
+                                ? $settingValue
+                                : (string) json_encode($settingValue, JSON_UNESCAPED_SLASHES);
+                        })
+                        ->all();
+                }
+
                 if (isset($config['template_permissions']) && is_array($config['template_permissions'])) {
                     $nextConfig['template_permissions'] = collect($config['template_permissions'])
                         ->filter(fn ($templateConfig, $templateKey) => is_string($templateKey) && trim($templateKey) !== '' && is_array($templateConfig))

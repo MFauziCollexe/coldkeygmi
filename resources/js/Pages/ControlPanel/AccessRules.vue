@@ -361,6 +361,71 @@
             </div>
 
             <div v-if="currentStep === 3" class="grid gap-4">
+              <div v-if="selected.settings.length || base.settings.length || selectedModuleKey === 'attendance_log'" class="rounded border border-slate-700 bg-slate-900 p-4">
+                <div class="mb-3 flex items-center justify-between">
+                  <div>
+                    <h4 class="text-sm font-semibold text-slate-200">Settings</h4>
+                    <p class="text-xs text-slate-400">Atur parameter module yang tidak berbentuk scope atau ability.</p>
+                  </div>
+                  <span class="text-xs text-slate-400">{{ selected.settings.length }} item</span>
+                </div>
+
+                <div class="mb-3 flex flex-wrap gap-2">
+                  <button type="button" class="rounded bg-slate-700 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-600" @click="addSetting">Add Setting</button>
+                </div>
+
+                <div class="space-y-3">
+                  <div
+                    v-for="(setting, settingIndex) in selected.settings"
+                    :key="`setting-${settingIndex}`"
+                    class="rounded border border-slate-700 bg-slate-800 p-3"
+                  >
+                    <div class="flex gap-2">
+                      <select v-model="setting.key" class="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white">
+                        <option value="">Pilih setting key</option>
+                        <option v-for="option in settingKeyOptions(setting.key)" :key="`setting-key-${option}`" :value="option">{{ option }}</option>
+                      </select>
+                      <button type="button" class="rounded bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500" @click="selected.settings.splice(settingIndex, 1)">Remove</button>
+                    </div>
+
+                    <p class="mt-2 text-xs text-slate-500">Default: {{ describeDefaultSetting(setting.key) }}</p>
+
+                    <div class="mt-3">
+                      <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        {{ settingLabel(setting.key) }}
+                      </label>
+                      <input
+                        v-if="isBooleanSetting(setting)"
+                        v-model="setting.value"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border border-slate-700 bg-slate-950 text-indigo-600"
+                      />
+                      <input
+                        v-else-if="isNumberSetting(setting)"
+                        v-model.number="setting.value"
+                        type="number"
+                        min="0"
+                        step="1"
+                        class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                      />
+                      <input
+                        v-else
+                        v-model="setting.value"
+                        type="text"
+                        class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                      />
+                      <p v-if="setting.key === 'late_tolerance_minutes'" class="mt-2 text-[11px] text-sky-300">
+                        Jumlah menit toleransi sebelum scan masuk dihitung sebagai terlambat.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div v-if="selected.settings.length === 0" class="rounded border border-dashed border-slate-700 bg-slate-800 p-4 text-xs text-slate-400">
+                    Module ini belum punya setting di draft.
+                  </div>
+                </div>
+              </div>
+
               <div class="rounded border border-slate-700 bg-slate-900 p-4">
                 <div class="mb-3 flex items-center justify-between">
                   <h4 class="text-sm font-semibold text-slate-200">Abilities</h4>
@@ -772,6 +837,38 @@
                         </div>
 
                         <div class="rounded border border-slate-700 bg-slate-800 p-3">
+                          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Settings</p>
+                          <div class="mt-2 space-y-3">
+                            <div v-if="moduleChange.settings_added?.length" class="text-xs text-slate-300">
+                              <span class="font-semibold text-emerald-300">Added:</span> {{ moduleChange.settings_added.join(', ') }}
+                            </div>
+                            <div v-if="moduleChange.settings_removed?.length" class="text-xs text-slate-300">
+                              <span class="font-semibold text-rose-300">Removed:</span> {{ moduleChange.settings_removed.join(', ') }}
+                            </div>
+                            <div
+                              v-for="ruleDiff in moduleChange.settings_changed || []"
+                              :key="`${entry.id}-${moduleChange.module}-setting-${ruleDiff.key}`"
+                              class="rounded border border-slate-700 bg-slate-900 p-3"
+                            >
+                              <p class="text-sm font-semibold text-white">{{ ruleDiff.key }}</p>
+                              <div class="mt-2 grid gap-3 lg:grid-cols-2">
+                                <div>
+                                  <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Before</p>
+                                  <pre class="overflow-auto rounded bg-slate-950 p-2 text-[11px] text-slate-300">{{ formatRuleValue(ruleDiff.before) }}</pre>
+                                </div>
+                                <div>
+                                  <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">After</p>
+                                  <pre class="overflow-auto rounded bg-slate-950 p-2 text-[11px] text-slate-300">{{ formatRuleValue(ruleDiff.after) }}</pre>
+                                </div>
+                              </div>
+                            </div>
+                            <p v-if="!moduleChange.settings_added?.length && !moduleChange.settings_removed?.length && !(moduleChange.settings_changed || []).length" class="text-xs text-slate-500">
+                              Tidak ada perubahan setting.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div class="rounded border border-slate-700 bg-slate-800 p-3">
                           <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Template Permissions</p>
                           <div class="mt-2 space-y-3">
                             <div v-if="moduleChange.template_permissions_added?.length" class="text-xs text-slate-300">
@@ -915,7 +1012,7 @@ const currentStep = ref(1);
 const wizardSteps = [
   { number: 1, short: 'Module', title: 'Pilih Module', description: 'Tentukan module yang ingin diatur terlebih dahulu.' },
   { number: 2, short: 'Scopes', title: 'Atur Scope', description: 'Kelola siapa yang bisa melihat data dan jangkauan departemennya.' },
-  { number: 3, short: 'Abilities', title: 'Atur Ability & Template', description: 'Kelola siapa yang bisa melakukan aksi module dan mengakses template spesifik bila tersedia.' },
+  { number: 3, short: 'Abilities', title: 'Atur Ability, Setting & Template', description: 'Kelola aksi module, parameter setting, dan template spesifik bila tersedia.' },
   { number: 4, short: 'Audit', title: 'Audit & Rollback', description: 'Tinjau riwayat perubahan dan rollback bila diperlukan.' },
 ];
 
@@ -924,7 +1021,7 @@ const filteredModuleKeys = computed(() => {
   return Object.keys(states.value).filter((key) => !query || key.toLowerCase().includes(query));
 });
 const selected = computed(() => states.value[selectedModuleKey.value] || null);
-const base = computed(() => defaultStates[selectedModuleKey.value] || { scopes: [], abilities: [], template_permissions: [] });
+const base = computed(() => defaultStates[selectedModuleKey.value] || { scopes: [], abilities: [], settings: [], template_permissions: [] });
 const hasSelectedModule = computed(() => Boolean(selectedModuleKey.value && selected.value));
 const canGoNext = computed(() => {
   if (currentStep.value >= wizardSteps.length) {
@@ -976,6 +1073,10 @@ function makeStates(modules) {
     abilities: Object.entries(config?.abilities || {}).map(([key, value]) => ({
       key,
       conditions: makeConditions(value || []),
+    })),
+    settings: Object.entries(config?.settings || {}).map(([key, value]) => ({
+      key,
+      value,
     })),
     template_permissions: Object.entries(config?.template_permissions || {}).map(([key, value]) => ({
       key,
@@ -1092,6 +1193,73 @@ function normalizeCondition(rule) {
   return next;
 }
 
+function settingType(settingOrKey) {
+  const key = typeof settingOrKey === 'string' ? settingOrKey : String(settingOrKey?.key || '').trim();
+  const defaultItem = (base.value.settings || []).find((setting) => setting.key === key);
+  const currentItem = (selected.value?.settings || []).find((setting) => setting !== settingOrKey && setting.key === key);
+  const referenceValue = defaultItem?.value ?? currentItem?.value;
+
+  if (key === 'late_tolerance_minutes') {
+    return 'number';
+  }
+
+  if (typeof referenceValue === 'boolean') {
+    return 'boolean';
+  }
+
+  if (typeof referenceValue === 'number') {
+    return 'number';
+  }
+
+  return 'text';
+}
+
+function isBooleanSetting(setting) {
+  return settingType(setting) === 'boolean';
+}
+
+function isNumberSetting(setting) {
+  return settingType(setting) === 'number';
+}
+
+function normalizeSettingValue(setting) {
+  const key = String(setting?.key || '').trim();
+  const type = settingType(setting);
+  const rawValue = setting?.value;
+
+  if (key === 'late_tolerance_minutes') {
+    const parsed = Number.parseInt(String(rawValue ?? '0'), 10);
+    return Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }
+
+  if (type === 'boolean') {
+    return Boolean(rawValue);
+  }
+
+  if (type === 'number') {
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return String(rawValue ?? '').trim();
+}
+
+function formatSettingValue(value) {
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+
+  if (value === null || value === undefined || value === '') {
+    return 'Kosong';
+  }
+
+  return String(value);
+}
+
+function settingLabel(settingKey) {
+  return settingKey === 'late_tolerance_minutes' ? 'Toleransi Keterlambatan (menit)' : 'Value';
+}
+
 function serialize() {
   return Object.fromEntries(Object.entries(states.value).map(([moduleKey, config]) => {
     const moduleData = {};
@@ -1112,6 +1280,10 @@ function serialize() {
       String(ability.key).trim(),
       (ability.conditions || []).filter((rule) => String(rule.type || '').trim()).map(normalizeCondition),
     ]));
+    const settings = Object.fromEntries((config.settings || []).filter((setting) => String(setting.key || '').trim()).map((setting) => [
+      String(setting.key).trim(),
+      normalizeSettingValue(setting),
+    ]));
     const templatePermissions = Object.fromEntries((config.template_permissions || []).filter((templatePermission) => String(templatePermission.key || '').trim()).map((templatePermission) => [
       String(templatePermission.key).trim(),
       {
@@ -1126,6 +1298,10 @@ function serialize() {
 
     if (Object.keys(abilities).length > 0) {
       moduleData.abilities = abilities;
+    }
+
+    if (Object.keys(settings).length > 0) {
+      moduleData.settings = settings;
     }
 
     if (Object.keys(templatePermissions).length > 0) {
@@ -1162,7 +1338,9 @@ function summarizeSection(items, kind) {
             item.view_conditions?.length ? `view(${item.view_conditions.map(summarizeCondition).join(' | ')})` : 'view(kosong)',
             item.approve_conditions?.length ? `approve(${item.approve_conditions.map(summarizeCondition).join(' | ')})` : 'approve(kosong)',
           ].join(' ; ')
-      : (item.conditions || []).map(summarizeCondition).join(' | ') || 'Kosong',
+        : kind === 'setting'
+          ? formatSettingValue(item.value)
+          : (item.conditions || []).map(summarizeCondition).join(' | ') || 'Kosong',
   }));
 }
 
@@ -1180,6 +1358,12 @@ function describeDefaultAbility(abilityKey) {
   if (!String(abilityKey || '').trim()) return 'Isi key ability untuk melihat pembanding default.';
   const item = (base.value.abilities || []).find((ability) => ability.key === abilityKey);
   return item ? summarizeSection([item], 'ability')[0].text : 'Ability ini belum ada di default.';
+}
+
+function describeDefaultSetting(settingKey) {
+  if (!String(settingKey || '').trim()) return 'Isi key setting untuk melihat pembanding default.';
+  const item = (base.value.settings || []).find((setting) => setting.key === settingKey);
+  return item ? summarizeSection([item], 'setting')[0].text : 'Setting ini belum ada di default.';
 }
 
 function describeDefaultTemplatePermission(templateKey, actionKey) {
@@ -1303,6 +1487,27 @@ function abilityKeyOptions(currentKey = '') {
   return Array.from(keys).sort();
 }
 
+function settingKeyOptions(currentKey = '') {
+  const keys = new Set();
+
+  (base.value.settings || []).forEach((setting) => {
+    const key = String(setting?.key || '').trim();
+    if (key) keys.add(key);
+  });
+
+  (selected.value?.settings || []).forEach((setting) => {
+    const key = String(setting?.key || '').trim();
+    if (key) keys.add(key);
+  });
+
+  const current = String(currentKey || '').trim();
+  if (current) {
+    keys.add(current);
+  }
+
+  return Array.from(keys).sort();
+}
+
 function templatePermissionKeyOptions(currentKey = '') {
   const keys = new Set();
 
@@ -1374,6 +1579,13 @@ function addAbility() {
   if (!selected.value) return;
   const firstAvailableKey = abilityKeyOptions('').find((key) => !(selected.value?.abilities || []).some((ability) => String(ability?.key || '').trim() === key)) || '';
   selected.value.abilities.push({ key: firstAvailableKey, conditions: [] });
+}
+
+function addSetting() {
+  if (!selected.value) return;
+  const firstAvailableKey = settingKeyOptions('').find((key) => !(selected.value?.settings || []).some((setting) => String(setting?.key || '').trim() === key)) || '';
+  const defaultItem = (base.value.settings || []).find((setting) => setting.key === firstAvailableKey);
+  selected.value.settings.push({ key: firstAvailableKey, value: defaultItem?.value ?? '' });
 }
 
 function addTemplatePermission() {
@@ -1591,6 +1803,18 @@ function formatChangedModules(items) {
       details.push(`~ability:${item.abilities_changed.map((rule) => rule.key).join('/')}`);
     }
 
+    if (Array.isArray(item.settings_added) && item.settings_added.length > 0) {
+      details.push(`+setting:${item.settings_added.join('/')}`);
+    }
+
+    if (Array.isArray(item.settings_removed) && item.settings_removed.length > 0) {
+      details.push(`-setting:${item.settings_removed.join('/')}`);
+    }
+
+    if (Array.isArray(item.settings_changed) && item.settings_changed.length > 0) {
+      details.push(`~setting:${item.settings_changed.map((rule) => rule.key).join('/')}`);
+    }
+
     if (Array.isArray(item.template_permissions_added) && item.template_permissions_added.length > 0) {
       details.push(`+template:${item.template_permissions_added.join('/')}`);
     }
@@ -1631,6 +1855,9 @@ function detailHeader(moduleChange) {
   if (moduleChange.abilities_added?.length) details.push(`ability baru ${moduleChange.abilities_added.length}`);
   if (moduleChange.abilities_removed?.length) details.push(`ability dihapus ${moduleChange.abilities_removed.length}`);
   if (moduleChange.abilities_changed?.length) details.push(`ability diubah ${moduleChange.abilities_changed.length}`);
+  if (moduleChange.settings_added?.length) details.push(`setting baru ${moduleChange.settings_added.length}`);
+  if (moduleChange.settings_removed?.length) details.push(`setting dihapus ${moduleChange.settings_removed.length}`);
+  if (moduleChange.settings_changed?.length) details.push(`setting diubah ${moduleChange.settings_changed.length}`);
   if (moduleChange.template_permissions_added?.length) details.push(`template baru ${moduleChange.template_permissions_added.length}`);
   if (moduleChange.template_permissions_removed?.length) details.push(`template dihapus ${moduleChange.template_permissions_removed.length}`);
   if (moduleChange.template_permissions_changed?.length) details.push(`template diubah ${moduleChange.template_permissions_changed.length}`);
@@ -1645,6 +1872,9 @@ function moduleChangeCount(moduleChange) {
     + (moduleChange.abilities_added?.length || 0)
     + (moduleChange.abilities_removed?.length || 0)
     + (moduleChange.abilities_changed?.length || 0)
+    + (moduleChange.settings_added?.length || 0)
+    + (moduleChange.settings_removed?.length || 0)
+    + (moduleChange.settings_changed?.length || 0)
     + (moduleChange.template_permissions_added?.length || 0)
     + (moduleChange.template_permissions_removed?.length || 0)
     + (moduleChange.template_permissions_changed?.length || 0);
