@@ -826,6 +826,7 @@ class AttendanceLogController extends Controller
             'monthlyInsights' => $monthlyInsights,
             'canManageCorrections' => $canManageCorrections,
             'canViewCorrectionTotals' => $canViewCorrectionTotals,
+            'lateToleranceMinutes' => $this->lateToleranceMinutes(),
             'filters' => [
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
@@ -4268,6 +4269,19 @@ class AttendanceLogController extends Controller
         return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'view_correction_totals');
     }
 
+    private function lateToleranceMinutes(): int
+    {
+        $value = data_get(
+            $this->accessRules()->modules(),
+            self::ACCESS_MODULE . '.settings.late_tolerance_minutes',
+            10
+        );
+
+        $minutes = (int) $value;
+
+        return max(0, min(180, $minutes));
+    }
+
     private function evaluateCheckIn(?string $startTime, ?string $firstScanTime, ?string $firstScanDateTime = null, ?string $logDate = null): array
     {
         if ($startTime === null || $firstScanTime === null) {
@@ -4285,18 +4299,20 @@ class AttendanceLogController extends Controller
             $diffMinutes = (int) floor(($scan->getTimestamp() - $start->getTimestamp()) / 60);
             $scanHm = substr($firstScanTime, 0, 5);
             $startHm = substr($startTime, 0, 5);
+            $lateToleranceMinutes = $this->lateToleranceMinutes();
+            $toleranceLabel = $lateToleranceMinutes . ' menit';
 
-            if ($diffMinutes > 10) {
+            if ($diffMinutes > $lateToleranceMinutes) {
                 return [
                     'Terlambat',
-                    "{$scanHm} masuk telat. Telat jika lebih dari 10 menit dari jadwal {$startHm}.",
+                    "{$scanHm} masuk telat. Telat jika lebih dari {$toleranceLabel} dari jadwal {$startHm}.",
                 ];
             }
 
             if ($diffMinutes > 0) {
                 return [
                     'On Time',
-                    "{$scanHm} masuk telat tapi masih dalam toleransi 10 menit dari jadwal {$startHm}.",
+                    "{$scanHm} masuk telat tapi masih dalam toleransi {$toleranceLabel} dari jadwal {$startHm}.",
                 ];
             }
 

@@ -766,6 +766,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  lateToleranceMinutes: {
+    type: Number,
+    default: 10,
+  },
 });
 
 const page = usePage();
@@ -773,6 +777,11 @@ const page = usePage();
 const today = new Date();
 const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+const lateToleranceMinutes = computed(() => {
+  const value = Number(props.lateToleranceMinutes ?? 10);
+  if (!Number.isFinite(value)) return 10;
+  return Math.max(0, Math.min(180, Math.trunc(value)));
+});
 
 function formatDateInputValue(date) {
   const year = date.getFullYear();
@@ -1844,7 +1853,7 @@ function isLateBeyondTolerance(startTime, scanDateTime) {
   const startTotal = (startHour * 60) + startMinute;
   const scanTotal = (scanHour * 60) + scanMinute;
 
-  return (scanTotal - startTotal) > 10;
+  return (scanTotal - startTotal) > lateToleranceMinutes.value;
 }
 
 function escapeHtmlValue(value) {

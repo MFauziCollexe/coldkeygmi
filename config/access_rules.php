@@ -206,6 +206,9 @@ return [
             ],
         ],
         'attendance_log' => [
+            'settings' => [
+                'late_tolerance_minutes' => 10,
+            ],
             'abilities' => [
                 'view_correction_totals' => [
                     ['type' => 'admin'],
