@@ -1135,8 +1135,8 @@ class RosterController extends Controller
                 ['nrp' => 'T2P250209004', 'name' => 'HERIYANTO'],
                 ['nrp' => 'T2P2511170005', 'name' => 'MUHAMMAD ALI GUFRON'],
                 ['nrp' => 'T2P251117007', 'name' => 'MUHAMMAD RAMLI'],
-                ['nrp' => 'T2P251215002', 'name' => 'THOLUT KHOLIFATULLOH'],
                 ['nrp' => 'T2P251117003', 'name' => 'YUNANDA TRI BINTANG PAMUNGKAS'],
+                ['nrp' => 'T2P260504008', 'name' => 'SULAIMAN SARI'],
             ];
         }
 
@@ -1187,7 +1187,7 @@ class RosterController extends Controller
             ['nrp' => 'T2P251001006', 'name' => 'ARI BUDI'],
             ['nrp' => 'T2P2511170005', 'name' => 'M ALI G'],
             ['nrp' => 'T2P251117003', 'name' => 'YUNANDA TB'],
-            ['nrp' => 'T2P251215002', 'name' => 'THOLUT K'],
+            ['nrp' => 'T2P260504008', 'name' => 'SULAIMAN SARI'],
         ];
     }
 
@@ -1307,16 +1307,6 @@ class RosterController extends Controller
 
     private function resolveSecurityShiftTiming(string $rawCode, string $employeeKey = '', string $employeeNrp = ''): array
     {
-        if ($this->isFixedSecurityDayPin($employeeKey, $employeeNrp)) {
-            return [
-                'is_off' => false,
-                'start_time' => '08:00:00',
-                'end_time' => '16:00:00',
-                'work_hours' => 8,
-                'error' => null,
-            ];
-        }
-
         return match ($rawCode) {
             'P' => [
                 'is_off' => false,
@@ -1332,7 +1322,7 @@ class RosterController extends Controller
                 'work_hours' => 12,
                 'error' => null,
             ],
-            'H' => [
+            'P1', 'H' => [
                 'is_off' => false,
                 'start_time' => '08:00:00',
                 'end_time' => '16:00:00',
@@ -1392,16 +1382,6 @@ class RosterController extends Controller
         }
 
         return (int) $departmentId === (int) $securityDepartmentId;
-    }
-
-    private function isFixedSecurityDayPin(string $employeeKey = '', string $employeeNrp = ''): bool
-    {
-        $candidates = [
-            strtoupper(str_replace(' ', '', trim($employeeKey))),
-            strtoupper(str_replace(' ', '', trim($employeeNrp))),
-        ];
-
-        return in_array('T2P241201001', array_filter($candidates), true);
     }
 
     private function isMaintananceEmployee(string $employeeNrp, string $employeeName = ''): bool

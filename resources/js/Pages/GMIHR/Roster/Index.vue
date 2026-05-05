@@ -297,13 +297,6 @@ function normalizeRowOnClient(row) {
   }
 
   if (String(form.templateType || '').trim() === 'security') {
-    if (isFixedSecurityPin(row)) {
-      normalized.start_time = '08:00:00';
-      normalized.end_time = '16:00:00';
-      normalized.work_hours = 8;
-      return normalized;
-    }
-
     if (shiftCode === 'P') {
       normalized.start_time = '07:00:00';
       normalized.end_time = '19:00:00';
@@ -318,7 +311,7 @@ function normalizeRowOnClient(row) {
       return normalized;
     }
 
-    if (shiftCode === 'H') {
+    if (shiftCode === 'P1' || shiftCode === 'H') {
       normalized.start_time = '08:00:00';
       normalized.end_time = '16:00:00';
       normalized.work_hours = 8;
@@ -359,17 +352,6 @@ function resolveDefaultHoursOnClient(date) {
   const isDateValid = date instanceof Date && !Number.isNaN(date.getTime());
   const isSaturday = isDateValid ? date.getDay() === 6 : false;
   return isSaturday ? 4 : 8;
-}
-
-function isFixedSecurityPin(row) {
-  const candidates = [
-    String(row?.employee_key || '').trim(),
-    String(row?.employee_nrp || '').trim(),
-  ]
-    .map((value) => value.replaceAll(' ', '').toUpperCase())
-    .filter(Boolean);
-
-  return candidates.includes('T2P241201001');
 }
 
 function detectTemplateTypeFromFilename(filename) {

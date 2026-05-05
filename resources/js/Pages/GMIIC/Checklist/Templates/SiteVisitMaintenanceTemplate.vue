@@ -1,29 +1,29 @@
 <template>
   <div class="rounded border border-slate-300 bg-white p-4 text-black shadow-sm">
     <div class="mb-5 overflow-x-auto border border-black">
-      <table class="min-w-full border-collapse text-sm">
+      <table class="w-full table-fixed border-collapse text-xs sm:text-sm">
         <tbody>
           <tr>
-            <td rowspan="2" class="w-36 border border-black px-3 py-3 text-center">
+            <td rowspan="2" class="w-24 border border-black px-2 py-3 text-center sm:w-36 sm:px-3">
               <img
                 src="/image/logo-gmi-clean.png"
                 alt="PT. Golden Multi Indotama"
-                class="mx-auto h-16 w-16 object-contain"
+                class="mx-auto h-12 w-12 object-contain sm:h-16 sm:w-16"
               />
             </td>
-            <td colspan="2" class="border border-black px-3 py-2 text-center text-2xl font-bold">
+            <td colspan="2" class="border border-black px-2 py-2 text-center text-sm font-bold sm:px-3 sm:text-2xl">
               PT GOLDEN MULTI INDOTAMA
             </td>
           </tr>
           <tr>
-            <td class="w-[420px] border border-black px-3 py-3 text-center">
-              <div class="text-xl font-bold leading-tight">{{ currentTypeMeta.title }}</div>
+            <td class="border border-black px-2 py-3 text-center sm:w-80 sm:px-3">
+              <div class="text-sm font-bold leading-tight sm:text-xl">{{ currentTypeMeta.title }}</div>
             </td>
             <td class="border border-black p-0 align-top">
-              <table class="min-w-full border-collapse text-sm">
+              <table class="w-full border-collapse text-[11px] sm:text-sm">
                 <tbody>
                   <tr>
-                    <td class="w-40 border border-black px-2 py-1">Doc. No.</td>
+                    <td class="w-24 border border-black px-2 py-1 sm:w-40">Doc. No.</td>
                     <td class="border border-black px-2 py-1">{{ entry.form.document_no }}</td>
                   </tr>
                   <tr>
@@ -46,50 +46,70 @@
       </table>
     </div>
 
-    <div class="mb-5 grid gap-3 xl:grid-cols-[max-content_max-content_minmax(0,1fr)] xl:grid-rows-2 xl:items-start xl:gap-x-4">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center xl:flex-nowrap">
-        <span class="min-w-24 text-lg font-semibold">Frekuensi:</span>
-        <select
-          :value="entry.form.visit_type"
-          class="rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 xl:w-[230px]"
-          @change="$emit('update-type', $event.target.value)"
-        >
-          <option
-            v-for="option in typeOptions"
-            :key="option.id"
-            :value="option.id"
+    <div class="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div class="flex flex-col gap-3 font-semibold lg:flex-row lg:flex-wrap lg:items-center">
+        <div class="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
+          <span class="text-base sm:min-w-24 sm:text-lg">Jenis:</span>
+          <select
+            :value="entry.form.visit_type"
+            class="w-full max-w-[260px] rounded border border-slate-400 bg-white px-3 py-2 text-sm font-normal text-slate-900 sm:max-w-none"
+            @change="$emit('update-type', $event.target.value)"
           >
-            {{ option.name }}
-          </option>
-        </select>
-      </div>
+            <option
+              v-for="option in typeOptions"
+              :key="option.id"
+              :value="option.id"
+            >
+              {{ option.name }}
+            </option>
+          </select>
+        </div>
 
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center xl:flex-nowrap">
-        <span class="min-w-16 text-lg font-semibold">Area:</span>
-        <select
-          v-if="entry.form.visit_type === 'maintenance_harian'"
-          :value="entry.form.selected_area"
-          class="rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 xl:w-[200px]"
-          @change="$emit('update-area', $event.target.value)"
-        >
-          <option
-            v-for="area in dailyAreaOptions"
-            :key="area.id"
-            :value="area.id"
+        <div class="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
+          <span class="text-base sm:min-w-24 sm:text-lg">{{ currentTypeMeta.schedule_label }}:</span>
+          <input
+            v-if="entry.form.visit_type === 'maintenance_harian'"
+            :value="entry.form.date_value"
+            type="date"
+            class="w-full max-w-[220px] rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 sm:max-w-none"
+            @input="$emit('update-date', $event.target.value)"
+          />
+          <input
+            v-else
+            :value="entry.form.period_value"
+            type="week"
+            class="w-full max-w-[220px] rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 sm:max-w-none"
+            @input="$emit('update-period', $event.target.value)"
+          />
+        </div>
+
+        <div class="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
+          <span class="text-base sm:min-w-24 sm:text-lg">Area:</span>
+          <select
+            v-if="entry.form.visit_type === 'maintenance_harian'"
+            :value="entry.form.selected_area"
+            class="w-full max-w-[240px] rounded border border-slate-400 bg-white px-3 py-2 text-sm font-normal text-slate-900 sm:max-w-none"
+            @change="$emit('update-area', $event.target.value)"
           >
-            {{ area.name }}
-          </option>
-        </select>
-        <div v-else class="px-3 py-2 text-sm font-semibold text-slate-900">
-          Lantai 1 Belakang
+            <option
+              v-for="area in dailyAreaOptions"
+              :key="area.id"
+              :value="area.id"
+            >
+              {{ area.name }}
+            </option>
+          </select>
+          <div v-else class="text-sm font-normal text-slate-900">
+            Lantai 1 Belakang
+          </div>
         </div>
       </div>
 
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-start xl:row-span-2 xl:min-w-0 xl:justify-self-end">
-        <div class="flex min-w-0 flex-col gap-1 xl:w-[118px]">
+      <div class="flex flex-col gap-1">
+        <div class="flex flex-wrap items-start gap-2">
           <button
             type="button"
-            class="w-full rounded px-4 py-2 text-sm font-semibold transition"
+            class="w-[132px] rounded px-4 py-2 text-sm font-semibold transition"
             :disabled="!canScanBarcode"
             :class="!canScanBarcode
               ? 'cursor-not-allowed bg-slate-300 text-slate-500 hover:bg-slate-300'
@@ -98,16 +118,11 @@
           >
             QRCode
           </button>
-          <div class="text-xs text-slate-600">
-            {{ currentBarcode || 'QRCode area aktif belum discan.' }}
-          </div>
-        </div>
 
-        <div class="xl:w-[118px]">
           <button
             type="button"
             :disabled="!canApproveEntry"
-            class="w-full rounded px-4 py-2 text-sm font-semibold transition"
+            class="w-[96px] rounded px-4 py-2 text-sm font-semibold transition"
             :class="canApproveEntry
               ? 'bg-amber-500 text-white hover:bg-amber-400'
               : 'cursor-not-allowed bg-slate-300 text-slate-500'"
@@ -116,34 +131,22 @@
             Approval
           </button>
         </div>
-      </div>
 
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center xl:col-start-1 xl:row-start-2 xl:flex-nowrap">
-        <span class="min-w-24 text-lg font-semibold">{{ currentTypeMeta.schedule_label }}:</span>
-        <input
-          v-if="entry.form.visit_type === 'maintenance_harian'"
-          :value="entry.form.date_value"
-          type="date"
-          class="rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 xl:w-[136px]"
-          @input="$emit('update-date', $event.target.value)"
-        />
-        <input
-          v-else
-          :value="entry.form.period_value"
-          type="week"
-          class="rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 xl:w-[180px]"
-          @input="$emit('update-period', $event.target.value)"
-        />
+        <div class="max-w-[132px] text-xs text-slate-600">
+          {{ currentBarcode || 'QRCode area aktif belum discan.' }}
+        </div>
       </div>
     </div>
 
-    <div class="overflow-x-auto border border-black">
-      <table class="min-w-full border-collapse text-sm">
+    <div class="border border-black">
+      <table class="w-full table-fixed border-collapse text-xs sm:text-sm sm:table-auto">
         <thead>
           <tr class="bg-slate-100">
-            <th class="w-12 border border-black px-2 py-2 text-center">No</th>
-            <th class="min-w-[520px] border border-black px-2 py-2 text-center">ITEM</th>
-            <th class="min-w-[140px] border border-black px-2 py-2 text-center">Kondisi</th>
+            <th class="w-10 border border-black px-1 py-2 text-center sm:w-12 sm:px-2">No</th>
+            <th class="border border-black px-2 py-2 text-center sm:min-w-[420px]">ITEM</th>
+            <th class="w-[84px] border border-black px-1 py-2 text-center text-[11px] leading-tight whitespace-normal sm:min-w-[220px] sm:px-2 sm:text-sm">
+              Kondisi
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -153,7 +156,7 @@
               :key="section.id"
             >
               <tr class="bg-slate-50">
-                <td colspan="3" class="border border-black px-2 py-2 text-base font-bold">
+                <td colspan="3" class="border border-black px-2 py-2 text-sm font-bold sm:text-base">
                   {{ section.title }}
                 </td>
               </tr>
@@ -161,16 +164,16 @@
                 v-for="item in section.items"
                 :key="item.id"
               >
-                <td class="border border-black px-2 py-1 text-center">{{ item.no }}</td>
-                <td class="border border-black px-2 py-1">{{ item.name }}</td>
+                <td class="border border-black px-1 py-1 text-center align-top sm:px-2">{{ item.no }}</td>
+                <td class="border border-black px-2 py-1 leading-snug break-words">{{ item.name }}</td>
                 <td class="border border-black p-0 text-center">
                   <button
                     type="button"
-                    class="flex h-10 w-full items-center justify-center text-lg font-semibold"
+                    class="flex h-10 w-full items-center justify-center text-lg font-semibold leading-none sm:h-11 sm:text-xl"
                     @click="$emit('cycle-row-status', { sectionId: section.id, rowId: item.id })"
                   >
-                    <span v-if="item.status === 'yes'">✓</span>
-                    <span v-else-if="item.status === 'no'" class="text-rose-600">✕</span>
+                    <span v-if="item.status === 'yes'">&#10003;</span>
+                    <span v-else-if="item.status === 'no'" class="text-rose-600">&#10005;</span>
                   </button>
                 </td>
               </tr>
@@ -182,16 +185,16 @@
               v-for="row in rows"
               :key="row.id"
             >
-              <td class="border border-black px-2 py-1 text-center">{{ row.no }}</td>
-              <td class="border border-black px-2 py-1">{{ row.name }}</td>
+              <td class="border border-black px-1 py-1 text-center align-top sm:px-2">{{ row.no }}</td>
+              <td class="border border-black px-2 py-1 leading-snug break-words">{{ row.name }}</td>
               <td class="border border-black p-0 text-center">
                 <button
                   type="button"
-                  class="flex h-10 w-full items-center justify-center text-lg font-semibold"
+                  class="flex h-10 w-full items-center justify-center text-lg font-semibold leading-none sm:h-11 sm:text-xl"
                   @click="$emit('cycle-row-status', { rowId: row.id })"
                 >
-                  <span v-if="row.status === 'yes'">✓</span>
-                  <span v-else-if="row.status === 'no'" class="text-rose-600">✕</span>
+                  <span v-if="row.status === 'yes'">&#10003;</span>
+                  <span v-else-if="row.status === 'no'" class="text-rose-600">&#10005;</span>
                 </button>
               </td>
             </tr>

@@ -581,8 +581,6 @@ class AttendanceLogController extends Controller
                     $reason = 'Tidak ada roster, jadwal default ' . $defaultScheduleLabel . '.';
                     if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
                         $reason = 'Tidak ada roster, jadwal T2P security mengikuti scan dengan acuan 12 jam.';
-                    } elseif ($this->usesFixedT2PNoRosterSchedule($displayPin)) {
-                        $reason = 'Tidak ada roster, jadwal T2P241201001 tetap 08:00 - 16:00.';
                     }
 
                     if ($isNationalHoliday) {
@@ -3018,18 +3016,6 @@ class AttendanceLogController extends Controller
 
     private function resolveNoRosterSchedule(string $logDate, ?string $displayPin = null, ?string $departmentName = null): array
     {
-        if ($this->usesFixedT2PNoRosterSchedule($displayPin)) {
-            $startTime = '08:00:00';
-            $endTime = '16:00:00';
-
-            return [
-                'start_time' => $startTime,
-                'end_time' => $endTime,
-                'next_day_start_time' => $startTime,
-                'label' => substr($startTime, 0, 5) . ' - ' . substr($endTime, 0, 5),
-            ];
-        }
-
         $date = Carbon::parse($logDate);
         $normalizedDepartment = strtoupper(trim((string) ($departmentName ?? '')));
         if ($normalizedDepartment === 'OB') {
@@ -3054,15 +3040,9 @@ class AttendanceLogController extends Controller
         return $pin !== '' && str_starts_with($pin, 'T2P');
     }
 
-    private function usesFixedT2PNoRosterSchedule(?string $displayPin): bool
-    {
-        $pin = strtoupper(trim((string) ($displayPin ?? '')));
-        return $pin === 'T2P241201001';
-    }
-
     private function usesFlexibleT2PNoRosterSchedule(?string $displayPin): bool
     {
-        return $this->usesT2PNoRosterSchedule($displayPin) && !$this->usesFixedT2PNoRosterSchedule($displayPin);
+        return $this->usesT2PNoRosterSchedule($displayPin);
     }
 
     private function resolveFlexibleT2PScanLookupDates(string $logDate): array
