@@ -3155,7 +3155,7 @@ class AttendanceLogController extends Controller
         ?string $departmentName = null,
         bool $isOff = false
     ): array {
-        if ($isOff || $this->isAttendanceSecurityDepartmentName($departmentName)) {
+        if ($isOff) {
             return $schedule;
         }
 

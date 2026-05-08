@@ -1354,7 +1354,7 @@ class RosterController extends Controller
 
     private function normalizeSaturdayRosterTiming(Carbon $rosterDate, ?int $departmentId, array $timing): array
     {
-        if (($timing['is_off'] ?? false) || !$rosterDate->isSaturday() || $this->isSecurityDepartment($departmentId)) {
+        if (($timing['is_off'] ?? false) || !$rosterDate->isSaturday()) {
             return $timing;
         }
 
