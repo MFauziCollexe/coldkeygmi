@@ -1287,13 +1287,13 @@ class RosterController extends Controller
             $start = Carbon::createFromTime($hour, 0, 0);
             $end = (clone $start)->addHours($defaultHours);
 
-            return [
+            return $this->normalizeSaturdayRosterTiming($rosterDate, $departmentId, [
                 'is_off' => false,
                 'start_time' => $start->format('H:i:s'),
                 'end_time' => $end->format('H:i:s'),
                 'work_hours' => $defaultHours,
                 'error' => null,
-            ];
+            ]);
         }
 
         return [
@@ -1350,6 +1350,40 @@ class RosterController extends Controller
         }
 
         return $rosterDate->isSaturday() ? 5 : 8;
+    }
+
+    private function normalizeSaturdayRosterTiming(Carbon $rosterDate, ?int $departmentId, array $timing): array
+    {
+        if (($timing['is_off'] ?? false) || !$rosterDate->isSaturday() || $this->isSecurityDepartment($departmentId)) {
+            return $timing;
+        }
+
+        $startTime = trim((string) ($timing['start_time'] ?? ''));
+        $endTime = trim((string) ($timing['end_time'] ?? ''));
+        if ($startTime === '' || $endTime === '') {
+            return $timing;
+        }
+
+        try {
+            $startAt = Carbon::createFromFormat('H:i:s', $startTime);
+            $endAt = Carbon::createFromFormat('H:i:s', $endTime);
+        } catch (\Throwable $e) {
+            return $timing;
+        }
+
+        if ($endAt->lessThanOrEqualTo($startAt)) {
+            $endAt->addDay();
+        }
+
+        if ($startAt->diffInMinutes($endAt) >= 300) {
+            return $timing;
+        }
+
+        $timing['start_time'] = $startTime;
+        $timing['end_time'] = $startAt->copy()->addHours(5)->format('H:i:s');
+        $timing['work_hours'] = 5;
+
+        return $timing;
     }
 
     private function isMaintananceDepartment(?int $departmentId): bool

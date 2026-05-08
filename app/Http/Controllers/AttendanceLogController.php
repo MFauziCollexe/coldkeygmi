@@ -3054,12 +3054,15 @@ class AttendanceLogController extends Controller
             $endTime = $date->isSaturday() ? '13:00:00' : '16:00:00';
         }
 
-        return [
+        $schedule = $this->normalizeAttendanceSaturdaySchedule($logDate, [
             'start_time' => $startTime,
             'end_time' => $endTime,
             'next_day_start_time' => $startTime,
-            'label' => substr($startTime, 0, 5) . ' - ' . substr($endTime, 0, 5),
-        ];
+        ], $departmentName);
+
+        $schedule['label'] = substr((string) $schedule['start_time'], 0, 5) . ' - ' . substr((string) $schedule['end_time'], 0, 5);
+
+        return $schedule;
     }
 
     private function resolveRosterScheduleForAttendance(
@@ -3072,10 +3075,10 @@ class AttendanceLogController extends Controller
         ?string $storedStartTime = null,
         ?string $storedEndTime = null
     ): array {
-        $fallback = [
+        $fallback = $this->normalizeAttendanceSaturdaySchedule((string) $logDate, [
             'start_time' => $this->normalizeTime($storedStartTime),
             'end_time' => $this->normalizeTime($storedEndTime),
-        ];
+        ], $departmentName, $isOff);
 
         if ($isOff) {
             return ['start_time' => null, 'end_time' => null];
@@ -3123,10 +3126,10 @@ class AttendanceLogController extends Controller
         $start = Carbon::createFromTime($hour, 0, 0);
         $end = (clone $start)->addHours($defaultHours);
 
-        return [
+        return $this->normalizeAttendanceSaturdaySchedule($date->toDateString(), [
             'start_time' => $start->format('H:i:s'),
             'end_time' => $end->format('H:i:s'),
-        ];
+        ], $departmentName);
     }
 
     private function resolveAttendanceRosterDefaultHours(
@@ -3144,6 +3147,48 @@ class AttendanceLogController extends Controller
         }
 
         return $date->isSaturday() ? 5 : 8;
+    }
+
+    private function normalizeAttendanceSaturdaySchedule(
+        ?string $logDate,
+        array $schedule,
+        ?string $departmentName = null,
+        bool $isOff = false
+    ): array {
+        if ($isOff || $this->isAttendanceSecurityDepartmentName($departmentName)) {
+            return $schedule;
+        }
+
+        try {
+            $date = Carbon::parse((string) $logDate);
+        } catch (\Throwable $e) {
+            return $schedule;
+        }
+
+        if (!$date->isSaturday()) {
+            return $schedule;
+        }
+
+        $startTime = $this->normalizeTime($schedule['start_time'] ?? null);
+        $endTime = $this->normalizeTime($schedule['end_time'] ?? null);
+        if ($startTime === null || $endTime === null) {
+            return $schedule;
+        }
+
+        $startAt = Carbon::createFromFormat('H:i:s', $startTime);
+        $endAt = Carbon::createFromFormat('H:i:s', $endTime);
+        if ($endAt->lessThanOrEqualTo($startAt)) {
+            $endAt->addDay();
+        }
+
+        if ($startAt->diffInMinutes($endAt) >= 300) {
+            return $schedule;
+        }
+
+        $schedule['start_time'] = $startTime;
+        $schedule['end_time'] = $startAt->copy()->addHours(5)->format('H:i:s');
+
+        return $schedule;
     }
 
     private function isAttendanceSecurityDepartmentName(?string $departmentName): bool
