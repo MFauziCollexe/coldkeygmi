@@ -234,7 +234,7 @@
                             <td class="py-2 pr-3">{{ row.name || '-' }}</td>
                             <td class="py-2 pr-3">{{ row.shift_code || (row.is_off ? 'OFF' : '-') }}</td>
                             <td class="py-2 pr-3">{{ formatDayName(row.log_date) }}</td>
-                            <td class="py-2 pr-3">{{ formatSchedule(row.start_time, row.end_time) }}</td>
+                            <td class="py-2 pr-3">{{ formatSchedule(row.start_time, row.end_time, row.log_date, row.is_off) }}</td>
                             <td class="py-2 pr-3">{{ formatTimeOnly(row.first_scan) }}</td>
                             <td class="py-2 pr-3">{{ formatTimeOnly(row.last_scan) }}</td>
                             <td class="py-2 pr-3">
@@ -419,7 +419,7 @@
                   </div>
                   <div class="flex items-start justify-between gap-3">
                     <div class="text-slate-400">Jadwal</div>
-                    <div class="text-right">{{ formatSchedule(row.start_time, row.end_time) }}</div>
+                    <div class="text-right">{{ formatSchedule(row.start_time, row.end_time, row.log_date, row.is_off) }}</div>
                   </div>
                   <div class="flex items-start justify-between gap-3">
                     <div class="text-slate-400">Masuk</div>
@@ -1488,9 +1488,44 @@ function exportExcel() {
   window.open(`/attendance-log?${params.toString()}`, '_blank');
 }
 
-function formatSchedule(start, end) {
+function formatSchedule(start, end, logDate = null, isOff = false) {
   if (!start || !end) return '-';
-  return `${String(start).slice(0, 5)} - ${String(end).slice(0, 5)}`;
+  const normalized = normalizeSaturdayScheduleForDisplay(start, end, logDate, isOff);
+  return `${String(normalized.start).slice(0, 5)} - ${String(normalized.end).slice(0, 5)}`;
+}
+
+function normalizeSaturdayScheduleForDisplay(start, end, logDate, isOff) {
+  const normalizedStart = String(start || '').slice(0, 8);
+  const normalizedEnd = String(end || '').slice(0, 8);
+  if (!normalizedStart || !normalizedEnd || isOff) {
+    return { start: normalizedStart, end: normalizedEnd };
+  }
+
+  const date = logDate ? new Date(`${logDate}T00:00:00`) : null;
+  if (!(date instanceof Date) || Number.isNaN(date.getTime()) || date.getDay() !== 6) {
+    return { start: normalizedStart, end: normalizedEnd };
+  }
+
+  const startDate = new Date(`2000-01-01T${normalizedStart}`);
+  const endDate = new Date(`2000-01-01T${normalizedEnd}`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return { start: normalizedStart, end: normalizedEnd };
+  }
+
+  if (endDate <= startDate) {
+    endDate.setDate(endDate.getDate() + 1);
+  }
+
+  const diffMinutes = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+  if (diffMinutes >= 300) {
+    return { start: normalizedStart, end: normalizedEnd };
+  }
+
+  const correctedEnd = new Date(startDate.getTime() + (5 * 60 * 60000));
+  return {
+    start: normalizedStart,
+    end: correctedEnd.toTimeString().slice(0, 8),
+  };
 }
 
 function formatTimeOnly(value) {

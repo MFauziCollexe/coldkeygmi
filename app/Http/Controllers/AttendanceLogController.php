@@ -743,6 +743,8 @@ class AttendanceLogController extends Controller
         }
 
         $rows = $rows->map(function (array $row) {
+            $row = $this->normalizeSaturdayAttendanceRow($row);
+
             $displayPin = trim((string) ($row['pin'] ?? ''));
             if (!$this->usesT2PNoRosterSchedule($displayPin)) {
                 return $row;
@@ -3147,6 +3149,45 @@ class AttendanceLogController extends Controller
         }
 
         return $date->isSaturday() ? 5 : 8;
+    }
+
+    private function normalizeSaturdayAttendanceRow(array $row): array
+    {
+        $isOff = (bool) ($row['is_off'] ?? false);
+        if ($isOff) {
+            return $row;
+        }
+
+        $startTime = $this->normalizeTime($row['start_time'] ?? null);
+        $endTime = $this->normalizeTime($row['end_time'] ?? null);
+        if ($startTime === null || $endTime === null) {
+            return $row;
+        }
+
+        try {
+            $date = Carbon::parse((string) ($row['log_date'] ?? ''));
+        } catch (\Throwable $e) {
+            return $row;
+        }
+
+        if (!$date->isSaturday()) {
+            return $row;
+        }
+
+        $startAt = Carbon::createFromFormat('H:i:s', $startTime);
+        $endAt = Carbon::createFromFormat('H:i:s', $endTime);
+        if ($endAt->lessThanOrEqualTo($startAt)) {
+            $endAt->addDay();
+        }
+
+        if ($startAt->diffInMinutes($endAt) >= 300) {
+            return $row;
+        }
+
+        $row['start_time'] = $startTime;
+        $row['end_time'] = $startAt->copy()->addHours(5)->format('H:i:s');
+
+        return $row;
     }
 
     private function normalizeAttendanceSaturdaySchedule(
