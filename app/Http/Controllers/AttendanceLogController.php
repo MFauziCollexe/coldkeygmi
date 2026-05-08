@@ -120,6 +120,9 @@ class AttendanceLogController extends Controller
                     ],
                 ];
             });
+        $employeeDepartmentByPin = $employeeInfoByPin->mapWithKeys(function (array $info, string $pin) {
+            return [$pin => trim((string) ($info['department_name'] ?? ''))];
+        });
         $employeePinByIdentity = $this->buildEmployeePinByIdentityMap($employeeInfoByPin);
 
         $employeeStatusByPin = collect();
@@ -174,6 +177,7 @@ class AttendanceLogController extends Controller
             ")
             ->get();
         $rosterRows = $this->remapRosterRowsToKnownEmployeePins($rosterRows, $employeeInfoByPin, $employeePinByIdentity);
+        $rosterRows = $this->normalizeRosterRowsForAttendance($rosterRows, $employeeDepartmentByPin);
 
         $rosterScheduleIndex = $this->buildRosterScheduleIndex($rosterRows);
 
@@ -1011,6 +1015,29 @@ class AttendanceLogController extends Controller
         });
     }
 
+    private function normalizeRosterRowsForAttendance(Collection $rosterRows, Collection $departmentNameByPin): Collection
+    {
+        return $rosterRows->map(function ($row) use ($departmentNameByPin) {
+            $pin = $this->normalizePin((string) ($row->pin ?? ''));
+            $schedule = $this->resolveRosterScheduleForAttendance(
+                $this->toDateString($row->log_date),
+                (string) ($row->shift_code ?? ''),
+                (bool) ($row->is_off ?? false),
+                (string) ($departmentNameByPin->get($pin) ?? ''),
+                (string) ($row->pin ?? ''),
+                (string) ($row->roster_name ?? ''),
+                $this->normalizeTime($row->start_time ?? null),
+                $this->normalizeTime($row->end_time ?? null)
+            );
+
+            $normalized = clone $row;
+            $normalized->start_time = $schedule['start_time'];
+            $normalized->end_time = $schedule['end_time'];
+
+            return $normalized;
+        });
+    }
+
     private function normalizeEmployeeIdentity(?string $value): string
     {
         $text = mb_strtoupper(trim((string) ($value ?? '')));
@@ -1208,6 +1235,7 @@ class AttendanceLogController extends Controller
                 re.end_time
             ")
             ->get();
+        $rosterRows = $this->normalizeRosterRowsForAttendance($rosterRows, $employeeDepartmentByPin);
 
         $rosterScheduleIndex = $this->buildRosterScheduleIndex($rosterRows);
 
@@ -3032,6 +3060,102 @@ class AttendanceLogController extends Controller
             'next_day_start_time' => $startTime,
             'label' => substr($startTime, 0, 5) . ' - ' . substr($endTime, 0, 5),
         ];
+    }
+
+    private function resolveRosterScheduleForAttendance(
+        ?string $logDate,
+        ?string $shiftCode,
+        bool $isOff,
+        ?string $departmentName,
+        ?string $employeeNrp = null,
+        ?string $employeeName = null,
+        ?string $storedStartTime = null,
+        ?string $storedEndTime = null
+    ): array {
+        $fallback = [
+            'start_time' => $this->normalizeTime($storedStartTime),
+            'end_time' => $this->normalizeTime($storedEndTime),
+        ];
+
+        if ($isOff) {
+            return ['start_time' => null, 'end_time' => null];
+        }
+
+        $normalizedShiftCode = strtoupper(trim((string) ($shiftCode ?? '')));
+        if ($normalizedShiftCode === '') {
+            return $fallback;
+        }
+
+        if (in_array($normalizedShiftCode, ['OFF', 'NONE'], true)) {
+            return ['start_time' => null, 'end_time' => null];
+        }
+
+        try {
+            $date = Carbon::parse((string) $logDate);
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+
+        if ($this->isAttendanceSecurityDepartmentName($departmentName)) {
+            return match ($normalizedShiftCode) {
+                'P' => ['start_time' => '07:00:00', 'end_time' => '19:00:00'],
+                'M' => ['start_time' => '19:00:00', 'end_time' => '07:00:00'],
+                'P1', 'H' => ['start_time' => '08:00:00', 'end_time' => '16:00:00'],
+                default => $fallback,
+            };
+        }
+
+        if (!preg_match('/^\d+$/', $normalizedShiftCode)) {
+            return $fallback;
+        }
+
+        $hour = (int) $normalizedShiftCode;
+        if ($hour < 0 || $hour > 23) {
+            return $fallback;
+        }
+
+        $defaultHours = $this->resolveAttendanceRosterDefaultHours(
+            $date,
+            $departmentName,
+            $employeeNrp,
+            $employeeName
+        );
+        $start = Carbon::createFromTime($hour, 0, 0);
+        $end = (clone $start)->addHours($defaultHours);
+
+        return [
+            'start_time' => $start->format('H:i:s'),
+            'end_time' => $end->format('H:i:s'),
+        ];
+    }
+
+    private function resolveAttendanceRosterDefaultHours(
+        Carbon $date,
+        ?string $departmentName,
+        ?string $employeeNrp = null,
+        ?string $employeeName = null
+    ): int {
+        if ($this->isAttendanceSecurityDepartmentName($departmentName)) {
+            return 12;
+        }
+
+        if ($this->isAttendanceMaintananceDepartmentName($departmentName)) {
+            return 8;
+        }
+
+        return $date->isSaturday() ? 5 : 8;
+    }
+
+    private function isAttendanceSecurityDepartmentName(?string $departmentName): bool
+    {
+        return $this->departmentMatches($departmentName, 'Security');
+    }
+
+    private function isAttendanceMaintananceDepartmentName(?string $departmentName): bool
+    {
+        $normalized = mb_strtolower(trim((string) ($departmentName ?? '')));
+
+        return in_array($normalized, ['maintanance', 'maintenance'], true);
     }
 
     private function usesT2PNoRosterSchedule(?string $displayPin): bool

@@ -92,6 +92,46 @@ class AttendanceLogControllerTest extends TestCase
         $this->assertSame('2026-04-11 08:12:58', $lastScan);
     }
 
+    public function test_resolve_roster_schedule_for_attendance_recalculates_numeric_saturday_shift_from_shift_code(): void
+    {
+        $controller = new AttendanceLogController();
+
+        $schedule = $this->invokeResolveRosterScheduleForAttendance(
+            $controller,
+            '2026-05-16',
+            '8',
+            false,
+            'Inventory',
+            '25111732',
+            'Memet Wibowo',
+            '08:00:00',
+            '12:00:00'
+        );
+
+        $this->assertSame('08:00:00', $schedule['start_time']);
+        $this->assertSame('13:00:00', $schedule['end_time']);
+    }
+
+    public function test_resolve_roster_schedule_for_attendance_keeps_stored_schedule_for_unknown_shift_code(): void
+    {
+        $controller = new AttendanceLogController();
+
+        $schedule = $this->invokeResolveRosterScheduleForAttendance(
+            $controller,
+            '2026-05-16',
+            'CUSTOM',
+            false,
+            'Inventory',
+            '25111732',
+            'Memet Wibowo',
+            '09:00:00',
+            '15:00:00'
+        );
+
+        $this->assertSame('09:00:00', $schedule['start_time']);
+        $this->assertSame('15:00:00', $schedule['end_time']);
+    }
+
     private function invokeResolveByScheduleWindows(
         AttendanceLogController $controller,
         Collection $scans,
@@ -104,6 +144,33 @@ class AttendanceLogControllerTest extends TestCase
         $method->setAccessible(true);
 
         return $method->invoke($controller, $scans, $startTime, $endTime, $logDate, $nextDayStartTime);
+    }
+
+    private function invokeResolveRosterScheduleForAttendance(
+        AttendanceLogController $controller,
+        string $logDate,
+        string $shiftCode,
+        bool $isOff,
+        string $departmentName,
+        string $pin,
+        string $rosterName,
+        ?string $storedStartTime,
+        ?string $storedEndTime
+    ): array {
+        $method = new ReflectionMethod($controller, 'resolveRosterScheduleForAttendance');
+        $method->setAccessible(true);
+
+        return $method->invoke(
+            $controller,
+            $logDate,
+            $shiftCode,
+            $isOff,
+            $departmentName,
+            $pin,
+            $rosterName,
+            $storedStartTime,
+            $storedEndTime
+        );
     }
 
     private function makeScans(array $scanDates): Collection
