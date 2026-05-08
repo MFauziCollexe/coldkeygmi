@@ -17,12 +17,20 @@ return new class extends Migration
             $table->string('name')->nullable()->after('id');
         });
 
-        // Copy data from first_name and last_name to name
-        DB::statement('UPDATE users SET name = CONCAT(first_name, " ", last_name) WHERE first_name IS NOT NULL AND last_name IS NOT NULL');
+        DB::table('users')
+            ->select('id', 'first_name', 'last_name')
+            ->orderBy('id')
+            ->get()
+            ->each(function ($user): void {
+                $name = trim(implode(' ', array_filter([
+                    $user->first_name,
+                    $user->last_name,
+                ])));
 
-        // Handle cases where only one name exists
-        DB::statement('UPDATE users SET name = first_name WHERE name IS NULL AND first_name IS NOT NULL');
-        DB::statement('UPDATE users SET name = last_name WHERE name IS NULL AND last_name IS NOT NULL');
+                DB::table('users')
+                    ->where('id', $user->id)
+                    ->update(['name' => $name !== '' ? $name : null]);
+            });
 
         // Drop old columns
         Schema::table('users', function (Blueprint $table) {
@@ -42,9 +50,28 @@ return new class extends Migration
             $table->string('last_name')->nullable()->after('first_name');
         });
 
-        // This is a best-effort restore - won't perfectly restore original data
-        // Split name by space (assuming first name is first word)
-        DB::statement('UPDATE users SET first_name = SUBSTRING_INDEX(name, " ", 1), last_name = TRIM(SUBSTRING(name, LENGTH(SUBSTRING_INDEX(name, " ", 1)) + 1)) WHERE name IS NOT NULL');
+        DB::table('users')
+            ->select('id', 'name')
+            ->orderBy('id')
+            ->get()
+            ->each(function ($user): void {
+                $fullName = trim((string) $user->name);
+
+                if ($fullName === '') {
+                    return;
+                }
+
+                $parts = preg_split('/\s+/', $fullName, 2) ?: [];
+                $firstName = $parts[0] ?? null;
+                $lastName = $parts[1] ?? null;
+
+                DB::table('users')
+                    ->where('id', $user->id)
+                    ->update([
+                        'first_name' => $firstName,
+                        'last_name' => $lastName,
+                    ]);
+            });
 
         // Drop the new column
         Schema::table('users', function (Blueprint $table) {

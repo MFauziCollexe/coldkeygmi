@@ -103,7 +103,7 @@ export const sidebarMenuConfig = [
                 label: "Plugging Approval",
                 icon: "CheckCircle",
                 route: "/gmium/plugging/approval",
-                module_key: "gmium.plugging",
+                module_key: "gmium.plugging.approval",
             },
             {
                 id: "resource-monitoring",
@@ -212,6 +212,13 @@ export const sidebarMenuConfig = [
                         icon: "Clock",
                         route: "/absensi",
                         module_key: "gmihr.attendance.absensi",
+                    },
+                    {
+                        id: "attendance-approval",
+                        label: "Attendance Approval",
+                        icon: "CheckCheck",
+                        route: "/attendance-approval",
+                        module_key: "gmihr.attendance.approval",
                     },
                     {
                         id: "leave-permission",

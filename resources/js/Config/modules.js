@@ -83,6 +83,7 @@ export default [
                 children: [
                     { key: "gmihr.attendance.log", label: "Attendance Log" },
                     { key: "gmihr.attendance.absensi", label: "Absensi" },
+                    { key: "gmihr.attendance.approval", label: "Attendance Approval" },
                     {
                         key: "gmihr.attendance.leave_permission",
                         label: "Leave & Permission",

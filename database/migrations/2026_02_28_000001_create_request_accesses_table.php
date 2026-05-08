@@ -49,7 +49,7 @@ return new class extends Migration
             // Indexes
             $table->index(['status', 'type']);
             $table->index('user_id');
-            $table->index('module_key');
+            $table->index('created_by');
         });
     }
 

@@ -21,7 +21,7 @@ class AccessRuleService
             return $defaults;
         }
 
-        return array_replace($defaults, $overrides);
+        return array_replace_recursive($defaults, $overrides);
     }
 
     public function defaultModules(): array

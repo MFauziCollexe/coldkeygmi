@@ -76,6 +76,7 @@ return [
             ['key' => 'gmihr.attendance', 'label' => 'Time & Attendance', 'children' => [
                 ['key' => 'gmihr.attendance.log', 'label' => 'Attendance Log'],
                 ['key' => 'gmihr.attendance.absensi', 'label' => 'Absensi'],
+                ['key' => 'gmihr.attendance.approval', 'label' => 'Attendance Approval'],
                 ['key' => 'gmihr.attendance.leave_permission', 'label' => 'Leave & Permission'],
                 ['key' => 'gmihr.attendance.roster', 'label' => 'Roster', 'children' => [
                     ['key' => 'gmihr.payroll.roster.upload', 'label' => 'Upload'],

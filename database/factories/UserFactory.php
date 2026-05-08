@@ -23,28 +23,50 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        $name = $this->faker->name();
+
         return [
-            'first_name' => $this->faker->firstName(),
-            'last_name' => $this->faker->lastName(),
+            'name' => $name,
             'email' => $this->faker->unique()->safeEmail(),
+            'account' => Str::upper($this->faker->unique()->bothify('ACC###??')),
             'password' => static::$password ??= Hash::make('password'),
-            'status' => 'deactivated',
-            'department' => $this->faker->randomElement(['Engineering', 'Marketing', 'Sales', 'HR', 'Finance']),
-            'job_position' => $this->faker->jobTitle(),
-            'work_position' => $this->faker->randomElement(['Junior', 'Senior', 'Lead', 'Manager']),
-            'user_created' => 'system',
-            'user_updated' => 'system',
-            'remember_token' => Str::random(10),
+            'status' => 'active',
+            'department_id' => null,
+            'position_id' => null,
+            'is_admin' => false,
+            'user_created' => 'factory',
+            'user_updated' => 'factory',
         ];
     }
 
     /**
-     * Indicate that the model's email address should be unverified.
+     * Indicate that the user is active.
      */
-    public function unverified(): static
+    public function active(): static
     {
         return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+            'status' => 'active',
+        ]);
+    }
+
+    /**
+     * Indicate that the user is deactivated.
+     */
+    public function deactivated(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'deactivated',
+        ]);
+    }
+
+    /**
+     * Indicate that the user is an administrator.
+     */
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_admin' => true,
+            'status' => 'active',
         ]);
     }
 }

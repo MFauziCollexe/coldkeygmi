@@ -537,8 +537,10 @@ class LeavePermissionController extends Controller
             ]);
         }
 
+        $targetEmployeeUserId = (int) (Employee::where('id', $targetEmployeeId)->value('user_id') ?? 0);
+
         $data['employee_id'] = $targetEmployeeId;
-        $data['user_id'] = null; // employee-based, user is optional
+        $data['user_id'] = $targetEmployeeUserId > 0 ? $targetEmployeeUserId : $actorId;
         $data['days'] = LeavePermission::calculateDays($data['start_date'], $data['end_date']);
         $data['status'] = 'pending';
         $data = array_merge($data, $this->attachmentColumnsFromPaths($this->storeUploadedAttachments($request)));
