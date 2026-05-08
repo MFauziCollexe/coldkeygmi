@@ -351,7 +351,7 @@ function resolveDefaultHoursOnClient(date) {
 
   const isDateValid = date instanceof Date && !Number.isNaN(date.getTime());
   const isSaturday = isDateValid ? date.getDay() === 6 : false;
-  return isSaturday ? 4 : 8;
+  return isSaturday ? 5 : 8;
 }
 
 function detectTemplateTypeFromFilename(filename) {

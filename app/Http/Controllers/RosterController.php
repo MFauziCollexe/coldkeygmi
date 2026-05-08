@@ -1349,7 +1349,7 @@ class RosterController extends Controller
             return 8;
         }
 
-        return $rosterDate->isSaturday() ? 4 : 8;
+        return $rosterDate->isSaturday() ? 5 : 8;
     }
 
     private function isMaintananceDepartment(?int $departmentId): bool
