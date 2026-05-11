@@ -292,53 +292,9 @@ return [
                 ],
             ],
         ],
-        'plugging' => [
-            'abilities' => [
-                'approve' => [
-                    ['type' => 'manager_in_department_codes', 'values' => ['OPS']],
-                ],
-            ],
-        ],
         'berita_acara' => [
             'abilities' => [
                 'delete' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'IT'],
-                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                ],
-            ],
-        ],
-        'electricity_standard_meter' => [
-            'abilities' => [
-                'edit_list' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'IT'],
-                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                ],
-            ],
-        ],
-        'electricity_hv_meter' => [
-            'abilities' => [
-                'edit_list' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'IT'],
-                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                ],
-                'export_logs' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'IT'],
-                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                ],
-            ],
-        ],
-        'water_meter' => [
-            'abilities' => [
-                'edit_list' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'IT'],
-                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                ],
-                'export_logs' => [
                     ['type' => 'admin'],
                     ['type' => 'department_code', 'value' => 'IT'],
                     ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],

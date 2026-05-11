@@ -29,71 +29,8 @@
   </head>
   <body>
     <h1>Process Flowchart Semua Modul</h1>
-    <div class="meta">Generated: 12/3/2026, 13.03.15 • Source: resources/js/Config/sidebarMenu.js</div>
+    <div class="meta">Generated: 11/5/2026, 09.35.31 • Source: resources/js/Config/sidebarMenu.js</div>
     
-      <section class="page">
-        <h2>Report Accounting (/gmisl/report-accounting)</h2>
-<pre class="mermaid">
-flowchart LR
-  m_14n1aeh_start([Mulai])
-  m_14n1aeh_end([Selesai])
-  m_14n1aeh_open["Buka halaman Report Accounting"]
-  m_14n1aeh_filter["Set filter (opsional)"]
-  m_14n1aeh_load["Load data"]
-  m_14n1aeh_action{"Aksi lanjutan?"}
-  m_14n1aeh_export["Export/Download (opsional)"]
-  m_14n1aeh_start --> m_14n1aeh_open
-  m_14n1aeh_open --> m_14n1aeh_filter
-  m_14n1aeh_filter --> m_14n1aeh_load
-  m_14n1aeh_load --> m_14n1aeh_action
-  m_14n1aeh_action -->|Export| m_14n1aeh_export
-  m_14n1aeh_action -->|Selesai| m_14n1aeh_end
-  m_14n1aeh_export --> m_14n1aeh_end
-</pre>
-      </section>
-
-      <section class="page">
-        <h2>HPP (/gmisl/hpp)</h2>
-<pre class="mermaid">
-flowchart LR
-  m_nsd261_start([Mulai])
-  m_nsd261_end([Selesai])
-  m_nsd261_open["Buka halaman HPP"]
-  m_nsd261_filter["Set filter (opsional)"]
-  m_nsd261_load["Load data"]
-  m_nsd261_action{"Aksi lanjutan?"}
-  m_nsd261_export["Export/Download (opsional)"]
-  m_nsd261_start --> m_nsd261_open
-  m_nsd261_open --> m_nsd261_filter
-  m_nsd261_filter --> m_nsd261_load
-  m_nsd261_load --> m_nsd261_action
-  m_nsd261_action -->|Export| m_nsd261_export
-  m_nsd261_action -->|Selesai| m_nsd261_end
-  m_nsd261_export --> m_nsd261_end
-</pre>
-      </section>
-
-      <section class="page">
-        <h2>Purchasing (/gmisl/purchasing)</h2>
-<pre class="mermaid">
-flowchart LR
-  m_4x4yrr_start([Mulai])
-  m_4x4yrr_end([Selesai])
-  m_4x4yrr_open["Buka halaman Purchasing"]
-  m_4x4yrr_filter["Set filter (opsional)"]
-  m_4x4yrr_load["Load data"]
-  m_4x4yrr_action{"Aksi lanjutan?"}
-  m_4x4yrr_export["Export/Download (opsional)"]
-  m_4x4yrr_start --> m_4x4yrr_open
-  m_4x4yrr_open --> m_4x4yrr_filter
-  m_4x4yrr_filter --> m_4x4yrr_load
-  m_4x4yrr_load --> m_4x4yrr_action
-  m_4x4yrr_action -->|Export| m_4x4yrr_export
-  m_4x4yrr_action -->|Selesai| m_4x4yrr_end
-  m_4x4yrr_export --> m_4x4yrr_end
-</pre>
-      </section>
-
       <section class="page">
         <h2>Tickets (/tickets)</h2>
 <pre class="mermaid">
@@ -137,12 +74,12 @@ flowchart LR
       </section>
 
       <section class="page">
-        <h2>Date Code (/gmisl/utility/date-code)</h2>
+        <h2>No Identity (/gmisl/utility/date-code)</h2>
 <pre class="mermaid">
 flowchart LR
   m_13aq3vc_start([Mulai])
   m_13aq3vc_end([Selesai])
-  m_13aq3vc_open["Buka halaman Date Code"]
+  m_13aq3vc_open["Buka halaman No Identity"]
   m_13aq3vc_filter["Set filter (opsional)"]
   m_13aq3vc_load["Load data"]
   m_13aq3vc_action{"Aksi lanjutan?"}
@@ -179,131 +116,149 @@ flowchart LR
       </section>
 
       <section class="page">
-        <h2>Plugging (/gmium/plugging)</h2>
+        <h2>Berita Acara (/gmisl/utility/berita-acara)</h2>
 <pre class="mermaid">
 flowchart LR
-  m_8tgs9f_start([Mulai])
-  m_8tgs9f_end([Selesai])
-  m_8tgs9f_open["Buka Plugging"]
-  m_8tgs9f_create["Create Plugging"]
-  m_8tgs9f_submit["Submit"]
-  m_8tgs9f_list["List + filter + pagination"]
-  m_8tgs9f_del["Delete data"]
-  m_8tgs9f_confirm{"Konfirmasi?"}
-  m_8tgs9f_start --> m_8tgs9f_open
-  m_8tgs9f_open --> m_8tgs9f_list
-  m_8tgs9f_list -->|Tambah| m_8tgs9f_create
-  m_8tgs9f_create --> m_8tgs9f_submit
-  m_8tgs9f_submit --> m_8tgs9f_list
-  m_8tgs9f_list -->|Hapus| m_8tgs9f_del
-  m_8tgs9f_del --> m_8tgs9f_confirm
-  m_8tgs9f_confirm -->|Tidak| m_8tgs9f_list
-  m_8tgs9f_confirm -->|Ya| m_8tgs9f_end
+  m_i5xgqq_start([Mulai])
+  m_i5xgqq_end([Selesai])
+  m_i5xgqq_open["Buka halaman Berita Acara"]
+  m_i5xgqq_filter["Set filter (opsional)"]
+  m_i5xgqq_load["Load data"]
+  m_i5xgqq_action{"Aksi lanjutan?"}
+  m_i5xgqq_export["Export/Download (opsional)"]
+  m_i5xgqq_start --> m_i5xgqq_open
+  m_i5xgqq_open --> m_i5xgqq_filter
+  m_i5xgqq_filter --> m_i5xgqq_load
+  m_i5xgqq_load --> m_i5xgqq_action
+  m_i5xgqq_action -->|Export| m_i5xgqq_export
+  m_i5xgqq_action -->|Selesai| m_i5xgqq_end
+  m_i5xgqq_export --> m_i5xgqq_end
 </pre>
       </section>
 
       <section class="page">
-        <h2>Plugging Approval (/gmium/plugging/approval)</h2>
+        <h2>Stock Card (/gmisl/utility/stock-card)</h2>
 <pre class="mermaid">
 flowchart LR
-  m_s1whsf_start([Mulai])
-  m_s1whsf_end([Selesai])
-  m_s1whsf_open["Buka Plugging Approval"]
-  m_s1whsf_list["List pending + filter + pagination"]
-  m_s1whsf_select["Pilih record"]
-  m_s1whsf_approve{"Approve?"}
-  m_s1whsf_done["Set status approved + simpan tanda tangan"]
-  m_s1whsf_start --> m_s1whsf_open
-  m_s1whsf_open --> m_s1whsf_list
-  m_s1whsf_list --> m_s1whsf_select
-  m_s1whsf_select --> m_s1whsf_approve
-  m_s1whsf_approve -->|Ya| m_s1whsf_done
-  m_s1whsf_approve -->|Tidak| m_s1whsf_list
-  m_s1whsf_done --> m_s1whsf_end
+  m_loys19_start([Mulai])
+  m_loys19_end([Selesai])
+  m_loys19_open["Buka halaman Stock Card"]
+  m_loys19_filter["Set filter (opsional)"]
+  m_loys19_load["Load data"]
+  m_loys19_action{"Aksi lanjutan?"}
+  m_loys19_export["Export/Download (opsional)"]
+  m_loys19_start --> m_loys19_open
+  m_loys19_open --> m_loys19_filter
+  m_loys19_filter --> m_loys19_load
+  m_loys19_load --> m_loys19_action
+  m_loys19_action -->|Export| m_loys19_export
+  m_loys19_action -->|Selesai| m_loys19_end
+  m_loys19_export --> m_loys19_end
 </pre>
       </section>
 
       <section class="page">
-        <h2>Standard Meter (/gmium/resource-monitoring/electricity/standard-meter)</h2>
+        <h2>Purchase Requisition (/gmisl/procurement/purchase-requisition)</h2>
 <pre class="mermaid">
 flowchart LR
-  m_1m3ruhh_start([Mulai])
-  m_1m3ruhh_end([Selesai])
-  m_1m3ruhh_open["Buka halaman Standard Meter"]
-  m_1m3ruhh_filter["Set filter (opsional)"]
-  m_1m3ruhh_load["Load data"]
-  m_1m3ruhh_action{"Aksi lanjutan?"}
-  m_1m3ruhh_export["Export/Download (opsional)"]
-  m_1m3ruhh_start --> m_1m3ruhh_open
-  m_1m3ruhh_open --> m_1m3ruhh_filter
-  m_1m3ruhh_filter --> m_1m3ruhh_load
-  m_1m3ruhh_load --> m_1m3ruhh_action
-  m_1m3ruhh_action -->|Export| m_1m3ruhh_export
-  m_1m3ruhh_action -->|Selesai| m_1m3ruhh_end
-  m_1m3ruhh_export --> m_1m3ruhh_end
+  m_1508u0q_start([Mulai])
+  m_1508u0q_end([Selesai])
+  m_1508u0q_open["Buka halaman Purchase Requisition"]
+  m_1508u0q_filter["Set filter (opsional)"]
+  m_1508u0q_load["Load data"]
+  m_1508u0q_action{"Aksi lanjutan?"}
+  m_1508u0q_export["Export/Download (opsional)"]
+  m_1508u0q_start --> m_1508u0q_open
+  m_1508u0q_open --> m_1508u0q_filter
+  m_1508u0q_filter --> m_1508u0q_load
+  m_1508u0q_load --> m_1508u0q_action
+  m_1508u0q_action -->|Export| m_1508u0q_export
+  m_1508u0q_action -->|Selesai| m_1508u0q_end
+  m_1508u0q_export --> m_1508u0q_end
 </pre>
       </section>
 
       <section class="page">
-        <h2>HV Meter (/gmium/resource-monitoring/electricity/hv-meter)</h2>
+        <h2>Purchase Order (/gmisl/procurement/purchase-order)</h2>
 <pre class="mermaid">
 flowchart LR
-  m_12roqnq_start([Mulai])
-  m_12roqnq_end([Selesai])
-  m_12roqnq_open["Buka halaman HV Meter"]
-  m_12roqnq_filter["Set filter (opsional)"]
-  m_12roqnq_load["Load data"]
-  m_12roqnq_action{"Aksi lanjutan?"}
-  m_12roqnq_export["Export/Download (opsional)"]
-  m_12roqnq_start --> m_12roqnq_open
-  m_12roqnq_open --> m_12roqnq_filter
-  m_12roqnq_filter --> m_12roqnq_load
-  m_12roqnq_load --> m_12roqnq_action
-  m_12roqnq_action -->|Export| m_12roqnq_export
-  m_12roqnq_action -->|Selesai| m_12roqnq_end
-  m_12roqnq_export --> m_12roqnq_end
+  m_ghg3ly_start([Mulai])
+  m_ghg3ly_end([Selesai])
+  m_ghg3ly_open["Buka halaman Purchase Order"]
+  m_ghg3ly_filter["Set filter (opsional)"]
+  m_ghg3ly_load["Load data"]
+  m_ghg3ly_action{"Aksi lanjutan?"}
+  m_ghg3ly_export["Export/Download (opsional)"]
+  m_ghg3ly_start --> m_ghg3ly_open
+  m_ghg3ly_open --> m_ghg3ly_filter
+  m_ghg3ly_filter --> m_ghg3ly_load
+  m_ghg3ly_load --> m_ghg3ly_action
+  m_ghg3ly_action -->|Export| m_ghg3ly_export
+  m_ghg3ly_action -->|Selesai| m_ghg3ly_end
+  m_ghg3ly_export --> m_ghg3ly_end
 </pre>
       </section>
 
       <section class="page">
-        <h2>Water Meter (/gmium/resource-monitoring/water-meter)</h2>
+        <h2>Compress PDF (/gmisl/tools/compress-pdf)</h2>
 <pre class="mermaid">
 flowchart LR
-  m_1t8wnfl_start([Mulai])
-  m_1t8wnfl_end([Selesai])
-  m_1t8wnfl_open["Buka halaman Water Meter"]
-  m_1t8wnfl_filter["Set filter (opsional)"]
-  m_1t8wnfl_load["Load data"]
-  m_1t8wnfl_action{"Aksi lanjutan?"}
-  m_1t8wnfl_export["Export/Download (opsional)"]
-  m_1t8wnfl_start --> m_1t8wnfl_open
-  m_1t8wnfl_open --> m_1t8wnfl_filter
-  m_1t8wnfl_filter --> m_1t8wnfl_load
-  m_1t8wnfl_load --> m_1t8wnfl_action
-  m_1t8wnfl_action -->|Export| m_1t8wnfl_export
-  m_1t8wnfl_action -->|Selesai| m_1t8wnfl_end
-  m_1t8wnfl_export --> m_1t8wnfl_end
+  m_1uk1mzk_start([Mulai])
+  m_1uk1mzk_end([Selesai])
+  m_1uk1mzk_open["Buka halaman Compress PDF"]
+  m_1uk1mzk_filter["Set filter (opsional)"]
+  m_1uk1mzk_load["Load data"]
+  m_1uk1mzk_action{"Aksi lanjutan?"}
+  m_1uk1mzk_export["Export/Download (opsional)"]
+  m_1uk1mzk_start --> m_1uk1mzk_open
+  m_1uk1mzk_open --> m_1uk1mzk_filter
+  m_1uk1mzk_filter --> m_1uk1mzk_load
+  m_1uk1mzk_load --> m_1uk1mzk_action
+  m_1uk1mzk_action -->|Export| m_1uk1mzk_export
+  m_1uk1mzk_action -->|Selesai| m_1uk1mzk_end
+  m_1uk1mzk_export --> m_1uk1mzk_end
 </pre>
       </section>
 
       <section class="page">
-        <h2>Utility Report (/gmium/utility-report)</h2>
+        <h2>Merge PDF (/gmisl/tools/merge-pdf)</h2>
 <pre class="mermaid">
 flowchart LR
-  m_16bsadx_start([Mulai])
-  m_16bsadx_end([Selesai])
-  m_16bsadx_open["Buka halaman Utility Report"]
-  m_16bsadx_filter["Set filter (opsional)"]
-  m_16bsadx_load["Load data"]
-  m_16bsadx_action{"Aksi lanjutan?"}
-  m_16bsadx_export["Export/Download (opsional)"]
-  m_16bsadx_start --> m_16bsadx_open
-  m_16bsadx_open --> m_16bsadx_filter
-  m_16bsadx_filter --> m_16bsadx_load
-  m_16bsadx_load --> m_16bsadx_action
-  m_16bsadx_action -->|Export| m_16bsadx_export
-  m_16bsadx_action -->|Selesai| m_16bsadx_end
-  m_16bsadx_export --> m_16bsadx_end
+  m_1bnbthy_start([Mulai])
+  m_1bnbthy_end([Selesai])
+  m_1bnbthy_open["Buka halaman Merge PDF"]
+  m_1bnbthy_filter["Set filter (opsional)"]
+  m_1bnbthy_load["Load data"]
+  m_1bnbthy_action{"Aksi lanjutan?"}
+  m_1bnbthy_export["Export/Download (opsional)"]
+  m_1bnbthy_start --> m_1bnbthy_open
+  m_1bnbthy_open --> m_1bnbthy_filter
+  m_1bnbthy_filter --> m_1bnbthy_load
+  m_1bnbthy_load --> m_1bnbthy_action
+  m_1bnbthy_action -->|Export| m_1bnbthy_export
+  m_1bnbthy_action -->|Selesai| m_1bnbthy_end
+  m_1bnbthy_export --> m_1bnbthy_end
+</pre>
+      </section>
+
+      <section class="page">
+        <h2>Split PDF (/gmisl/tools/split-pdf)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_jfu0mm_start([Mulai])
+  m_jfu0mm_end([Selesai])
+  m_jfu0mm_open["Buka halaman Split PDF"]
+  m_jfu0mm_filter["Set filter (opsional)"]
+  m_jfu0mm_load["Load data"]
+  m_jfu0mm_action{"Aksi lanjutan?"}
+  m_jfu0mm_export["Export/Download (opsional)"]
+  m_jfu0mm_start --> m_jfu0mm_open
+  m_jfu0mm_open --> m_jfu0mm_filter
+  m_jfu0mm_filter --> m_jfu0mm_load
+  m_jfu0mm_load --> m_jfu0mm_action
+  m_jfu0mm_action -->|Export| m_jfu0mm_export
+  m_jfu0mm_action -->|Selesai| m_jfu0mm_end
+  m_jfu0mm_export --> m_jfu0mm_end
 </pre>
       </section>
 
@@ -350,6 +305,27 @@ flowchart LR
       </section>
 
       <section class="page">
+        <h2>Checklist (/gmiic/checklist)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_1r887za_start([Mulai])
+  m_1r887za_end([Selesai])
+  m_1r887za_open["Buka halaman Checklist"]
+  m_1r887za_filter["Set filter (opsional)"]
+  m_1r887za_load["Load data"]
+  m_1r887za_action{"Aksi lanjutan?"}
+  m_1r887za_export["Export/Download (opsional)"]
+  m_1r887za_start --> m_1r887za_open
+  m_1r887za_open --> m_1r887za_filter
+  m_1r887za_filter --> m_1r887za_load
+  m_1r887za_load --> m_1r887za_action
+  m_1r887za_action -->|Export| m_1r887za_export
+  m_1r887za_action -->|Selesai| m_1r887za_end
+  m_1r887za_export --> m_1r887za_end
+</pre>
+      </section>
+
+      <section class="page">
         <h2>Attendance Log (/attendance-log)</h2>
 <pre class="mermaid">
 flowchart LR
@@ -374,6 +350,48 @@ flowchart LR
   m_17f6zvu_list -->|Export?| m_17f6zvu_export
   m_17f6zvu_export --> m_17f6zvu_end
   m_17f6zvu_list --> m_17f6zvu_end
+</pre>
+      </section>
+
+      <section class="page">
+        <h2>Absensi (/absensi)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_4rq1lx_start([Mulai])
+  m_4rq1lx_end([Selesai])
+  m_4rq1lx_open["Buka halaman Absensi"]
+  m_4rq1lx_filter["Set filter (opsional)"]
+  m_4rq1lx_load["Load data"]
+  m_4rq1lx_action{"Aksi lanjutan?"}
+  m_4rq1lx_export["Export/Download (opsional)"]
+  m_4rq1lx_start --> m_4rq1lx_open
+  m_4rq1lx_open --> m_4rq1lx_filter
+  m_4rq1lx_filter --> m_4rq1lx_load
+  m_4rq1lx_load --> m_4rq1lx_action
+  m_4rq1lx_action -->|Export| m_4rq1lx_export
+  m_4rq1lx_action -->|Selesai| m_4rq1lx_end
+  m_4rq1lx_export --> m_4rq1lx_end
+</pre>
+      </section>
+
+      <section class="page">
+        <h2>Attendance Approval (/attendance-approval)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_1sftbuz_start([Mulai])
+  m_1sftbuz_end([Selesai])
+  m_1sftbuz_open["Buka halaman Attendance Approval"]
+  m_1sftbuz_filter["Set filter (opsional)"]
+  m_1sftbuz_load["Load data"]
+  m_1sftbuz_action{"Aksi lanjutan?"}
+  m_1sftbuz_export["Export/Download (opsional)"]
+  m_1sftbuz_start --> m_1sftbuz_open
+  m_1sftbuz_open --> m_1sftbuz_filter
+  m_1sftbuz_filter --> m_1sftbuz_load
+  m_1sftbuz_load --> m_1sftbuz_action
+  m_1sftbuz_action -->|Export| m_1sftbuz_export
+  m_1sftbuz_action -->|Selesai| m_1sftbuz_end
+  m_1sftbuz_export --> m_1sftbuz_end
 </pre>
       </section>
 
@@ -565,27 +583,6 @@ flowchart LR
       </section>
 
       <section class="page">
-        <h2>Download FingerPrint (/download-fingerprint)</h2>
-<pre class="mermaid">
-flowchart LR
-  m_qfd9kv_start([Mulai])
-  m_qfd9kv_end([Selesai])
-  m_qfd9kv_open["Buka halaman Download FingerPrint"]
-  m_qfd9kv_filter["Set filter (opsional)"]
-  m_qfd9kv_load["Load data"]
-  m_qfd9kv_action{"Aksi lanjutan?"}
-  m_qfd9kv_export["Export/Download (opsional)"]
-  m_qfd9kv_start --> m_qfd9kv_open
-  m_qfd9kv_open --> m_qfd9kv_filter
-  m_qfd9kv_filter --> m_qfd9kv_load
-  m_qfd9kv_load --> m_qfd9kv_action
-  m_qfd9kv_action -->|Export| m_qfd9kv_export
-  m_qfd9kv_action -->|Selesai| m_qfd9kv_end
-  m_qfd9kv_export --> m_qfd9kv_end
-</pre>
-      </section>
-
-      <section class="page">
         <h2>Customer (/master-data/customer)</h2>
 <pre class="mermaid">
 flowchart LR
@@ -618,6 +615,42 @@ flowchart LR
   m_aqj8dw_confirm -->|Tidak| m_aqj8dw_action
   m_aqj8dw_save --> m_aqj8dw_refresh
   m_aqj8dw_refresh --> m_aqj8dw_end
+</pre>
+      </section>
+
+      <section class="page">
+        <h2>Supplier (/master-data/supplier)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_17dm14c_start([Mulai])
+  m_17dm14c_end([Selesai])
+  m_17dm14c_open["Buka halaman Supplier"]
+  m_17dm14c_load["Load data + filter + pagination"]
+  m_17dm14c_action{"Pilih aksi?"}
+  m_17dm14c_create["Tambah data"]
+  m_17dm14c_edit["Edit data"]
+  m_17dm14c_delete["Hapus data"]
+  m_17dm14c_confirm{"Konfirmasi?"}
+  m_17dm14c_validate["Validasi input"]
+  m_17dm14c_save["Simpan ke database"]
+  m_17dm14c_refresh["Reload list"]
+  m_17dm14c_error["Tampilkan error"]
+  m_17dm14c_start --> m_17dm14c_open
+  m_17dm14c_open --> m_17dm14c_load
+  m_17dm14c_load --> m_17dm14c_action
+  m_17dm14c_action -->|Tambah| m_17dm14c_create
+  m_17dm14c_action -->|Edit| m_17dm14c_edit
+  m_17dm14c_action -->|Hapus| m_17dm14c_delete
+  m_17dm14c_create --> m_17dm14c_validate
+  m_17dm14c_edit --> m_17dm14c_validate
+  m_17dm14c_validate -->|Valid| m_17dm14c_save
+  m_17dm14c_validate -->|Tidak valid| m_17dm14c_error
+  m_17dm14c_error --> m_17dm14c_action
+  m_17dm14c_delete --> m_17dm14c_confirm
+  m_17dm14c_confirm -->|Ya| m_17dm14c_save
+  m_17dm14c_confirm -->|Tidak| m_17dm14c_action
+  m_17dm14c_save --> m_17dm14c_refresh
+  m_17dm14c_refresh --> m_17dm14c_end
 </pre>
       </section>
 
@@ -766,6 +799,150 @@ flowchart LR
       </section>
 
       <section class="page">
+        <h2>Stock Card (/master-data/stock-card)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_13j7nhr_start([Mulai])
+  m_13j7nhr_end([Selesai])
+  m_13j7nhr_open["Buka halaman Stock Card"]
+  m_13j7nhr_load["Load data + filter + pagination"]
+  m_13j7nhr_action{"Pilih aksi?"}
+  m_13j7nhr_create["Tambah data"]
+  m_13j7nhr_edit["Edit data"]
+  m_13j7nhr_delete["Hapus data"]
+  m_13j7nhr_confirm{"Konfirmasi?"}
+  m_13j7nhr_validate["Validasi input"]
+  m_13j7nhr_save["Simpan ke database"]
+  m_13j7nhr_refresh["Reload list"]
+  m_13j7nhr_error["Tampilkan error"]
+  m_13j7nhr_start --> m_13j7nhr_open
+  m_13j7nhr_open --> m_13j7nhr_load
+  m_13j7nhr_load --> m_13j7nhr_action
+  m_13j7nhr_action -->|Tambah| m_13j7nhr_create
+  m_13j7nhr_action -->|Edit| m_13j7nhr_edit
+  m_13j7nhr_action -->|Hapus| m_13j7nhr_delete
+  m_13j7nhr_create --> m_13j7nhr_validate
+  m_13j7nhr_edit --> m_13j7nhr_validate
+  m_13j7nhr_validate -->|Valid| m_13j7nhr_save
+  m_13j7nhr_validate -->|Tidak valid| m_13j7nhr_error
+  m_13j7nhr_error --> m_13j7nhr_action
+  m_13j7nhr_delete --> m_13j7nhr_confirm
+  m_13j7nhr_confirm -->|Ya| m_13j7nhr_save
+  m_13j7nhr_confirm -->|Tidak| m_13j7nhr_action
+  m_13j7nhr_save --> m_13j7nhr_refresh
+  m_13j7nhr_refresh --> m_13j7nhr_end
+</pre>
+      </section>
+
+      <section class="page">
+        <h2>Jenis/Tipe Barang (/master-data/stock-card-item-type)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_ja66pc_start([Mulai])
+  m_ja66pc_end([Selesai])
+  m_ja66pc_open["Buka halaman Jenis/Tipe Barang"]
+  m_ja66pc_load["Load data + filter + pagination"]
+  m_ja66pc_action{"Pilih aksi?"}
+  m_ja66pc_create["Tambah data"]
+  m_ja66pc_edit["Edit data"]
+  m_ja66pc_delete["Hapus data"]
+  m_ja66pc_confirm{"Konfirmasi?"}
+  m_ja66pc_validate["Validasi input"]
+  m_ja66pc_save["Simpan ke database"]
+  m_ja66pc_refresh["Reload list"]
+  m_ja66pc_error["Tampilkan error"]
+  m_ja66pc_start --> m_ja66pc_open
+  m_ja66pc_open --> m_ja66pc_load
+  m_ja66pc_load --> m_ja66pc_action
+  m_ja66pc_action -->|Tambah| m_ja66pc_create
+  m_ja66pc_action -->|Edit| m_ja66pc_edit
+  m_ja66pc_action -->|Hapus| m_ja66pc_delete
+  m_ja66pc_create --> m_ja66pc_validate
+  m_ja66pc_edit --> m_ja66pc_validate
+  m_ja66pc_validate -->|Valid| m_ja66pc_save
+  m_ja66pc_validate -->|Tidak valid| m_ja66pc_error
+  m_ja66pc_error --> m_ja66pc_action
+  m_ja66pc_delete --> m_ja66pc_confirm
+  m_ja66pc_confirm -->|Ya| m_ja66pc_save
+  m_ja66pc_confirm -->|Tidak| m_ja66pc_action
+  m_ja66pc_save --> m_ja66pc_refresh
+  m_ja66pc_refresh --> m_ja66pc_end
+</pre>
+      </section>
+
+      <section class="page">
+        <h2>Master UoM (/master-data/stock-card-unit)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_156bo5s_start([Mulai])
+  m_156bo5s_end([Selesai])
+  m_156bo5s_open["Buka halaman Master UoM"]
+  m_156bo5s_load["Load data + filter + pagination"]
+  m_156bo5s_action{"Pilih aksi?"}
+  m_156bo5s_create["Tambah data"]
+  m_156bo5s_edit["Edit data"]
+  m_156bo5s_delete["Hapus data"]
+  m_156bo5s_confirm{"Konfirmasi?"}
+  m_156bo5s_validate["Validasi input"]
+  m_156bo5s_save["Simpan ke database"]
+  m_156bo5s_refresh["Reload list"]
+  m_156bo5s_error["Tampilkan error"]
+  m_156bo5s_start --> m_156bo5s_open
+  m_156bo5s_open --> m_156bo5s_load
+  m_156bo5s_load --> m_156bo5s_action
+  m_156bo5s_action -->|Tambah| m_156bo5s_create
+  m_156bo5s_action -->|Edit| m_156bo5s_edit
+  m_156bo5s_action -->|Hapus| m_156bo5s_delete
+  m_156bo5s_create --> m_156bo5s_validate
+  m_156bo5s_edit --> m_156bo5s_validate
+  m_156bo5s_validate -->|Valid| m_156bo5s_save
+  m_156bo5s_validate -->|Tidak valid| m_156bo5s_error
+  m_156bo5s_error --> m_156bo5s_action
+  m_156bo5s_delete --> m_156bo5s_confirm
+  m_156bo5s_confirm -->|Ya| m_156bo5s_save
+  m_156bo5s_confirm -->|Tidak| m_156bo5s_action
+  m_156bo5s_save --> m_156bo5s_refresh
+  m_156bo5s_refresh --> m_156bo5s_end
+</pre>
+      </section>
+
+      <section class="page">
+        <h2>Area Absensi (/master-data/attendance-lock-area)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_83q719_start([Mulai])
+  m_83q719_end([Selesai])
+  m_83q719_open["Buka halaman Area Absensi"]
+  m_83q719_load["Load data + filter + pagination"]
+  m_83q719_action{"Pilih aksi?"}
+  m_83q719_create["Tambah data"]
+  m_83q719_edit["Edit data"]
+  m_83q719_delete["Hapus data"]
+  m_83q719_confirm{"Konfirmasi?"}
+  m_83q719_validate["Validasi input"]
+  m_83q719_save["Simpan ke database"]
+  m_83q719_refresh["Reload list"]
+  m_83q719_error["Tampilkan error"]
+  m_83q719_start --> m_83q719_open
+  m_83q719_open --> m_83q719_load
+  m_83q719_load --> m_83q719_action
+  m_83q719_action -->|Tambah| m_83q719_create
+  m_83q719_action -->|Edit| m_83q719_edit
+  m_83q719_action -->|Hapus| m_83q719_delete
+  m_83q719_create --> m_83q719_validate
+  m_83q719_edit --> m_83q719_validate
+  m_83q719_validate -->|Valid| m_83q719_save
+  m_83q719_validate -->|Tidak valid| m_83q719_error
+  m_83q719_error --> m_83q719_action
+  m_83q719_delete --> m_83q719_confirm
+  m_83q719_confirm -->|Ya| m_83q719_save
+  m_83q719_confirm -->|Tidak| m_83q719_action
+  m_83q719_save --> m_83q719_refresh
+  m_83q719_refresh --> m_83q719_end
+</pre>
+      </section>
+
+      <section class="page">
         <h2>Users (/control-panel/user)</h2>
 <pre class="mermaid">
 flowchart LR
@@ -830,6 +1007,48 @@ flowchart LR
   m_1nmo5ie_filter --> m_1nmo5ie_list
   m_1nmo5ie_list --> m_1nmo5ie_view
   m_1nmo5ie_view --> m_1nmo5ie_end
+</pre>
+      </section>
+
+      <section class="page">
+        <h2>Access Rules (/control-panel/access-rules)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_l4xqd_start([Mulai])
+  m_l4xqd_end([Selesai])
+  m_l4xqd_open["Buka halaman Access Rules"]
+  m_l4xqd_filter["Set filter (opsional)"]
+  m_l4xqd_load["Load data"]
+  m_l4xqd_action{"Aksi lanjutan?"}
+  m_l4xqd_export["Export/Download (opsional)"]
+  m_l4xqd_start --> m_l4xqd_open
+  m_l4xqd_open --> m_l4xqd_filter
+  m_l4xqd_filter --> m_l4xqd_load
+  m_l4xqd_load --> m_l4xqd_action
+  m_l4xqd_action -->|Export| m_l4xqd_export
+  m_l4xqd_action -->|Selesai| m_l4xqd_end
+  m_l4xqd_export --> m_l4xqd_end
+</pre>
+      </section>
+
+      <section class="page">
+        <h2>Database Backup (/control-panel/database-backup)</h2>
+<pre class="mermaid">
+flowchart LR
+  m_306gl_start([Mulai])
+  m_306gl_end([Selesai])
+  m_306gl_open["Buka halaman Database Backup"]
+  m_306gl_filter["Set filter (opsional)"]
+  m_306gl_load["Load data"]
+  m_306gl_action{"Aksi lanjutan?"}
+  m_306gl_export["Export/Download (opsional)"]
+  m_306gl_start --> m_306gl_open
+  m_306gl_open --> m_306gl_filter
+  m_306gl_filter --> m_306gl_load
+  m_306gl_load --> m_306gl_action
+  m_306gl_action -->|Export| m_306gl_export
+  m_306gl_action -->|Selesai| m_306gl_end
+  m_306gl_export --> m_306gl_end
 </pre>
       </section>
   </body>

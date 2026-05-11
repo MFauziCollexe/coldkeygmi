@@ -216,29 +216,6 @@ class OpenAIHelpAssistantService
                 '- Jelaskan alur stock in, request item, dan approval dengan hati-hati sesuai role user.',
                 '- Jika user bertanya kenapa request tidak bisa diproses, arahkan ke status request dan permission approval.',
             ],
-            'plugging' => [
-                'Fokus Plugging:',
-                '- Plugging dipakai untuk pengajuan, pengeditan, dan approval aktivitas plugging.',
-                '- Istilah penting: create, edit, approval, approval index, status approved/pending.',
-                '- Jika user bertanya kenapa belum approved, arahkan ke status approval dan pihak approver terkait.',
-            ],
-            'electricity' => [
-                'Fokus Electricity Meter:',
-                '- Modul ini dipakai untuk input, edit, dan export data meter listrik standard atau HV.',
-                '- Jika user bertanya halaman meter, fokus ke pencatatan angka meter, edit log, dan export data.',
-                '- Jangan mengarang perhitungan yang tidak terlihat jelas dari konteks halaman.',
-            ],
-            'water_meter' => [
-                'Fokus Water Meter:',
-                '- Modul ini dipakai untuk input, edit, dan export data water meter.',
-                '- Fokus pada pencatatan angka meter, pembaruan log, dan export jika user menanyakan langkah penggunaan.',
-            ],
-            'utility_report' => [
-                'Fokus Utility Report:',
-                '- Utility Report dipakai untuk melihat ringkasan atau laporan data utility.',
-                '- Saat user bertanya arti data, jelaskan bahwa laporan biasanya merangkum data dari modul monitoring terkait.',
-                '- Jika detail sumber data tidak pasti, jelaskan dengan hati-hati sebagai inferensi.',
-            ],
             'visitor_form' => [
                 'Fokus Visitor Form:',
                 '- Visitor Form dipakai untuk pengajuan atau pencatatan kunjungan tamu.',
@@ -354,15 +331,6 @@ class OpenAIHelpAssistantService
                 default => 'Halaman daftar berita acara.',
             },
             'stock_card' => 'Halaman stock card.',
-            'plugging' => match (true) {
-                str_contains($value, 'approval') => 'Halaman approval plugging.',
-                str_contains($value, 'create') => 'Halaman pembuatan plugging.',
-                str_contains($value, 'edit') => 'Halaman edit plugging.',
-                default => 'Halaman daftar plugging.',
-            },
-            'electricity' => 'Halaman monitoring meter listrik.',
-            'water_meter' => 'Halaman monitoring water meter.',
-            'utility_report' => 'Halaman utility report.',
             'visitor_form' => match (true) {
                 str_contains($value, 'create') => 'Halaman pembuatan visitor form.',
                 default => 'Halaman daftar visitor form.',
@@ -420,9 +388,6 @@ class OpenAIHelpAssistantService
             str_contains($value, 'gmisl/utility/requestaccess/create') || str_contains($value, 'request-access/create') => [
                 '- Halaman ini fokus pada pembuatan request access beserta jenis request, target user, department, dan alasan.',
             ],
-            str_contains($value, 'gmium/plugging/approval') || str_contains($value, 'plugging/approval') => [
-                '- Halaman ini fokus pada proses approval plugging dan pemahaman status approval yang berjalan.',
-            ],
             str_contains($value, 'controlpanel/logs') || str_contains($value, 'control-panel/logs') => [
                 '- Halaman ini fokus pada pembacaan log aktivitas, pencarian log, dan tindakan administratif terkait log bila user berwenang.',
             ],
@@ -449,10 +414,6 @@ class OpenAIHelpAssistantService
             'Berita Acara: daftar, create, detail, print, download PDF, delete bila berwenang.',
             'Date Code: bantu membaca atau mengolah kode tanggal.',
             'Stock Card: master item, stok masuk, request stock, approve request, histori stok.',
-            'Plugging: create, edit, approval, export, dan laporan aktivitas plugging.',
-            'Electricity Meter: standard meter dan HV meter untuk input, edit, export log.',
-            'Water Meter: input, edit, export log meter air.',
-            'Utility Report: ringkasan atau laporan data utility.',
             'Visitor Form: create dan daftar visitor form beserta approval.',
             'Exit Permit: create dan daftar exit permit beserta update status/approval.',
             'Master Data: department, position, employee, customer, vehicle type, stock card reference, attendance lock area, dan data referensi lain.',
@@ -475,8 +436,6 @@ class OpenAIHelpAssistantService
             'Check Inline: index daftar data, create/store buat entri, show membuka edit/detail, update revisi data dan gambar.',
             'Berita Acara: index daftar dokumen, create/store buat dokumen, show detail, print tampilan cetak, downloadPdf unduh PDF, destroy hapus dokumen jika berwenang.',
             'Stock Card: masterIndex/storeItem/updateItem kelola master barang, index lihat kartu stok dan pending request, storeStockIn tambah stok masuk, storeRequest buat permintaan stok, approveRequest setujui permintaan stok.',
-            'Plugging: index daftar, create/store buat data, edit/update revisi, approvalIndex daftar approval, approve set status selesai + PIC/signature, destroy hapus, export unduh CSV.',
-            'Electricity/Water Meter: index lihat log, store tambah log, update revisi log, export unduh data untuk meter yang mendukung export.',
             'Visitor Form: index daftar, create/store buat form tamu, approve approval form, updateStatus ubah status kunjungan.',
             'Exit Permit: index daftar, create/store buat permit, approve setujui permit.',
             'Master Data: department/customer/vehicle type/position/employee/user/item type/unit/attendance lock area pada umumnya punya pola index, create/store, edit/update, destroy; employee juga punya resign/cancelResign/faceReferencePhoto.',

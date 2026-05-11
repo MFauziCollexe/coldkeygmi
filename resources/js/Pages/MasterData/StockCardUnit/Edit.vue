@@ -2,7 +2,7 @@
   <AppLayout>
     <div class="max-w-3xl p-4 md:p-6">
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 class="text-2xl font-bold">Edit Satuan Stock Card</h2>
+        <h2 class="text-2xl font-bold">Edit UoM</h2>
         <Link href="/master-data/stock-card-unit" class="text-indigo-400">Back to list</Link>
       </div>
 

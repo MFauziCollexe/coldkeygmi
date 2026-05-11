@@ -194,77 +194,6 @@ Route::delete('gmisl/tools/split-pdf/{splitPdfJob}', [App\Http\Controllers\Split
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':tools.split_pdf'])
     ->name('split-pdf.delete');
 
-// GMIUM - Plugging
-Route::get('gmium/plugging', [App\Http\Controllers\PluggingController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging'])
-    ->name('plugging.index');
-Route::get('gmium/plugging/approval', [App\Http\Controllers\PluggingController::class, 'approvalIndex'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging.approval'])
-    ->name('plugging.approval.index');
-Route::get('gmium/plugging/create', [App\Http\Controllers\PluggingController::class, 'create'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging'])
-    ->name('plugging.create');
-Route::post('gmium/plugging', [App\Http\Controllers\PluggingController::class, 'store'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging'])
-    ->name('plugging.store');
-Route::get('gmium/plugging/{plugging}/edit', [App\Http\Controllers\PluggingController::class, 'edit'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging'])
-    ->name('plugging.edit');
-Route::put('gmium/plugging/{plugging}', [App\Http\Controllers\PluggingController::class, 'update'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging'])
-    ->name('plugging.update');
-Route::put('gmium/plugging/{plugging}/approve', [App\Http\Controllers\PluggingController::class, 'approve'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging.approval'])
-    ->name('plugging.approve');
-Route::delete('gmium/plugging/{plugging}', [App\Http\Controllers\PluggingController::class, 'destroy'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging'])
-    ->name('plugging.destroy');
-Route::get('gmium/plugging-export', [App\Http\Controllers\PluggingController::class, 'export'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.plugging'])
-    ->name('plugging.export');
-
-// GMIUM - Resource Monitoring - Electricity - Standard Meter
-Route::get('gmium/resource-monitoring/electricity/standard-meter', [App\Http\Controllers\ElectricityStandardMeterController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.electricity.standard_meter'])
-    ->name('gmium.resource-monitoring.electricity.standard-meter.index');
-Route::post('gmium/resource-monitoring/electricity/standard-meter', [App\Http\Controllers\ElectricityStandardMeterController::class, 'store'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.electricity.standard_meter'])
-    ->name('gmium.resource-monitoring.electricity.standard-meter.store');
-Route::put('gmium/resource-monitoring/electricity/standard-meter/{log}', [App\Http\Controllers\ElectricityStandardMeterController::class, 'update'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.electricity.standard_meter'])
-    ->name('gmium.resource-monitoring.electricity.standard-meter.update');
-Route::get('gmium/resource-monitoring/electricity/hv-meter', [App\Http\Controllers\ElectricityHvMeterController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.electricity.hv_meter'])
-    ->name('gmium.resource-monitoring.electricity.hv-meter.index');
-Route::post('gmium/resource-monitoring/electricity/hv-meter', [App\Http\Controllers\ElectricityHvMeterController::class, 'store'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.electricity.hv_meter'])
-    ->name('gmium.resource-monitoring.electricity.hv-meter.store');
-Route::put('gmium/resource-monitoring/electricity/hv-meter/{log}', [App\Http\Controllers\ElectricityHvMeterController::class, 'update'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.electricity.hv_meter'])
-    ->name('gmium.resource-monitoring.electricity.hv-meter.update');
-Route::get('gmium/resource-monitoring/electricity/hv-meter/export', [App\Http\Controllers\ElectricityHvMeterController::class, 'export'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.electricity.hv_meter'])
-    ->name('gmium.resource-monitoring.electricity.hv-meter.export');
-
-// GMIUM - Resource Monitoring - Water Meter
-Route::get('gmium/resource-monitoring/water-meter', [App\Http\Controllers\WaterMeterController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.water_meter'])
-    ->name('gmium.resource-monitoring.water-meter.index');
-Route::post('gmium/resource-monitoring/water-meter', [App\Http\Controllers\WaterMeterController::class, 'store'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.water_meter'])
-    ->name('gmium.resource-monitoring.water-meter.store');
-Route::put('gmium/resource-monitoring/water-meter/{log}', [App\Http\Controllers\WaterMeterController::class, 'update'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.water_meter'])
-    ->name('gmium.resource-monitoring.water-meter.update');
-Route::get('gmium/resource-monitoring/water-meter/export', [App\Http\Controllers\WaterMeterController::class, 'export'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.resource_monitoring.water_meter'])
-    ->name('gmium.resource-monitoring.water-meter.export');
-
-// GMIUM - Utility Report
-Route::get('gmium/utility-report', [App\Http\Controllers\UtilityReportController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmium.utility_report'])
-    ->name('gmium.utility-report.index');
-
 // GMIIC - Checklist
 Route::get('gmiic/checklist', [App\Http\Controllers\ChecklistEntryController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
@@ -330,6 +259,25 @@ Route::post('request-access/{requestAccess}/process', [App\Http\Controllers\Requ
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.request_access'])
     ->name('request-access.process');
 
+// Purchase Requisition (GMISL > Procurement > Purchase Requisition)
+Route::get('gmisl/procurement/purchase-requisition', [App\Http\Controllers\PurchaseRequisitionController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.index');
+Route::post('gmisl/procurement/purchase-requisition', [App\Http\Controllers\PurchaseRequisitionController::class, 'store'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.store');
+Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/approve', [App\Http\Controllers\PurchaseRequisitionController::class, 'approve'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.approve');
+
+// Purchase Order (GMISL > Procurement > Purchase Order)
+Route::get('gmisl/procurement/purchase-order', [App\Http\Controllers\PurchaseOrderListController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
+    ->name('purchase-order.index');
+Route::post('gmisl/procurement/purchase-order/{purchaseRequisition}/process', [App\Http\Controllers\PurchaseOrderListController::class, 'process'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
+    ->name('purchase-order.process');
+
 // Master Data - Department (route: /master-data/department)
 Route::resource('master-data/department', DepartmentController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.department'])
@@ -339,6 +287,12 @@ Route::resource('master-data/department', DepartmentController::class)
 Route::resource('master-data/customer', CustomerController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.customer'])
     ->names('customers');
+
+// Master Data - Supplier (route: /master-data/supplier)
+Route::resource('master-data/supplier', App\Http\Controllers\SupplierController::class)
+    ->except(['show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->names('suppliers');
 
 // Master Data - Vehicle Type (route: /master-data/vehicle-type)
 Route::resource('master-data/vehicle-type', VehicleTypeController::class)

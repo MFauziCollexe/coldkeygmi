@@ -5,9 +5,10 @@ return [
         'key' => 'gmisl',
         'label' => 'GMISL',
         'children' => [
-            ['key' => 'gmisl.report_accounting', 'label' => 'Report Accounting'],
-            ['key' => 'gmisl.hpp', 'label' => 'HPP'],
-            ['key' => 'gmisl.purchasing', 'label' => 'Purchasing'],
+            ['key' => 'gmisl.procurement', 'label' => 'Procurement', 'children' => [
+                ['key' => 'gmisl.procurement.purchase_requisition', 'label' => 'Purchase Requisition'],
+                ['key' => 'gmisl.procurement.purchase_order', 'label' => 'Purchase Order'],
+            ]],
             ['key' => 'gmisl.utility', 'label' => 'Utility', 'children' => [
                 ['key' => 'utility.tickets', 'label' => 'Tickets'],
                 ['key' => 'utility.request_access', 'label' => 'Request Access'],
@@ -28,30 +29,15 @@ return [
         'label' => 'Master Data',
         'children' => [
             ['key' => 'gmisl.master_data.customer', 'label' => 'Customer'],
+            ['key' => 'gmisl.master_data.supplier', 'label' => 'Supplier'],
             ['key' => 'gmisl.master_data.employee', 'label' => 'Employee'],
             ['key' => 'gmisl.master_data.department', 'label' => 'Department'],
             ['key' => 'gmisl.master_data.position', 'label' => 'Position'],
             ['key' => 'gmisl.master_data.vehicle_type', 'label' => 'Jenis Kendaraan'],
             ['key' => 'gmisl.master_data.stock_card', 'label' => 'Stock Card'],
             ['key' => 'gmisl.master_data.stock_card_item_type', 'label' => 'Jenis/Tipe Barang'],
-            ['key' => 'gmisl.master_data.stock_card_unit', 'label' => 'Satuan Stock Card'],
+            ['key' => 'gmisl.master_data.stock_card_unit', 'label' => 'Master UoM'],
             ['key' => 'gmisl.master_data.attendance_lock_area', 'label' => 'Area Absensi'],
-        ],
-    ],
-    [
-        'key' => 'gmium',
-        'label' => 'GMIUM',
-        'children' => [
-            ['key' => 'gmium.plugging', 'label' => 'Plugging'],
-            ['key' => 'gmium.plugging.approval', 'label' => 'Plugging Approval'],
-            ['key' => 'gmium.resource_monitoring', 'label' => 'Resource Monitoring', 'children' => [
-                ['key' => 'gmium.resource_monitoring.electricity', 'label' => 'Electricity', 'children' => [
-                    ['key' => 'gmium.resource_monitoring.electricity.hv_meter', 'label' => 'HV Meter'],
-                    ['key' => 'gmium.resource_monitoring.electricity.standard_meter', 'label' => 'Standard Meter'],
-                ]],
-                ['key' => 'gmium.resource_monitoring.water_meter', 'label' => 'Water Meter'],
-            ]],
-            ['key' => 'gmium.utility_report', 'label' => 'Utility Report'],
         ],
     ],
     [

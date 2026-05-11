@@ -47,7 +47,7 @@ class SetupAdminPermissions extends Command
     {
         $keys = [];
         foreach ($modules as $module) {
-            // Use key directly - config keys are already complete (gmisl.report_accounting, not just report_accounting)
+            // Use the configured module key directly.
             $keys[] = $module['key'];
 
             if (isset($module['children']) && !empty($module['children'])) {

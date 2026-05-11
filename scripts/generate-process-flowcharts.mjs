@@ -274,50 +274,6 @@ function flowForLeaf(leaf) {
     link(list, setCurrent);
     link(setCurrent, end, 'Ya');
     link(setCurrent, list, 'Tidak');
-  } else if (route === '/gmium/plugging') {
-    const open = nid('open');
-    const create = nid('create');
-    const submit = nid('submit');
-    const list = nid('list');
-    const del = nid('del');
-    const confirm = nid('confirm');
-
-    nodeProc(open, 'Buka Plugging');
-    nodeProc(create, 'Create Plugging');
-    nodeProc(submit, 'Submit');
-    nodeData(list, 'List + filter + pagination');
-    nodeProc(del, 'Delete data');
-    nodeDecision(confirm, 'Konfirmasi?');
-
-    link(start, open);
-    link(open, list);
-    link(list, create, 'Tambah');
-    link(create, submit);
-    link(submit, list);
-    link(list, del, 'Hapus');
-    link(del, confirm);
-    link(confirm, list, 'Tidak');
-    link(confirm, end, 'Ya');
-  } else if (route === '/gmium/plugging/approval') {
-    const open = nid('open');
-    const list = nid('list');
-    const select = nid('select');
-    const approve = nid('approve');
-    const done = nid('done');
-
-    nodeProc(open, 'Buka Plugging Approval');
-    nodeData(list, 'List pending + filter + pagination');
-    nodeProc(select, 'Pilih record');
-    nodeDecision(approve, 'Approve?');
-    nodeProc(done, 'Set status approved + simpan tanda tangan');
-
-    link(start, open);
-    link(open, list);
-    link(list, select);
-    link(select, approve);
-    link(approve, done, 'Ya');
-    link(approve, list, 'Tidak');
-    link(done, end);
   } else if (route === '/control-panel/user') {
     const open = nid('open');
     const list = nid('list');

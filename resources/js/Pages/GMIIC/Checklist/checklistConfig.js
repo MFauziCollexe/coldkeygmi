@@ -600,7 +600,7 @@ export const maintenanceDailySections = [
       'Tidak ada alarm/error',
       'Suara mesin normal (tidak berisik/aneh)',
       'Getaran normal',
-      'Tekanan amonia normal',
+      'Tekanan freon normal',
     ],
   },
   {
@@ -609,27 +609,14 @@ export const maintenanceDailySections = [
     title: 'B. EVAPORATOR',
     items: [
       'Evaporator bersih (tidak ada es)',
-      'Kipas evaporator berfungsi normal',
-      'Suhu sesuai setting',
-      'Proses defrost berjalan sesuai jadwal',
-    ],
-  },
-  {
-    id: 'kondensor',
-    area_id: 'lantai_1_area_belakang',
-    title: 'C. KONDENSOR',
-    items: [
-      'Kondensor bersih',
-      'Kipas kondensor berfungsi normal',
-      'Tekanan dan suhu kondensor berjalan normal',
-      'Tidak ada kebocoran refrigeran',
-      'Sirkulasi udara normal/tidak terhalang',
+      'Kipas evaporator berfungsi',
+      'Aliran udara lancar',
     ],
   },
   {
     id: 'sistem_drainase',
     area_id: 'lantai_1_area_belakang',
-    title: 'D. SISTEM DRAINASE',
+    title: 'C. SISTEM DRAINASE',
     items: [
       'Saluran drain tidak tersumbat',
       'Tidak ada genangan air/es',
@@ -639,12 +626,26 @@ export const maintenanceDailySections = [
   {
     id: 'kelistrikan',
     area_id: 'lantai_1_area_belakang',
-    title: 'E. KELISTRIKAN',
+    title: 'D. KELISTRIKAN',
     items: [
       'Panel listrik normal (tidak panas)',
       'Kabel tidak rusak',
-      'MCB/proteksi berfungsi normal',
+      'MCB/proteksi berfungsi',
       'Tidak ada bau terbakar',
+    ],
+  },
+  {
+    id: 'genset',
+    area_id: 'lantai_1_area_belakang',
+    title: 'E. GENSET',
+    items: [
+      'Oli Mesin',
+      'Filter Oli',
+      'Filter Solar',
+      'Air Radiator',
+      'Connector Battery',
+      'Ampere Battery',
+      'Ketersediaan Solar',
     ],
   },
   {
@@ -655,19 +656,29 @@ export const maintenanceDailySections = [
       'Pintu menutup rapat',
       'Karet seal tidak rusak',
       'Tidak ada kebocoran udara dingin',
-      'Alarm pintu berfungsi normal',
+      'Alarm pintu berfungsi',
+    ],
+  },
+  {
+    id: 'kondensor',
+    area_id: 'lantai_1_area_belakang',
+    title: 'G. KONDENSOR',
+    items: [
+      'Fan berfungsi normal / tidak',
+      'Pompa berfungsi normal / tidak',
+      'Sirkulasi air lancar / tidak',
     ],
   },
 ];
 
 export const maintenanceWeeklyItems = [
-  'Oli mesin dalam kondisi normal',
-  'Filter oli dalam kondisi normal',
-  'Filter solar dalam kondisi normal',
-  'Air Radiator dalam kondisi normal',
-  'Connector battery dalam kondisi normal',
-  'Ampere battery dalam kondisi normal',
-  'Ketersediaan solar (minimal 250 liter)',
+  'Oli Mesin',
+  'Filter Oli',
+  'Filter Solar',
+  'Air Radiator',
+  'Connector Battery',
+  'Ampere Battery',
+  'Ketersediaan Solar',
 ];
 
 export const maintenanceDailyAreaOptions = [

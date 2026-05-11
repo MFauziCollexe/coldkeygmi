@@ -56,6 +56,27 @@ export const sidebarMenuConfig = [
                 ],
             },
             {
+                id: "procurement",
+                label: "Procurement",
+                icon: "ShoppingBag",
+                children: [
+                    {
+                        id: "purchase-requisition",
+                        label: "Purchase Requisition",
+                        icon: "FileText",
+                        route: "/gmisl/procurement/purchase-requisition",
+                        module_key: "gmisl.procurement.purchase_requisition",
+                    },
+                    {
+                        id: "purchase-order",
+                        label: "Purchase Order",
+                        icon: "ShoppingCart",
+                        route: "/gmisl/procurement/purchase-order",
+                        module_key: "gmisl.procurement.purchase_order",
+                    },
+                ],
+            },
+            {
                 id: "tools",
                 label: "Tools",
                 icon: "Wrench",
@@ -82,72 +103,6 @@ export const sidebarMenuConfig = [
                         module_key: "tools.split_pdf",
                     },
                 ],
-            },
-        ],
-    },
-    {
-        id: "gmium",
-        label: "GMIUM ( Utility Management )",
-        icon: "Wrench",
-        color: "text-white",
-        children: [
-            {
-                id: "plugging",
-                label: "Plugging",
-                icon: "Wrench",
-                route: "/gmium/plugging",
-                module_key: "gmium.plugging",
-            },
-            {
-                id: "plugging-approval",
-                label: "Plugging Approval",
-                icon: "CheckCircle",
-                route: "/gmium/plugging/approval",
-                module_key: "gmium.plugging.approval",
-            },
-            {
-                id: "resource-monitoring",
-                label: "Resource Monitoring",
-                icon: "Clipboard",
-                children: [
-                    {
-                        id: "electricity",
-                        label: "Electricity",
-                        icon: "Clock",
-                        children: [
-                            {
-                                id: "standard-meter",
-                                label: "Standard Meter",
-                                icon: "FileText",
-                                route: "/gmium/resource-monitoring/electricity/standard-meter",
-                                module_key:
-                                    "gmium.resource_monitoring.electricity.standard_meter",
-                            },
-                            {
-                                id: "hv-meter",
-                                label: "HV Meter",
-                                icon: "Activity",
-                                route: "/gmium/resource-monitoring/electricity/hv-meter",
-                                module_key:
-                                    "gmium.resource_monitoring.electricity.hv_meter",
-                            },
-                        ],
-                    },
-                    {
-                        id: "water-meter",
-                        label: "Water Meter",
-                        icon: "FileText",
-                        route: "/gmium/resource-monitoring/water-meter",
-                        module_key: "gmium.resource_monitoring.water_meter",
-                    },
-                ],
-            },
-            {
-                id: "utility-report",
-                label: "Utility Report",
-                icon: "FileText",
-                route: "/gmium/utility-report",
-                module_key: "gmium.utility_report",
             },
         ],
     },
@@ -317,6 +272,13 @@ export const sidebarMenuConfig = [
                 module_key: "gmisl.master_data.customer",
             },
             {
+                id: "supplier",
+                label: "Supplier",
+                icon: "Truck",
+                route: "/master-data/supplier",
+                module_key: "gmisl.procurement.purchase_requisition",
+            },
+            {
                 id: "employee",
                 label: "Employee",
                 icon: "Users",
@@ -360,7 +322,7 @@ export const sidebarMenuConfig = [
             },
             {
                 id: "stock-card-unit",
-                label: "Satuan Stock Card",
+                label: "Master UoM",
                 icon: "Ruler",
                 route: "/master-data/stock-card-unit",
                 module_key: "gmisl.master_data.stock_card_unit",

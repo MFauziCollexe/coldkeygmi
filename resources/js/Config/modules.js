@@ -10,14 +10,9 @@ export default [
             { key: "gmisl.master_data.vehicle_type", label: "Jenis Kendaraan" },
             { key: "gmisl.master_data.stock_card", label: "Stock Card" },
             { key: "gmisl.master_data.stock_card_item_type", label: "Jenis/Tipe Barang" },
-            { key: "gmisl.master_data.stock_card_unit", label: "Satuan Stock Card" },
+            { key: "gmisl.master_data.stock_card_unit", label: "Master UoM" },
             { key: "gmisl.master_data.attendance_lock_area", label: "Area Absensi" },
         ],
-    },
-    {
-        key: "purchasing",
-        label: "Purchasing",
-        children: [],
     },
     {
         key: "utility",
@@ -29,30 +24,6 @@ export default [
             { key: "utility.check_inline", label: "Check Inline" },
             { key: "utility.berita_acara", label: "Berita Acara" },
             { key: "utility.stock_card", label: "Stock Card" },
-        ],
-    },
-    {
-        key: "gmium",
-        label: "GMIUM",
-        children: [
-            { key: "gmium.plugging", label: "Plugging" },
-            { key: "gmium.plugging.approval", label: "Plugging Approval" },
-            {
-                key: "gmium.resource_monitoring",
-                label: "Resource Monitoring",
-                children: [
-                    {
-                        key: "gmium.resource_monitoring.electricity",
-                        label: "Electricity",
-                        children: [
-                            { key: "gmium.resource_monitoring.electricity.standard_meter", label: "Standard Meter" },
-                            { key: "gmium.resource_monitoring.electricity.hv_meter", label: "HV Meter" },
-                        ],
-                    },
-                    { key: "gmium.resource_monitoring.water_meter", label: "Water Meter" },
-                ],
-            },
-            { key: "gmium.utility_report", label: "Utility Report" },
         ],
     },
     {

@@ -2,7 +2,7 @@
   <AppLayout>
     <div class="p-4 md:p-6">
       <div class="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <h2 class="text-2xl font-bold">Master Satuan Stock Card</h2>
+        <h2 class="text-2xl font-bold">Master UoM</h2>
         <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <input v-model="filters.search" @input="onSearchInput" placeholder="Cari satuan..." class="rounded bg-slate-800 px-3 py-2 text-sm" />
           <select v-model="filters.is_active" @change="fetch" class="rounded bg-slate-800 px-3 py-2 text-sm">
