@@ -63,15 +63,19 @@
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div class="text-right text-xs text-slate-600">
           <div>Hari proses: {{ nextPendingDay ? nextPendingDay.day : '-' }}</div>
-          <div v-if="currentAreaScan">
+          <div v-if="showQrScanner && currentAreaScan">
             Area ini sudah discan {{ currentAreaScan.scanned_at }}
           </div>
-          <div v-else>
+          <div v-else-if="showQrScanner">
             Area ini belum discan
+          </div>
+          <div v-else>
+            Mode tanpa QRCode aktif.
           </div>
         </div>
 
         <button
+          v-if="showQrScanner"
           type="button"
           :disabled="!canScanArea"
           class="rounded px-4 py-2 text-sm font-semibold transition"
@@ -182,6 +186,10 @@ defineProps({
   canScanArea: {
     type: Boolean,
     required: true,
+  },
+  showQrScanner: {
+    type: Boolean,
+    default: true,
   },
   canApproveEntry: {
     type: Boolean,

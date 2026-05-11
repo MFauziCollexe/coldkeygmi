@@ -62,6 +62,7 @@
         :is-active-month-locked="isActiveKotakP3KMonthLocked"
         :active-month-status-label="kotakP3KActiveMonthStatusLabel"
         :approval-button-label="kotakP3KApprovalButtonLabel"
+        :show-qr-scanner="showQrScanner"
         @approve="approveChecklist"
         @scan-barcode="scanBarcode"
         @toggle-location-menu="toggleLocationMenu"
@@ -85,6 +86,7 @@
         :can-scan-barcode="canScanFireSafety"
         :can-approve-entry="canApproveEntry"
         :is-active-month-approved="isActiveFireSafetyMonthApproved"
+        :show-qr-scanner="showQrScanner"
         @approve="approveChecklist"
         @scan-barcode="scanFireSafetyBarcode"
         @update-card-type="updateFireSafetyCardType"
@@ -109,6 +111,7 @@
         :can-edit-note="canEditSanitationNote"
         :sanitation-days="sanitationDays"
         :sanitation-area-options="sanitationAreaOptions"
+        :show-qr-scanner="showQrScanner"
         @approve="approveChecklist"
         @scan-area="scanSanitationArea"
         @toggle-day="toggleSanitationDay"
@@ -136,6 +139,7 @@
         :scan-date="currentWarehouseScanDate"
         :can-scan-barcode="canScanWarehouseBarcode"
         :approval-button-label="warehouseApprovalButtonLabel"
+        :show-qr-scanner="showQrScanner"
         @approve="approveChecklist"
         @scan-barcode="scanWarehouseBarcode"
         @update-frequency="updateWarehouseFrequency"
@@ -159,6 +163,7 @@
         :next-pending-day="nextPendingSaranaPrasaranaDay"
         :can-scan-area="canScanSaranaPrasaranaArea"
         :can-approve-entry="canApproveEntry"
+        :show-qr-scanner="showQrScanner"
         @approve="approveChecklist"
         @scan-area="scanSaranaPrasaranaArea"
         @update-period="updateSaranaPrasaranaPeriod"
@@ -181,6 +186,7 @@
         :current-photos="currentPatroliSecurityPhotos"
         :photo-uploading="patroliSecurityPhotoUploading"
         :photo-error="patroliSecurityPhotoError"
+        :show-qr-scanner="showQrScanner"
         @approve="approveChecklist"
         @scan-barcode="scanPatroliSecurityBarcode"
         @update-date="updatePatroliSecurityDate"
@@ -203,6 +209,7 @@
         :current-barcode="currentSiteVisitHseBarcode"
         :can-scan-barcode="canScanSiteVisitHse"
         :can-approve-entry="canApproveEntry"
+        :show-qr-scanner="showQrScanner"
         @approve="approveChecklist"
         @scan-barcode="scanSiteVisitHseBarcode"
         @update-date="updateSiteVisitHseDate"
@@ -242,6 +249,7 @@
         :current-photos="currentMaintenancePhotos"
         :photo-uploading="maintenancePhotoUploading"
         :photo-error="maintenancePhotoError"
+        :show-qr-scanner="showQrScanner"
         @approve="approveChecklist"
         @scan-barcode="scanMaintenanceBarcode"
         @update-type="updateMaintenanceVisitType"
@@ -472,6 +480,7 @@ const props = defineProps({
 const page = usePage();
 const selectedChecklist = ref(props.selectedTemplate || '');
 const entry = ref(createInitialEntry());
+const bypassQrScan = ref(readQrBypassPreference());
 const locationMenuOpen = ref(false);
 const scannerModalOpen = ref(false);
 const scannerLoading = ref(false);
@@ -504,6 +513,7 @@ const canUseSelectedChecklist = computed(() => {
   return supportedTemplates.includes(selectedChecklist.value) && Boolean(currentChecklistTemplatePermissions.value.view);
 });
 const canApproveCurrentTemplate = computed(() => Boolean(currentChecklistTemplatePermissions.value.approve));
+const showQrScanner = computed(() => !bypassQrScan.value);
 const patroliSecurityOverlayAddressLines = [
   'Jl. Rungkut Industri Raya II',
   'No.45 B, Kali Rungkut, Kec.',
@@ -914,7 +924,7 @@ const patroliSecurityValidation = computed(() => {
 });
 
 const canScanPatroliSecurity = computed(() => {
-  if (!isPatroliSecurity.value || !entry.value) {
+  if (!isPatroliSecurity.value || !entry.value || !showQrScanner.value) {
     return false;
   }
 
@@ -1058,7 +1068,7 @@ const siteVisitHseValidation = computed(() => {
 });
 
 const canScanSiteVisitHse = computed(() => {
-  if (!isSiteVisitHse.value || !entry.value) {
+  if (!isSiteVisitHse.value || !entry.value || !showQrScanner.value) {
     return false;
   }
 
@@ -1178,7 +1188,7 @@ const maintenanceValidation = computed(() => {
 });
 
 const canScanMaintenance = computed(() => {
-  if (!isSiteVisitMaintenance.value || !entry.value) {
+  if (!isSiteVisitMaintenance.value || !entry.value || !showQrScanner.value) {
     return false;
   }
 
@@ -1206,7 +1216,7 @@ const nextPendingSaranaPrasaranaDay = computed(() => {
 });
 
 const canScanSaranaPrasaranaArea = computed(() => {
-  if (!isSaranaPrasarana.value || !entry.value || !nextPendingSaranaPrasaranaDay.value) {
+  if (!isSaranaPrasarana.value || !entry.value || !nextPendingSaranaPrasaranaDay.value || !showQrScanner.value) {
     return false;
   }
 
@@ -1313,7 +1323,7 @@ const fireSafetyMonthValidation = computed(() => {
 });
 
 const canScanFireSafety = computed(() => {
-  if (!isFireSafety.value || !entry.value || isActiveFireSafetyMonthApproved.value) {
+  if (!isFireSafety.value || !entry.value || isActiveFireSafetyMonthApproved.value || !showQrScanner.value) {
     return false;
   }
 
@@ -1421,6 +1431,7 @@ const kotakP3KMonthValidation = computed(() => {
   const hasNoAnswer = answers.includes('no');
   const hasRequiredNote = String(kotakP3KMonthNote.value || '').trim() !== '';
   const canScan = !isActiveKotakP3KMonthLocked.value
+    && showQrScanner.value
     && allAnswersFilled
     && (!hasNoAnswer || hasRequiredNote);
 
@@ -1514,7 +1525,7 @@ const currentSanitationAreaCompleted = computed(() => {
 });
 
 const canScanSanitationArea = computed(() => {
-  if (!isSanitation.value || !entry.value || !nextPendingSanitationDay.value) {
+  if (!isSanitation.value || !entry.value || !nextPendingSanitationDay.value || !showQrScanner.value) {
     return false;
   }
 
@@ -1715,7 +1726,7 @@ const currentWarehouseScanDate = computed(() => {
 });
 
 const canScanWarehouseBarcode = computed(() => {
-  if (!isWarehouseSanitation.value || !entry.value || warehousePreparedApproved.value) {
+  if (!isWarehouseSanitation.value || !entry.value || warehousePreparedApproved.value || !showQrScanner.value) {
     return false;
   }
 
@@ -1783,7 +1794,9 @@ const canApproveEntry = computed(() => {
       return canApproveKotakP3KHse.value;
     }
 
-    return kotakP3KMonthValidation.value.canScan && String(currentKotakP3KBarcode.value || '').trim() !== '';
+    return kotakP3KMonthValidation.value.allAnswersFilled
+      && (!kotakP3KMonthValidation.value.hasNoAnswer || kotakP3KMonthValidation.value.hasRequiredNote)
+      && (showQrScanner.value ? String(currentKotakP3KBarcode.value || '').trim() !== '' : true);
   }
 
   if (isSanitation.value) {
@@ -1802,7 +1815,7 @@ const canApproveEntry = computed(() => {
     });
 
     return Boolean(currentChecklistTemplatePermissions.value.view)
-      && allAreasScanned
+      && (showQrScanner.value ? allAreasScanned : true)
       && sanitationCompletedDays.value.some((day) => day.day === pendingDay);
   }
 
@@ -1819,7 +1832,7 @@ const canApproveEntry = computed(() => {
       String(entry.value.form.card_type || '').trim()
       && String(entry.value.form.location || '').trim()
     ) && fireSafetyMonthValidation.value.allAnswersFilled
-      && String(currentFireSafetyBarcode.value || '').trim() !== ''
+      && (showQrScanner.value ? String(currentFireSafetyBarcode.value || '').trim() !== '' : true)
       && (!fireSafetyMonthValidation.value.hasNoAnswer || fireSafetyMonthValidation.value.hasRequiredNote);
   }
 
@@ -1875,7 +1888,7 @@ const canApproveEntry = computed(() => {
     }
 
     if (!warehousePreparedApproved.value) {
-      return Boolean(currentWarehouseBarcode.value);
+      return showQrScanner.value ? Boolean(currentWarehouseBarcode.value) : true;
     }
 
     return canApproveWarehouseFinal.value;
@@ -1918,7 +1931,7 @@ const canApproveEntry = computed(() => {
     return Boolean(String(entry.value.form.period || '').trim())
       && Boolean(String(entry.value.form.selected_area || '').trim())
       && (currentSaranaPrasaranaSection.value?.items || []).every((item) => Boolean(item.days?.[nextPendingSaranaPrasaranaDay.value.day]))
-      && Boolean(currentSaranaPrasaranaScan.value?.barcode);
+      && (showQrScanner.value ? Boolean(currentSaranaPrasaranaScan.value?.barcode) : true);
   }
 
   if (isSiteVisitMaintenance.value) {
@@ -1934,7 +1947,7 @@ const canApproveEntry = computed(() => {
     return Boolean(visitType)
       && hasSchedule
       && (visitType === 'maintenance_mingguan' || Boolean(String(entry.value.form.selected_area || '').trim()))
-      && Boolean(String(currentMaintenanceBarcode.value || '').trim())
+      && (showQrScanner.value ? Boolean(String(currentMaintenanceBarcode.value || '').trim()) : true)
       && maintenanceValidation.value.allAnswersFilled
       && (!maintenanceValidation.value.hasNoAnswer || maintenanceValidation.value.hasRequiredNote);
   }
@@ -1949,7 +1962,7 @@ const canApproveEntry = computed(() => {
     return Boolean(String(entry.value.form.date_value || '').trim())
       && Boolean(selectedArea)
       && !siteVisitHseApprovedAreas.value.includes(selectedArea)
-      && Boolean(String(currentSiteVisitHseBarcode.value || '').trim())
+      && (showQrScanner.value ? Boolean(String(currentSiteVisitHseBarcode.value || '').trim()) : true)
       && siteVisitHseValidation.value.allAnswersFilled
       && (!siteVisitHseValidation.value.hasNoAnswer || siteVisitHseValidation.value.hasRequiredNote);
   }
@@ -1964,7 +1977,7 @@ const canApproveEntry = computed(() => {
     return Boolean(String(entry.value.form.date_value || '').trim())
       && Boolean(selectedArea)
       && !patroliSecurityApprovedAreas.value.includes(selectedArea)
-      && Boolean(String(currentPatroliSecurityBarcode.value || '').trim())
+      && (showQrScanner.value ? Boolean(String(currentPatroliSecurityBarcode.value || '').trim()) : true)
       && patroliSecurityValidation.value.allAnswersFilled
       && (!patroliSecurityValidation.value.hasNoAnswer || patroliSecurityValidation.value.hasRequiredNote);
   }
@@ -2613,7 +2626,7 @@ async function approveChecklist() {
 }
 
 async function scanBarcode() {
-  if (!entry.value || !isKotakP3K.value || !kotakP3KMonthValidation.value.canScan) {
+  if (!entry.value || !isKotakP3K.value || !showQrScanner.value || !kotakP3KMonthValidation.value.canScan) {
     return;
   }
 
@@ -2627,7 +2640,7 @@ async function scanBarcode() {
 }
 
 async function scanSanitationArea() {
-  if (!entry.value || !isSanitation.value || !nextPendingSanitationDay.value) {
+  if (!entry.value || !isSanitation.value || !nextPendingSanitationDay.value || !showQrScanner.value) {
     return;
   }
 
@@ -2641,7 +2654,7 @@ async function scanSanitationArea() {
 }
 
 async function scanSaranaPrasaranaArea() {
-  if (!entry.value || !isSaranaPrasarana.value || !canScanSaranaPrasaranaArea.value) {
+  if (!entry.value || !isSaranaPrasarana.value || !showQrScanner.value || !canScanSaranaPrasaranaArea.value) {
     return;
   }
 
@@ -2655,7 +2668,7 @@ async function scanSaranaPrasaranaArea() {
 }
 
 async function scanFireSafetyBarcode() {
-  if (!entry.value || !isFireSafety.value || !canScanFireSafety.value) {
+  if (!entry.value || !isFireSafety.value || !showQrScanner.value || !canScanFireSafety.value) {
     return;
   }
 
@@ -2669,7 +2682,7 @@ async function scanFireSafetyBarcode() {
 }
 
 async function scanWarehouseBarcode() {
-  if (!entry.value || !isWarehouseSanitation.value || !canScanWarehouseBarcode.value) {
+  if (!entry.value || !isWarehouseSanitation.value || !showQrScanner.value || !canScanWarehouseBarcode.value) {
     return;
   }
 
@@ -2683,7 +2696,7 @@ async function scanWarehouseBarcode() {
 }
 
 async function scanMaintenanceBarcode() {
-  if (!entry.value || !isSiteVisitMaintenance.value || !canScanMaintenance.value) {
+  if (!entry.value || !isSiteVisitMaintenance.value || !showQrScanner.value || !canScanMaintenance.value) {
     return;
   }
 
@@ -2697,7 +2710,7 @@ async function scanMaintenanceBarcode() {
 }
 
 async function scanSiteVisitHseBarcode() {
-  if (!entry.value || !isSiteVisitHse.value || !canScanSiteVisitHse.value) {
+  if (!entry.value || !isSiteVisitHse.value || !showQrScanner.value || !canScanSiteVisitHse.value) {
     return;
   }
 
@@ -2711,7 +2724,7 @@ async function scanSiteVisitHseBarcode() {
 }
 
 async function scanPatroliSecurityBarcode() {
-  if (!entry.value || !isPatroliSecurity.value || !canScanPatroliSecurity.value) {
+  if (!entry.value || !isPatroliSecurity.value || !showQrScanner.value || !canScanPatroliSecurity.value) {
     return;
   }
 
@@ -4426,6 +4439,14 @@ function normalizeScannerError(error) {
   }
 
   return message || 'Scanner QRCode gagal dijalankan.';
+}
+
+function readQrBypassPreference() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.localStorage.getItem('checklist.qr_bypass') === '1';
 }
 
 async function closeScannerModal() {

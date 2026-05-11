@@ -79,6 +79,7 @@
 
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <button
+          v-if="showQrScanner"
           type="button"
           :disabled="!canScanArea"
           class="rounded px-4 py-2 text-sm font-semibold transition"
@@ -89,6 +90,9 @@
         >
           Scan Area
         </button>
+        <div v-else class="text-xs text-slate-600">
+          Mode tanpa QRCode aktif.
+        </div>
 
         <button
           type="button"
@@ -193,6 +197,10 @@ defineProps({
   nextPendingDay: {
     type: Object,
     default: null,
+  },
+  showQrScanner: {
+    type: Boolean,
+    default: true,
   },
   canScanArea: {
     type: Boolean,

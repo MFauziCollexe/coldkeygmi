@@ -141,6 +141,35 @@
           Showing {{ filteredChecklistEntries.length ? 1 : 0 }} to {{ filteredChecklistEntries.length }} of {{ checklistEntries.length }} checklist
         </div>
       </div>
+
+      <div class="mt-3 flex justify-end">
+        <div class="flex min-w-[280px] items-center justify-between rounded border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-slate-100">
+          <div>
+            <div class="font-semibold">QRCode Pass</div>
+          </div>
+
+          <button
+            type="button"
+            :aria-pressed="bypassQrScan"
+            class="inline-flex items-center justify-between gap-3 rounded-full border px-4 py-2 text-sm font-semibold transition"
+            :class="bypassQrScan
+              ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
+              : 'border-slate-600 bg-slate-800 text-slate-200 hover:border-slate-500'"
+            @click="toggleQrBypass"
+          >
+            <span>{{ bypassQrScan ? 'ON' : 'OFF' }}</span>
+            <span
+              class="relative h-6 w-11 rounded-full transition"
+              :class="bypassQrScan ? 'bg-emerald-500/80' : 'bg-slate-600'"
+            >
+              <span
+                class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition"
+                :class="bypassQrScan ? 'left-[22px]' : 'left-0.5'"
+              ></span>
+            </span>
+          </button>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -157,6 +186,7 @@ import { checklistOptions, getChecklistEntryAreaLabel } from './checklistConfig'
 const page = usePage();
 const selectedChecklist = ref('');
 const selectedDate = ref(toDateInputValue(new Date()));
+const bypassQrScan = ref(readQrBypassPreference());
 const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : []);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
@@ -226,6 +256,11 @@ function toggleSelectAll(checked) {
   }
 
   selectedEntryIds.value = selectedEntryIds.value.filter((entryId) => !visibleIds.includes(entryId));
+}
+
+function toggleQrBypass() {
+  bypassQrScan.value = !bypassQrScan.value;
+  writeQrBypassPreference(bypassQrScan.value);
 }
 
 async function removeSelectedChecklists() {
@@ -327,6 +362,22 @@ function getChecklistEntryDateValue(entry) {
   }
 
   return null;
+}
+
+function readQrBypassPreference() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.localStorage.getItem('checklist.qr_bypass') === '1';
+}
+
+function writeQrBypassPreference(value) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem('checklist.qr_bypass', value ? '1' : '0');
 }
 
 function normalizeIsoDate(value) {

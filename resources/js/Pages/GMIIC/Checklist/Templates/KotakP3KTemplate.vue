@@ -51,7 +51,7 @@
       </div>
 
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
-        <div class="flex w-[132px] flex-col gap-1">
+        <div v-if="showQrScanner" class="flex w-[132px] flex-col gap-1">
           <button
             type="button"
             class="w-full rounded px-4 py-2 text-sm font-semibold transition"
@@ -66,6 +66,9 @@
           <div class="text-xs text-slate-600">
             {{ currentBarcode || `QRCode bulan ${activeMonthLabel} belum discan.` }}
           </div>
+        </div>
+        <div v-else class="flex w-[132px] flex-col justify-center text-xs text-slate-600">
+          Mode tanpa QRCode aktif.
         </div>
 
         <button
@@ -231,6 +234,10 @@ defineProps({
   canApproveEntry: {
     type: Boolean,
     required: true,
+  },
+  showQrScanner: {
+    type: Boolean,
+    default: true,
   },
   locationMenuOpen: {
     type: Boolean,

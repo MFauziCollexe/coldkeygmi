@@ -108,6 +108,7 @@
       <div class="flex flex-col gap-1">
         <div class="flex flex-wrap items-start gap-2">
           <button
+            v-if="showQrScanner"
             type="button"
             class="w-[132px] rounded px-4 py-2 text-sm font-semibold transition"
             :disabled="!canScanBarcode"
@@ -118,6 +119,9 @@
           >
             QRCode
           </button>
+          <div v-else class="flex h-10 w-[132px] items-center text-xs text-slate-600">
+            Mode tanpa QRCode aktif.
+          </div>
 
           <button
             type="button"
@@ -133,7 +137,7 @@
         </div>
 
         <div class="max-w-[132px] text-xs text-slate-600">
-          {{ currentBarcode || 'QRCode area aktif belum discan.' }}
+          {{ showQrScanner ? (currentBarcode || 'QRCode area aktif belum discan.') : 'Approve dapat langsung dilakukan.' }}
         </div>
       </div>
     </div>
@@ -358,6 +362,10 @@ defineProps({
   currentBarcode: {
     type: String,
     default: '',
+  },
+  showQrScanner: {
+    type: Boolean,
+    default: true,
   },
   canScanBarcode: {
     type: Boolean,
