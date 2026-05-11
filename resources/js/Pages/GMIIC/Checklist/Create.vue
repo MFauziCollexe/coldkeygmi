@@ -239,6 +239,9 @@
         :current-barcode="currentMaintenanceBarcode"
         :can-scan-barcode="canScanMaintenance"
         :can-approve-entry="canApproveEntry"
+        :current-photos="currentMaintenancePhotos"
+        :photo-uploading="maintenancePhotoUploading"
+        :photo-error="maintenancePhotoError"
         @approve="approveChecklist"
         @scan-barcode="scanMaintenanceBarcode"
         @update-type="updateMaintenanceVisitType"
@@ -247,6 +250,8 @@
         @update-area="updateMaintenanceVisitArea"
         @cycle-row-status="cycleMaintenanceRowStatus"
         @update-note="updateMaintenanceNote"
+        @open-camera="openMaintenanceCamera"
+        @remove-photo="removeMaintenancePhoto"
       />
 
       <div
@@ -694,6 +699,10 @@ const photoModalTitle = computed(() => {
     return 'Ambil Foto Patroli Security';
   }
 
+  if (photoCaptureMode.value === 'maintenance') {
+    return 'Ambil Foto Visit Maintenance';
+  }
+
   return 'Ambil Foto Petugas Pengangkut';
 });
 
@@ -702,11 +711,19 @@ const photoModalDescription = computed(() => {
     return 'Gunakan kamera HP atau laptop, lalu ambil foto area patroli secara langsung.';
   }
 
+  if (photoCaptureMode.value === 'maintenance') {
+    return 'Gunakan kamera HP atau laptop, lalu ambil foto area maintenance secara langsung.';
+  }
+
   return 'Gunakan kamera HP atau laptop, lalu ambil foto langsung.';
 });
 
 const photoCaptureButtonLabel = computed(() => {
   if (photoCaptureMode.value === 'patroli_security') {
+    return 'Capture & Upload';
+  }
+
+  if (photoCaptureMode.value === 'maintenance') {
     return 'Capture & Upload';
   }
 
@@ -825,6 +842,9 @@ const patroliSecurityNote = computed({
 const patroliSecurityPhotoUploading = ref(false);
 const patroliSecurityPhotoError = ref('');
 
+const maintenancePhotoUploading = ref(false);
+const maintenancePhotoError = ref('');
+
 function normalizePatroliSecurityPhotoBucket(bucket) {
   if (Array.isArray(bucket)) {
     return bucket.filter((item) => String(item || '').trim() !== '');
@@ -906,6 +926,52 @@ const canScanPatroliSecurity = computed(() => {
     && patroliSecurityValidation.value.allAnswersFilled
     && (!patroliSecurityValidation.value.hasNoAnswer || patroliSecurityValidation.value.hasRequiredNote)
     && !String(currentPatroliSecurityBarcode.value || '').trim();
+});
+
+function normalizeMaintenancePhotoBucket(bucket) {
+  if (Array.isArray(bucket)) {
+    return bucket.filter((item) => String(item || '').trim() !== '');
+  }
+
+  const single = String(bucket || '').trim();
+  return single ? [single] : [];
+}
+
+const currentMaintenancePhotoPaths = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return [];
+  }
+
+  return normalizeMaintenancePhotoBucket(entry.value.form.area_photo_paths?.[maintenanceScanTargetKey.value]);
+});
+
+const currentMaintenancePhotoUrls = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return [];
+  }
+
+  return normalizeMaintenancePhotoBucket(entry.value.form.area_photo_urls?.[maintenanceScanTargetKey.value]);
+});
+
+const currentMaintenancePhotoNames = computed(() => {
+  if (!isSiteVisitMaintenance.value || !entry.value) {
+    return [];
+  }
+
+  return normalizeMaintenancePhotoBucket(entry.value.form.area_photo_names?.[maintenanceScanTargetKey.value]);
+});
+
+const currentMaintenancePhotos = computed(() => {
+  const paths = currentMaintenancePhotoPaths.value;
+  const urls = currentMaintenancePhotoUrls.value;
+  const names = currentMaintenancePhotoNames.value;
+  const length = Math.max(paths.length, urls.length, names.length);
+
+  return Array.from({ length }, (_, index) => ({
+    path: paths[index] || '',
+    url: urls[index] || '',
+    name: names[index] || '',
+  })).filter((photo) => String(photo.url || photo.path || '').trim() !== '');
 });
 
 const siteVisitHseApprovedAreas = computed(() => {
@@ -2971,6 +3037,153 @@ async function removePatroliSecurityPhoto(index) {
   }
 }
 
+function updateMaintenancePhotoState(payload = {}) {
+  if (!entry.value || !isSiteVisitMaintenance.value || !maintenanceScanTargetKey.value) {
+    return;
+  }
+
+  const targetKey = maintenanceScanTargetKey.value;
+  const nextPaths = {
+    ...(entry.value.form.area_photo_paths || {}),
+  };
+  const nextUrls = {
+    ...(entry.value.form.area_photo_urls || {}),
+  };
+  const nextNames = {
+    ...(entry.value.form.area_photo_names || {}),
+  };
+
+  const pathBucket = normalizeMaintenancePhotoBucket(nextPaths[targetKey]);
+  const urlBucket = normalizeMaintenancePhotoBucket(nextUrls[targetKey]);
+  const nameBucket = normalizeMaintenancePhotoBucket(nextNames[targetKey]);
+  const length = Math.max(pathBucket.length, urlBucket.length, nameBucket.length);
+
+  let photoEntries = Array.from({ length }, (_, index) => ({
+    path: pathBucket[index] || '',
+    url: urlBucket[index] || '',
+    name: nameBucket[index] || '',
+  })).filter((photo) => String(photo.path || photo.url || photo.name || '').trim() !== '');
+
+  if (payload.clear) {
+    photoEntries = [];
+  } else if (payload.removePhoto) {
+    let removed = false;
+    photoEntries = photoEntries.filter((photo) => {
+      if (removed) {
+        return true;
+      }
+
+      const isMatch = (
+        (payload.removePhoto.path && photo.path === payload.removePhoto.path)
+        || (payload.removePhoto.url && photo.url === payload.removePhoto.url)
+        || (payload.removePhoto.name && photo.name === payload.removePhoto.name)
+      );
+
+      if (isMatch) {
+        removed = true;
+        return false;
+      }
+
+      return true;
+    });
+  } else if (typeof payload.removeIndex === 'number') {
+    photoEntries.splice(payload.removeIndex, 1);
+  } else {
+    photoEntries.push({
+      path: payload.path || '',
+      url: payload.url || '',
+      name: payload.name || '',
+    });
+  }
+
+  if (photoEntries.length === 0) {
+    delete nextPaths[targetKey];
+    delete nextUrls[targetKey];
+    delete nextNames[targetKey];
+  } else {
+    nextPaths[targetKey] = photoEntries.map((photo) => photo.path || '');
+    nextUrls[targetKey] = photoEntries.map((photo) => photo.url || '');
+    nextNames[targetKey] = photoEntries.map((photo) => photo.name || '');
+  }
+
+  entry.value.form.area_photo_paths = nextPaths;
+  entry.value.form.area_photo_urls = nextUrls;
+  entry.value.form.area_photo_names = nextNames;
+}
+
+async function uploadMaintenancePhoto(file) {
+  if (!entry.value || !isSiteVisitMaintenance.value || !maintenanceScanTargetKey.value || !file) {
+    return;
+  }
+
+  maintenancePhotoUploading.value = true;
+  maintenancePhotoError.value = '';
+
+  try {
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    const response = await axios.post('/gmiic/checklist/site-visit-maintenance/photo', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    updateMaintenancePhotoState({
+      path: response.data?.path || '',
+      url: response.data?.url || '',
+      name: response.data?.original_name || file.name || '',
+    });
+    syncSaveStateWithEntry();
+  } catch (error) {
+    maintenancePhotoError.value = error?.response?.data?.message || 'Foto gagal di-upload.';
+  } finally {
+    maintenancePhotoUploading.value = false;
+  }
+}
+
+async function removeMaintenancePhoto(index) {
+  if (!entry.value || !isSiteVisitMaintenance.value || !maintenanceScanTargetKey.value) {
+    return;
+  }
+
+  maintenancePhotoError.value = '';
+  const photo = currentMaintenancePhotos.value[Number(index)];
+  if (!photo) {
+    return;
+  }
+
+  const confirmed = await swalConfirm({
+    title: 'Hapus Foto',
+    text: 'Foto area ini akan dihapus. Lanjutkan?',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Tidak',
+    confirmButtonColor: '#dc2626',
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    if (String(photo.path || '').trim()) {
+      await axios.delete('/gmiic/checklist/site-visit-maintenance/photo', {
+        data: {
+          path: photo.path,
+        },
+      });
+    }
+
+    updateMaintenancePhotoState({
+      removeIndex: Number(index),
+      removePhoto: photo,
+    });
+    syncSaveStateWithEntry();
+  } catch (error) {
+    maintenancePhotoError.value = error?.response?.data?.message || 'Foto gagal dihapus.';
+  }
+}
+
 function updateSiteVisitHseDate(value) {
   if (!entry.value || !isSiteVisitHse.value) {
     return;
@@ -3552,6 +3765,21 @@ async function openPatroliSecurityCamera() {
   await startPhotoCamera();
 }
 
+async function openMaintenanceCamera() {
+  if (!entry.value || !isSiteVisitMaintenance.value || !maintenanceScanTargetKey.value) {
+    return;
+  }
+
+  photoCaptureMode.value = 'maintenance';
+  photoCaptureDay.value = null;
+  photoError.value = '';
+  photoLoading.value = true;
+  photoModalOpen.value = true;
+
+  await nextTick();
+  await startPhotoCamera();
+}
+
 function toggleSanitationDay(row, day) {
   if (!row?.days || sanitationApprovedDays.value.includes(day)) {
     return;
@@ -3990,6 +4218,21 @@ async function capturePhoto() {
       );
 
       await uploadPatroliSecurityPhoto(file);
+      await closePhotoModal();
+      return;
+    }
+
+    if (photoCaptureMode.value === 'maintenance') {
+      if (!isSiteVisitMaintenance.value || !maintenanceScanTargetKey.value) {
+        return;
+      }
+
+      const file = await canvasToJpegFile(
+        canvas,
+        `site-visit-maintenance-${maintenanceScanTargetKey.value}-${Date.now()}.jpg`
+      );
+
+      await uploadMaintenancePhoto(file);
       await closePhotoModal();
     }
   } catch (error) {
