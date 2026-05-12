@@ -110,6 +110,9 @@
 
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
             <Link href="/gmisl/procurement/purchase-requisition" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">Close</Link>
+            <button v-if="canApprove" type="button" class="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700" @click="confirmApprove">
+              Approve
+            </button>
           </div>
         </form>
       </div>
@@ -118,19 +121,46 @@
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
+import Swal from 'sweetalert2';
 
-defineProps({
+const props = defineProps({
   purchaseRequisition: { type: Object, required: true },
   currentUser: { type: Object, default: () => ({}) },
 });
+
+const normalizedStatus = String(props.purchaseRequisition.status || '').trim().toLowerCase();
+const canApprove = normalizedStatus === 'waiting';
 
 function formatPriority(priority) {
   const normalized = String(priority || '').trim().toLowerCase();
   if (normalized === 'urgent') return 'Urgent';
   if (normalized === 'low') return 'Low';
   return 'Medium';
+}
+
+async function confirmApprove() {
+  const result = await Swal.fire({
+    title: 'Approve Purchase Requisition?',
+    text: 'Are you sure you want to approve this PR?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#10b981',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Yes, Approve',
+    cancelButtonText: 'No, Cancel',
+  });
+
+  if (result.isConfirmed) {
+    approve();
+  }
+}
+
+function approve() {
+  router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/approve`, {}, {
+    preserveScroll: true,
+  });
 }
 </script>

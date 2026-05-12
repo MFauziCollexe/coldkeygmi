@@ -89,9 +89,6 @@
                       >
                         Edit
                       </Link>
-                      <button v-if="requisition.can_approve" type="button" class="text-emerald-400" @click="approve(requisition.id)">
-                        Approve
-                      </button>
                     </td>
                   </tr>
                 </tbody>
@@ -151,9 +148,6 @@
                    >
                      Edit
                    </Link>
-                   <button v-if="requisition.can_approve" type="button" class="text-emerald-400" @click="approve(requisition.id)">
-                     Approve
-                   </button>
                  </div>
               </div>
             </div>
@@ -169,19 +163,13 @@
 </template>
 
 <script setup>
-import { Link, router } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 defineProps({
   currentUser: { type: Object, default: () => ({}) },
   purchaseRequisitions: { type: Array, default: () => [] },
 });
-
-function approve(id) {
-  router.post(`/gmisl/procurement/purchase-requisition/${id}/approve`, {}, {
-    preserveScroll: true,
-  });
-}
 
 function formatStatus(status) {
   const normalized = String(status || '').trim().toLowerCase();
