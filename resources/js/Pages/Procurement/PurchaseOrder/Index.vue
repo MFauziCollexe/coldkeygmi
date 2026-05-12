@@ -181,32 +181,19 @@
                 </div>
 
                 <div>
-                  <label class="mb-2 block text-sm font-semibold text-slate-100">Ambil Foto dari HP</label>
+                  <label class="mb-2 block text-sm font-semibold text-slate-100">Upload File / Foto</label>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
                     capture="environment"
                     class="block w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"
                     @change="selectPoPhoto(order.id, $event)"
                   />
                   <div class="mt-2 text-xs text-slate-500">
-                    Di HP akan membuka kamera belakang bila didukung browser.
+                    Di HP bisa pilih file atau ambil foto langsung bila didukung browser. Maksimal 10 MB. Format: jpg, jpeg, png, webp, pdf, doc, docx, xls, xlsx.
                   </div>
-                </div>
-
-                <div>
-                  <label class="mb-2 block text-sm font-semibold text-slate-100">Upload File</label>
-                  <input
-                    type="file"
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                    class="block w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"
-                    @change="selectPoFile(order.id, $event)"
-                  />
                   <div v-if="orderForms[order.id].po_photo_name" class="mt-2 text-xs text-slate-400">
                     File dipilih: {{ orderForms[order.id].po_photo_name }}
-                  </div>
-                  <div class="mt-2 text-xs text-slate-500">
-                    Maksimal 10 MB. Format: jpg, jpeg, png, webp, pdf, doc, docx, xls, xlsx.
                   </div>
                 </div>
               </div>
@@ -305,10 +292,6 @@ function processOrder(id) {
 }
 
 function selectPoPhoto(id, event) {
-  selectPoUpload(id, event);
-}
-
-function selectPoFile(id, event) {
   selectPoUpload(id, event);
 }
 
