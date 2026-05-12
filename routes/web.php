@@ -275,6 +275,9 @@ Route::get('gmisl/procurement/purchase-requisition/create', [App\Http\Controller
 Route::post('gmisl/procurement/purchase-requisition', [App\Http\Controllers\PurchaseRequisitionController::class, 'store'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.store');
+Route::get('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\Http\Controllers\PurchaseRequisitionController::class, 'show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.show');
 Route::get('gmisl/procurement/purchase-requisition/{purchaseRequisition}/edit', [App\Http\Controllers\PurchaseRequisitionController::class, 'edit'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.edit');

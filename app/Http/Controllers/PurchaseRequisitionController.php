@@ -348,6 +348,67 @@ class PurchaseRequisitionController extends Controller
         return redirect()->back()->with('success', 'Purchase requisition berhasil di-approve.');
     }
 
+    public function show(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing(['department']);
+
+        if (!$this->visiblePurchaseRequisitionsQuery($user)
+            ->where('id', $purchaseRequisition->id)
+            ->exists()) {
+            abort(403, 'Anda tidak memiliki akses untuk melihat purchase requisition ini.');
+        }
+
+        $purchaseRequisition->load([
+            'requester:id,name,department_id',
+            'department:id,name,code',
+            'approvedBy:id,name',
+            'items:id,purchase_requisition_id,product_name,uom,qty',
+            'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
+        ]);
+
+        return Inertia::render('Procurement/PurchaseRequisition/Show', [
+            'title' => 'Detail Purchase Requisition',
+            'description' => 'Detail Purchase Requisition',
+            'purchaseRequisition' => [
+                'id' => $purchaseRequisition->id,
+                'pr_number' => $purchaseRequisition->pr_number,
+                'pr_date' => optional($purchaseRequisition->pr_date)->toDateString(),
+                'request_date' => optional($purchaseRequisition->request_date)->toDateString(),
+                'priority' => $purchaseRequisition->priority,
+                'status' => $purchaseRequisition->status,
+                'note' => $purchaseRequisition->note,
+                'po_comment' => $purchaseRequisition->po_comment,
+                'department_name' => optional($purchaseRequisition->department)->name,
+                'department_code' => optional($purchaseRequisition->department)->code,
+                'requester_name' => optional($purchaseRequisition->requester)->name,
+                'created_at' => $purchaseRequisition->created_at?->format('Y-m-d H:i'),
+                'approved_at' => $purchaseRequisition->approved_at?->format('Y-m-d H:i'),
+                'approved_by_name' => optional($purchaseRequisition->approvedBy)->name,
+                'items' => $purchaseRequisition->items
+                    ->map(fn ($item) => [
+                        'id' => $item->id,
+                        'product_name' => $item->product_name,
+                        'uom' => $item->uom,
+                        'qty' => $item->qty,
+                    ])
+                    ->values(),
+                'attachments' => $purchaseRequisition->attachments
+                    ->map(fn ($attachment) => [
+                        'id' => $attachment->id,
+                        'filename' => $attachment->filename,
+                        'url' => Storage::disk('public')->url($attachment->path),
+                        'mime_type' => $attachment->mime_type,
+                        'size' => $this->formatFileSize((int) ($attachment->size ?? 0)),
+                    ])
+                    ->values(),
+            ],
+            'uomOptions' => $this->uomOptions(),
+            'currentUser' => $this->currentUserPayload($user),
+        ]);
+    }
+
     private function visiblePurchaseRequisitionsQuery(?User $user)
     {
         $departmentId = (int) ($user?->department_id ?? 0);

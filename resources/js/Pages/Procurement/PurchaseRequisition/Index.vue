@@ -77,6 +77,12 @@
                     </td>
                     <td class="text-right whitespace-nowrap">
                       <Link
+                        :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`"
+                        class="mr-1 text-blue-400"
+                      >
+                        View
+                      </Link>
+                      <Link
                         v-if="requisition.can_edit"
                         :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`"
                         class="mr-3 text-amber-400"
@@ -131,18 +137,24 @@
                   </div>
                 </div>
 
-                <div class="mt-3 flex justify-end gap-3">
-                  <Link
-                    v-if="requisition.can_edit"
-                    :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`"
-                    class="text-amber-400"
-                  >
-                    Edit
-                  </Link>
-                  <button v-if="requisition.can_approve" type="button" class="text-emerald-400" @click="approve(requisition.id)">
-                    Approve
-                  </button>
-                </div>
+<div class="mt-3 flex justify-end gap-3">
+                   <Link
+                     :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`"
+                     class="text-blue-400"
+                   >
+                     View
+                   </Link>
+                   <Link
+                     v-if="requisition.can_edit"
+                     :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`"
+                     class="text-amber-400"
+                   >
+                     Edit
+                   </Link>
+                   <button v-if="requisition.can_approve" type="button" class="text-emerald-400" @click="approve(requisition.id)">
+                     Approve
+                   </button>
+                 </div>
               </div>
             </div>
 
