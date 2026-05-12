@@ -292,6 +292,9 @@ Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/approv
 Route::get('gmisl/procurement/purchase-order', [App\Http\Controllers\PurchaseOrderListController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
     ->name('purchase-order.index');
+Route::get('gmisl/procurement/purchase-order/{purchaseRequisition}', [App\Http\Controllers\PurchaseOrderListController::class, 'show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
+    ->name('purchase-order.show');
 Route::get('gmisl/procurement/purchase-order/{purchaseRequisition}/form', [App\Http\Controllers\PurchaseOrderListController::class, 'edit'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
     ->name('purchase-order.form');

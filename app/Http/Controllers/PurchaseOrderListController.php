@@ -180,6 +180,80 @@ class PurchaseOrderListController extends Controller
         ]);
     }
 
+    public function show(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!in_array(strtolower(trim((string) $purchaseRequisition->status)), ['approved', 'process', 'done'], true)) {
+            abort(403, 'Purchase order hanya bisa dilihat untuk status approved, process, atau done.');
+        }
+
+        $purchaseRequisition->load([
+            'requester:id,name,department_id',
+            'department:id,name,code',
+            'approvedBy:id,name',
+            'items:id,purchase_requisition_id,product_name,uom,qty',
+            'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
+        ]);
+
+        return Inertia::render('Procurement/PurchaseOrder/Show', [
+            'title' => 'Detail Purchase Order',
+            'description' => 'Detail Purchase Order',
+            'purchaseOrder' => [
+                'id' => $purchaseRequisition->id,
+                'pr_number' => $purchaseRequisition->pr_number,
+                'pr_date' => optional($purchaseRequisition->pr_date)->toDateString(),
+                'request_date' => optional($purchaseRequisition->request_date)->toDateString(),
+                'priority' => $purchaseRequisition->priority,
+                'status' => $purchaseRequisition->status,
+                'note' => $purchaseRequisition->note,
+                'po_comment' => $purchaseRequisition->po_comment,
+                'po_photo_url' => $purchaseRequisition->po_photo_path
+                    ? Storage::disk('public')->url($purchaseRequisition->po_photo_path)
+                    : null,
+                'po_photo_filename' => $purchaseRequisition->po_photo_filename,
+                'po_photo_mime_type' => $purchaseRequisition->po_photo_mime_type,
+                'department_name' => optional($purchaseRequisition->department)->name,
+                'department_code' => optional($purchaseRequisition->department)->code,
+                'requester_name' => optional($purchaseRequisition->requester)->name,
+                'approved_at' => $purchaseRequisition->approved_at?->format('Y-m-d H:i'),
+                'approved_by_name' => optional($purchaseRequisition->approvedBy)->name,
+                'po_processed_at' => $purchaseRequisition->po_processed_at?->format('Y-m-d H:i'),
+                'po_processed_by_name' => $purchaseRequisition->po_processed_by ? \App\Models\User::where('id', $purchaseRequisition->po_processed_by)->value('name') : null,
+                'po_done_at' => $purchaseRequisition->po_done_at?->format('Y-m-d H:i'),
+                'po_done_by_name' => $purchaseRequisition->po_done_by ? \App\Models\User::where('id', $purchaseRequisition->po_done_by)->value('name') : null,
+                'can_process' => $this->canProcess($user, $purchaseRequisition),
+                'can_update_po' => $this->canUpdatePo($user, $purchaseRequisition),
+                'can_done' => $this->canDone($user, $purchaseRequisition),
+                'items' => $purchaseRequisition->items
+                    ->map(fn ($item) => [
+                        'id' => $item->id,
+                        'product_name' => $item->product_name,
+                        'uom' => $item->uom,
+                        'qty' => $item->qty,
+                    ])
+                    ->values(),
+                'attachments' => $purchaseRequisition->attachments
+                    ->map(fn ($attachment) => [
+                        'id' => $attachment->id,
+                        'filename' => $attachment->filename,
+                        'url' => Storage::disk('public')->url($attachment->path),
+                        'size' => $this->formatFileSize((int) ($attachment->size ?? 0)),
+                    ])
+                    ->values(),
+            ],
+            'currentUser' => [
+                'id' => $user?->id,
+                'name' => $user?->name,
+                'department_id' => $user?->department_id,
+                'department_name' => $user?->department?->name,
+                'department_code' => $user?->department?->code,
+            ],
+        ]);
+    }
+
     public function process(Request $request, PurchaseRequisition $purchaseRequisition)
     {
         /** @var \App\Models\User|null $user */
