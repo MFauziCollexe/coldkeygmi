@@ -74,11 +74,13 @@
                       <div v-else class="flex h-12 w-12 items-center justify-center rounded bg-slate-700 text-xs">-</div>
                     </td>
 <td class="text-right whitespace-nowrap">
-                       <Link :href="`/gmisl/procurement/purchase-order/${order.id}`" class="mr-3 text-blue-400">
+                       <Link
+                         :href="order.can_process || order.can_update_po || order.can_done
+                           ? `/gmisl/procurement/purchase-order/${order.id}/form`
+                           : `/gmisl/procurement/purchase-order/${order.id}`"
+                         :class="order.can_process || order.can_update_po || order.can_done ? 'text-indigo-400' : 'text-blue-400'"
+                       >
                          View
-                       </Link>
-                       <Link v-if="order.can_process || order.can_update_po || order.can_done" :href="`/gmisl/procurement/purchase-order/${order.id}/form`" class="text-indigo-400">
-                         Form
                        </Link>
                      </td>
                   </tr>
@@ -124,11 +126,13 @@
                 </div>
 
 <div class="mt-3 flex justify-end gap-3">
-                   <Link :href="`/gmisl/procurement/purchase-order/${order.id}`" class="text-blue-400">
+                   <Link
+                     :href="order.can_process || order.can_update_po || order.can_done
+                       ? `/gmisl/procurement/purchase-order/${order.id}/form`
+                       : `/gmisl/procurement/purchase-order/${order.id}`"
+                     :class="order.can_process || order.can_update_po || order.can_done ? 'text-indigo-400' : 'text-blue-400'"
+                   >
                      View
-                   </Link>
-                   <Link v-if="order.can_process || order.can_update_po || order.can_done" :href="`/gmisl/procurement/purchase-order/${order.id}/form`" class="text-indigo-400">
-                     Form
                    </Link>
                  </div>
               </div>

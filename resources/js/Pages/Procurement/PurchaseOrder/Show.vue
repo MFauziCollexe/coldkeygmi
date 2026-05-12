@@ -203,7 +203,12 @@ function isImageFile(filename, mimeType) {
   return ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension);
 }
 
+function isItUser() {
+  return String(props.currentUser?.department_code || '').toUpperCase() === 'IT';
+}
+
 function canDelete() {
+  if (!isItUser()) return false;
   const normalizedStatus = String(props.purchaseOrder?.status || '').trim().toLowerCase();
   return ['approved', 'process'].includes(normalizedStatus);
 }

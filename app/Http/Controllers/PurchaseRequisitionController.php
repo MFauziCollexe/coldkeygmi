@@ -19,6 +19,7 @@ class PurchaseRequisitionController extends Controller
 
     private const ACCESS_MODULE = 'gmisl.procurement.purchase_requisition';
     private const OWNER_DEPARTMENT_CODE = 'OWNER';
+    private const IT_DEPARTMENT_CODE = 'IT';
 
     public function index(Request $request)
     {
@@ -27,6 +28,7 @@ class PurchaseRequisitionController extends Controller
         /** @var \App\Models\User|null $user */
         $user = $request->user();
         $user?->loadMissing(['department']);
+        $isItUser = $this->isItDepartmentUser($user);
         $purchaseRequisitions = $this->visiblePurchaseRequisitionsQuery($user)
             ->with([
                 'requester:id,name,department_id',
@@ -37,7 +39,7 @@ class PurchaseRequisitionController extends Controller
             ])
             ->orderByRaw("CASE WHEN status = 'waiting' THEN 0 WHEN status = 'approved' THEN 1 WHEN status = 'process' THEN 2 WHEN status = 'done' THEN 3 ELSE 4 END")
             ->orderByDesc('created_at')
-            ->limit(50)
+            ->when(!$isItUser, fn ($q) => $q->limit(50))
             ->get()
             ->map(function (PurchaseRequisition $purchaseRequisition) use ($user) {
                 return [
@@ -402,6 +404,9 @@ class PurchaseRequisitionController extends Controller
             'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
         ]);
 
+        $canApprove = $this->canApprove($user, $purchaseRequisition);
+        $canReject = $canApprove; // same condition: owner dept + status waiting
+
         return Inertia::render('Procurement/PurchaseRequisition/Show', [
             'title' => 'Detail Purchase Requisition',
             'description' => 'Detail Purchase Requisition',
@@ -438,6 +443,8 @@ class PurchaseRequisitionController extends Controller
                         'size' => $this->formatFileSize((int) ($attachment->size ?? 0)),
                     ])
                     ->values(),
+                'can_approve' => $canApprove,
+                'can_reject' => $canReject,
             ],
             'uomOptions' => $this->uomOptions(),
             'currentUser' => $this->currentUserPayload($user),
@@ -448,9 +455,16 @@ class PurchaseRequisitionController extends Controller
     {
         $departmentId = (int) ($user?->department_id ?? 0);
         $isOwnerUser = $this->isOwnerDepartmentUser($user);
+        $isItUser = $this->isItDepartmentUser($user);
 
         return PurchaseRequisition::query()
-            ->where(function ($query) use ($departmentId, $isOwnerUser, $user) {
+            ->where(function ($query) use ($departmentId, $isOwnerUser, $isItUser, $user) {
+                // IT department users have full visibility to all PRs
+                if ($isItUser) {
+                    $query->whereNotNull('id');
+                    return;
+                }
+
                 if ($departmentId > 0) {
                     $query->orWhere('department_id', $departmentId);
                 }
@@ -481,6 +495,11 @@ class PurchaseRequisitionController extends Controller
     private function isOwnerDepartmentUser(?User $user): bool
     {
         return $this->departmentCode($user) === self::OWNER_DEPARTMENT_CODE;
+    }
+
+    private function isItDepartmentUser(?User $user): bool
+    {
+        return $this->departmentCode($user) === self::IT_DEPARTMENT_CODE;
     }
 
     private function departmentCode(?User $user): string
@@ -538,8 +557,8 @@ class PurchaseRequisitionController extends Controller
         $user = $request->user();
         $user?->loadMissing('department');
 
-        if ((int) $purchaseRequisition->requested_by !== (int) ($user?->id ?? 0)) {
-            abort(403, 'Anda tidak berhak menghapus purchase requisition ini.');
+        if (!$this->isItDepartmentUser($user)) {
+            abort(403, 'Hanya departemen IT yang dapat menghapus purchase requisition.');
         }
 
         $purchaseRequisition->items()->delete();

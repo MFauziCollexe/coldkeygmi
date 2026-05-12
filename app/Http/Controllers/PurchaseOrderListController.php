@@ -16,6 +16,7 @@ class PurchaseOrderListController extends Controller
 
     private const ACCESS_MODULE = 'gmisl.procurement.purchase_order';
     private const FAT_DEPARTMENT_CODE = 'FAT';
+    private const IT_DEPARTMENT_CODE = 'IT';
 
     /**
      * Display Purchase Order index page
@@ -410,8 +411,8 @@ class PurchaseOrderListController extends Controller
         $user = $request->user();
         $user?->loadMissing('department');
 
-        if (!$this->isFatDepartmentUser($user)) {
-            abort(403, 'Hanya tim FAT yang dapat menghapus purchase order.');
+        if (!$this->isItDepartmentUser($user)) {
+            abort(403, 'Hanya tim IT yang dapat menghapus purchase order.');
         }
 
         $status = strtolower(trim((string) $purchaseRequisition->status));
@@ -425,5 +426,10 @@ class PurchaseOrderListController extends Controller
 
         return redirect()->route('purchase-order.index')
             ->with('success', 'Purchase order berhasil dihapus.');
+    }
+
+    private function isItDepartmentUser(?User $user): bool
+    {
+        return strtoupper(trim((string) ($user?->department?->code ?? ''))) === self::IT_DEPARTMENT_CODE;
     }
 }

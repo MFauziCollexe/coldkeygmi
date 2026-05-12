@@ -137,11 +137,10 @@ const props = defineProps({
   currentUser: { type: Object, default: () => ({}) },
 });
 
-const normalizedStatus = String(props.purchaseRequisition.status || '').trim().toLowerCase();
-const canApprove = normalizedStatus === 'waiting';
-const canReject = normalizedStatus === 'waiting';
-const isOwner = (props.purchaseRequisition.requested_by || 0) === (props.currentUser?.id || 0);
-const canDelete = isOwner;
+const canApprove = props.purchaseRequisition.can_approve === true;
+const canReject = props.purchaseRequisition.can_reject === true;
+const isItUser = String(props.currentUser?.department_code || '').toUpperCase() === 'IT';
+const canDelete = isItUser;
 
 function formatPriority(priority) {
   const normalized = String(priority || '').trim().toLowerCase();
