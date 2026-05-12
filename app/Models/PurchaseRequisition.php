@@ -27,6 +27,7 @@ class PurchaseRequisition extends Model
         'po_comment',
         'po_photo_path',
         'po_photo_filename',
+        'po_photo_mime_type',
         'po_processed_by',
         'po_processed_at',
         'po_done_by',

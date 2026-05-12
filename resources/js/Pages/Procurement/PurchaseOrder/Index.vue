@@ -144,9 +144,25 @@
               </div>
 
               <div v-if="order.po_photo_url" class="mt-4">
-                <div class="mb-2 text-sm font-semibold text-slate-100">PO Photo</div>
-                <a :href="order.po_photo_url" target="_blank" rel="noopener noreferrer" class="block overflow-hidden rounded border border-slate-700 bg-slate-950/40 hover:border-slate-500">
+                <div class="mb-2 text-sm font-semibold text-slate-100">PO File / Photo</div>
+                <a
+                  v-if="isImageFile(order.po_photo_filename, order.po_photo_mime_type)"
+                  :href="order.po_photo_url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="block overflow-hidden rounded border border-slate-700 bg-slate-950/40 hover:border-slate-500"
+                >
                   <img :src="order.po_photo_url" :alt="order.po_photo_filename || `PO Photo ${order.pr_number}`" class="h-56 w-full object-cover" />
+                </a>
+                <a
+                  v-else
+                  :href="order.po_photo_url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="flex items-center justify-between rounded border border-slate-700 bg-slate-950/40 px-3 py-3 text-sm text-slate-200 hover:border-slate-500"
+                >
+                  <span class="truncate pr-3">{{ order.po_photo_filename || 'File PO' }}</span>
+                  <span class="shrink-0 text-xs text-slate-400">Open</span>
                 </a>
                 <div v-if="order.po_photo_filename" class="mt-2 text-xs text-slate-400">
                   {{ order.po_photo_filename }}
@@ -165,18 +181,32 @@
                 </div>
 
                 <div>
-                  <label class="mb-2 block text-sm font-semibold text-slate-100">Upload Foto</label>
+                  <label class="mb-2 block text-sm font-semibold text-slate-100">Ambil Foto dari HP</label>
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     class="block w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"
                     @change="selectPoPhoto(order.id, $event)"
+                  />
+                  <div class="mt-2 text-xs text-slate-500">
+                    Di HP akan membuka kamera belakang bila didukung browser.
+                  </div>
+                </div>
+
+                <div>
+                  <label class="mb-2 block text-sm font-semibold text-slate-100">Upload File</label>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                    class="block w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+                    @change="selectPoFile(order.id, $event)"
                   />
                   <div v-if="orderForms[order.id].po_photo_name" class="mt-2 text-xs text-slate-400">
                     File dipilih: {{ orderForms[order.id].po_photo_name }}
                   </div>
                   <div class="mt-2 text-xs text-slate-500">
-                    Maksimal 10 MB, format gambar.
+                    Maksimal 10 MB. Format: jpg, jpeg, png, webp, pdf, doc, docx, xls, xlsx.
                   </div>
                 </div>
               </div>
@@ -275,6 +305,14 @@ function processOrder(id) {
 }
 
 function selectPoPhoto(id, event) {
+  selectPoUpload(id, event);
+}
+
+function selectPoFile(id, event) {
+  selectPoUpload(id, event);
+}
+
+function selectPoUpload(id, event) {
   const file = event?.target?.files?.[0] || null;
   ensureOrderForm(id);
   orderForms[id].po_photo = file;
@@ -317,6 +355,16 @@ function ensureOrderForm(id) {
       po_photo_name: '',
     };
   }
+}
+
+function isImageFile(filename, mimeType) {
+  const normalizedMime = String(mimeType || '').toLowerCase();
+  if (normalizedMime.startsWith('image/')) {
+    return true;
+  }
+
+  const extension = String(filename || '').split('.').pop()?.toLowerCase() || '';
+  return ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension);
 }
 
 function formatStatus(status) {

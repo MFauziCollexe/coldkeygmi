@@ -21,10 +21,14 @@ return new class extends Migration
                 $table->string('po_photo_filename')->nullable()->after('po_photo_path');
             }
 
+            if (!Schema::hasColumn('purchase_requisitions', 'po_photo_mime_type')) {
+                $table->string('po_photo_mime_type')->nullable()->after('po_photo_filename');
+            }
+
             if (!Schema::hasColumn('purchase_requisitions', 'po_processed_by')) {
                 $table->foreignId('po_processed_by')
                     ->nullable()
-                    ->after('po_photo_filename')
+                    ->after('po_photo_mime_type')
                     ->constrained('users')
                     ->nullOnDelete();
             }
@@ -68,6 +72,10 @@ return new class extends Migration
 
             if (Schema::hasColumn('purchase_requisitions', 'po_photo_filename')) {
                 $table->dropColumn('po_photo_filename');
+            }
+
+            if (Schema::hasColumn('purchase_requisitions', 'po_photo_mime_type')) {
+                $table->dropColumn('po_photo_mime_type');
             }
 
             if (Schema::hasColumn('purchase_requisitions', 'po_photo_path')) {

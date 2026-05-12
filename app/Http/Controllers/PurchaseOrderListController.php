@@ -58,6 +58,7 @@ class PurchaseOrderListController extends Controller
                         ? Storage::disk('public')->url($purchaseRequisition->po_photo_path)
                         : null,
                     'po_photo_filename' => $purchaseRequisition->po_photo_filename,
+                    'po_photo_mime_type' => $purchaseRequisition->po_photo_mime_type,
                     'department_name' => optional($purchaseRequisition->department)->name,
                     'requester_name' => optional($purchaseRequisition->requester)->name,
                     'approved_at' => $purchaseRequisition->approved_at?->format('Y-m-d H:i'),
@@ -143,7 +144,7 @@ class PurchaseOrderListController extends Controller
 
         $validated = $request->validate([
             'po_comment' => ['nullable', 'string'],
-            'po_photo' => ['nullable', 'image', 'max:10240'],
+            'po_photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx', 'max:10240'],
         ]);
 
         $this->persistPoFields($request, $purchaseRequisition, $validated);
@@ -163,7 +164,7 @@ class PurchaseOrderListController extends Controller
 
         $validated = $request->validate([
             'po_comment' => ['nullable', 'string'],
-            'po_photo' => ['nullable', 'image', 'max:10240'],
+            'po_photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx', 'max:10240'],
         ]);
 
         $this->persistPoFields($request, $purchaseRequisition, $validated);
@@ -222,6 +223,7 @@ class PurchaseOrderListController extends Controller
 
             $payload['po_photo_path'] = $path;
             $payload['po_photo_filename'] = $file->getClientOriginalName();
+            $payload['po_photo_mime_type'] = $file->getClientMimeType();
         }
 
         $purchaseRequisition->update($payload);
