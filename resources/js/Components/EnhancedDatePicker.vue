@@ -58,11 +58,17 @@ onMounted(() => {
     defaultDate: props.modelValue || null,
     disableMobile: true,
     onReady: (selectedDates, dateStr, instance) => {
+      instance.input.style.display = 'none';
+      instance.input.style.position = 'absolute';
+      instance.input.style.pointerEvents = 'none';
+      instance.input.style.opacity = '0';
+
       if (instance.altInput) {
         instance.altInput.placeholder = props.placeholder || '';
         instance.altInput.disabled = props.disabled;
         instance.altInput.style.width = '100%';
         instance.altInput.style.display = 'block';
+        instance.altInput.style.margin = '0';
       }
     },
     onChange: (selectedDates, dateStr) => {
@@ -99,6 +105,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 :deep(.flatpickr-wrapper) {
+  position: relative;
   display: block;
   width: 100%;
 }
@@ -107,6 +114,38 @@ onBeforeUnmount(() => {
 :deep(.flatpickr-wrapper > input) {
   width: 100%;
   display: block;
+}
+
+:deep(.flatpickr-wrapper > input.flatpickr-input) {
+  display: none !important;
+}
+
+:deep(.flatpickr-wrapper > input[readonly]:not(.flatpickr-input)) {
+  width: 100%;
+  display: block;
+  margin: 0;
+}
+
+:deep(.flatpickr-wrapper .form-control),
+:deep(.flatpickr-wrapper .input),
+:deep(.flatpickr-wrapper input:not(.flatpickr-input)) {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.75rem 0.75rem;
+  margin: 0;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(51 65 85);
+  background: rgb(30 41 59);
+  color: rgb(241 245 249);
+  line-height: 1.5rem;
+  box-shadow: none;
+  appearance: none;
+}
+
+:deep(.flatpickr-wrapper input:not(.flatpickr-input):focus) {
+  outline: none;
+  border-color: rgb(99 102 241);
+  box-shadow: 0 0 0 2px rgb(99 102 241 / 0.2);
 }
 
 :deep(.flatpickr-input[readonly]) {

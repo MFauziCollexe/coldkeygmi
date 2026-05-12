@@ -269,9 +269,18 @@ Route::post('request-access/{requestAccess}/process', [App\Http\Controllers\Requ
 Route::get('gmisl/procurement/purchase-requisition', [App\Http\Controllers\PurchaseRequisitionController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.index');
+Route::get('gmisl/procurement/purchase-requisition/create', [App\Http\Controllers\PurchaseRequisitionController::class, 'create'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.create');
 Route::post('gmisl/procurement/purchase-requisition', [App\Http\Controllers\PurchaseRequisitionController::class, 'store'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.store');
+Route::get('gmisl/procurement/purchase-requisition/{purchaseRequisition}/edit', [App\Http\Controllers\PurchaseRequisitionController::class, 'edit'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.edit');
+Route::put('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\Http\Controllers\PurchaseRequisitionController::class, 'update'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.update');
 Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/approve', [App\Http\Controllers\PurchaseRequisitionController::class, 'approve'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.approve');
@@ -280,6 +289,12 @@ Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/approv
 Route::get('gmisl/procurement/purchase-order', [App\Http\Controllers\PurchaseOrderListController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
     ->name('purchase-order.index');
+Route::get('gmisl/procurement/purchase-order/{purchaseRequisition}/form', [App\Http\Controllers\PurchaseOrderListController::class, 'edit'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
+    ->name('purchase-order.form');
+Route::get('gmisl/procurement/purchase-order/{purchaseRequisition}/edit', [App\Http\Controllers\PurchaseOrderListController::class, 'edit'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
+    ->name('purchase-order.edit');
 Route::post('gmisl/procurement/purchase-order/{purchaseRequisition}/process', [App\Http\Controllers\PurchaseOrderListController::class, 'process'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
     ->name('purchase-order.process');
