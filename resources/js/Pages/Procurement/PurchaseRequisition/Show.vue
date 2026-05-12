@@ -110,6 +110,12 @@
 
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
             <Link href="/gmisl/procurement/purchase-requisition" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">Close</Link>
+            <button v-if="canDelete" type="button" class="rounded bg-rose-600 px-4 py-2 text-white hover:bg-rose-700" @click="confirmDelete">
+              Delete
+            </button>
+            <button v-if="canReject" type="button" class="rounded bg-rose-600 px-4 py-2 text-white hover:bg-rose-700" @click="confirmReject">
+              Reject
+            </button>
             <button v-if="canApprove" type="button" class="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700" @click="confirmApprove">
               Approve
             </button>
@@ -133,12 +139,35 @@ const props = defineProps({
 
 const normalizedStatus = String(props.purchaseRequisition.status || '').trim().toLowerCase();
 const canApprove = normalizedStatus === 'waiting';
+const canReject = normalizedStatus === 'waiting';
+const isOwner = (props.purchaseRequisition.requested_by || 0) === (props.currentUser?.id || 0);
+const canDelete = isOwner;
 
 function formatPriority(priority) {
   const normalized = String(priority || '').trim().toLowerCase();
   if (normalized === 'urgent') return 'Urgent';
   if (normalized === 'low') return 'Low';
   return 'Medium';
+}
+
+function formatStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'approved') return 'Approved';
+  if (normalized === 'waiting') return 'Waiting';
+  if (normalized === 'process') return 'Process';
+  if (normalized === 'done') return 'Done';
+  if (normalized === 'rejected') return 'Rejected';
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '-';
+}
+
+function statusClass(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'approved') return 'bg-emerald-700/30 text-emerald-300 border border-emerald-500/40';
+  if (normalized === 'waiting') return 'bg-amber-700/30 text-amber-300 border border-amber-500/40';
+  if (normalized === 'process') return 'bg-indigo-700/30 text-indigo-300 border border-indigo-500/40';
+  if (normalized === 'done') return 'bg-sky-700/30 text-sky-300 border border-sky-500/40';
+  if (normalized === 'rejected') return 'bg-rose-700/30 text-rose-300 border border-rose-500/40';
+  return 'bg-slate-700/40 text-slate-200 border border-slate-600';
 }
 
 async function confirmApprove() {
@@ -158,8 +187,66 @@ async function confirmApprove() {
   }
 }
 
+async function confirmReject() {
+  const result = await Swal.fire({
+    title: 'Reject Purchase Requisition?',
+    text: 'Please enter a reason for rejection:',
+    icon: 'warning',
+    input: 'textarea',
+    inputLabel: 'Rejection Reason',
+    inputPlaceholder: 'Enter reason for rejection...',
+    inputAttributes: {
+      'aria-label': 'Rejection reason',
+    },
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Yes, Reject',
+    cancelButtonText: 'No, Cancel',
+    inputValidator: (value) => {
+      if (!value) {
+        return 'Please enter a rejection reason!';
+      }
+      return null;
+    },
+  });
+
+  if (result.isConfirmed) {
+    reject(result.value);
+  }
+}
+
 function approve() {
   router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/approve`, {}, {
+    preserveScroll: true,
+  });
+}
+
+function reject(note) {
+  router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/reject`, { reject_note: note }, {
+    preserveScroll: true,
+  });
+}
+
+async function confirmDelete() {
+  const result = await Swal.fire({
+    title: 'Delete Purchase Requisition?',
+    text: 'Are you sure you want to delete this PR? This action cannot be undone.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Yes, Delete',
+    cancelButtonText: 'No, Cancel',
+  });
+
+  if (result.isConfirmed) {
+    destroy();
+  }
+}
+
+function destroy() {
+  router.delete(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}`, {}, {
     preserveScroll: true,
   });
 }

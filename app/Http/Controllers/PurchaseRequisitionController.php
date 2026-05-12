@@ -345,7 +345,35 @@ class PurchaseRequisitionController extends Controller
             'approved_at' => now(),
         ]);
 
-        return redirect()->back()->with('success', 'Purchase requisition berhasil di-approve.');
+        return redirect()->route('purchase-requisition.index')->with('success', 'Purchase requisition berhasil di-approve.');
+    }
+
+    public function reject(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!$this->isOwnerDepartmentUser($user)) {
+            abort(403, 'Hanya department Owner yang dapat reject purchase requisition.');
+        }
+
+        if (strtolower(trim((string) $purchaseRequisition->status)) !== 'waiting') {
+            return redirect()->back()->withErrors([
+                'status' => 'Hanya PR dengan status waiting yang bisa di-reject.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'reject_note' => ['required', 'string', 'max:500'],
+        ]);
+
+        $purchaseRequisition->update([
+            'status' => 'rejected',
+            'note' => $validated['reject_note'],
+        ]);
+
+        return redirect()->route('purchase-requisition.index')->with('success', 'Purchase requisition berhasil di-reject.');
     }
 
     public function show(Request $request, PurchaseRequisition $purchaseRequisition)
@@ -354,9 +382,15 @@ class PurchaseRequisitionController extends Controller
         $user = $request->user();
         $user?->loadMissing(['department']);
 
-        if (!$this->visiblePurchaseRequisitionsQuery($user)
+        $isVisible = $this->visiblePurchaseRequisitionsQuery($user)
             ->where('id', $purchaseRequisition->id)
-            ->exists()) {
+            ->exists();
+
+        if (!$isVisible && (int) $purchaseRequisition->requested_by === (int) ($user?->id ?? 0)) {
+            $isVisible = true;
+        }
+
+        if (!$isVisible) {
             abort(403, 'Anda tidak memiliki akses untuk melihat purchase requisition ini.');
         }
 
@@ -380,6 +414,7 @@ class PurchaseRequisitionController extends Controller
                 'status' => $purchaseRequisition->status,
                 'note' => $purchaseRequisition->note,
                 'po_comment' => $purchaseRequisition->po_comment,
+                'requested_by' => $purchaseRequisition->requested_by,
                 'department_name' => optional($purchaseRequisition->department)->name,
                 'department_code' => optional($purchaseRequisition->department)->code,
                 'requester_name' => optional($purchaseRequisition->requester)->name,
@@ -425,7 +460,7 @@ class PurchaseRequisitionController extends Controller
                 }
 
                 if ($isOwnerUser) {
-                    $query->orWhereIn('status', ['waiting', 'approved']);
+                    $query->orWhereIn('status', ['waiting', 'approved', 'rejected']);
                 }
             });
     }
@@ -495,5 +530,22 @@ class PurchaseRequisitionController extends Controller
         $precision = $unitIndex === 0 ? 0 : 2;
 
         return number_format($bytes, $precision) . ' ' . $units[$unitIndex];
+    }
+
+    public function destroy(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if ((int) $purchaseRequisition->requested_by !== (int) ($user?->id ?? 0)) {
+            abort(403, 'Anda tidak berhak menghapus purchase requisition ini.');
+        }
+
+        $purchaseRequisition->items()->delete();
+        $purchaseRequisition->attachments()->delete();
+        $purchaseRequisition->delete();
+
+        return redirect()->route('purchase-requisition.index')->with('success', 'Purchase requisition berhasil dihapus.');
     }
 }

@@ -177,6 +177,7 @@ function formatStatus(status) {
   if (normalized === 'waiting') return 'Waiting';
   if (normalized === 'process') return 'Process';
   if (normalized === 'done') return 'Done';
+  if (normalized === 'rejected') return 'Rejected';
   if (normalized === 'draft' || normalized === 'pr') return 'Draft';
   return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '-';
 }
@@ -187,6 +188,7 @@ function statusClass(status) {
   if (normalized === 'waiting') return 'bg-amber-700/30 text-amber-300 border border-amber-500/40';
   if (normalized === 'process') return 'bg-indigo-700/30 text-indigo-300 border border-indigo-500/40';
   if (normalized === 'done') return 'bg-sky-700/30 text-sky-300 border border-sky-500/40';
+  if (normalized === 'rejected') return 'bg-rose-700/30 text-rose-300 border border-rose-500/40';
   return 'bg-slate-700/40 text-slate-200 border border-slate-600';
 }
 

@@ -281,12 +281,18 @@ Route::get('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\
 Route::get('gmisl/procurement/purchase-requisition/{purchaseRequisition}/edit', [App\Http\Controllers\PurchaseRequisitionController::class, 'edit'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.edit');
-Route::put('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\Http\Controllers\PurchaseRequisitionController::class, 'update'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
-    ->name('purchase-requisition.update');
 Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/approve', [App\Http\Controllers\PurchaseRequisitionController::class, 'approve'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.approve');
+Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/reject', [App\Http\Controllers\PurchaseRequisitionController::class, 'reject'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.reject');
+Route::put('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\Http\Controllers\PurchaseRequisitionController::class, 'update'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.update');
+Route::delete('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\Http\Controllers\PurchaseRequisitionController::class, 'destroy'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.destroy');
 
 // Purchase Order (GMISL > Procurement > Purchase Order)
 Route::get('gmisl/procurement/purchase-order', [App\Http\Controllers\PurchaseOrderListController::class, 'index'])
@@ -310,6 +316,9 @@ Route::post('gmisl/procurement/purchase-order/{purchaseRequisition}/save', [App\
 Route::post('gmisl/procurement/purchase-order/{purchaseRequisition}/done', [App\Http\Controllers\PurchaseOrderListController::class, 'done'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
     ->name('purchase-order.done');
+Route::delete('gmisl/procurement/purchase-order/{purchaseRequisition}', [App\Http\Controllers\PurchaseOrderListController::class, 'destroy'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
+    ->name('purchase-order.destroy');
 
 // Master Data - Department (route: /master-data/department)
 Route::resource('master-data/department', DepartmentController::class)
