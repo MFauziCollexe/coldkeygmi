@@ -6,6 +6,7 @@ use App\Models\PurchaseRequisition;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class PurchaseOrderListController extends Controller
@@ -31,7 +32,7 @@ class PurchaseOrderListController extends Controller
                 'items:id,purchase_requisition_id,product_name,uom,qty',
                 'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
             ])
-            ->whereIn('status', ['approved', 'process'])
+            ->whereIn('status', ['approved', 'process', 'done'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery->where('pr_number', 'like', '%' . $search . '%')
@@ -39,7 +40,7 @@ class PurchaseOrderListController extends Controller
                         ->orWhereHas('department', fn ($departmentQuery) => $departmentQuery->where('name', 'like', '%' . $search . '%'));
                 });
             })
-            ->orderByRaw("CASE WHEN status = 'approved' THEN 0 WHEN status = 'process' THEN 1 ELSE 2 END")
+            ->orderByRaw("CASE WHEN status = 'approved' THEN 0 WHEN status = 'process' THEN 1 WHEN status = 'done' THEN 2 ELSE 3 END")
             ->orderByDesc('approved_at')
             ->orderByDesc('created_at')
             ->get()
@@ -52,11 +53,20 @@ class PurchaseOrderListController extends Controller
                     'priority' => $purchaseRequisition->priority,
                     'status' => $purchaseRequisition->status,
                     'note' => $purchaseRequisition->note,
+                    'po_comment' => $purchaseRequisition->po_comment,
+                    'po_photo_url' => $purchaseRequisition->po_photo_path
+                        ? Storage::disk('public')->url($purchaseRequisition->po_photo_path)
+                        : null,
+                    'po_photo_filename' => $purchaseRequisition->po_photo_filename,
                     'department_name' => optional($purchaseRequisition->department)->name,
                     'requester_name' => optional($purchaseRequisition->requester)->name,
                     'approved_at' => $purchaseRequisition->approved_at?->format('Y-m-d H:i'),
                     'approved_by_name' => optional($purchaseRequisition->approvedBy)->name,
+                    'po_processed_at' => $purchaseRequisition->po_processed_at?->format('Y-m-d H:i'),
+                    'po_done_at' => $purchaseRequisition->po_done_at?->format('Y-m-d H:i'),
                     'can_process' => $this->canProcess($user, $purchaseRequisition),
+                    'can_update_po' => $this->canUpdatePo($user, $purchaseRequisition),
+                    'can_done' => $this->canDone($user, $purchaseRequisition),
                     'items' => $purchaseRequisition->items
                         ->map(fn ($item) => [
                             'id' => $item->id,
@@ -112,9 +122,59 @@ class PurchaseOrderListController extends Controller
 
         $purchaseRequisition->update([
             'status' => 'process',
+            'po_processed_by' => $user?->id,
+            'po_processed_at' => now(),
+            'po_done_by' => null,
+            'po_done_at' => null,
         ]);
 
         return redirect()->back()->with('success', 'Purchase order berhasil diproses oleh tim FAT.');
+    }
+
+    public function save(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!$this->canUpdatePo($user, $purchaseRequisition)) {
+            abort(403, 'Data purchase order hanya bisa diubah saat status process oleh tim FAT.');
+        }
+
+        $validated = $request->validate([
+            'po_comment' => ['nullable', 'string'],
+            'po_photo' => ['nullable', 'image', 'max:10240'],
+        ]);
+
+        $this->persistPoFields($request, $purchaseRequisition, $validated);
+
+        return redirect()->back()->with('success', 'Komentar dan foto purchase order berhasil disimpan.');
+    }
+
+    public function done(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!$this->canDone($user, $purchaseRequisition)) {
+            abort(403, 'Hanya purchase order dengan status process yang bisa diubah menjadi done oleh tim FAT.');
+        }
+
+        $validated = $request->validate([
+            'po_comment' => ['nullable', 'string'],
+            'po_photo' => ['nullable', 'image', 'max:10240'],
+        ]);
+
+        $this->persistPoFields($request, $purchaseRequisition, $validated);
+
+        $purchaseRequisition->update([
+            'status' => 'done',
+            'po_done_by' => $user?->id,
+            'po_done_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Purchase order berhasil ditandai done.');
     }
 
     private function canProcess(?User $user, PurchaseRequisition $purchaseRequisition): bool
@@ -123,9 +183,48 @@ class PurchaseOrderListController extends Controller
             && strtolower(trim((string) $purchaseRequisition->status)) === 'approved';
     }
 
+    private function canUpdatePo(?User $user, PurchaseRequisition $purchaseRequisition): bool
+    {
+        return $this->isFatDepartmentUser($user)
+            && strtolower(trim((string) $purchaseRequisition->status)) === 'process';
+    }
+
+    private function canDone(?User $user, PurchaseRequisition $purchaseRequisition): bool
+    {
+        return $this->canUpdatePo($user, $purchaseRequisition);
+    }
+
     private function isFatDepartmentUser(?User $user): bool
     {
         return strtoupper(trim((string) ($user?->department?->code ?? ''))) === self::FAT_DEPARTMENT_CODE;
+    }
+
+    private function persistPoFields(Request $request, PurchaseRequisition $purchaseRequisition, array $validated): void
+    {
+        $payload = [
+            'po_comment' => $validated['po_comment'] ?? null,
+        ];
+
+        if ($request->hasFile('po_photo')) {
+            if ($purchaseRequisition->po_photo_path && Storage::disk('public')->exists($purchaseRequisition->po_photo_path)) {
+                Storage::disk('public')->delete($purchaseRequisition->po_photo_path);
+            }
+
+            $file = $request->file('po_photo');
+
+            if (!$file) {
+                throw ValidationException::withMessages([
+                    'po_photo' => 'File foto purchase order tidak valid.',
+                ]);
+            }
+
+            $path = $file->store('purchase-orders/' . $purchaseRequisition->id, 'public');
+
+            $payload['po_photo_path'] = $path;
+            $payload['po_photo_filename'] = $file->getClientOriginalName();
+        }
+
+        $purchaseRequisition->update($payload);
     }
 
     private function formatFileSize(int $size): string

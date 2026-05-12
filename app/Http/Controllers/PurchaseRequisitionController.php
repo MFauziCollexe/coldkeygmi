@@ -30,7 +30,7 @@ class PurchaseRequisitionController extends Controller
                 'items:id,purchase_requisition_id,product_name,uom,qty',
                 'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
             ])
-            ->orderByRaw("CASE WHEN status = 'waiting' THEN 0 WHEN status = 'approved' THEN 1 ELSE 2 END")
+            ->orderByRaw("CASE WHEN status = 'waiting' THEN 0 WHEN status = 'approved' THEN 1 WHEN status = 'process' THEN 2 WHEN status = 'done' THEN 3 ELSE 4 END")
             ->orderByDesc('created_at')
             ->limit(50)
             ->get()

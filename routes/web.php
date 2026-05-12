@@ -283,6 +283,12 @@ Route::get('gmisl/procurement/purchase-order', [App\Http\Controllers\PurchaseOrd
 Route::post('gmisl/procurement/purchase-order/{purchaseRequisition}/process', [App\Http\Controllers\PurchaseOrderListController::class, 'process'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
     ->name('purchase-order.process');
+Route::post('gmisl/procurement/purchase-order/{purchaseRequisition}/save', [App\Http\Controllers\PurchaseOrderListController::class, 'save'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
+    ->name('purchase-order.save');
+Route::post('gmisl/procurement/purchase-order/{purchaseRequisition}/done', [App\Http\Controllers\PurchaseOrderListController::class, 'done'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
+    ->name('purchase-order.done');
 
 // Master Data - Department (route: /master-data/department)
 Route::resource('master-data/department', DepartmentController::class)

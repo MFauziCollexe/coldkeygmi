@@ -24,12 +24,21 @@ class PurchaseRequisition extends Model
         'approved_by',
         'approved_at',
         'note',
+        'po_comment',
+        'po_photo_path',
+        'po_photo_filename',
+        'po_processed_by',
+        'po_processed_at',
+        'po_done_by',
+        'po_done_at',
     ];
 
     protected $casts = [
         'pr_date' => 'date',
         'request_date' => 'date',
         'approved_at' => 'datetime',
+        'po_processed_at' => 'datetime',
+        'po_done_at' => 'datetime',
     ];
 
     public function requester(): BelongsTo
