@@ -403,4 +403,27 @@ class PurchaseOrderListController extends Controller
 
         return number_format($bytes, $precision) . ' ' . $units[$unitIndex];
     }
+
+    public function destroy(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!$this->isFatDepartmentUser($user)) {
+            abort(403, 'Hanya tim FAT yang dapat menghapus purchase order.');
+        }
+
+        $status = strtolower(trim((string) $purchaseRequisition->status));
+        if (!in_array($status, ['approved', 'process'], true)) {
+            abort(403, 'Purchase order hanya bisa dihapus untuk status approved atau process.');
+        }
+
+        $purchaseRequisition->items()->delete();
+        $purchaseRequisition->attachments()->delete();
+        $purchaseRequisition->delete();
+
+        return redirect()->route('purchase-order.index')
+            ->with('success', 'Purchase order berhasil dihapus.');
+    }
 }

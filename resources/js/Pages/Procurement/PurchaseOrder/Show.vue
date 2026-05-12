@@ -138,21 +138,30 @@
           </div>
         </section>
 
-        <div class="flex justify-end">
-          <Link href="/gmisl/procurement/purchase-order" class="rounded bg-slate-700 px-4 py-2 text-white hover:bg-slate-600">
-            Close
-          </Link>
-        </div>
+<div class="flex justify-end gap-3">
+           <button
+             v-if="canDelete()"
+             type="button"
+             class="rounded bg-rose-600 px-4 py-2 text-white hover:bg-rose-700"
+             @click="confirmDelete"
+           >
+             Delete
+           </button>
+           <Link href="/gmisl/procurement/purchase-order" class="rounded bg-slate-700 px-4 py-2 text-white hover:bg-slate-600">
+             Close
+           </Link>
+         </div>
       </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Swal from 'sweetalert2';
 
-defineProps({
+const props = defineProps({
   purchaseOrder: { type: Object, required: true },
   currentUser: { type: Object, default: () => ({}) },
 });
@@ -192,5 +201,29 @@ function isImageFile(filename, mimeType) {
   if (normalizedMime.startsWith('image/')) return true;
   const extension = String(filename || '').split('.').pop()?.toLowerCase() || '';
   return ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension);
+}
+
+function canDelete() {
+  const normalizedStatus = String(props.purchaseOrder?.status || '').trim().toLowerCase();
+  return ['approved', 'process'].includes(normalizedStatus);
+}
+
+async function confirmDelete() {
+  const result = await Swal.fire({
+    title: 'Hapus Purchase Order?',
+    text: 'Data yang dihapus tidak dapat dikembalikan. Lanjutkan?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Batal',
+  });
+
+  if (result.isConfirmed) {
+    router.delete(`/gmisl/procurement/purchase-order/${props.purchaseOrder?.id}`, {
+      preserveScroll: true,
+    });
+  }
 }
 </script>
