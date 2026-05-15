@@ -1,6 +1,5 @@
 <template>
   <div class="space-y-4">
-    <!-- Toolbar -->
     <div v-if="documentLoaded" class="flex flex-wrap gap-2">
       <button
         @click="clearSignature"
@@ -34,21 +33,20 @@
       </div>
     </div>
 
-    <!-- Status Info -->
     <div v-if="isProcessing" class="rounded bg-blue-900/30 p-3 text-sm text-blue-300">
       Processing signature...
     </div>
 
-    <!-- Canvas Container -->
     <div
       v-if="documentUrl"
+      ref="canvasContainer"
       class="relative mx-auto w-full overflow-hidden rounded-lg border border-slate-700 bg-slate-900"
-      :style="{ maxWidth: canvasWidth + 'px' }"
+      :style="{ maxWidth: `${displayWidth}px` }"
     >
       <canvas
         ref="canvasEl"
         class="block w-full"
-        :style="{ height: canvasHeight + 'px', cursor: isDrawing ? 'crosshair' : 'default' }"
+        :style="{ height: `${displayHeight}px`, cursor: isDrawing ? 'crosshair' : 'default' }"
         @mousedown="startDrawing"
         @mousemove="draw"
         @mouseup="stopDrawing"
@@ -59,7 +57,6 @@
       />
     </div>
 
-    <!-- Empty State -->
     <div v-if="!documentLoaded" class="rounded border-2 border-dashed border-slate-700 p-8 text-center">
       <svg class="mx-auto mb-3 h-12 w-12 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -71,7 +68,7 @@
 
 <script setup>
 import { Canvas, FabricImage, Path, PencilBrush, StaticCanvas } from 'fabric';
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const emit = defineEmits(['signed', 'error']);
 
@@ -84,30 +81,61 @@ const props = defineProps({
 });
 
 const canvasEl = ref(null);
-let canvas = null;
+const canvasContainer = ref(null);
 const isDrawing = ref(false);
 const signaturePaths = ref([]);
-let currentPath = null;
-
-const documentLoaded = computed(() => !!props.documentUrl);
-const canUndo = computed(() => signaturePaths.value.length > 0);
 const strokeColor = ref(props.penColor);
 const strokeWidth = ref(props.penWidth);
 const isProcessing = ref(false);
+const sourceDimensions = ref({
+  width: props.canvasWidth,
+  height: props.canvasHeight,
+});
+const displayWidth = ref(props.canvasWidth);
+const displayHeight = ref(props.canvasHeight);
 
-// Initialize canvas when component mounted or documentUrl changes
-onMounted(() => {
+let canvas = null;
+let currentPath = null;
+let backgroundImage = null;
+let resizeObserver = null;
+
+const documentLoaded = computed(() => !!props.documentUrl);
+const canUndo = computed(() => signaturePaths.value.length > 0);
+
+onMounted(async () => {
+  await nextTick();
+
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      updateCanvasDimensions();
+    });
+
+    if (canvasContainer.value) {
+      resizeObserver.observe(canvasContainer.value);
+    }
+  }
+
   if (props.documentUrl) {
     void initCanvas();
   }
 });
 
 watch(() => props.documentUrl, (newUrl) => {
-  if (newUrl) {
-    signaturePaths.value = [];
-    void initCanvas();
+  if (!newUrl) {
+    return;
   }
+
+  signaturePaths.value = [];
+  void initCanvas();
 });
+
+watch(
+  () => [props.canvasWidth, props.canvasHeight],
+  async () => {
+    await nextTick();
+    updateCanvasDimensions();
+  }
+);
 
 watch(strokeColor, (value) => {
   if (canvas?.freeDrawingBrush) {
@@ -147,80 +175,99 @@ async function initCanvas() {
   canvas.freeDrawingBrush.strokeLineJoin = 'round';
 
   try {
-    const backgroundImage = await FabricImage.fromURL(
-      props.documentUrl,
-      { crossOrigin: 'anonymous' }
-    );
+    backgroundImage = await FabricImage.fromURL(props.documentUrl, {
+      crossOrigin: 'anonymous',
+    });
 
-    const sourceWidth = Number(backgroundImage.width || props.canvasWidth);
-    const sourceHeight = Number(backgroundImage.height || props.canvasHeight);
-    const scale = Math.min(
-      props.canvasWidth / sourceWidth,
-      props.canvasHeight / sourceHeight
-    );
+    sourceDimensions.value = {
+      width: Number(backgroundImage.width || props.canvasWidth),
+      height: Number(backgroundImage.height || props.canvasHeight),
+    };
 
     backgroundImage.set({
       selectable: false,
       evented: false,
       excludeFromExport: true,
-      scaleX: scale,
-      scaleY: scale,
       left: 0,
       top: 0,
       originX: 'left',
       originY: 'top',
     });
 
-    canvas.setDimensions({
-      width: sourceWidth * scale,
-      height: sourceHeight * scale,
-    });
     canvas.backgroundImage = backgroundImage;
-    canvas.renderAll();
+    updateCanvasDimensions();
   } catch (error) {
     console.error('Failed to initialize signature canvas:', error);
     emit('error', 'Failed to load document image');
     return;
   }
 
-  canvas.on('path:created', (e) => {
-    if (e.path) {
-      signaturePaths.value.push(e.path);
+  canvas.on('path:created', (event) => {
+    if (event.path) {
+      signaturePaths.value.push(event.path);
     }
     currentPath = null;
     isDrawing.value = false;
   });
 }
 
-function startDrawing(e) {
-  if (!canvas) return;
-  isDrawing.value = true;
-  const pointer = canvas.getPointer(e);
+function updateCanvasDimensions() {
+  if (!canvas || !backgroundImage) {
+    return;
+  }
 
-  const path = new Path(
-    `M ${pointer.x} ${pointer.y}`,
-    {
-      stroke: strokeColor.value,
-      strokeWidth: strokeWidth.value,
-      fill: '',
-      selectable: false,
-      strokeLineCap: 'round',
-      strokeLineJoin: 'round',
-      id: 'signature-path',
-    }
+  const sourceWidth = Number(sourceDimensions.value.width || props.canvasWidth);
+  const sourceHeight = Number(sourceDimensions.value.height || props.canvasHeight);
+  const availableWidth = Math.max(
+    240,
+    Math.min(props.canvasWidth, canvasContainer.value?.clientWidth || props.canvasWidth)
+  );
+  const scale = Math.min(
+    availableWidth / sourceWidth,
+    props.canvasHeight / sourceHeight
   );
 
-  canvas.add(path);
-  currentPath = path;
+  displayWidth.value = Math.max(1, Math.round(sourceWidth * scale));
+  displayHeight.value = Math.max(1, Math.round(sourceHeight * scale));
+
+  canvas.setDimensions({
+    width: displayWidth.value,
+    height: displayHeight.value,
+  });
+
+  backgroundImage.set({
+    scaleX: scale,
+    scaleY: scale,
+  });
+
+  canvas.renderAll();
 }
 
-function draw(e) {
-  if (!isDrawing.value || !currentPath || !canvas) return;
+function startDrawing(event) {
+  if (!canvas) return;
 
-  const pointer = canvas.getPointer(e);
+  isDrawing.value = true;
+  const pointer = canvas.getPointer(event);
+
+  currentPath = new Path(`M ${pointer.x} ${pointer.y}`, {
+    stroke: strokeColor.value,
+    strokeWidth: strokeWidth.value,
+    fill: '',
+    selectable: false,
+    strokeLineCap: 'round',
+    strokeLineJoin: 'round',
+    id: 'signature-path',
+  });
+
+  canvas.add(currentPath);
+}
+
+function draw(event) {
+  if (!canvas || !currentPath || !isDrawing.value) return;
+
+  const pointer = canvas.getPointer(event);
   const pathData = currentPath.path;
 
-  // Add line segment
   pathData.push(['L', pointer.x, pointer.y]);
   currentPath.set({ path: pathData });
   canvas.renderAll();
@@ -231,39 +278,41 @@ function stopDrawing() {
     signaturePaths.value.push(currentPath);
     currentPath = null;
   }
+
   isDrawing.value = false;
 }
 
-// Touch event handlers
-function startDrawingTouch(e) {
-  if (e.touches.length === 1) {
-    const touch = e.touches[0];
-    const mouseEvent = new MouseEvent('mousedown', {
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-    });
-    canvasEl.value.dispatchEvent(mouseEvent);
-  }
+function startDrawingTouch(event) {
+  if (event.touches.length !== 1) return;
+
+  const touch = event.touches[0];
+  const mouseEvent = new MouseEvent('mousedown', {
+    clientX: touch.clientX,
+    clientY: touch.clientY,
+  });
+
+  canvasEl.value.dispatchEvent(mouseEvent);
 }
 
-function drawTouch(e) {
-  if (e.touches.length === 1) {
-    const touch = e.touches[0];
-    const mouseEvent = new MouseEvent('mousemove', {
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-    });
-    canvasEl.value.dispatchEvent(mouseEvent);
-  }
+function drawTouch(event) {
+  if (event.touches.length !== 1) return;
+
+  const touch = event.touches[0];
+  const mouseEvent = new MouseEvent('mousemove', {
+    clientX: touch.clientX,
+    clientY: touch.clientY,
+  });
+
+  canvasEl.value.dispatchEvent(mouseEvent);
 }
 
 function clearSignature() {
   if (!canvas) return;
 
-  const objects = canvas.getObjects();
-  objects.forEach((obj) => {
-    canvas.remove(obj);
+  canvas.getObjects().forEach((object) => {
+    canvas.remove(object);
   });
+
   signaturePaths.value = [];
   currentPath = null;
   canvas.renderAll();
@@ -277,9 +326,6 @@ function undo() {
   canvas.renderAll();
 }
 
-/**
- * Export signature layer sebagai transparent PNG base64
- */
 function exportSignature() {
   if (!canvas || signaturePaths.value.length === 0) {
     return '';
@@ -306,6 +352,7 @@ function exportSignature() {
       scaleY: pathObject.scaleY,
       angle: pathObject.angle,
     });
+
     tempCanvas.add(clonedPath);
   });
 
@@ -314,26 +361,22 @@ function exportSignature() {
     quality: 1,
     multiplier: 2,
   });
-  tempCanvas.dispose();
 
+  tempCanvas.dispose();
   return dataUrl;
 }
 
-/**
- * Get signature bounding box normalized (0-1)
- */
 function getSignatureBounds() {
-  if (signaturePaths.value.length === 0) {
+  if (signaturePaths.value.length === 0 || !canvas) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
 
-  if (!canvas) {
-    return { x: 0, y: 0, width: 0, height: 0 };
-  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
 
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-  signaturePaths.value.forEach(path => {
+  signaturePaths.value.forEach((path) => {
     const bounds = path.getBoundingRect();
     minX = Math.min(minX, bounds.left);
     minY = Math.min(minY, bounds.top);
@@ -341,25 +384,18 @@ function getSignatureBounds() {
     maxY = Math.max(maxY, bounds.top + bounds.height);
   });
 
-  const canvasWidth = canvas.width;
-  const canvasHeight = canvas.height;
-
   return {
-    x: minX / canvasWidth,
-    y: minY / canvasHeight,
-    width: (maxX - minX) / canvasWidth,
-    height: (maxY - minY) / canvasHeight,
+    x: minX / canvas.width,
+    y: minY / canvas.height,
+    width: (maxX - minX) / canvas.width,
+    height: (maxY - minY) / canvas.height,
   };
 }
 
-/**
- * Validate signature is not empty
- */
 function hasSignature() {
   return signaturePaths.value.length > 0;
 }
 
-// Expose methods for parent component
 defineExpose({
   exportSignature,
   getSignatureBounds,
@@ -368,6 +404,11 @@ defineExpose({
 });
 
 onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+
   if (canvas) {
     canvas.dispose();
     canvas = null;
@@ -376,7 +417,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Ensure canvas looks sharp on high-DPI displays */
 canvas {
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;

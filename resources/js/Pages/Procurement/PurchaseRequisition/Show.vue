@@ -111,46 +111,42 @@
             </div>
 
             <div v-if="purchaseRequisition.attachments?.length" class="space-y-2">
-              <div 
-                v-for="attachment in purchaseRequisition.attachments" 
+              <div
+                v-for="attachment in purchaseRequisition.attachments"
                 :key="attachment.id"
-                class="flex flex-col sm:flex-row sm:items-center justify-between rounded bg-slate-900 px-3 py-3 text-sm gap-2"
+                class="flex flex-col justify-between gap-2 rounded bg-slate-900 px-3 py-3 text-sm sm:flex-row sm:items-center"
               >
-                <div class="flex items-center gap-3 min-w-0 flex-1">
-                  <!-- Thumbnail preview -->
-                    <a 
-                      v-if="isImageFile(attachment.filename)"
-                      :href="attachment.url" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      class="block flex-shrink-0"
+                <div class="flex min-w-0 flex-1 items-center gap-3">
+                  <button
+                    v-if="isImageFile(attachment.filename)"
+                    type="button"
+                    class="block flex-shrink-0"
+                    @click="openImagePreview(attachment)"
                   >
-                    <img 
-                      :src="attachment.url" 
-                      class="h-12 w-12 rounded object-cover border border-slate-700"
+                    <img
+                      :src="attachment.url"
+                      class="h-12 w-12 rounded border border-slate-700 object-cover"
                       alt="preview"
                     />
-                  </a>
+                  </button>
                   <div v-else class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-slate-700 text-xs text-slate-400">
                     FILE
                   </div>
 
                   <div class="min-w-0 flex-1">
-                    <a 
-                      :href="attachment.url" 
-                      target="_blank" 
+                    <a
+                      :href="attachment.url"
+                      target="_blank"
                       rel="noopener noreferrer"
-                      class="truncate block text-slate-100 hover:text-indigo-300"
+                      class="block truncate text-slate-100 hover:text-indigo-300"
                     >
                       {{ attachment.filename }}
                     </a>
                     <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                      <span>{{ formatFileSize(attachment.size) }}</span>
-
-                      <!-- Signature Status Badge -->
-                      <span 
+                      <span>{{ formatAttachmentSize(attachment.size) }}</span>
+                      <span
                         v-if="attachment.signature_status"
-                        class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
                         :class="{
                           'bg-emerald-700/30 text-emerald-300': attachment.signature_status === 'signed',
                           'bg-amber-700/30 text-amber-300': attachment.signature_status === 'pending',
@@ -159,7 +155,6 @@
                       >
                         {{ formatSignatureStatus(attachment.signature_status) }}
                       </span>
-
                       <span v-if="attachment.signed_at" class="text-slate-500">
                         by {{ attachment.signed_by_name }} • {{ formatDate(attachment.signed_at) }}
                       </span>
@@ -167,18 +162,16 @@
                   </div>
                 </div>
 
-                <div class="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                  <!-- Download original -->
-                  <a 
-                    :href="attachment.original_url || attachment.url" 
+                <div class="flex flex-wrap items-center gap-2 self-end sm:self-center">
+                  <a
+                    :href="attachment.original_url || attachment.url"
                     download
-                    class="text-xs text-slate-400 hover:text-blue-400 px-2 py-1"
+                    class="px-2 py-1 text-xs text-slate-400 hover:text-blue-400"
                     title="Download original"
                   >
                     Original
                   </a>
 
-                  <!-- SIGN BUTTON (Owner only, pending status, image file) -->
                   <button
                     v-if="canSignAttachment(attachment) && isImageFile(attachment.filename)"
                     @click="openSignatureModal(attachment)"
@@ -188,17 +181,15 @@
                     Sign
                   </button>
 
-                  <!-- VIEW SIGNED BUTTON -->
                   <button
                     v-if="attachment.signature_status === 'signed' && attachment.signed_url"
                     type="button"
                     class="rounded bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
-                    @click="openSignedPreview(attachment)"
+                    @click="openImagePreview(attachment, 'signed')"
                   >
                     View Signed
                   </button>
 
-                  <!-- DOWNLOAD SIGNED -->
                   <a
                     v-if="attachment.signature_status === 'signed' && attachment.signed_url"
                     :href="attachment.signed_url"
@@ -238,7 +229,6 @@
           </div>
         </form>
 
-        <!-- Signature Modal -->
         <AttachmentSignatureModal
           v-model:show="showSignatureModal"
           :attachment="selectedAttachment"
@@ -247,24 +237,29 @@
         />
 
         <div
-          v-if="showSignedPreviewModal && previewAttachment"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          @click.self="closeSignedPreview"
+          v-if="showImagePreviewModal && previewAttachment"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4"
+          @click.self="closeImagePreview"
         >
-          <div class="w-full max-w-5xl rounded-xl bg-slate-900 p-4 shadow-2xl">
+          <div class="w-full max-w-5xl rounded-xl bg-slate-900 p-3 shadow-2xl sm:p-4">
             <div class="mb-4 flex items-center justify-between gap-3">
               <div class="min-w-0">
                 <h3 class="truncate text-lg font-semibold text-white">
-                  Signed Preview: {{ previewAttachment.filename || 'Attachment' }}
+                  {{ previewTitle }}
                 </h3>
                 <div class="text-xs text-slate-400">
-                  {{ previewAttachment.signed_by_name || '-' }} • {{ formatDate(previewAttachment.signed_at) || '-' }}
+                  <template v-if="previewAttachment.signature_status === 'signed'">
+                    {{ previewAttachment.signed_by_name || '-' }} • {{ formatDate(previewAttachment.signed_at) || '-' }}
+                  </template>
+                  <template v-else>
+                    {{ previewAttachment.uploader_name || '-' }}
+                  </template>
                 </div>
               </div>
               <button
                 type="button"
                 class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
-                @click="closeSignedPreview"
+                @click="closeImagePreview"
               >
                 Close
               </button>
@@ -272,9 +267,9 @@
 
             <div class="overflow-hidden rounded-lg border border-slate-700 bg-black">
               <img
-                :src="previewAttachment.signed_url"
-                :alt="previewAttachment.filename || 'Signed attachment'"
-                class="max-h-[72vh] w-full object-contain"
+                :src="previewUrl"
+                :alt="previewAttachment.filename || 'Attachment preview'"
+                class="max-h-[78vh] w-full object-contain"
               />
             </div>
           </div>
@@ -303,11 +298,12 @@ const isItUser = String(props.currentUser?.department_code || '').toUpperCase() 
 const canDelete = isItUser;
 const hasImageAttachments = (props.purchaseRequisition.attachments || []).some((attachment) => attachment.is_image === true || isImageFile(attachment.filename));
 
-// Modal state
 const showSignatureModal = ref(false);
 const selectedAttachment = ref(null);
-const showSignedPreviewModal = ref(false);
+const showImagePreviewModal = ref(false);
 const previewAttachment = ref(null);
+const previewUrl = ref('');
+const previewTitle = ref('');
 
 function isOwnerUser() {
   return String(props.currentUser?.department_code || '').toUpperCase() === 'OWNER';
@@ -329,18 +325,25 @@ function openSignatureModal(attachment) {
   showSignatureModal.value = true;
 }
 
-function openSignedPreview(attachment) {
+function openImagePreview(attachment, mode = 'current') {
   previewAttachment.value = attachment;
-  showSignedPreviewModal.value = true;
+  previewUrl.value = mode === 'signed' && attachment.signed_url
+    ? attachment.signed_url
+    : (attachment.url || attachment.original_url || attachment.signed_url || '');
+  previewTitle.value = mode === 'signed' && attachment.signed_url
+    ? `Signed Preview: ${attachment.filename || 'Attachment'}`
+    : `Image Preview: ${attachment.filename || 'Attachment'}`;
+  showImagePreviewModal.value = true;
 }
 
-function closeSignedPreview() {
-  showSignedPreviewModal.value = false;
+function closeImagePreview() {
+  showImagePreviewModal.value = false;
   previewAttachment.value = null;
+  previewUrl.value = '';
+  previewTitle.value = '';
 }
 
 function handleSignatureSigned() {
-  // Reload page to show updated attachment status
   window.location.reload();
 }
 
@@ -351,38 +354,26 @@ function formatPriority(priority) {
   return 'Medium';
 }
 
-function formatStatus(status) {
-  const normalized = String(status || '').trim().toLowerCase();
-  if (normalized === 'approved') return 'Approved';
-  if (normalized === 'waiting') return 'Waiting';
-  if (normalized === 'process') return 'Process';
-  if (normalized === 'done') return 'Done';
-  if (normalized === 'rejected') return 'Rejected';
-  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '-';
-}
-
-function statusClass(status) {
-  const normalized = String(status || '').trim().toLowerCase();
-  if (normalized === 'approved') return 'bg-emerald-700/30 text-emerald-300 border border-emerald-500/40';
-  if (normalized === 'waiting') return 'bg-amber-700/30 text-amber-300 border border-amber-500/40';
-  if (normalized === 'process') return 'bg-indigo-700/30 text-indigo-300 border border-indigo-500/40';
-  if (normalized === 'done') return 'bg-sky-700/30 text-sky-300 border border-sky-500/40';
-  if (normalized === 'rejected') return 'bg-rose-700/30 text-rose-300 border border-rose-500/40';
-  return 'bg-slate-700/40 text-slate-200 border border-slate-600';
-}
-
 function formatFileSize(bytes) {
   if (!bytes) return '0 B';
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
+}
+
+function formatAttachmentSize(value) {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  return formatFileSize(value);
 }
 
 function formatSignatureStatus(status) {
   const map = {
-    'pending': 'Pending',
-    'signed': 'Signed',
-    'rejected': 'Rejected',
+    pending: 'Pending',
+    signed: 'Signed',
+    rejected: 'Rejected',
   };
   return map[status] || status;
 }
@@ -392,8 +383,9 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleString('id-ID', {
     day: 'numeric',
     month: 'short',
+    year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 }
 

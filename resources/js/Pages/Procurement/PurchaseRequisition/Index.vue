@@ -64,18 +64,17 @@
                       </span>
                     </td>
                     <td>
-                      <a
+                      <button
                         v-if="previewableAttachment(requisition)"
-                        :href="previewableAttachment(requisition).url"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        type="button"
                         class="block"
+                        @click="openImagePreview(requisition, previewableAttachment(requisition))"
                       >
                         <img :src="previewableAttachment(requisition).url" class="h-12 w-12 rounded object-cover" />
-                      </a>
+                      </button>
                       <div v-else class="flex h-12 w-12 items-center justify-center rounded bg-slate-700 text-xs">-</div>
                     </td>
-                    <td class="text-right whitespace-nowrap">
+                    <td class="whitespace-nowrap text-right">
                       <Link
                         :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`"
                         class="mr-1 text-blue-400"
@@ -113,15 +112,14 @@
 
                 <div class="mt-3 grid grid-cols-[48px_1fr] gap-3">
                   <div>
-                    <a
+                    <button
                       v-if="previewableAttachment(requisition)"
-                      :href="previewableAttachment(requisition).url"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      type="button"
                       class="block"
+                      @click="openImagePreview(requisition, previewableAttachment(requisition))"
                     >
                       <img :src="previewableAttachment(requisition).url" class="h-12 w-12 rounded object-cover" />
-                    </a>
+                    </button>
                     <div v-else class="flex h-12 w-12 items-center justify-center rounded bg-slate-700 text-xs">-</div>
                   </div>
 
@@ -134,21 +132,21 @@
                   </div>
                 </div>
 
-<div class="mt-3 flex justify-end gap-3">
-                   <Link
-                     :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`"
-                     class="text-blue-400"
-                   >
-                     View
-                   </Link>
-                   <Link
-                     v-if="requisition.can_edit"
-                     :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`"
-                     class="text-amber-400"
-                   >
-                     Edit
-                   </Link>
-                 </div>
+                <div class="mt-3 flex justify-end gap-3">
+                  <Link
+                    :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`"
+                    class="text-blue-400"
+                  >
+                    View
+                  </Link>
+                  <Link
+                    v-if="requisition.can_edit"
+                    :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`"
+                    class="text-amber-400"
+                  >
+                    Edit
+                  </Link>
+                </div>
               </div>
             </div>
 
@@ -157,12 +155,47 @@
             </div>
           </div>
         </section>
+
+        <div
+          v-if="showImagePreviewModal && previewAttachment"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4"
+          @click.self="closeImagePreview"
+        >
+          <div class="w-full max-w-4xl rounded-xl bg-slate-900 p-3 shadow-2xl sm:p-4">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <h3 class="truncate text-lg font-semibold text-white">
+                  Image Preview: {{ previewAttachment.filename || 'Attachment' }}
+                </h3>
+                <div class="text-xs text-slate-400">
+                  {{ previewRequisition?.pr_number || '-' }}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
+                @click="closeImagePreview"
+              >
+                Close
+              </button>
+            </div>
+
+            <div class="overflow-hidden rounded-lg border border-slate-700 bg-black">
+              <img
+                :src="previewAttachment.url"
+                :alt="previewAttachment.filename || 'Attachment preview'"
+                class="max-h-[78vh] w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -170,6 +203,22 @@ defineProps({
   currentUser: { type: Object, default: () => ({}) },
   purchaseRequisitions: { type: Array, default: () => [] },
 });
+
+const showImagePreviewModal = ref(false);
+const previewAttachment = ref(null);
+const previewRequisition = ref(null);
+
+function openImagePreview(requisition, attachment) {
+  previewAttachment.value = attachment;
+  previewRequisition.value = requisition;
+  showImagePreviewModal.value = true;
+}
+
+function closeImagePreview() {
+  showImagePreviewModal.value = false;
+  previewAttachment.value = null;
+  previewRequisition.value = null;
+}
 
 function formatStatus(status) {
   const normalized = String(status || '').trim().toLowerCase();
@@ -190,20 +239,6 @@ function statusClass(status) {
   if (normalized === 'done') return 'bg-sky-700/30 text-sky-300 border border-sky-500/40';
   if (normalized === 'rejected') return 'bg-rose-700/30 text-rose-300 border border-rose-500/40';
   return 'bg-slate-700/40 text-slate-200 border border-slate-600';
-}
-
-function formatPriority(priority) {
-  const normalized = String(priority || '').trim().toLowerCase();
-  if (normalized === 'urgent') return 'Urgent';
-  if (normalized === 'low') return 'Low';
-  return 'Medium';
-}
-
-function priorityClass(priority) {
-  const normalized = String(priority || '').trim().toLowerCase();
-  if (normalized === 'urgent') return 'bg-rose-700/30 text-rose-300 border border-rose-500/40';
-  if (normalized === 'low') return 'bg-sky-700/30 text-sky-300 border border-sky-500/40';
-  return 'bg-indigo-700/30 text-indigo-300 border border-indigo-500/40';
 }
 
 function previewableAttachment(requisition) {

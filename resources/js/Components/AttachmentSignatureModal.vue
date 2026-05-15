@@ -1,31 +1,26 @@
 <template>
-  <div v-if="show" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" @click.self="closeModal">
-    <div class="modal-content bg-slate-900 border border-slate-700 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-      
-      <!-- Header -->
-      <div class="flex items-center justify-between border-b border-slate-700 bg-slate-800 px-4 py-3 flex-shrink-0">
+  <div v-if="show" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 sm:p-4" @click.self="closeModal">
+    <div class="modal-content flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+      <div class="flex flex-shrink-0 items-center justify-between border-b border-slate-700 bg-slate-800 px-4 py-3">
         <div class="min-w-0">
-          <h3 class="font-semibold text-slate-100 truncate">Sign: {{ attachment?.filename }}</h3>
-          <p class="text-xs text-slate-400 truncate">
+          <h3 class="truncate font-semibold text-slate-100">Sign: {{ attachment?.filename }}</h3>
+          <p class="truncate text-xs text-slate-400">
             Original uploaded by: {{ attachment?.uploader_name || 'Unknown' }}
           </p>
         </div>
-        <button @click="closeModal" class="text-slate-400 hover:text-white flex-shrink-0 ml-2">
+        <button @click="closeModal" class="ml-2 flex-shrink-0 text-slate-400 hover:text-white">
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
 
-      <!-- Body - Canvas Area -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-4">
-        <!-- Instructions -->
+      <div class="flex-1 overflow-y-auto p-3 sm:p-4">
         <div class="rounded bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
           Draw your signature in the box below. Use the toolbar to adjust pen color and size.
         </div>
 
-        <!-- Signature Canvas -->
-        <div class="flex justify-center">
+        <div class="mt-4 flex justify-center">
           <SignaturePad
             ref="signaturePadRef"
             :document-url="attachmentUrl"
@@ -38,17 +33,15 @@
           />
         </div>
 
-        <!-- Error message -->
-        <div v-if="errorMessage" class="rounded bg-rose-900/30 border border-rose-500 px-3 py-2 text-sm text-rose-300">
+        <div v-if="errorMessage" class="mt-4 rounded border border-rose-500 bg-rose-900/30 px-3 py-2 text-sm text-rose-300">
           {{ errorMessage }}
         </div>
       </div>
 
-      <!-- Footer Actions -->
-      <div class="flex items-center justify-end gap-3 border-t border-slate-700 bg-slate-800 px-4 py-3 flex-shrink-0">
+      <div class="flex flex-col-reverse gap-2 border-t border-slate-700 bg-slate-800 px-3 py-3 sm:flex-row sm:items-center sm:justify-end sm:px-4">
         <button
           @click="closeModal"
-          class="rounded bg-slate-700 px-4 py-2 text-sm text-white hover:bg-slate-600"
+          class="w-full rounded bg-slate-700 px-4 py-2 text-sm text-white hover:bg-slate-600 sm:w-auto"
           type="button"
         >
           Cancel
@@ -56,7 +49,7 @@
         <button
           @click="submitSignature"
           :disabled="isSubmitting || !hasSignature"
-          class="rounded bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full rounded bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           type="button"
         >
           {{ isSubmitting ? 'Signing...' : 'Sign & Submit' }}
@@ -67,15 +60,14 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import SignaturePad from '@/Components/SignaturePad.vue';
 
 const props = defineProps({
   show: { type: Boolean, default: false },
-  attachment: { 
-    type: Object, 
+  attachment: {
+    type: Object,
     default: null,
-    // Expected: { id, filename, url, uploader_name, signature_status }
   },
 });
 
@@ -84,14 +76,29 @@ const emit = defineEmits(['close', 'signed']);
 const signaturePadRef = ref(null);
 const isSubmitting = ref(false);
 const errorMessage = ref('');
-
 const penColor = ref('#000000');
 const penWidth = ref(3);
-const canvasWidth = 800;
-const canvasHeight = 600;
+const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1280);
+const viewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 800);
+
+const canvasWidth = computed(() => {
+  if (viewportWidth.value < 640) {
+    return Math.max(280, viewportWidth.value - 48);
+  }
+
+  if (viewportWidth.value < 1024) {
+    return Math.min(760, viewportWidth.value - 96);
+  }
+
+  return 960;
+});
+
+const canvasHeight = computed(() => {
+  const reservedSpace = viewportWidth.value < 640 ? 260 : 300;
+  return Math.max(260, Math.min(700, viewportHeight.value - reservedSpace));
+});
 
 const attachmentUrl = computed(() => {
-  // Sign on top of the original upload to avoid stacking signatures.
   return props.attachment?.original_url || props.attachment?.url || '';
 });
 
@@ -99,15 +106,31 @@ const hasSignature = computed(() => {
   return signaturePadRef.value?.hasSignature?.() || false;
 });
 
-// Watch for modal open/close to clear state
 watch(() => props.show, (newVal) => {
   if (newVal) {
     errorMessage.value = '';
-  } else {
-    // Clear signature when modal closes (optional - kalo mau simpan state, comment out)
-    setTimeout(() => {
-      signaturePadRef.value?.clearSignature?.();
-    }, 300);
+    return;
+  }
+
+  setTimeout(() => {
+    signaturePadRef.value?.clearSignature?.();
+  }, 300);
+});
+
+function syncViewport() {
+  viewportWidth.value = window.innerWidth;
+  viewportHeight.value = window.innerHeight;
+}
+
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', syncViewport);
+  }
+});
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', syncViewport);
   }
 });
 
@@ -132,16 +155,14 @@ async function submitSignature() {
   try {
     const signatureData = signaturePadRef.value.exportSignature();
     const position = signaturePadRef.value.getSignatureBounds();
-
-    // Prepare payload
     const payload = new FormData();
+
     payload.append('signature_data', signatureData);
     payload.append('position_x', position.x);
     payload.append('position_y', position.y);
     payload.append('scale', 1.0);
     payload.append('output_format', 'jpg');
 
-    // POST to backend route
     const response = await axios.post(
       `/gmisl/procurement/purchase-requisition/${props.attachment.purchase_requisition_id}/attachments/${props.attachment.id}/sign`,
       payload
@@ -149,7 +170,6 @@ async function submitSignature() {
 
     emit('signed', response.data);
     closeModal();
-
   } catch (error) {
     const message = error.response?.data?.message || error.message || 'Failed to sign attachment';
     errorMessage.value = message;
@@ -160,7 +180,6 @@ async function submitSignature() {
 }
 
 function handleSignatureComplete(data) {
-  // Optional: handle real-time signature data
   console.log('Signature created:', data);
 }
 
@@ -169,7 +188,6 @@ function handleError(msg) {
 }
 </script>
 
-<!-- Prevent body scroll when modal open -->
 <style scoped>
 .modal-overlay {
   position: fixed;
@@ -184,7 +202,6 @@ function handleError(msg) {
   justify-content: center;
 }
 
-/* Hide scrollbar during modal */
 body.modal-open {
   overflow: hidden;
 }
