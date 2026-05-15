@@ -189,15 +189,14 @@
                   </button>
 
                   <!-- VIEW SIGNED BUTTON -->
-                  <a
+                  <button
                     v-if="attachment.signature_status === 'signed' && attachment.signed_url"
-                    :href="attachment.signed_url"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    type="button"
                     class="rounded bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                    @click="openSignedPreview(attachment)"
                   >
                     View Signed
-                  </a>
+                  </button>
 
                   <!-- DOWNLOAD SIGNED -->
                   <a
@@ -246,6 +245,40 @@
           @signed="handleSignatureSigned"
           @close="showSignatureModal = false"
         />
+
+        <div
+          v-if="showSignedPreviewModal && previewAttachment"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          @click.self="closeSignedPreview"
+        >
+          <div class="w-full max-w-5xl rounded-xl bg-slate-900 p-4 shadow-2xl">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <h3 class="truncate text-lg font-semibold text-white">
+                  Signed Preview: {{ previewAttachment.filename || 'Attachment' }}
+                </h3>
+                <div class="text-xs text-slate-400">
+                  {{ previewAttachment.signed_by_name || '-' }} • {{ formatDate(previewAttachment.signed_at) || '-' }}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
+                @click="closeSignedPreview"
+              >
+                Close
+              </button>
+            </div>
+
+            <div class="overflow-hidden rounded-lg border border-slate-700 bg-black">
+              <img
+                :src="previewAttachment.signed_url"
+                :alt="previewAttachment.filename || 'Signed attachment'"
+                class="max-h-[72vh] w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </AppLayout>
@@ -273,6 +306,8 @@ const hasImageAttachments = (props.purchaseRequisition.attachments || []).some((
 // Modal state
 const showSignatureModal = ref(false);
 const selectedAttachment = ref(null);
+const showSignedPreviewModal = ref(false);
+const previewAttachment = ref(null);
 
 function isOwnerUser() {
   return String(props.currentUser?.department_code || '').toUpperCase() === 'OWNER';
@@ -292,6 +327,16 @@ function canSignAttachment(attachment) {
 function openSignatureModal(attachment) {
   selectedAttachment.value = attachment;
   showSignatureModal.value = true;
+}
+
+function openSignedPreview(attachment) {
+  previewAttachment.value = attachment;
+  showSignedPreviewModal.value = true;
+}
+
+function closeSignedPreview() {
+  showSignedPreviewModal.value = false;
+  previewAttachment.value = null;
 }
 
 function handleSignatureSigned() {
