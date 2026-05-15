@@ -205,15 +205,21 @@ class ImageMergeService
                 $destG = ($destColor >> 8) & 0xFF;
                 $destB = $destColor & 0xFF;
 
-                // Alpha compositing: out = src * srcAlpha/127 + dest * (1 - srcAlpha/127)
-                $srcAlphaFactor = (127 - $srcAlpha) / 127;
-                $destAlphaFactor = $srcAlpha / 127;
+                // GD alpha: 0 = opaque, 127 = transparent.
+                // Convert to opacity so the signature color stays dominant when the source stroke is opaque.
+                $srcOpacity = (127 - $srcAlpha) / 127;
+                $destOpacity = (127 - $destAlpha) / 127;
+                $outOpacity = $srcOpacity + ($destOpacity * (1 - $srcOpacity));
 
-                $finalR = (int)($srcR * $destAlphaFactor + $destR * $srcAlphaFactor);
-                $finalG = (int)($srcG * $destAlphaFactor + $destG * $srcAlphaFactor);
-                $finalB = (int)($srcB * $destAlphaFactor + $destB * $srcAlphaFactor);
-                $finalA = (int)($srcAlpha + $destAlpha * $srcAlphaFactor / 127);
-                $finalA = min(127, $finalA);
+                if ($outOpacity <= 0) {
+                    continue;
+                }
+
+                $finalR = (int) round((($srcR * $srcOpacity) + ($destR * $destOpacity * (1 - $srcOpacity))) / $outOpacity);
+                $finalG = (int) round((($srcG * $srcOpacity) + ($destG * $destOpacity * (1 - $srcOpacity))) / $outOpacity);
+                $finalB = (int) round((($srcB * $srcOpacity) + ($destB * $destOpacity * (1 - $srcOpacity))) / $outOpacity);
+                $finalA = (int) round(127 * (1 - $outOpacity));
+                $finalA = max(0, min(127, $finalA));
 
                 // Allocate color and set pixel
                 $finalColor = imagecolorallocatealpha(
