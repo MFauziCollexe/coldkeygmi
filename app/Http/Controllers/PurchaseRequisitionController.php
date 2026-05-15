@@ -71,7 +71,7 @@ class PurchaseRequisitionController extends Controller
                         ->map(fn ($attachment) => [
                             'id' => $attachment->id,
                             'filename' => $attachment->filename,
-                            'url' => Storage::disk('public')->url($attachment->path),
+                            'url' => $attachment->signed_url ?: Storage::disk('public')->url($attachment->path),
                             'mime_type' => $attachment->mime_type,
                             'size' => $this->formatFileSize((int) ($attachment->size ?? 0)),
                         ])
@@ -343,6 +343,12 @@ class PurchaseRequisitionController extends Controller
             ]);
         }
 
+        if (!$this->allImageAttachmentsSigned($purchaseRequisition)) {
+            return redirect()->back()->withErrors([
+                'signature' => 'Semua attachment gambar wajib ditandatangani terlebih dahulu sebelum PR bisa di-approve.',
+            ]);
+        }
+
         $purchaseRequisition->update([
             'status' => 'approved',
             'approved_by' => $user?->id,
@@ -446,7 +452,8 @@ class PurchaseRequisitionController extends Controller
                     ->map(fn ($attachment) => [
                         'id' => $attachment->id,
                         'filename' => $attachment->filename,
-                        'url' => Storage::disk('public')->url($attachment->path),
+                        'url' => $attachment->signed_url ?: Storage::disk('public')->url($attachment->path),
+                        'original_url' => $attachment->original_url ?: Storage::disk('public')->url($attachment->path),
                         'signed_url' => $attachment->signed_url,
                         'signature_status' => $attachment->signature_status,
                         'signed_by_name' => optional($attachment->signer)->name,
@@ -456,10 +463,12 @@ class PurchaseRequisitionController extends Controller
                         'size' => $this->formatFileSize((int) ($attachment->size ?? 0)),
                         'uploader_name' => optional($attachment->purchaseRequisition?->requester)->name, // fallback
                         'purchase_requisition_id' => $attachment->purchase_requisition_id,
+                        'is_image' => $this->isImageFile($attachment->filename),
                     ])
                     ->values(),
                 'can_approve' => $canApprove,
                 'can_reject' => $canReject,
+                'all_image_attachments_signed' => $this->allImageAttachmentsSigned($purchaseRequisition),
             ],
             'uomOptions' => $this->uomOptions(),
             'currentUser' => $this->currentUserPayload($user),
@@ -497,7 +506,8 @@ class PurchaseRequisitionController extends Controller
     private function canApprove(?User $user, PurchaseRequisition $purchaseRequisition): bool
     {
         return $this->isOwnerDepartmentUser($user)
-            && strtolower(trim((string) $purchaseRequisition->status)) === 'waiting';
+            && strtolower(trim((string) $purchaseRequisition->status)) === 'waiting'
+            && $this->allImageAttachmentsSigned($purchaseRequisition);
     }
 
     private function canEdit(?User $user, PurchaseRequisition $purchaseRequisition): bool
@@ -684,6 +694,23 @@ class PurchaseRequisitionController extends Controller
          // 11. Optional: Check if all attachments signed → could trigger auto-approval
          // $this->checkAndAutoApprovePr($purchaseRequisition);
 
+         if ($request->expectsJson() || $request->wantsJson()) {
+             return response()->json([
+                 'message' => 'Attachment berhasil ditandatangani.',
+                 'attachment' => [
+                     'id' => $attachment->id,
+                     'filename' => $attachment->filename,
+                     'url' => $attachment->fresh()->signed_url ?: Storage::disk('public')->url($attachment->path),
+                     'original_url' => $attachment->fresh()->original_url ?: Storage::disk('public')->url($attachment->path),
+                     'signed_url' => $attachment->fresh()->signed_url,
+                     'signature_status' => $attachment->signature_status,
+                     'signed_by_name' => $user?->name,
+                     'signed_at' => optional($attachment->signed_at)?->toDateTimeString(),
+                     'purchase_requisition_id' => $attachment->purchase_requisition_id,
+                 ],
+             ]);
+         }
+
          return redirect()
              ->back()
              ->with('success', 'Attachment berhasil ditandatangani.');
@@ -696,5 +723,22 @@ class PurchaseRequisitionController extends Controller
      {
          $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
          return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+     }
+
+     private function allImageAttachmentsSigned(PurchaseRequisition $purchaseRequisition): bool
+     {
+         $purchaseRequisition->loadMissing('attachments');
+
+         $imageAttachments = $purchaseRequisition->attachments->filter(
+             fn (PurchaseRequisitionAttachment $attachment) => $this->isImageFile((string) $attachment->filename)
+         );
+
+         if ($imageAttachments->isEmpty()) {
+             return true;
+         }
+
+         return $imageAttachments->every(
+             fn (PurchaseRequisitionAttachment $attachment) => $attachment->signature_status === 'signed'
+         );
      }
 }

@@ -27,10 +27,11 @@ class ImageMergeService
     ): string {
         try {
             // 1. Load dokumen dari storage
-            $fullPath = storage_path('app/' . $documentPath);
-            if (!file_exists($fullPath)) {
+            if (!Storage::disk('public')->exists($documentPath)) {
                 throw new \Exception("Document file not found: {$documentPath}");
             }
+
+            $fullPath = Storage::disk('public')->path($documentPath);
 
             // Load document dengan GD
             $docInfo = getimagesize($fullPath);
@@ -320,4 +321,3 @@ class ImageMergeService
         ], true);
     }
 }
-

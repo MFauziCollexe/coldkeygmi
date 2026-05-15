@@ -14,6 +14,17 @@
           {{ $page.props.flash.success }}
         </div>
 
+        <div v-if="$page.props.errors?.signature" class="rounded border border-rose-600 bg-rose-600/20 px-4 py-3 text-sm text-rose-200">
+          {{ $page.props.errors.signature }}
+        </div>
+
+        <div
+          v-if="isOwnerUser() && !purchaseRequisition.all_image_attachments_signed && hasImageAttachments"
+          class="rounded border border-amber-600 bg-amber-600/10 px-4 py-3 text-sm text-amber-200"
+        >
+          Semua attachment gambar wajib ditandatangani dulu sebelum PR bisa di-approve.
+        </div>
+
         <form class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
           <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div class="space-y-4">
@@ -107,12 +118,12 @@
               >
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                   <!-- Thumbnail preview -->
-                  <a 
-                    v-if="isImageFile(attachment.filename)"
-                    :href="attachment.url" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    class="block flex-shrink-0"
+                    <a 
+                      v-if="isImageFile(attachment.filename)"
+                      :href="attachment.url" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      class="block flex-shrink-0"
                   >
                     <img 
                       :src="attachment.url" 
@@ -159,7 +170,7 @@
                 <div class="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
                   <!-- Download original -->
                   <a 
-                    :href="attachment.url" 
+                    :href="attachment.original_url || attachment.url" 
                     download
                     class="text-xs text-slate-400 hover:text-blue-400 px-2 py-1"
                     title="Download original"
@@ -257,6 +268,7 @@ const canApprove = props.purchaseRequisition.can_approve === true;
 const canReject = props.purchaseRequisition.can_reject === true;
 const isItUser = String(props.currentUser?.department_code || '').toUpperCase() === 'IT';
 const canDelete = isItUser;
+const hasImageAttachments = (props.purchaseRequisition.attachments || []).some((attachment) => attachment.is_image === true || isImageFile(attachment.filename));
 
 // Modal state
 const showSignatureModal = ref(false);

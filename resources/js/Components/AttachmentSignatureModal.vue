@@ -91,8 +91,8 @@ const canvasWidth = 800;
 const canvasHeight = 600;
 
 const attachmentUrl = computed(() => {
-  // Use signed_url if already signed, else original url
-  return props.attachment?.signed_url || props.attachment?.url || '';
+  // Sign on top of the original upload to avoid stacking signatures.
+  return props.attachment?.original_url || props.attachment?.url || '';
 });
 
 const hasSignature = computed(() => {
@@ -143,7 +143,7 @@ async function submitSignature() {
 
     // POST to backend route
     const response = await axios.post(
-      `/purchase-requisitions/${props.attachment.purchase_requisition_id}/attachments/${props.attachment.id}/sign`,
+      `/gmisl/procurement/purchase-requisition/${props.attachment.purchase_requisition_id}/attachments/${props.attachment.id}/sign`,
       payload
     );
 
