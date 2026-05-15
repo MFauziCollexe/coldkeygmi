@@ -633,9 +633,8 @@ class PurchaseRequisitionController extends Controller
              'output_format' => ['nullable', 'in:jpg,png,webp'],
          ]);
 
-         // 6. Get original file path
-         $originalPath = storage_path('app/' . $attachment->path);
-         if (!file_exists($originalPath)) {
+         // 6. Ensure original file still exists on the public disk
+         if (!$attachment->path || !Storage::disk('public')->exists($attachment->path)) {
              abort(404, 'File asli attachment tidak ditemukan.');
          }
 
