@@ -70,6 +70,7 @@
 </template>
 
 <script setup>
+import { Canvas, FabricImage, Path, PencilBrush, StaticCanvas } from 'fabric';
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 
 const emit = defineEmits(['signed', 'error']);
@@ -84,8 +85,8 @@ const props = defineProps({
 
 const canvasEl = ref(null);
 let canvas = null;
-let isDrawing = false;
-let signaturePaths = ref([]); // Reaktif array untuk Vue
+const isDrawing = ref(false);
+const signaturePaths = ref([]);
 let currentPath = null;
 
 const documentLoaded = computed(() => !!props.documentUrl);
@@ -97,31 +98,41 @@ const isProcessing = ref(false);
 // Initialize canvas when component mounted or documentUrl changes
 onMounted(() => {
   if (props.documentUrl) {
-    initCanvas();
+    void initCanvas();
   }
 });
 
 watch(() => props.documentUrl, (newUrl) => {
   if (newUrl) {
-    // Reset state
     signaturePaths.value = [];
-    initCanvas();
+    void initCanvas();
   }
 });
 
-function initCanvas() {
-  if (typeof fabric === 'undefined') {
-    console.error('Fabric.js not loaded');
-    emit('error', 'Canvas library not loaded');
+watch(strokeColor, (value) => {
+  if (canvas?.freeDrawingBrush) {
+    canvas.freeDrawingBrush.color = value;
+  }
+});
+
+watch(strokeWidth, (value) => {
+  if (canvas?.freeDrawingBrush) {
+    canvas.freeDrawingBrush.width = value;
+  }
+});
+
+async function initCanvas() {
+  if (canvas) {
+    canvas.dispose();
+    canvas = null;
+  }
+
+  if (!canvasEl.value) {
+    emit('error', 'Canvas element not ready');
     return;
   }
 
-  // Dispose existing canvas
-  if (canvas) {
-    canvas.dispose();
-  }
-
-  canvas = new fabric.Canvas(canvasEl.value, {
+  canvas = new Canvas(canvasEl.value, {
     width: props.canvasWidth,
     height: props.canvasHeight,
     backgroundColor: 'transparent',
@@ -129,65 +140,64 @@ function initCanvas() {
     isDrawingMode: true,
   });
 
-  // Konfigurasi brush
-  canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+  canvas.freeDrawingBrush = new PencilBrush(canvas);
   canvas.freeDrawingBrush.color = strokeColor.value;
   canvas.freeDrawingBrush.width = strokeWidth.value;
   canvas.freeDrawingBrush.strokeLineCap = 'round';
   canvas.freeDrawingBrush.strokeLineJoin = 'round';
 
-  // Load background image
-  const imgElement = new Image();
-  imgElement.crossOrigin = 'anonymous';
-  imgElement.src = props.documentUrl;
-
-  imgElement.onload = () => {
-    // Scale to fit canvas while maintaining aspect ratio
-    const scale = Math.min(
-      props.canvasWidth / imgElement.width,
-      props.canvasHeight / imgElement.height
+  try {
+    const backgroundImage = await FabricImage.fromURL(
+      props.documentUrl,
+      { crossOrigin: 'anonymous' }
     );
 
-    const scaledWidth = imgElement.width * scale;
-    const scaledHeight = imgElement.height * scale;
+    const sourceWidth = Number(backgroundImage.width || props.canvasWidth);
+    const sourceHeight = Number(backgroundImage.height || props.canvasHeight);
+    const scale = Math.min(
+      props.canvasWidth / sourceWidth,
+      props.canvasHeight / sourceHeight
+    );
+
+    backgroundImage.set({
+      selectable: false,
+      evented: false,
+      excludeFromExport: true,
+      scaleX: scale,
+      scaleY: scale,
+      left: 0,
+      top: 0,
+      originX: 'left',
+      originY: 'top',
+    });
 
     canvas.setDimensions({
-      width: scaledWidth,
-      height: scaledHeight,
+      width: sourceWidth * scale,
+      height: sourceHeight * scale,
     });
-
-    fabric.Image.fromURL(props.documentUrl, (fabricImg) => {
-      canvas.setBackgroundImage(fabricImg, canvas.renderAll.bind(canvas), {
-        scaleX: scale,
-        scaleY: scale,
-        originX: 'left',
-        originY: 'top',
-      });
-    });
-  };
-
-  imgElement.onerror = () => {
+    canvas.backgroundImage = backgroundImage;
+    canvas.renderAll();
+  } catch (error) {
+    console.error('Failed to initialize signature canvas:', error);
     emit('error', 'Failed to load document image');
-  };
+    return;
+  }
 
-  // Capture drawn paths untuk undo
   canvas.on('path:created', (e) => {
-    signaturePaths.value.push(e.path);
-  });
-
-  // Track drawing state
-  canvas.on('path:created', () => {
+    if (e.path) {
+      signaturePaths.value.push(e.path);
+    }
+    currentPath = null;
     isDrawing.value = false;
   });
 }
 
-// Manual drawing via mouse events (fallback jika isDrawingMode tidak work)
 function startDrawing(e) {
   if (!canvas) return;
   isDrawing.value = true;
   const pointer = canvas.getPointer(e);
 
-  const path = new fabric.Path(
+  const path = new Path(
     `M ${pointer.x} ${pointer.y}`,
     {
       stroke: strokeColor.value,
@@ -250,14 +260,12 @@ function drawTouch(e) {
 function clearSignature() {
   if (!canvas) return;
 
-  // Remove semua objects kecuali background
   const objects = canvas.getObjects();
-  objects.forEach(obj => {
-    if (obj !== canvas.backgroundImage) {
-      canvas.remove(obj);
-    }
+  objects.forEach((obj) => {
+    canvas.remove(obj);
   });
   signaturePaths.value = [];
+  currentPath = null;
   canvas.renderAll();
 }
 
@@ -277,24 +285,38 @@ function exportSignature() {
     return '';
   }
 
-  // Create temporary canvas untuk signature saja
-  const tempCanvas = new fabric.StaticCanvas(null, {
+  const tempCanvasEl = document.createElement('canvas');
+  const tempCanvas = new StaticCanvas(tempCanvasEl, {
     width: canvas.width,
     height: canvas.height,
   });
 
-  // Clone semua signature paths
-  signaturePaths.value.forEach(path => {
-    const cloned = fabric.util.object.clone(path);
-    tempCanvas.add(cloned);
+  signaturePaths.value.forEach((pathObject) => {
+    const clonedPath = new Path(pathObject.path, {
+      stroke: pathObject.stroke,
+      strokeWidth: pathObject.strokeWidth,
+      fill: '',
+      selectable: false,
+      evented: false,
+      strokeLineCap: pathObject.strokeLineCap,
+      strokeLineJoin: pathObject.strokeLineJoin,
+      left: pathObject.left,
+      top: pathObject.top,
+      scaleX: pathObject.scaleX,
+      scaleY: pathObject.scaleY,
+      angle: pathObject.angle,
+    });
+    tempCanvas.add(clonedPath);
   });
 
-  // Export ke PNG base64
-  return tempCanvas.toDataURL({
+  const dataUrl = tempCanvas.toDataURL({
     format: 'png',
     quality: 1,
-    multiplier: 2, // 2x resolution for crisp signature
+    multiplier: 2,
   });
+  tempCanvas.dispose();
+
+  return dataUrl;
 }
 
 /**
