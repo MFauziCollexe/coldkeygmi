@@ -206,6 +206,16 @@ class AccessRuleService
         return $this->matchesAnyRule($user, $rules, $context);
     }
 
+    public function setting(string $moduleKey, string $settingKey, mixed $default = null): mixed
+    {
+        return data_get($this->modules(), "{$moduleKey}.settings.{$settingKey}", $default);
+    }
+
+    public function booleanSetting(string $moduleKey, string $settingKey, bool $default = false): bool
+    {
+        return (bool) $this->setting($moduleKey, $settingKey, $default);
+    }
+
     public function canViewAllDepartments(User|int|null $user, string $moduleKey, string $scope = 'view_list'): bool
     {
         $rules = (array) data_get($this->modules(), "{$moduleKey}.scopes.{$scope}.all_if", []);

@@ -204,6 +204,9 @@ Route::get('gmiic/checklist/create', [App\Http\Controllers\ChecklistEntryControl
 Route::post('gmiic/checklist/entries/save', [App\Http\Controllers\ChecklistEntryController::class, 'save'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.entries.save');
+Route::post('gmiic/checklist/qr-bypass', [App\Http\Controllers\ChecklistEntryController::class, 'updateQrBypass'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.qr-bypass.update');
 Route::post('gmiic/checklist/entries/bulk-save', [App\Http\Controllers\ChecklistEntryController::class, 'saveMany'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.entries.bulk-save');
@@ -293,6 +296,14 @@ Route::put('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\
 Route::delete('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\Http\Controllers\PurchaseRequisitionController::class, 'destroy'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.destroy');
+
+// Attachment Signing (for Purchase Requisition)
+Route::post(
+    'gmisl/procurement/purchase-requisition/{purchaseRequisition}/attachments/{attachment}/sign',
+    [App\Http\Controllers\PurchaseRequisitionController::class, 'signAttachment']
+)
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.attachments.sign');
 
 // Purchase Order (GMISL > Procurement > Purchase Order)
 Route::get('gmisl/procurement/purchase-order', [App\Http\Controllers\PurchaseOrderListController::class, 'index'])

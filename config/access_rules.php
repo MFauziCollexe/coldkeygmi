@@ -302,9 +302,19 @@ return [
             ],
         ],
         'gmiic_checklist' => [
+            'settings' => [
+                'qr_bypass_enabled' => false,
+            ],
             'template_permissions' => $templatePermissions,
             'abilities' => [
                 'delete_entries' => [
+                    ['type' => 'admin'],
+                    ['type' => 'department_code', 'value' => 'IT'],
+                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
+                    ['type' => 'position_code', 'value' => 'IT'],
+                    ['type' => 'position_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
+                ],
+                'qr_bypass_manage' => [
                     ['type' => 'admin'],
                     ['type' => 'department_code', 'value' => 'IT'],
                     ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],

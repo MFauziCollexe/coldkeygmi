@@ -10,6 +10,10 @@
           <Link href="/gmisl/procurement/purchase-requisition" class="text-sm text-indigo-400">Back to list</Link>
         </div>
 
+        <div v-if="$page.props.flash?.success" class="rounded border border-green-600 bg-green-600/20 px-4 py-3 text-sm text-green-300">
+          {{ $page.props.flash.success }}
+        </div>
+
         <form class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
           <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div class="space-y-4">
@@ -88,24 +92,126 @@
           </div>
 
           <div class="space-y-3 rounded-lg border border-slate-700 p-4">
-            <div>
+            <div class="flex items-center justify-between">
               <label class="block text-sm font-medium text-slate-200">Attachments</label>
+              <span v-if="purchaseRequisition.attachments?.length" class="text-xs text-slate-400">
+                {{ purchaseRequisition.attachments.length }} file(s)
+              </span>
             </div>
 
             <div v-if="purchaseRequisition.attachments?.length" class="space-y-2">
-              <div v-for="attachment in purchaseRequisition.attachments" :key="attachment.id" class="flex items-center justify-between rounded bg-slate-900 px-3 py-2 text-sm">
-                <a :href="attachment.url" target="_blank" rel="noopener noreferrer" class="min-w-0 truncate text-slate-100 hover:text-indigo-300">
-                  {{ attachment.filename }}
-                </a>
-                <span class="ml-2 text-xs text-slate-400">{{ attachment.size }}</span>
+              <div 
+                v-for="attachment in purchaseRequisition.attachments" 
+                :key="attachment.id"
+                class="flex flex-col sm:flex-row sm:items-center justify-between rounded bg-slate-900 px-3 py-3 text-sm gap-2"
+              >
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <!-- Thumbnail preview -->
+                  <a 
+                    v-if="isImageFile(attachment.filename)"
+                    :href="attachment.url" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="block flex-shrink-0"
+                  >
+                    <img 
+                      :src="attachment.url" 
+                      class="h-12 w-12 rounded object-cover border border-slate-700"
+                      alt="preview"
+                    />
+                  </a>
+                  <div v-else class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-slate-700 text-xs text-slate-400">
+                    FILE
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <a 
+                      :href="attachment.url" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      class="truncate block text-slate-100 hover:text-indigo-300"
+                    >
+                      {{ attachment.filename }}
+                    </a>
+                    <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                      <span>{{ formatFileSize(attachment.size) }}</span>
+
+                      <!-- Signature Status Badge -->
+                      <span 
+                        v-if="attachment.signature_status"
+                        class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                        :class="{
+                          'bg-emerald-700/30 text-emerald-300': attachment.signature_status === 'signed',
+                          'bg-amber-700/30 text-amber-300': attachment.signature_status === 'pending',
+                          'bg-rose-700/30 text-rose-300': attachment.signature_status === 'rejected',
+                        }"
+                      >
+                        {{ formatSignatureStatus(attachment.signature_status) }}
+                      </span>
+
+                      <span v-if="attachment.signed_at" class="text-slate-500">
+                        by {{ attachment.signed_by_name }} • {{ formatDate(attachment.signed_at) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                  <!-- Download original -->
+                  <a 
+                    :href="attachment.url" 
+                    download
+                    class="text-xs text-slate-400 hover:text-blue-400 px-2 py-1"
+                    title="Download original"
+                  >
+                    Original
+                  </a>
+
+                  <!-- SIGN BUTTON (Owner only, pending status, image file) -->
+                  <button
+                    v-if="canSignAttachment(attachment) && isImageFile(attachment.filename)"
+                    @click="openSignatureModal(attachment)"
+                    class="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                    type="button"
+                  >
+                    Sign
+                  </button>
+
+                  <!-- VIEW SIGNED BUTTON -->
+                  <a
+                    v-if="attachment.signature_status === 'signed' && attachment.signed_url"
+                    :href="attachment.signed_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="rounded bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                  >
+                    View Signed
+                  </a>
+
+                  <!-- DOWNLOAD SIGNED -->
+                  <a
+                    v-if="attachment.signature_status === 'signed' && attachment.signed_url"
+                    :href="attachment.signed_url"
+                    :download="signedFilename(attachment)"
+                    class="rounded bg-slate-700 px-3 py-1 text-xs text-white hover:bg-slate-600"
+                  >
+                    Download
+                  </a>
+                </div>
               </div>
             </div>
+
             <div v-else class="text-sm text-slate-400">Tidak ada attachment.</div>
           </div>
 
           <div>
             <label class="mb-1 block text-sm text-slate-300">Note</label>
             <textarea :value="purchaseRequisition.note || ''" rows="4" disabled class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100"></textarea>
+          </div>
+
+          <div v-if="purchaseRequisition.reject_note">
+            <label class="mb-1 block text-sm text-slate-300">Reject Note</label>
+            <textarea :value="purchaseRequisition.reject_note || ''" rows="4" disabled class="w-full rounded-lg border border-rose-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100"></textarea>
           </div>
 
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
@@ -121,16 +227,26 @@
             </button>
           </div>
         </form>
+
+        <!-- Signature Modal -->
+        <AttachmentSignatureModal
+          v-model:show="showSignatureModal"
+          :attachment="selectedAttachment"
+          @signed="handleSignatureSigned"
+          @close="showSignatureModal = false"
+        />
       </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import Swal from 'sweetalert2';
+import AttachmentSignatureModal from '@/Components/AttachmentSignatureModal.vue';
 
 const props = defineProps({
   purchaseRequisition: { type: Object, required: true },
@@ -141,6 +257,35 @@ const canApprove = props.purchaseRequisition.can_approve === true;
 const canReject = props.purchaseRequisition.can_reject === true;
 const isItUser = String(props.currentUser?.department_code || '').toUpperCase() === 'IT';
 const canDelete = isItUser;
+
+// Modal state
+const showSignatureModal = ref(false);
+const selectedAttachment = ref(null);
+
+function isOwnerUser() {
+  return String(props.currentUser?.department_code || '').toUpperCase() === 'OWNER';
+}
+
+function canSignAttachment(attachment) {
+  const isOwner = isOwnerUser();
+  const isPending = attachment.signature_status === 'pending';
+  const isImage = isImageFile(attachment.filename);
+  const prWaitingOrApproved = ['waiting', 'approved'].includes(
+    props.purchaseRequisition.status?.toLowerCase()
+  );
+
+  return isOwner && isPending && isImage && prWaitingOrApproved;
+}
+
+function openSignatureModal(attachment) {
+  selectedAttachment.value = attachment;
+  showSignatureModal.value = true;
+}
+
+function handleSignatureSigned() {
+  // Reload page to show updated attachment status
+  window.location.reload();
+}
 
 function formatPriority(priority) {
   const normalized = String(priority || '').trim().toLowerCase();
@@ -167,6 +312,43 @@ function statusClass(status) {
   if (normalized === 'done') return 'bg-sky-700/30 text-sky-300 border border-sky-500/40';
   if (normalized === 'rejected') return 'bg-rose-700/30 text-rose-300 border border-rose-500/40';
   return 'bg-slate-700/40 text-slate-200 border border-slate-600';
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+function formatSignatureStatus(status) {
+  const map = {
+    'pending': 'Pending',
+    'signed': 'Signed',
+    'rejected': 'Rejected',
+  };
+  return map[status] || status;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function signedFilename(attachment) {
+  const originalName = attachment.filename?.split('.').slice(0, -1).join('.') || 'document';
+  return `signed_${attachment.id}_${originalName}.jpg`;
+}
+
+function isImageFile(filename) {
+  if (!filename) return false;
+  const ext = filename.split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
 }
 
 async function confirmApprove() {

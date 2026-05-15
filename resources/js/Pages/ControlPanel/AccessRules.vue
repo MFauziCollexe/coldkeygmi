@@ -1257,7 +1257,15 @@ function formatSettingValue(value) {
 }
 
 function settingLabel(settingKey) {
-  return settingKey === 'late_tolerance_minutes' ? 'Toleransi Keterlambatan (menit)' : 'Value';
+  if (settingKey === 'late_tolerance_minutes') {
+    return 'Toleransi Keterlambatan (menit)';
+  }
+
+  if (settingKey === 'qr_bypass_enabled') {
+    return 'Aktifkan QR Bypass';
+  }
+
+  return 'Value';
 }
 
 function serialize() {

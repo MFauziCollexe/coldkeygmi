@@ -24,6 +24,7 @@ class PurchaseRequisition extends Model
         'approved_by',
         'approved_at',
         'note',
+        'reject_note',
         'po_comment',
         'po_photo_path',
         'po_photo_filename',

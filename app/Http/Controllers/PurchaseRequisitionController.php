@@ -7,6 +7,7 @@ use App\Models\PurchaseRequisitionAttachment;
 use App\Models\PurchaseRequisition;
 use App\Models\StockCardUnit;
 use App\Models\User;
+use App\Services\ImageMergeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -216,6 +217,7 @@ class PurchaseRequisitionController extends Controller
                 'priority' => $purchaseRequisition->priority,
                 'status' => $purchaseRequisition->status,
                 'note' => $purchaseRequisition->note,
+                'reject_note' => $purchaseRequisition->reject_note,
                 'items' => $purchaseRequisition->items
                     ->map(fn ($item) => [
                         'id' => $item->id,
@@ -372,7 +374,9 @@ class PurchaseRequisitionController extends Controller
 
         $purchaseRequisition->update([
             'status' => 'rejected',
-            'note' => $validated['reject_note'],
+            'reject_note' => $validated['reject_note'],
+            'approved_by' => null,
+            'approved_at' => null,
         ]);
 
         return redirect()->route('purchase-requisition.index')->with('success', 'Purchase requisition berhasil di-reject.');
@@ -401,8 +405,11 @@ class PurchaseRequisitionController extends Controller
             'department:id,name,code',
             'approvedBy:id,name',
             'items:id,purchase_requisition_id,product_name,uom,qty',
-            'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
+            'attachments:id,purchase_requisition_id,filename,path,mime_type,size,original_path,signed_path,signature_status,signed_by,signed_at,signature_meta',
         ]);
+
+        // Eager load signer for attachments
+        $purchaseRequisition->load(['attachments.signer:id,name']);
 
         $canApprove = $this->canApprove($user, $purchaseRequisition);
         $canReject = $canApprove; // same condition: owner dept + status waiting
@@ -418,6 +425,7 @@ class PurchaseRequisitionController extends Controller
                 'priority' => $purchaseRequisition->priority,
                 'status' => $purchaseRequisition->status,
                 'note' => $purchaseRequisition->note,
+                'reject_note' => $purchaseRequisition->reject_note,
                 'po_comment' => $purchaseRequisition->po_comment,
                 'requested_by' => $purchaseRequisition->requested_by,
                 'department_name' => optional($purchaseRequisition->department)->name,
@@ -439,8 +447,15 @@ class PurchaseRequisitionController extends Controller
                         'id' => $attachment->id,
                         'filename' => $attachment->filename,
                         'url' => Storage::disk('public')->url($attachment->path),
+                        'signed_url' => $attachment->signed_url,
+                        'signature_status' => $attachment->signature_status,
+                        'signed_by_name' => optional($attachment->signer)->name,
+                        'signed_at' => optional($attachment->signed_at)?->toDateTimeString(),
+                        'signature_meta' => $attachment->signature_meta,
                         'mime_type' => $attachment->mime_type,
                         'size' => $this->formatFileSize((int) ($attachment->size ?? 0)),
+                        'uploader_name' => optional($attachment->purchaseRequisition?->requester)->name, // fallback
+                        'purchase_requisition_id' => $attachment->purchase_requisition_id,
                     ])
                     ->values(),
                 'can_approve' => $canApprove,
@@ -551,20 +566,135 @@ class PurchaseRequisitionController extends Controller
         return number_format($bytes, $precision) . ' ' . $units[$unitIndex];
     }
 
-    public function destroy(Request $request, PurchaseRequisition $purchaseRequisition)
-    {
-        /** @var \App\Models\User|null $user */
-        $user = $request->user();
-        $user?->loadMissing('department');
+     public function destroy(Request $request, PurchaseRequisition $purchaseRequisition)
+     {
+         /** @var \App\Models\User|null $user */
+         $user = $request->user();
+         $user?->loadMissing('department');
 
-        if (!$this->isItDepartmentUser($user)) {
-            abort(403, 'Hanya departemen IT yang dapat menghapus purchase requisition.');
-        }
+         if (!$this->isItDepartmentUser($user)) {
+             abort(403, 'Hanya departemen IT yang dapat menghapus purchase requisition.');
+         }
 
-        $purchaseRequisition->items()->delete();
-        $purchaseRequisition->attachments()->delete();
-        $purchaseRequisition->delete();
+         $purchaseRequisition->items()->delete();
+         $purchaseRequisition->attachments()->delete();
+         $purchaseRequisition->delete();
 
-        return redirect()->route('purchase-requisition.index')->with('success', 'Purchase requisition berhasil dihapus.');
-    }
+         return redirect()->route('purchase-requisition.index')->with('success', 'Purchase requisition berhasil dihapus.');
+     }
+
+     /**
+      * Sign attachment (Owner only)
+      * POST /purchase-requisitions/{purchaseRequisition}/attachments/{attachment}/sign
+      */
+     public function signAttachment(
+         Request $request,
+         PurchaseRequisition $purchaseRequisition,
+         PurchaseRequisitionAttachment $attachment
+     ) {
+         /** @var \App\Models\User|null $user */
+         $user = $request->user();
+         $user?->loadMissing('department');
+
+         // 1. Authorization: Only Owner department
+         abort_unless($this->isOwnerDepartmentUser($user), 403,
+             'Hanya departemen Owner yang dapat menandatangani attachment.');
+
+         // 2. Verify attachment belongs to this PR
+         abort_unless($attachment->purchase_requisition_id === $purchaseRequisition->id, 404,
+             'Attachment tidak sesuai dengan purchase requisition ini.');
+
+         // 3. PR must be in waiting or approved status
+         abort_unless(in_array(strtolower(trim((string) $purchaseRequisition->status)), ['waiting', 'approved'], true), 403,
+             'Hanya PR dengan status waiting atau approved yang bisa ditandatangani.');
+
+         // 4. Attachment must be in pending status and be an image
+         abort_unless($attachment->signature_status === 'pending', 403,
+             'Attachment sudah ditandatangani atau ditolak.');
+         abort_unless($this->isImageFile($attachment->filename), 403,
+             'Hanya file gambar (JPG, PNG) yang bisa ditandatangani.');
+
+         // 5. Validate input
+         $validated = $request->validate([
+             'signature_data' => ['required', 'string'],
+             'position_x' => ['required', 'numeric', 'min:0', 'max:1'],
+             'position_y' => ['required', 'numeric', 'min:0', 'max:1'],
+             'scale' => ['nullable', 'numeric', 'min:0.1', 'max:5'],
+             'output_format' => ['nullable', 'in:jpg,png,webp'],
+         ]);
+
+         // 6. Get original file path
+         $originalPath = storage_path('app/' . $attachment->path);
+         if (!file_exists($originalPath)) {
+             abort(404, 'File asli attachment tidak ditemukan.');
+         }
+
+         // 7. Merge signature using service
+         $mergeService = new ImageMergeService();
+
+         try {
+             $mergedBlob = $mergeService->merge(
+                 documentPath: $attachment->path,
+                 signatureBase64: $validated['signature_data'],
+                 position: [
+                     'x' => $validated['position_x'],
+                     'y' => $validated['position_y'],
+                 ],
+                 scale: $validated['scale'] ?? 1.0,
+                 outputFormat: $validated['output_format'] ?? 'jpg',
+                 quality: 85
+             );
+         } catch (\Exception $e) {
+             \Log::error('Signature merge failed for attachment ' . $attachment->id . ': ' . $e->getMessage());
+             return back()->withErrors(['merge' => 'Gagal menggabungkan tanda tangan. Silakan coba lagi.']);
+         }
+
+         // 8. Save signed file
+         $originalName = pathinfo($attachment->filename, PATHINFO_FILENAME);
+         $signedFilename = sprintf(
+             'signed_%d_%s_%s.jpg',
+             $attachment->id,
+             preg_replace('/[^a-zA-Z0-9_-]/', '_', $originalName),
+             now()->format('Ymd_His')
+         );
+         $signedPath = 'purchase-requisitions/signed/' . $signedFilename;
+
+         Storage::disk('public')->put($signedPath, $mergedBlob);
+
+         // 9. Keep original path reference (already in $attachment->path)
+         // 10. Update attachment record
+         $attachment->update([
+             'original_path' => $attachment->path, // backup original location
+             'signed_path' => $signedPath,
+             'signature_status' => 'signed',
+             'signed_by' => $user->id,
+             'signed_at' => now(),
+             'signature_meta' => [
+                 'position' => [
+                     'x' => $validated['position_x'],
+                     'y' => $validated['position_y'],
+                 ],
+                 'scale' => $validated['scale'] ?? 1.0,
+                 'output_format' => $validated['output_format'] ?? 'jpg',
+                 'ip_address' => $request->ip(),
+                 'user_agent' => $request->userAgent(),
+             ],
+         ]);
+
+         // 11. Optional: Check if all attachments signed → could trigger auto-approval
+         // $this->checkAndAutoApprovePr($purchaseRequisition);
+
+         return redirect()
+             ->back()
+             ->with('success', 'Attachment berhasil ditandatangani.');
+     }
+
+     /**
+      * Helper: Check if filename is an image
+      */
+     private function isImageFile(string $filename): bool
+     {
+         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+         return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+     }
 }

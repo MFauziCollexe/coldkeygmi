@@ -32,6 +32,7 @@ class ChecklistEntryController extends Controller
 
         return Inertia::render('GMIIC/Checklist/Index', [
             'checklistAbilities' => $this->resolveChecklistAbilities($request),
+            'checklistSettings' => $this->resolveChecklistSettings(),
             'entries' => $this->getChecklistEntries($user),
             'checklistTemplatePermissions' => $this->getChecklistTemplatePermissions($user),
         ]);
@@ -100,6 +101,7 @@ class ChecklistEntryController extends Controller
             'existingEntries' => $this->getChecklistEntries($user),
             'checklistTemplatePermissions' => $checklistTemplatePermissions,
             'checklistAbilities' => $this->resolveChecklistAbilities($request),
+            'checklistSettings' => $this->resolveChecklistSettings(),
             'holidayDates' => AttendanceHoliday::query()
                 ->orderBy('holiday_date')
                 ->pluck('holiday_date')
@@ -133,10 +135,16 @@ class ChecklistEntryController extends Controller
         ]);
 
         $entry = $this->normalizeEntryPayload($payload['entry']);
+        $existingEntry = $this->findChecklistEntry($entry['id'], $request->user(), false);
+        $requiresWorkflowAuthorization = $this->requiresWorkflowAuthorization($existingEntry, $entry);
         $this->authorizeChecklistTemplate($request->user(), $entry['template_id'], 'view');
 
-        if ((bool) ($payload['approval_action'] ?? false)) {
+        if ((bool) ($payload['approval_action'] ?? false) || $requiresWorkflowAuthorization) {
             $this->authorizeChecklistTemplate($request->user(), $entry['template_id'], 'approve');
+        }
+
+        if ($requiresWorkflowAuthorization) {
+            $this->ensureQrRequirementSatisfied($entry);
         }
 
         $savedEntry = DB::transaction(fn () => $this->persistEntry($entry, $request));
@@ -144,6 +152,38 @@ class ChecklistEntryController extends Controller
         return response()->json([
             'message' => 'Checklist berhasil disimpan.',
             'entry' => $savedEntry,
+        ]);
+    }
+
+    public function updateQrBypass(Request $request): JsonResponse
+    {
+        $accessRules = $this->accessRules();
+        if (!$accessRules->allows($request->user(), 'gmiic_checklist', 'qr_bypass_manage')) {
+            abort(403, 'Anda tidak memiliki akses untuk mengubah QR bypass.');
+        }
+
+        $data = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        $beforeModules = $accessRules->modules();
+        $beforeOverrides = $accessRules->overrideModules();
+        $afterOverrides = $beforeOverrides;
+        data_set($afterOverrides, 'gmiic_checklist.settings.qr_bypass_enabled', (bool) $data['enabled']);
+
+        $accessRules->saveOverrides($afterOverrides);
+        $accessRules->logAudit(
+            $request->user(),
+            'save',
+            $beforeModules,
+            $accessRules->modules(),
+            $beforeOverrides,
+            $accessRules->overrideModules()
+        );
+
+        return response()->json([
+            'message' => 'Status QR bypass berhasil diperbarui.',
+            'settings' => $this->resolveChecklistSettings(),
         ]);
     }
 
@@ -201,8 +241,16 @@ class ChecklistEntryController extends Controller
 
         return [
             'delete_entries' => $accessRules->allows($user, 'gmiic_checklist', 'delete_entries'),
+            'qr_bypass_manage' => $accessRules->allows($user, 'gmiic_checklist', 'qr_bypass_manage'),
             'kotak_p3k_hse_approve' => $accessRules->allows($user, 'gmiic_checklist', 'kotak_p3k_hse_approve'),
             'warehouse_final_approve' => $accessRules->allows($user, 'gmiic_checklist', 'warehouse_final_approve'),
+        ];
+    }
+
+    private function resolveChecklistSettings(): array
+    {
+        return [
+            'qr_bypass_enabled' => $this->accessRules()->booleanSetting('gmiic_checklist', 'qr_bypass_enabled'),
         ];
     }
 
@@ -509,5 +557,159 @@ class ChecklistEntryController extends Controller
         }
 
         return 'draft';
+    }
+
+    private function requiresWorkflowAuthorization(?array $existingEntry, array $nextEntry): bool
+    {
+        $templateId = (string) ($nextEntry['template_id'] ?? '');
+        $currentForm = is_array($existingEntry['form'] ?? null) ? $existingEntry['form'] : [];
+        $nextForm = is_array($nextEntry['form'] ?? null) ? $nextEntry['form'] : [];
+
+        return match ($templateId) {
+            'kotak_p3k' => $this->hasListExpanded($currentForm['submitted_months'] ?? [], $nextForm['submitted_months'] ?? [])
+                || $this->hasListExpanded($currentForm['approved_months'] ?? [], $nextForm['approved_months'] ?? []),
+            'non_warehouse_sanitation' => $this->hasListExpanded($currentForm['submitted_days'] ?? [], $nextForm['submitted_days'] ?? [])
+                || $this->hasListExpanded($currentForm['approved_days'] ?? [], $nextForm['approved_days'] ?? []),
+            'apar_smoke_detector_fire_alarm' => $this->hasListExpanded($currentForm['approved_months'] ?? [], $nextForm['approved_months'] ?? []),
+            'pengangkutan_sampah_pt_sier' => $this->hasListExpanded($currentForm['approved_days'] ?? [], $nextForm['approved_days'] ?? []),
+            'warehouse_sanitation_1' => !$this->isFilled($currentForm['verification']['prepared_date'] ?? null) && $this->isFilled($nextForm['verification']['prepared_date'] ?? null)
+                || !$this->isFilled($currentForm['verification']['verified_date'] ?? null) && $this->isFilled($nextForm['verification']['verified_date'] ?? null),
+            'sarana_dan_prasarana' => $this->hasMapListExpanded($currentForm['approved_days_by_area'] ?? [], $nextForm['approved_days_by_area'] ?? []),
+            'patroli_security', 'site_visit_hse' => $this->hasListExpanded($currentForm['approved_areas'] ?? [], $nextForm['approved_areas'] ?? []),
+            default => !$this->isTruthy($currentForm['approved'] ?? false) && $this->isTruthy($nextForm['approved'] ?? false),
+        };
+    }
+
+    private function ensureQrRequirementSatisfied(array $entry): void
+    {
+        if ($this->resolveChecklistSettings()['qr_bypass_enabled']) {
+            return;
+        }
+
+        $templateId = (string) ($entry['template_id'] ?? '');
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+
+        $hasRequiredQr = match ($templateId) {
+            'kotak_p3k', 'apar_smoke_detector_fire_alarm' => $this->isFilled($this->latestListValue($form['approved_months'] ?? [], $form['monthly_barcodes'] ?? [])),
+            'non_warehouse_sanitation' => $this->allExpectedSanitationAreasScanned($form),
+            'warehouse_sanitation_1' => $this->isFilled($form['barcode'] ?? null),
+            'sarana_dan_prasarana' => $this->hasSaranaPrasaranaScanForLatestApproval($form),
+            'patroli_security', 'site_visit_hse' => $this->isFilled($this->latestListValue($form['approved_areas'] ?? [], $form['area_barcodes'] ?? [])),
+            'site_visit_maintenance' => $this->hasMaintenanceQrScan($form),
+            default => true,
+        };
+
+        if (!$hasRequiredQr) {
+            abort(422, 'QRCode wajib discan sebelum approval saat QR bypass tidak aktif.');
+        }
+    }
+
+    private function allExpectedSanitationAreasScanned(array $form): bool
+    {
+        $approvedDays = array_values(array_filter((array) ($form['submitted_days'] ?? $form['approved_days'] ?? []), fn ($value) => $value !== null && $value !== ''));
+        if (empty($approvedDays)) {
+            return false;
+        }
+
+        $targetDay = (string) end($approvedDays);
+        $rowsByArea = is_array($form['rows_by_area'] ?? null) ? $form['rows_by_area'] : [];
+        $scansByDay = is_array($form['area_scans_by_day'] ?? null) ? $form['area_scans_by_day'] : [];
+        $dayScans = is_array($scansByDay[$targetDay] ?? null) ? $scansByDay[$targetDay] : [];
+
+        $expectedAreaIds = collect($rowsByArea)
+            ->filter(fn ($rows) => is_array($rows) && count($rows) > 0)
+            ->keys()
+            ->map(fn ($areaId) => (string) $areaId)
+            ->values()
+            ->all();
+
+        if (empty($expectedAreaIds)) {
+            return false;
+        }
+
+        foreach ($expectedAreaIds as $areaId) {
+            if (!$this->isFilled($dayScans[$areaId]['barcode'] ?? null)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function hasSaranaPrasaranaScanForLatestApproval(array $form): bool
+    {
+        $approvedDaysByArea = is_array($form['approved_days_by_area'] ?? null) ? $form['approved_days_by_area'] : [];
+        $selectedArea = (string) ($form['selected_area'] ?? '');
+        $targetDay = null;
+
+        if ($selectedArea !== '' && !empty($approvedDaysByArea[$selectedArea]) && is_array($approvedDaysByArea[$selectedArea])) {
+            $targetDay = end($approvedDaysByArea[$selectedArea]);
+        }
+
+        if ($targetDay === null) {
+            foreach ($approvedDaysByArea as $areaId => $days) {
+                if (is_array($days) && !empty($days)) {
+                    $selectedArea = (string) $areaId;
+                    $targetDay = end($days);
+                    break;
+                }
+            }
+        }
+
+        if ($selectedArea === '' || $targetDay === null) {
+            return false;
+        }
+
+        return $this->isFilled($form['area_scans_by_day'][(string) $targetDay][$selectedArea]['barcode'] ?? null);
+    }
+
+    private function latestListValue(array $keys, array $valuesByKey): mixed
+    {
+        if (empty($keys)) {
+            return null;
+        }
+
+        $latestKey = (string) end($keys);
+
+        return $valuesByKey[$latestKey] ?? null;
+    }
+
+    private function hasMaintenanceQrScan(array $form): bool
+    {
+        $selectedArea = (string) ($form['selected_area'] ?? '');
+        if ($selectedArea !== '' && $this->isFilled($form['area_barcodes'][$selectedArea] ?? null)) {
+            return true;
+        }
+
+        return $this->isFilled($form['area_barcodes']['lantai_1_area_belakang'] ?? null);
+    }
+
+    private function hasListExpanded(array $before, array $after): bool
+    {
+        return count(array_unique(array_map('strval', $after))) > count(array_unique(array_map('strval', $before)));
+    }
+
+    private function hasMapListExpanded(array $before, array $after): bool
+    {
+        foreach ($after as $key => $values) {
+            $beforeValues = is_array($before[$key] ?? null) ? $before[$key] : [];
+            $afterValues = is_array($values) ? $values : [];
+
+            if ($this->hasListExpanded($beforeValues, $afterValues)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isFilled(mixed $value): bool
+    {
+        return trim((string) $value) !== '';
+    }
+
+    private function isTruthy(mixed $value): bool
+    {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }
 }

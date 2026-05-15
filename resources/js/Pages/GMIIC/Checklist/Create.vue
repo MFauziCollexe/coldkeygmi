@@ -471,6 +471,10 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  checklistSettings: {
+    type: Object,
+    default: () => ({}),
+  },
   checklistTemplatePermissions: {
     type: Object,
     default: () => ({}),
@@ -480,7 +484,6 @@ const props = defineProps({
 const page = usePage();
 const selectedChecklist = ref(props.selectedTemplate || '');
 const entry = ref(createInitialEntry());
-const bypassQrScan = ref(readQrBypassPreference());
 const locationMenuOpen = ref(false);
 const scannerModalOpen = ref(false);
 const scannerLoading = ref(false);
@@ -504,6 +507,7 @@ let saveRequestSequence = 0;
 let lastSavedEntrySignature = '';
 
 const currentUser = computed(() => page.props.auth?.user || null);
+const checklistSettings = computed(() => props.checklistSettings || page.props.checklistSettings || {});
 const checklistTemplatePermissions = computed(() => props.checklistTemplatePermissions || page.props.checklistTemplatePermissions || {});
 const availableChecklistOptions = computed(() => {
   return checklistOptions.filter((option) => Boolean(checklistTemplatePermissions.value?.[option.id]?.view));
@@ -513,7 +517,7 @@ const canUseSelectedChecklist = computed(() => {
   return supportedTemplates.includes(selectedChecklist.value) && Boolean(currentChecklistTemplatePermissions.value.view);
 });
 const canApproveCurrentTemplate = computed(() => Boolean(currentChecklistTemplatePermissions.value.approve));
-const showQrScanner = computed(() => !bypassQrScan.value);
+const showQrScanner = computed(() => !Boolean(checklistSettings.value.qr_bypass_enabled));
 const patroliSecurityOverlayAddressLines = [
   'Jl. Rungkut Industri Raya II',
   'No.45 B, Kali Rungkut, Kec.',
@@ -4439,14 +4443,6 @@ function normalizeScannerError(error) {
   }
 
   return message || 'Scanner QRCode gagal dijalankan.';
-}
-
-function readQrBypassPreference() {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  return window.localStorage.getItem('checklist.qr_bypass') === '1';
 }
 
 async function closeScannerModal() {

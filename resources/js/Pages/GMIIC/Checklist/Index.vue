@@ -142,7 +142,7 @@
         </div>
       </div>
 
-      <div class="mt-3 flex justify-end">
+      <div v-if="canManageQrBypass" class="mt-3 flex justify-end">
         <div class="flex min-w-[280px] items-center justify-between rounded border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-slate-100">
           <div>
             <div class="font-semibold">QRCode Pass</div>
@@ -186,12 +186,14 @@ import { checklistOptions, getChecklistEntryAreaLabel } from './checklistConfig'
 const page = usePage();
 const selectedChecklist = ref('');
 const selectedDate = ref(toDateInputValue(new Date()));
-const bypassQrScan = ref(readQrBypassPreference());
 const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : []);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});
+const checklistSettings = computed(() => page.props.checklistSettings || {});
 const checklistTemplatePermissions = computed(() => page.props.checklistTemplatePermissions || {});
+const bypassQrScan = computed(() => Boolean(checklistSettings.value.qr_bypass_enabled));
+const canManageQrBypass = computed(() => Boolean(checklistAbilities.value.qr_bypass_manage));
 const availableChecklistOptions = computed(() => {
   return checklistOptions.filter((option) => Boolean(checklistTemplatePermissions.value?.[option.id]?.view));
 });
@@ -258,9 +260,19 @@ function toggleSelectAll(checked) {
   selectedEntryIds.value = selectedEntryIds.value.filter((entryId) => !visibleIds.includes(entryId));
 }
 
-function toggleQrBypass() {
-  bypassQrScan.value = !bypassQrScan.value;
-  writeQrBypassPreference(bypassQrScan.value);
+async function toggleQrBypass() {
+  if (!canManageQrBypass.value) {
+    return;
+  }
+
+  try {
+    await axios.post('/gmiic/checklist/qr-bypass', {
+      enabled: !bypassQrScan.value,
+    });
+    window.location.reload();
+  } catch (error) {
+    window.alert(error?.response?.data?.message || 'Status QR bypass gagal diperbarui.');
+  }
 }
 
 async function removeSelectedChecklists() {
@@ -362,22 +374,6 @@ function getChecklistEntryDateValue(entry) {
   }
 
   return null;
-}
-
-function readQrBypassPreference() {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  return window.localStorage.getItem('checklist.qr_bypass') === '1';
-}
-
-function writeQrBypassPreference(value) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem('checklist.qr_bypass', value ? '1' : '0');
 }
 
 function normalizeIsoDate(value) {

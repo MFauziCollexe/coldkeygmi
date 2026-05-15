@@ -187,9 +187,7 @@ class PurchaseOrderListController extends Controller
         $user = $request->user();
         $user?->loadMissing('department');
 
-        if (!in_array(strtolower(trim((string) $purchaseRequisition->status)), ['approved', 'process', 'done'], true)) {
-            abort(403, 'Purchase order hanya bisa dilihat untuk status approved, process, atau done.');
-        }
+        abort_unless($this->canOpen($user, $purchaseRequisition), 403, 'Purchase order ini tidak bisa dibuka.');
 
         $purchaseRequisition->load([
             'requester:id,name,department_id',
@@ -420,12 +418,24 @@ class PurchaseOrderListController extends Controller
             abort(403, 'Purchase order hanya bisa dihapus untuk status approved atau process.');
         }
 
-        $purchaseRequisition->items()->delete();
-        $purchaseRequisition->attachments()->delete();
-        $purchaseRequisition->delete();
+        if ($purchaseRequisition->po_photo_path && Storage::disk('public')->exists($purchaseRequisition->po_photo_path)) {
+            Storage::disk('public')->delete($purchaseRequisition->po_photo_path);
+        }
+
+        $purchaseRequisition->update([
+            'status' => 'approved',
+            'po_comment' => null,
+            'po_photo_path' => null,
+            'po_photo_filename' => null,
+            'po_photo_mime_type' => null,
+            'po_processed_by' => null,
+            'po_processed_at' => null,
+            'po_done_by' => null,
+            'po_done_at' => null,
+        ]);
 
         return redirect()->route('purchase-order.index')
-            ->with('success', 'Purchase order berhasil dihapus.');
+            ->with('success', 'Data purchase order berhasil direset. Purchase requisition tetap tersimpan.');
     }
 
     private function isItDepartmentUser(?User $user): bool

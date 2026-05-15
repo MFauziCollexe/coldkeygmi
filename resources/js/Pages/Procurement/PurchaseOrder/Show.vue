@@ -145,7 +145,7 @@
              class="rounded bg-rose-600 px-4 py-2 text-white hover:bg-rose-700"
              @click="confirmDelete"
            >
-             Delete
+             Reset PO
            </button>
            <Link href="/gmisl/procurement/purchase-order" class="rounded bg-slate-700 px-4 py-2 text-white hover:bg-slate-600">
              Close
@@ -215,13 +215,13 @@ function canDelete() {
 
 async function confirmDelete() {
   const result = await Swal.fire({
-    title: 'Hapus Purchase Order?',
-    text: 'Data yang dihapus tidak dapat dikembalikan. Lanjutkan?',
+    title: 'Reset Purchase Order?',
+    text: 'Data proses PO akan dibersihkan dan status kembali ke Approved. Data PR tetap tersimpan. Lanjutkan?',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#dc2626',
     cancelButtonColor: '#6b7280',
-    confirmButtonText: 'Ya, Hapus',
+    confirmButtonText: 'Ya, Reset',
     cancelButtonText: 'Batal',
   });
 
