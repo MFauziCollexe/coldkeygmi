@@ -1,11 +1,11 @@
 <template>
   <AppLayout>
     <div class="p-4 md:p-6">
-      <div class="mx-auto max-w-6xl space-y-4">
+      <div class="mx-auto max-w-7xl space-y-4">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 class="text-2xl font-bold">Detail Purchase Requisition</h2>
-            <p class="text-sm text-slate-400">Informasi detail purchase requisition.</p>
+            <p class="text-sm text-slate-400">Informasi header PR dan detail item per baris.</p>
           </div>
           <Link href="/gmisl/procurement/purchase-requisition" class="text-sm text-indigo-400">Back to list</Link>
         </div>
@@ -25,77 +25,69 @@
           Semua attachment gambar wajib ditandatangani dulu sebelum PR bisa di-approve.
         </div>
 
-        <form class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
+        <div class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
           <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div class="space-y-4">
-              <div>
-                <label class="mb-1 block text-sm text-slate-300">PR Number</label>
-                <input :value="purchaseRequisition.pr_number || ''" disabled class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100" />
-              </div>
-
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="relative pt-0">
-                  <label class="absolute left-3 -top-0.5 z-10 -translate-y-1/2 bg-slate-800 px-1 text-sm text-slate-300">PR Date</label>
-                  <EnhancedDatePicker
-                    :model-value="purchaseRequisition.pr_date || ''"
-                    disabled
-                    placeholder="dd/mm/yyyy"
-                    input-class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 placeholder-transparent"
-                  />
-                </div>
-                <div class="relative pt-0">
-                  <label class="absolute left-3 -top-0.5 z-10 -translate-y-1/2 bg-slate-800 px-1 text-sm text-slate-300">Request Date</label>
-                  <EnhancedDatePicker
-                    :model-value="purchaseRequisition.request_date || ''"
-                    disabled
-                    placeholder="dd/mm/yyyy"
-                    input-class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 placeholder-transparent"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label class="mb-1 block text-sm text-slate-300">Priority</label>
-                <input :value="formatPriority(purchaseRequisition.priority)" disabled class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100" />
-              </div>
+              <ReadOnlyField label="No PR" :value="purchaseRequisition.pr_number || '-'" />
+              <ReadOnlyField label="PR Date" :value="purchaseRequisition.pr_date || '-'" />
+              <ReadOnlyField label="Priority" :value="formatPriority(purchaseRequisition.priority)" />
             </div>
 
             <div class="space-y-4">
-              <div>
-                <label class="mb-1 block text-sm text-slate-300">Requestor</label>
-                <input :value="purchaseRequisition.requester_name || '-'" disabled class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100" />
-              </div>
-              <div>
-                <label class="mb-1 block text-sm text-slate-300">Department</label>
-                <input :value="purchaseRequisition.department_name || '-'" disabled class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100" />
-              </div>
+              <ReadOnlyField label="Requestor" :value="purchaseRequisition.requester_name || '-'" />
+              <ReadOnlyField label="Department" :value="purchaseRequisition.department_name || '-'" />
+              <ReadOnlyField label="Status" :value="formatStatus(purchaseRequisition.status)" />
             </div>
           </div>
 
-          <div class="overflow-hidden rounded-lg border border-slate-700">
-            <div class="border-b border-slate-700 bg-slate-900 px-4 py-3">
-              <h3 class="font-semibold text-slate-100">Items</h3>
+          <div class="overflow-hidden rounded-lg border border-slate-600 bg-[#d9dde8]">
+            <div class="border-b border-slate-500 bg-gradient-to-b from-[#7286b8] to-[#506898] px-4 py-2.5">
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-white">PR Item Detail</h3>
             </div>
 
-            <div class="overflow-x-auto">
-              <table class="w-full table-auto">
+            <div class="overflow-x-auto p-1">
+              <table class="w-full min-w-[1200px] border-collapse text-sm text-slate-800">
                 <thead>
-                  <tr class="text-left text-slate-400">
-                    <th class="py-2 pl-4">#</th>
-                    <th>Product</th>
-                    <th>Qty</th>
-                    <th>UoM</th>
+                  <tr class="bg-gradient-to-b from-[#7489ba] to-[#556d9a] text-center text-[12px] font-semibold text-white">
+                    <th class="border border-slate-400 px-2 py-1.5">Item</th>
+                    <th class="border border-slate-400 px-2 py-1.5">Description</th>
+                    <th class="border border-slate-400 px-2 py-1.5">Qty</th>
+                    <th class="border border-slate-400 px-2 py-1.5">Item Unit</th>
+                    <th class="border border-slate-400 px-2 py-1.5">Required Date</th>
+                    <th class="border border-slate-400 px-2 py-1.5">Notes</th>
+                    <th class="border border-slate-400 px-2 py-1.5">Qty Received</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(item, index) in purchaseRequisition.items" :key="index" class="border-t border-slate-700">
-                    <td class="py-3 pl-4">{{ index + 1 }}</td>
-                    <td>{{ item.product_name }}</td>
-                    <td>{{ item.qty }}</td>
-                    <td>{{ item.uom }}</td>
+                  <tr
+                    v-for="(item, index) in purchaseRequisition.items"
+                    :key="item.id || index"
+                    class="align-top bg-[#f7f7f9]"
+                  >
+                    <td class="border border-slate-300 px-2 py-1.5 font-medium">
+                      {{ item.item_code || item.item_name || '-' }}
+                    </td>
+                    <td class="border border-slate-300 px-2 py-1.5">
+                      <div>{{ item.description_of_goods || item.item_name || '-' }}</div>
+                    </td>
+                    <td class="border border-slate-300 px-2 py-1.5 text-center">
+                      {{ item.quantity || 0 }}
+                    </td>
+                    <td class="border border-slate-300 px-2 py-1.5">
+                      {{ item.unit || '-' }}
+                    </td>
+                    <td class="border border-slate-300 px-2 py-1.5 text-center">
+                      {{ formatCompactDate(item.required_date) }}
+                    </td>
+                    <td class="border border-slate-300 px-2 py-1.5">
+                      {{ item.specification || '-' }}
+                    </td>
+                    <td class="border border-slate-300 bg-[#e7e7ea] px-2 py-1.5 text-center">
+                      0
+                    </td>
                   </tr>
                   <tr v-if="!purchaseRequisition.items?.length">
-                    <td colspan="4" class="py-4 text-center text-sm text-slate-400">Tidak ada item.</td>
+                    <td colspan="7" class="border border-slate-300 py-4 text-center text-sm text-slate-500">Tidak ada item.</td>
                   </tr>
                 </tbody>
               </table>
@@ -134,16 +126,11 @@
                   </div>
 
                   <div class="min-w-0 flex-1">
-                    <a
-                      :href="attachment.url"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="block truncate text-slate-100 hover:text-indigo-300"
-                    >
+                    <a :href="attachment.url" target="_blank" rel="noopener noreferrer" class="block truncate text-slate-100 hover:text-indigo-300">
                       {{ attachment.filename }}
                     </a>
                     <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                      <span>{{ formatAttachmentSize(attachment.size) }}</span>
+                      <span>{{ attachment.size }}</span>
                       <span
                         v-if="attachment.signature_status"
                         class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
@@ -156,22 +143,16 @@
                         {{ formatSignatureStatus(attachment.signature_status) }}
                       </span>
                       <span v-if="attachment.signed_at" class="text-slate-500">
-                        by {{ attachment.signed_by_name }} • {{ formatDate(attachment.signed_at) }}
+                        by {{ attachment.signed_by_name }} - {{ formatDate(attachment.signed_at) }}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2 self-end sm:self-center">
-                  <a
-                    :href="attachment.original_url || attachment.url"
-                    download
-                    class="px-2 py-1 text-xs text-slate-400 hover:text-blue-400"
-                    title="Download original"
-                  >
+                  <a :href="attachment.original_url || attachment.url" download class="px-2 py-1 text-xs text-slate-400 hover:text-blue-400">
                     Original
                   </a>
-
                   <button
                     v-if="canSignAttachment(attachment) && isImageFile(attachment.filename)"
                     @click="openSignatureModal(attachment)"
@@ -180,7 +161,6 @@
                   >
                     Sign
                   </button>
-
                   <button
                     v-if="attachment.signature_status === 'signed' && attachment.signed_url"
                     type="button"
@@ -189,15 +169,6 @@
                   >
                     View Signed
                   </button>
-
-                  <a
-                    v-if="attachment.signature_status === 'signed' && attachment.signed_url"
-                    :href="attachment.signed_url"
-                    :download="signedFilename(attachment)"
-                    class="rounded bg-slate-700 px-3 py-1 text-xs text-white hover:bg-slate-600"
-                  >
-                    Download
-                  </a>
                 </div>
               </div>
             </div>
@@ -227,7 +198,7 @@
               Approve
             </button>
           </div>
-        </form>
+        </div>
 
         <AttachmentSignatureModal
           v-model:show="showSignatureModal"
@@ -244,33 +215,23 @@
           <div class="w-full max-w-5xl rounded-xl bg-slate-900 p-3 shadow-2xl sm:p-4">
             <div class="mb-4 flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <h3 class="truncate text-lg font-semibold text-white">
-                  {{ previewTitle }}
-                </h3>
+                <h3 class="truncate text-lg font-semibold text-white">{{ previewTitle }}</h3>
                 <div class="text-xs text-slate-400">
                   <template v-if="previewAttachment.signature_status === 'signed'">
-                    {{ previewAttachment.signed_by_name || '-' }} • {{ formatDate(previewAttachment.signed_at) || '-' }}
+                    {{ previewAttachment.signed_by_name || '-' }} - {{ formatDate(previewAttachment.signed_at) || '-' }}
                   </template>
                   <template v-else>
-                    {{ previewAttachment.uploader_name || '-' }}
+                    {{ purchaseRequisition.pr_number || '-' }}
                   </template>
                 </div>
               </div>
-              <button
-                type="button"
-                class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
-                @click="closeImagePreview"
-              >
+              <button type="button" class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600" @click="closeImagePreview">
                 Close
               </button>
             </div>
 
             <div class="overflow-hidden rounded-lg border border-slate-700 bg-black">
-              <img
-                :src="previewUrl"
-                :alt="previewAttachment.filename || 'Attachment preview'"
-                class="max-h-[78vh] w-full object-contain"
-              />
+              <img :src="previewUrl" :alt="previewAttachment.filename || 'Attachment preview'" class="max-h-[78vh] w-full object-contain" />
             </div>
           </div>
         </div>
@@ -280,10 +241,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { defineComponent, h, ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import Swal from 'sweetalert2';
 import AttachmentSignatureModal from '@/Components/AttachmentSignatureModal.vue';
 
@@ -304,6 +264,16 @@ const showImagePreviewModal = ref(false);
 const previewAttachment = ref(null);
 const previewUrl = ref('');
 const previewTitle = ref('');
+
+const ReadOnlyField = defineComponent({
+  props: { label: String, value: String },
+  setup(readonlyProps) {
+    return () => h('div', [
+      h('label', { class: 'mb-1 block text-sm text-slate-300' }, readonlyProps.label || ''),
+      h('input', { value: readonlyProps.value || '', disabled: true, class: 'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100' }),
+    ]);
+  },
+});
 
 function isOwnerUser() {
   return String(props.currentUser?.department_code || '').toUpperCase() === 'OWNER';
@@ -354,19 +324,29 @@ function formatPriority(priority) {
   return 'Medium';
 }
 
-function formatFileSize(bytes) {
-  if (!bytes) return '0 B';
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
+function formatStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'approved') return 'Approved';
+  if (normalized === 'waiting') return 'Waiting';
+  if (normalized === 'process') return 'Process';
+  if (normalized === 'done') return 'Done';
+  if (normalized === 'rejected') return 'Rejected';
+  return normalized || '-';
 }
 
-function formatAttachmentSize(value) {
-  if (typeof value === 'string') {
-    return value;
-  }
+function formatCurrency(value) {
+  const number = Number(value || 0);
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 2 }).format(number);
+}
 
-  return formatFileSize(value);
+function formatCompactDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 function formatSignatureStatus(status) {
@@ -389,11 +369,6 @@ function formatDate(dateStr) {
   });
 }
 
-function signedFilename(attachment) {
-  const originalName = attachment.filename?.split('.').slice(0, -1).join('.') || 'document';
-  return `signed_${attachment.id}_${originalName}.jpg`;
-}
-
 function isImageFile(filename) {
   if (!filename) return false;
   const ext = filename.split('.').pop()?.toLowerCase();
@@ -413,7 +388,7 @@ async function confirmApprove() {
   });
 
   if (result.isConfirmed) {
-    approve();
+    router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/approve`, {}, { preserveScroll: true });
   }
 }
 
@@ -442,20 +417,8 @@ async function confirmReject() {
   });
 
   if (result.isConfirmed) {
-    reject(result.value);
+    router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/reject`, { reject_note: result.value }, { preserveScroll: true });
   }
-}
-
-function approve() {
-  router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/approve`, {}, {
-    preserveScroll: true,
-  });
-}
-
-function reject(note) {
-  router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/reject`, { reject_note: note }, {
-    preserveScroll: true,
-  });
 }
 
 async function confirmDelete() {
@@ -471,13 +434,7 @@ async function confirmDelete() {
   });
 
   if (result.isConfirmed) {
-    destroy();
+    router.delete(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}`, {}, { preserveScroll: true });
   }
-}
-
-function destroy() {
-  router.delete(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}`, {}, {
-    preserveScroll: true,
-  });
 }
 </script>

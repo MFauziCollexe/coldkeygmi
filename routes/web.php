@@ -331,6 +331,21 @@ Route::delete('gmisl/procurement/purchase-order/{purchaseRequisition}', [App\Htt
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_order'])
     ->name('purchase-order.destroy');
 
+// Procurement Approval
+Route::get('gmisl/procurement/approval', [App\Http\Controllers\ProcurementApprovalController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.approval'])
+    ->name('procurement-approval.index');
+
+// Legacy Procurement Master Item Redirect
+Route::redirect('gmisl/procurement/master-item', '/master-data/master-item');
+
+// Master Data - Procurement Master Item
+Route::resource('master-data/master-item', App\Http\Controllers\ProcurementMasterItemController::class)
+    ->except(['show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.procurement_master_item'])
+    ->parameters(['master-item' => 'procurementMasterItem'])
+    ->names('procurement-master-item');
+
 // Master Data - Department (route: /master-data/department)
 Route::resource('master-data/department', DepartmentController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.department'])

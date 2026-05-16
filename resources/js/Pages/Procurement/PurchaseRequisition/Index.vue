@@ -1,16 +1,19 @@
 <template>
   <AppLayout>
     <div class="p-4 md:p-6">
-      <div class="mx-auto max-w-6xl space-y-4">
+      <div class="mx-auto max-w-7xl space-y-4">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 class="text-2xl font-bold">Purchase Requisition</h2>
-            <p class="text-sm text-slate-400">Daftar purchase requisition untuk department pembuat dan approver Owner.</p>
+            <p class="text-sm text-slate-400">Daftar PR dalam list view, detail dibuka lewat popup.</p>
           </div>
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div class="rounded bg-slate-800 px-4 py-2 text-sm text-slate-300">
               {{ currentUser.department_name || '-' }}
             </div>
+            <Link href="/master-data/master-item" class="rounded bg-slate-700 px-4 py-2 text-sm font-semibold text-white">
+              Master Item
+            </Link>
             <Link href="/gmisl/procurement/purchase-requisition/create" class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
               Create PR
             </Link>
@@ -25,7 +28,7 @@
           <div class="flex items-center justify-between">
             <div>
               <h3 class="text-lg font-semibold text-slate-100">PR List</h3>
-              <p class="text-sm text-slate-400">Monitor status PR, approve, dan edit data yang masih waiting.</p>
+              <p class="text-sm text-slate-400">Nomor PR, tanggal, requester, department, dan item summary.</p>
             </div>
             <div class="text-sm text-slate-400">{{ purchaseRequisitions.length }} data</div>
           </div>
@@ -34,58 +37,49 @@
             Belum ada purchase requisition yang bisa dilihat.
           </div>
 
-          <div v-else class="rounded bg-slate-800">
+          <div v-else class="overflow-hidden rounded-lg border border-slate-700">
             <div class="hidden overflow-x-auto lg:block">
               <table class="w-full table-auto">
-                <thead>
-                  <tr class="text-left text-slate-400">
-                    <th class="py-2">No</th>
-                    <th>PR</th>
-                    <th>Req</th>
-                    <th>Departement</th>
-                    <th>Req Date</th>
-                    <th>Create Date</th>
-                    <th>Status</th>
-                    <th>Image</th>
-                    <th></th>
+                <thead class="bg-slate-900/80">
+                  <tr class="text-left text-slate-300">
+                    <th class="px-4 py-3">No</th>
+                    <th class="px-4 py-3">No PR</th>
+                    <th class="px-4 py-3">PR Date</th>
+                    <th class="px-4 py-3">Requestor</th>
+                    <th class="px-4 py-3">Department</th>
+                    <th class="px-4 py-3">Item Summary</th>
+                    <th class="px-4 py-3">Status</th>
+                    <th class="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(requisition, index) in purchaseRequisitions" :key="requisition.id" class="border-t border-slate-700">
-                    <td class="py-3">{{ index + 1 }}</td>
-                    <td>{{ requisition.pr_number }}</td>
-                    <td>{{ requisition.requester_name || '-' }}</td>
-                    <td>{{ requisition.department_name || '-' }}</td>
-                    <td>{{ requisition.request_date || '-' }}</td>
-                    <td>{{ requisition.created_at || '-' }}</td>
-                    <td>
+                  <tr v-for="(requisition, index) in purchaseRequisitions" :key="requisition.id" class="border-t border-slate-700 align-top">
+                    <td class="px-4 py-3 text-slate-300">{{ index + 1 }}</td>
+                    <td class="px-4 py-3 font-semibold text-white">{{ requisition.pr_number }}</td>
+                    <td class="px-4 py-3 text-slate-300">{{ requisition.pr_date || '-' }}</td>
+                    <td class="px-4 py-3 text-slate-300">{{ requisition.requester_name || '-' }}</td>
+                    <td class="px-4 py-3 text-slate-300">{{ requisition.department_name || '-' }}</td>
+                    <td class="px-4 py-3">
+                      <div v-if="requisition.items?.length" class="max-w-sm space-y-1">
+                        <div v-for="item in requisition.items.slice(0, 2)" :key="item.id" class="flex items-start justify-between gap-3 text-sm">
+                          <div class="min-w-0">
+                            <div class="truncate font-medium text-slate-100">{{ item.item_code || '-' }} - {{ item.item_name || '-' }}</div>
+                            <div class="truncate text-slate-400">{{ item.description_of_goods || '-' }}</div>
+                          </div>
+                          <div class="whitespace-nowrap text-slate-300">{{ item.quantity || 0 }} {{ item.unit || '-' }}</div>
+                        </div>
+                        <div v-if="requisition.items.length > 2" class="text-xs text-slate-500">+{{ requisition.items.length - 2 }} item lainnya</div>
+                      </div>
+                      <div v-else class="text-sm text-slate-500">Tidak ada item.</div>
+                    </td>
+                    <td class="px-4 py-3">
                       <span class="rounded px-2 py-1 text-xs font-semibold" :class="statusClass(requisition.status)">
                         {{ formatStatus(requisition.status) }}
                       </span>
                     </td>
-                    <td>
-                      <button
-                        v-if="previewableAttachment(requisition)"
-                        type="button"
-                        class="block"
-                        @click="openImagePreview(requisition, previewableAttachment(requisition))"
-                      >
-                        <img :src="previewableAttachment(requisition).url" class="h-12 w-12 rounded object-cover" />
-                      </button>
-                      <div v-else class="flex h-12 w-12 items-center justify-center rounded bg-slate-700 text-xs">-</div>
-                    </td>
-                    <td class="whitespace-nowrap text-right">
-                      <Link
-                        :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`"
-                        class="mr-1 text-blue-400"
-                      >
-                        View
-                      </Link>
-                      <Link
-                        v-if="requisition.can_edit"
-                        :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`"
-                        class="mr-3 text-amber-400"
-                      >
+                    <td class="px-4 py-3 text-right">
+                      <Link :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`" class="mr-3 text-blue-400 hover:text-blue-300">View</Link>
+                      <Link v-if="requisition.can_edit" :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`" class="text-amber-400 hover:text-amber-300">
                         Edit
                       </Link>
                     </td>
@@ -94,108 +88,40 @@
               </table>
             </div>
 
-            <div class="space-y-3 lg:hidden">
-              <div
-                v-for="(requisition, index) in purchaseRequisitions"
-                :key="`mobile-${requisition.id}`"
-                class="rounded-lg border border-slate-700 bg-slate-900/60 p-4"
-              >
+            <div class="space-y-3 p-3 lg:hidden">
+              <div v-for="(requisition, index) in purchaseRequisitions" :key="`mobile-${requisition.id}`" class="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
                 <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
+                  <div>
                     <div class="text-xs text-slate-400">No {{ index + 1 }}</div>
-                    <div class="truncate font-semibold">{{ requisition.pr_number }}</div>
+                    <div class="font-semibold text-white">{{ requisition.pr_number }}</div>
+                    <div class="mt-1 text-sm text-slate-400">PR Date: {{ requisition.pr_date || '-' }}</div>
                   </div>
                   <span class="rounded px-2 py-1 text-xs font-semibold" :class="statusClass(requisition.status)">
                     {{ formatStatus(requisition.status) }}
                   </span>
                 </div>
 
-                <div class="mt-3 grid grid-cols-[48px_1fr] gap-3">
-                  <div>
-                    <button
-                      v-if="previewableAttachment(requisition)"
-                      type="button"
-                      class="block"
-                      @click="openImagePreview(requisition, previewableAttachment(requisition))"
-                    >
-                      <img :src="previewableAttachment(requisition).url" class="h-12 w-12 rounded object-cover" />
-                    </button>
-                    <div v-else class="flex h-12 w-12 items-center justify-center rounded bg-slate-700 text-xs">-</div>
-                  </div>
-
-                  <div class="space-y-1 text-sm">
-                    <div><span class="text-slate-400">PR:</span> {{ requisition.pr_number || '-' }}</div>
-                    <div><span class="text-slate-400">Req:</span> {{ requisition.requester_name || '-' }}</div>
-                    <div><span class="text-slate-400">Departement:</span> {{ requisition.department_name || '-' }}</div>
-                    <div><span class="text-slate-400">Req Date:</span> {{ requisition.request_date || '-' }}</div>
-                    <div><span class="text-slate-400">Create Date:</span> {{ requisition.created_at || '-' }}</div>
-                  </div>
+                <div class="mt-3 space-y-1 text-sm text-slate-300">
+                  <div><span class="text-slate-400">Requestor:</span> {{ requisition.requester_name || '-' }}</div>
+                  <div><span class="text-slate-400">Department:</span> {{ requisition.department_name || '-' }}</div>
                 </div>
 
-                <div class="mt-3 flex justify-end gap-3">
-                  <Link
-                    :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`"
-                    class="text-blue-400"
-                  >
-                    View
-                  </Link>
-                  <Link
-                    v-if="requisition.can_edit"
-                    :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`"
-                    class="text-amber-400"
-                  >
+                <div class="mt-4 flex justify-end gap-3">
+                  <Link :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`" class="text-blue-400">View</Link>
+                  <Link v-if="requisition.can_edit" :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`" class="text-amber-400">
                     Edit
                   </Link>
                 </div>
               </div>
             </div>
-
-            <div class="mt-4 text-sm text-slate-400">
-              Showing 1 to {{ purchaseRequisitions.length }} of {{ purchaseRequisitions.length }} purchase requisitions
-            </div>
           </div>
         </section>
-
-        <div
-          v-if="showImagePreviewModal && previewAttachment"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4"
-          @click.self="closeImagePreview"
-        >
-          <div class="w-full max-w-4xl rounded-xl bg-slate-900 p-3 shadow-2xl sm:p-4">
-            <div class="mb-4 flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <h3 class="truncate text-lg font-semibold text-white">
-                  Image Preview: {{ previewAttachment.filename || 'Attachment' }}
-                </h3>
-                <div class="text-xs text-slate-400">
-                  {{ previewRequisition?.pr_number || '-' }}
-                </div>
-              </div>
-              <button
-                type="button"
-                class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
-                @click="closeImagePreview"
-              >
-                Close
-              </button>
-            </div>
-
-            <div class="overflow-hidden rounded-lg border border-slate-700 bg-black">
-              <img
-                :src="previewAttachment.url"
-                :alt="previewAttachment.filename || 'Attachment preview'"
-                class="max-h-[78vh] w-full object-contain"
-              />
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -203,22 +129,6 @@ defineProps({
   currentUser: { type: Object, default: () => ({}) },
   purchaseRequisitions: { type: Array, default: () => [] },
 });
-
-const showImagePreviewModal = ref(false);
-const previewAttachment = ref(null);
-const previewRequisition = ref(null);
-
-function openImagePreview(requisition, attachment) {
-  previewAttachment.value = attachment;
-  previewRequisition.value = requisition;
-  showImagePreviewModal.value = true;
-}
-
-function closeImagePreview() {
-  showImagePreviewModal.value = false;
-  previewAttachment.value = null;
-  previewRequisition.value = null;
-}
 
 function formatStatus(status) {
   const normalized = String(status || '').trim().toLowerCase();
@@ -241,12 +151,4 @@ function statusClass(status) {
   return 'bg-slate-700/40 text-slate-200 border border-slate-600';
 }
 
-function previewableAttachment(requisition) {
-  return (requisition.attachments || []).find((attachment) => isImageFile(attachment.filename));
-}
-
-function isImageFile(filename) {
-  const extension = String(filename || '').split('.').pop()?.toLowerCase() || '';
-  return ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension);
-}
 </script>

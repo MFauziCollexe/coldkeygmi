@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
+use App\Models\ProcurementMasterItem;
 use App\Models\PurchaseRequisitionAttachment;
 use App\Models\PurchaseRequisition;
+use App\Models\PurchaseRequisitionItem;
 use App\Models\StockCardUnit;
 use App\Models\User;
 use App\Services\ImageMergeService;
@@ -12,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 
 class PurchaseRequisitionController extends Controller
@@ -21,6 +24,7 @@ class PurchaseRequisitionController extends Controller
     private const ACCESS_MODULE = 'gmisl.procurement.purchase_requisition';
     private const OWNER_DEPARTMENT_CODE = 'OWNER';
     private const IT_DEPARTMENT_CODE = 'IT';
+    private const FAT_DEPARTMENT_CODE = 'FAT';
 
     public function index(Request $request)
     {
@@ -35,7 +39,7 @@ class PurchaseRequisitionController extends Controller
                 'requester:id,name,department_id',
                 'department:id,name,code',
                 'approvedBy:id,name',
-                'items:id,purchase_requisition_id,product_name,uom,qty',
+                'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,price,product_name,uom,qty',
                 'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
             ])
             ->orderByRaw("CASE WHEN status = 'waiting' THEN 0 WHEN status = 'approved' THEN 1 WHEN status = 'process' THEN 2 WHEN status = 'done' THEN 3 ELSE 4 END")
@@ -60,12 +64,7 @@ class PurchaseRequisitionController extends Controller
                     'can_edit' => $this->canEdit($user, $purchaseRequisition),
                     'can_approve' => $this->canApprove($user, $purchaseRequisition),
                     'items' => $purchaseRequisition->items
-                        ->map(fn ($item) => [
-                            'id' => $item->id,
-                            'product_name' => $item->product_name,
-                            'uom' => $item->uom,
-                            'qty' => $item->qty,
-                        ])
+                        ->map(fn ($item) => $this->itemPayload($item))
                         ->values(),
                     'attachments' => $purchaseRequisition->attachments
                         ->map(fn ($attachment) => [
@@ -107,13 +106,14 @@ class PurchaseRequisitionController extends Controller
             'defaults' => [
                 'pr_number' => PurchaseRequisition::generateNumber(now()),
                 'pr_date' => $today,
-                'request_date' => $today,
                 'priority' => 'medium',
                 'department_id' => $user?->department_id,
                 'status' => 'draft',
                 'requestor' => $user?->name,
             ],
             'uomOptions' => $this->uomOptions(),
+            'masterItems' => $this->masterItemOptions(),
+            'minimumRequiredDate' => Carbon::parse($today)->addDays(3)->toDateString(),
             'currentUser' => $this->currentUserPayload($user),
         ]);
     }
@@ -132,15 +132,20 @@ class PurchaseRequisitionController extends Controller
         }
 
         $validated = $request->validate([
-            'request_date' => ['required', 'date'],
             'priority' => ['required', 'in:medium,urgent,low'],
             'department_id' => ['required', 'exists:departments,id'],
             'supplier_id' => ['nullable', 'exists:suppliers,id'],
             'note' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_name' => ['required', 'string', 'max:255'],
-            'items.*.uom' => ['required', 'string', 'max:50', 'exists:stock_card_units,name'],
-            'items.*.qty' => ['required', 'numeric', 'gt:0'],
+            'items.*.procurement_master_item_id' => ['nullable', 'integer', 'exists:procurement_master_items,id'],
+            'items.*.item_code' => ['required', 'string', 'max:100'],
+            'items.*.item_name' => ['required', 'string', 'max:255'],
+            'items.*.description_of_goods' => ['required', 'string'],
+            'items.*.specification' => ['nullable', 'string'],
+            'items.*.unit' => ['required', 'string', 'max:100', 'exists:stock_card_units,name'],
+            'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.required_date' => ['required', 'date'],
+            'items.*.price' => ['required', 'numeric', 'min:0'],
             'attachments' => ['nullable', 'array'],
             'attachments.*' => ['file', 'max:10240'],
         ]);
@@ -151,11 +156,18 @@ class PurchaseRequisitionController extends Controller
             ]);
         }
 
+        $prDate = now()->startOfDay();
+        $minimumRequiredDate = $prDate->copy()->addDays(3);
+        $requiredDateErrors = $this->requiredDateErrors($validated['items'], $minimumRequiredDate);
+        if ($requiredDateErrors !== []) {
+            return redirect()->back()->withErrors($requiredDateErrors)->withInput();
+        }
+
         DB::transaction(function () use ($request, $validated, $user, $userDepartmentId) {
             $purchaseRequisition = PurchaseRequisition::create([
                 'pr_number' => PurchaseRequisition::generateNumber(now()),
                 'pr_date' => now()->toDateString(),
-                'request_date' => $validated['request_date'],
+                'request_date' => now()->toDateString(),
                 'priority' => $validated['priority'],
                 'requested_by' => $user->id,
                 'department_id' => $userDepartmentId,
@@ -164,13 +176,7 @@ class PurchaseRequisitionController extends Controller
                 'note' => $validated['note'] ?? null,
             ]);
 
-            foreach ($validated['items'] as $item) {
-                $purchaseRequisition->items()->create([
-                    'product_name' => $item['product_name'],
-                    'uom' => $item['uom'],
-                    'qty' => $item['qty'],
-                ]);
-            }
+            $this->syncItems($purchaseRequisition, $validated['items']);
 
             if ($request->hasFile('attachments')) {
                 foreach ((array) $request->file('attachments') as $file) {
@@ -202,7 +208,7 @@ class PurchaseRequisitionController extends Controller
         $purchaseRequisition->load([
             'requester:id,name,department_id',
             'department:id,name,code',
-            'items:id,purchase_requisition_id,product_name,uom,qty',
+            'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,price,product_name,uom,qty',
             'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
         ]);
 
@@ -213,18 +219,12 @@ class PurchaseRequisitionController extends Controller
                 'id' => $purchaseRequisition->id,
                 'pr_number' => $purchaseRequisition->pr_number,
                 'pr_date' => optional($purchaseRequisition->pr_date)->toDateString(),
-                'request_date' => optional($purchaseRequisition->request_date)->toDateString(),
                 'priority' => $purchaseRequisition->priority,
                 'status' => $purchaseRequisition->status,
                 'note' => $purchaseRequisition->note,
                 'reject_note' => $purchaseRequisition->reject_note,
                 'items' => $purchaseRequisition->items
-                    ->map(fn ($item) => [
-                        'id' => $item->id,
-                        'product_name' => $item->product_name,
-                        'uom' => $item->uom,
-                        'qty' => $item->qty,
-                    ])
+                    ->map(fn ($item) => $this->itemPayload($item))
                     ->values(),
                 'attachments' => $purchaseRequisition->attachments
                     ->map(fn ($attachment) => [
@@ -237,6 +237,8 @@ class PurchaseRequisitionController extends Controller
                     ->values(),
             ],
             'uomOptions' => $this->uomOptions(),
+            'masterItems' => $this->masterItemOptions(),
+            'minimumRequiredDate' => ($purchaseRequisition->pr_date ? Carbon::parse($purchaseRequisition->pr_date)->addDays(3)->toDateString() : now()->addDays(3)->toDateString()),
             'currentUser' => $this->currentUserPayload($user),
         ]);
     }
@@ -252,14 +254,19 @@ class PurchaseRequisitionController extends Controller
         }
 
         $validated = $request->validate([
-            'request_date' => ['required', 'date'],
             'priority' => ['required', 'in:medium,urgent,low'],
             'department_id' => ['required', 'exists:departments,id'],
             'note' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_name' => ['required', 'string', 'max:255'],
-            'items.*.uom' => ['required', 'string', 'max:50', 'exists:stock_card_units,name'],
-            'items.*.qty' => ['required', 'numeric', 'gt:0'],
+            'items.*.procurement_master_item_id' => ['nullable', 'integer', 'exists:procurement_master_items,id'],
+            'items.*.item_code' => ['required', 'string', 'max:100'],
+            'items.*.item_name' => ['required', 'string', 'max:255'],
+            'items.*.description_of_goods' => ['required', 'string'],
+            'items.*.specification' => ['nullable', 'string'],
+            'items.*.unit' => ['required', 'string', 'max:100', 'exists:stock_card_units,name'],
+            'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.required_date' => ['required', 'date'],
+            'items.*.price' => ['required', 'numeric', 'min:0'],
             'attachments' => ['nullable', 'array'],
             'attachments.*' => ['file', 'max:10240'],
             'delete_attachment_ids' => ['nullable', 'array'],
@@ -272,22 +279,23 @@ class PurchaseRequisitionController extends Controller
             ]);
         }
 
+        $prDate = ($purchaseRequisition->pr_date ? Carbon::parse($purchaseRequisition->pr_date) : now())->startOfDay();
+        $minimumRequiredDate = $prDate->copy()->addDays(3);
+        $requiredDateErrors = $this->requiredDateErrors($validated['items'], $minimumRequiredDate);
+        if ($requiredDateErrors !== []) {
+            return redirect()->back()->withErrors($requiredDateErrors)->withInput();
+        }
+
         DB::transaction(function () use ($request, $validated, $purchaseRequisition) {
             $purchaseRequisition->update([
-                'request_date' => $validated['request_date'],
+                'request_date' => $purchaseRequisition->pr_date ?: now()->toDateString(),
                 'priority' => $validated['priority'],
                 'note' => $validated['note'] ?? null,
             ]);
 
             $purchaseRequisition->items()->delete();
 
-            foreach ($validated['items'] as $item) {
-                $purchaseRequisition->items()->create([
-                    'product_name' => $item['product_name'],
-                    'uom' => $item['uom'],
-                    'qty' => $item['qty'],
-                ]);
-            }
+            $this->syncItems($purchaseRequisition, $validated['items']);
 
             $attachmentIdsToDelete = collect($validated['delete_attachment_ids'] ?? [])
                 ->map(fn ($id) => (int) $id)
@@ -410,7 +418,7 @@ class PurchaseRequisitionController extends Controller
             'requester:id,name,department_id',
             'department:id,name,code',
             'approvedBy:id,name',
-            'items:id,purchase_requisition_id,product_name,uom,qty',
+            'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,price,product_name,uom,qty',
             'attachments:id,purchase_requisition_id,filename,path,mime_type,size,original_path,signed_path,signature_status,signed_by,signed_at,signature_meta',
         ]);
 
@@ -427,7 +435,6 @@ class PurchaseRequisitionController extends Controller
                 'id' => $purchaseRequisition->id,
                 'pr_number' => $purchaseRequisition->pr_number,
                 'pr_date' => optional($purchaseRequisition->pr_date)->toDateString(),
-                'request_date' => optional($purchaseRequisition->request_date)->toDateString(),
                 'priority' => $purchaseRequisition->priority,
                 'status' => $purchaseRequisition->status,
                 'note' => $purchaseRequisition->note,
@@ -441,12 +448,7 @@ class PurchaseRequisitionController extends Controller
                 'approved_at' => $purchaseRequisition->approved_at?->format('Y-m-d H:i'),
                 'approved_by_name' => optional($purchaseRequisition->approvedBy)->name,
                 'items' => $purchaseRequisition->items
-                    ->map(fn ($item) => [
-                        'id' => $item->id,
-                        'product_name' => $item->product_name,
-                        'uom' => $item->uom,
-                        'qty' => $item->qty,
-                    ])
+                    ->map(fn ($item) => $this->itemPayload($item))
                     ->values(),
                 'attachments' => $purchaseRequisition->attachments
                     ->map(fn ($attachment) => [
@@ -471,6 +473,7 @@ class PurchaseRequisitionController extends Controller
                 'all_image_attachments_signed' => $this->allImageAttachmentsSigned($purchaseRequisition),
             ],
             'uomOptions' => $this->uomOptions(),
+            'masterItems' => $this->masterItemOptions(),
             'currentUser' => $this->currentUserPayload($user),
         ]);
     }
@@ -480,11 +483,12 @@ class PurchaseRequisitionController extends Controller
         $departmentId = (int) ($user?->department_id ?? 0);
         $isOwnerUser = $this->isOwnerDepartmentUser($user);
         $isItUser = $this->isItDepartmentUser($user);
+        $isFatUser = $this->isFatDepartmentUser($user);
 
         return PurchaseRequisition::query()
-            ->where(function ($query) use ($departmentId, $isOwnerUser, $isItUser, $user) {
-                // IT department users have full visibility to all PRs
-                if ($isItUser) {
+            ->where(function ($query) use ($departmentId, $isOwnerUser, $isItUser, $isFatUser, $user) {
+                // IT and FAT department users have full visibility to all PRs
+                if ($isItUser || $isFatUser) {
                     $query->whereNotNull('id');
                     return;
                 }
@@ -527,6 +531,11 @@ class PurchaseRequisitionController extends Controller
         return $this->departmentCode($user) === self::IT_DEPARTMENT_CODE;
     }
 
+    private function isFatDepartmentUser(?User $user): bool
+    {
+        return $this->departmentCode($user) === self::FAT_DEPARTMENT_CODE;
+    }
+
     private function departmentCode(?User $user): string
     {
         return strtoupper(trim((string) ($user?->department?->code ?? '')));
@@ -541,6 +550,33 @@ class PurchaseRequisitionController extends Controller
             ->map(fn (StockCardUnit $unit) => [
                 'id' => $unit->id,
                 'name' => $unit->name,
+            ])
+            ->values();
+    }
+
+    private function masterItemOptions()
+    {
+        return ProcurementMasterItem::query()
+            ->where('is_active', true)
+            ->orderBy('item_code')
+            ->get([
+                'id',
+                'item_code',
+                'item_name',
+                'description_of_goods',
+                'specification',
+                'unit',
+                'default_price',
+            ])
+            ->map(fn (ProcurementMasterItem $item) => [
+                'id' => $item->id,
+                'item_code' => $item->item_code,
+                'item_name' => $item->item_name,
+                'description_of_goods' => $item->description_of_goods,
+                'specification' => $item->specification,
+                'unit' => $item->unit,
+                'default_price' => $item->default_price,
+                'label' => $item->item_code . ' - ' . $item->item_name,
             ])
             ->values();
     }
@@ -722,6 +758,62 @@ class PurchaseRequisitionController extends Controller
      {
          $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
          return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+     }
+
+     private function itemPayload(PurchaseRequisitionItem $item): array
+     {
+         return [
+             'id' => $item->id,
+             'procurement_master_item_id' => $item->procurement_master_item_id,
+             'line_no' => $item->line_no,
+             'item_code' => $item->item_code,
+             'item_name' => $item->item_name ?: $item->product_name,
+             'description_of_goods' => $item->description_of_goods ?: $item->product_name,
+             'specification' => $item->specification,
+             'unit' => $item->unit ?: $item->uom,
+             'quantity' => $item->quantity ?? $item->qty,
+             'required_date' => optional($item->required_date)->toDateString(),
+             'price' => $item->price ?? 0,
+             'product_name' => $item->item_name ?: $item->product_name,
+             'uom' => $item->unit ?: $item->uom,
+             'qty' => $item->quantity ?? $item->qty,
+         ];
+     }
+
+     private function syncItems(PurchaseRequisition $purchaseRequisition, array $items): void
+     {
+         foreach (array_values($items) as $index => $item) {
+             $purchaseRequisition->items()->create([
+                 'procurement_master_item_id' => $item['procurement_master_item_id'] ?? null,
+                 'line_no' => $index + 1,
+                 'item_code' => trim((string) $item['item_code']),
+                 'item_name' => trim((string) $item['item_name']),
+                 'description_of_goods' => trim((string) $item['description_of_goods']),
+                 'specification' => isset($item['specification']) ? trim((string) $item['specification']) : null,
+                 'unit' => trim((string) $item['unit']),
+                 'quantity' => $item['quantity'],
+                 'required_date' => $item['required_date'],
+                 'price' => $item['price'],
+                 'product_name' => trim((string) $item['item_name']),
+                 'uom' => trim((string) $item['unit']),
+                 'qty' => $item['quantity'],
+             ]);
+         }
+     }
+
+     private function requiredDateErrors(array $items, Carbon $minimumRequiredDate): array
+     {
+         $errors = [];
+
+         foreach (array_values($items) as $index => $item) {
+             $requiredDate = isset($item['required_date']) ? Carbon::parse((string) $item['required_date'])->startOfDay() : null;
+
+             if (!$requiredDate || $requiredDate->lt($minimumRequiredDate)) {
+                 $errors["items.{$index}.required_date"] = 'Required Date minimal 3 hari setelah PR Date (' . $minimumRequiredDate->format('Y-m-d') . ').';
+             }
+         }
+
+         return $errors;
      }
 
      private function allImageAttachmentsSigned(PurchaseRequisition $purchaseRequisition): bool

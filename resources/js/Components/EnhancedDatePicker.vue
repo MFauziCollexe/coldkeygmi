@@ -32,6 +32,10 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  minDate: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -56,6 +60,7 @@ onMounted(() => {
     allowInput: true,
     locale: 'id',
     defaultDate: props.modelValue || null,
+    minDate: props.minDate || null,
     disableMobile: true,
     onReady: (selectedDates, dateStr, instance) => {
       instance.input.style.display = 'none';
@@ -92,6 +97,14 @@ watch(
   (isDisabled) => {
     if (!picker?.altInput) return;
     picker.altInput.disabled = isDisabled;
+  }
+);
+
+watch(
+  () => props.minDate,
+  (value) => {
+    if (!picker) return;
+    picker.set('minDate', value || null);
   }
 );
 

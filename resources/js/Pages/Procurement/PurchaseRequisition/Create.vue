@@ -1,45 +1,32 @@
 <template>
   <AppLayout>
     <div class="p-4 md:p-6">
-      <div class="mx-auto max-w-6xl space-y-4">
+      <div class="mx-auto max-w-7xl space-y-4">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 class="text-2xl font-bold">Create Purchase Requisition</h2>
-            <p class="text-sm text-slate-400">Buat purchase requisition baru sesuai kebutuhan procurement.</p>
+            <p class="text-sm text-slate-400">Buat PR dengan detail item, harga, dan required date per baris.</p>
           </div>
           <Link href="/gmisl/procurement/purchase-requisition" class="text-sm text-indigo-400">Back to list</Link>
         </div>
 
         <div class="rounded border border-sky-700 bg-sky-700/10 px-4 py-3 text-sm text-sky-200">
-          PR yang dibuat hanya mengikuti department pembuat. Setelah disimpan status menjadi <strong>Waiting</strong>,
-          lalu bisa dilihat department <strong>Owner</strong>. Setelah di-approve Owner, PR masuk ke menu
-          <strong>Purchase Order</strong> untuk diproses tim <strong>FAT</strong>.
+          PR disimpan terpisah dari master item. Data item pada PR akan menjadi snapshot histori walaupun master item berubah di kemudian hari.
         </div>
 
         <form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
           <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div class="space-y-4">
-              <FieldReadOnly label="PR Number" :value="defaults.pr_number || ''" />
+              <FieldReadOnly label="No PR" :value="defaults.pr_number || ''" />
 
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="relative pt-0">
-                  <label class="absolute left-3 -top-0.5 z-10 -translate-y-1/2 bg-slate-800 px-1 text-sm text-slate-300">PR Date</label>
-                  <EnhancedDatePicker
-                    :model-value="defaults.pr_date || ''"
-                    disabled
-                    placeholder="dd/mm/yyyy"
-                    input-class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 placeholder-transparent"
-                  />
-                </div>
-                <div class="relative pt-0">
-                  <label class="absolute left-3 -top-0.5 z-10 -translate-y-1/2 bg-slate-800 px-1 text-sm text-slate-300">Request Date</label>
-                  <EnhancedDatePicker
-                    v-model="form.request_date"
-                    placeholder="dd/mm/yyyy"
-                    input-class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 placeholder-transparent"
-                  />
-                  <div v-if="form.errors.request_date" class="mt-1 text-xs text-rose-300">{{ form.errors.request_date }}</div>
-                </div>
+              <div class="relative pt-0">
+                <label class="absolute left-3 -top-0.5 z-10 -translate-y-1/2 bg-slate-800 px-1 text-sm text-slate-300">PR Date</label>
+                <EnhancedDatePicker
+                  :model-value="defaults.pr_date || ''"
+                  disabled
+                  placeholder="dd/mm/yyyy"
+                  input-class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 placeholder-transparent"
+                />
               </div>
 
               <div>
@@ -63,7 +50,7 @@
             </div>
           </div>
 
-          <ItemEditor :form="form" :uom-options="uomOptions" />
+          <PurchaseRequisitionItemEditor :form="form" :uom-options="uomOptions" :master-items="masterItems" :minimum-required-date="minimumRequiredDate" />
           <AttachmentUploader :form="form" />
           <NoteField :form="form" />
 
@@ -83,16 +70,18 @@
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
+import PurchaseRequisitionItemEditor from './Partials/PurchaseRequisitionItemEditor.vue';
 import { defineComponent, h, ref, computed } from 'vue';
 
 const props = defineProps({
   defaults: { type: Object, default: () => ({}) },
   uomOptions: { type: Array, default: () => [] },
+  masterItems: { type: Array, default: () => [] },
+  minimumRequiredDate: { type: String, default: '' },
   currentUser: { type: Object, default: () => ({}) },
 });
 
 const form = useForm({
-  request_date: String(props.defaults?.request_date || ''),
   priority: String(props.defaults?.priority || 'medium'),
   department_id: props.defaults?.department_id || '',
   note: '',
@@ -107,105 +96,24 @@ function submit() {
   });
 }
 
-function formatDisplayDate(value) {
-  const text = String(value || '').trim();
-  if (!text || !text.includes('-')) return text;
-  const [year, month, day] = text.split('-');
-  if (!year || !month || !day) return text;
-  return `${day}/${month}/${year}`;
-}
-
 const FieldReadOnly = defineComponent({
   props: { label: String, value: String },
-  setup(props, { slots }) {
+  setup(readonlyProps, { slots }) {
     return () => h('div', [
-      h('label', { class: 'mb-1 block text-sm text-slate-300' }, props.label || ''),
-      h('input', { value: props.value || '', disabled: true, class: 'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100' }),
+      h('label', { class: 'mb-1 block text-sm text-slate-300' }, readonlyProps.label || ''),
+      h('input', { value: readonlyProps.value || '', disabled: true, class: 'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100' }),
       slots.error?.(),
-    ]);
-  },
-});
-
-const ItemEditor = defineComponent({
-  props: { form: Object, uomOptions: Array },
-  setup(props) {
-    function createEmptyItem() {
-      return { product_name: '', uom: '', qty: '' };
-    }
-    if (!props.form.items.length) {
-      props.form.items.push(createEmptyItem());
-    }
-    function addItem() {
-      props.form.items.push(createEmptyItem());
-    }
-    function removeItem(index) {
-      props.form.items.splice(index, 1);
-    }
-    function itemError(index, field) {
-      return props.form.errors[`items.${index}.${field}`] || '';
-    }
-    return () => h('div', { class: 'overflow-hidden rounded-lg border border-slate-700' }, [
-      h('div', { class: 'flex items-center justify-between border-b border-slate-700 bg-slate-900 px-4 py-3' }, [
-        h('h3', { class: 'font-semibold text-slate-100' }, 'Items'),
-        h('button', { type: 'button', class: 'rounded bg-indigo-600 px-3 py-2 text-sm text-white', onClick: addItem }, 'Add Item'),
-      ]),
-      h('div', { class: 'space-y-4 p-4' }, [
-        ...props.form.items.map((item, index) =>
-          h('div', { class: 'rounded border border-slate-700 bg-slate-900/40 p-4', key: index }, [
-            h('div', { class: 'mb-3 flex items-center justify-between' }, [
-              h('div', { class: 'font-semibold text-slate-100' }, `Item ${index + 1}`),
-              h('button', { type: 'button', class: 'rounded bg-rose-600 px-3 py-2 text-xs text-white', onClick: () => removeItem(index) }, 'Remove'),
-            ]),
-            h('div', { class: 'grid grid-cols-1 gap-4 md:grid-cols-3' }, [
-              h('div', [
-                h('label', { class: 'mb-1 block text-sm text-slate-400' }, 'Product Name'),
-                h('input', {
-                  value: item.product_name,
-                  onInput: (event) => { item.product_name = event.target.value; },
-                  class: 'w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100',
-                }),
-                itemError(index, 'product_name') ? h('div', { class: 'mt-1 text-xs text-rose-300' }, itemError(index, 'product_name')) : null,
-              ]),
-              h('div', [
-                h('label', { class: 'mb-1 block text-sm text-slate-400' }, 'Qty'),
-                h('input', {
-                  value: item.qty,
-                  type: 'number',
-                  min: '0',
-                  step: '0.01',
-                  onInput: (event) => { item.qty = event.target.value; },
-                  class: 'w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100',
-                }),
-                itemError(index, 'qty') ? h('div', { class: 'mt-1 text-xs text-rose-300' }, itemError(index, 'qty')) : null,
-              ]),
-              h('div', [
-                h('label', { class: 'mb-1 block text-sm text-slate-400' }, 'UoM'),
-                h('select', {
-                  value: item.uom,
-                  onChange: (event) => { item.uom = event.target.value; },
-                  class: 'w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100',
-                }, [
-                  h('option', { value: '' }, 'Pilih UoM'),
-                  ...(props.uomOptions || []).map((unit) => h('option', { value: unit.name, key: unit.id }, unit.name)),
-                ]),
-                itemError(index, 'uom') ? h('div', { class: 'mt-1 text-xs text-rose-300' }, itemError(index, 'uom')) : null,
-              ]),
-            ]),
-          ])
-        ),
-        props.form.errors.items ? h('div', { class: 'text-xs text-rose-300' }, props.form.errors.items) : null,
-      ]),
     ]);
   },
 });
 
 const AttachmentUploader = defineComponent({
   props: { form: Object },
-  setup(props) {
+  setup(localProps) {
     const fileInput = ref(null);
     const dragActive = ref(false);
     const attachmentErrorList = computed(() =>
-      Object.entries(props.form.errors)
+      Object.entries(localProps.form.errors)
         .filter(([key]) => key === 'attachments' || key.startsWith('attachments.'))
         .map(([, value]) => value)
     );
@@ -214,7 +122,7 @@ const AttachmentUploader = defineComponent({
     }
     function handleFileUpload(event) {
       const files = Array.from(event?.target?.files || []);
-      props.form.attachments = [...props.form.attachments, ...files];
+      localProps.form.attachments = [...localProps.form.attachments, ...files];
       event.target.value = '';
     }
     function onDragOver() {
@@ -226,10 +134,10 @@ const AttachmentUploader = defineComponent({
     function onDrop(event) {
       dragActive.value = false;
       const files = Array.from(event?.dataTransfer?.files || []);
-      props.form.attachments = [...props.form.attachments, ...files];
+      localProps.form.attachments = [...localProps.form.attachments, ...files];
     }
     function removeAttachment(index) {
-      props.form.attachments.splice(index, 1);
+      localProps.form.attachments.splice(index, 1);
     }
     function formatLocalFileSize(size) {
       const numericSize = Number(size || 0);
@@ -266,8 +174,8 @@ const AttachmentUploader = defineComponent({
           class: 'hidden',
         }),
       ]),
-      props.form.attachments.length
-        ? h('div', { class: 'space-y-2' }, props.form.attachments.map((file, index) =>
+      localProps.form.attachments.length
+        ? h('div', { class: 'space-y-2' }, localProps.form.attachments.map((file, index) =>
             h('div', { class: 'flex items-center justify-between rounded bg-slate-900 px-3 py-2 text-sm', key: `${file.name}-${index}` }, [
               h('div', { class: 'min-w-0' }, [
                 h('div', { class: 'truncate text-slate-100' }, file.name),
@@ -286,16 +194,16 @@ const AttachmentUploader = defineComponent({
 
 const NoteField = defineComponent({
   props: { form: Object },
-  setup(props) {
+  setup(localProps) {
     return () => h('div', [
       h('label', { class: 'mb-1 block text-sm text-slate-300' }, 'Note'),
       h('textarea', {
-        value: props.form.note,
+        value: localProps.form.note,
         rows: 4,
         class: 'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100',
-        onInput: (event) => { props.form.note = event.target.value; },
+        onInput: (event) => { localProps.form.note = event.target.value; },
       }),
-      props.form.errors.note ? h('div', { class: 'mt-1 text-xs text-rose-300' }, props.form.errors.note) : null,
+      localProps.form.errors.note ? h('div', { class: 'mt-1 text-xs text-rose-300' }, localProps.form.errors.note) : null,
     ]);
   },
 });

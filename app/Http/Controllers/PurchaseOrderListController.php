@@ -35,7 +35,7 @@ class PurchaseOrderListController extends Controller
                 'requester:id,name,department_id',
                 'department:id,name,code',
                 'approvedBy:id,name',
-                'items:id,purchase_requisition_id,product_name,uom,qty',
+                'items:id,purchase_requisition_id,item_code,item_name,description_of_goods,unit,quantity,required_date,price,product_name,uom,qty',
                 'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
             ])
             ->whereIn('status', ['approved', 'process', 'done'])
@@ -76,12 +76,7 @@ class PurchaseOrderListController extends Controller
                     'can_done' => $this->canDone($user, $purchaseRequisition),
                     'can_open' => $this->canOpen($user, $purchaseRequisition),
                     'items' => $purchaseRequisition->items
-                        ->map(fn ($item) => [
-                            'id' => $item->id,
-                            'product_name' => $item->product_name,
-                            'uom' => $item->uom,
-                            'qty' => $item->qty,
-                        ])
+                        ->map(fn ($item) => $this->itemPayload($item))
                         ->values(),
                     'attachments' => $purchaseRequisition->attachments
                         ->map(fn ($attachment) => [
@@ -124,7 +119,7 @@ class PurchaseOrderListController extends Controller
             'requester:id,name,department_id',
             'department:id,name,code',
             'approvedBy:id,name',
-            'items:id,purchase_requisition_id,product_name,uom,qty',
+            'items:id,purchase_requisition_id,item_code,item_name,description_of_goods,unit,quantity,required_date,price,product_name,uom,qty',
             'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
         ]);
 
@@ -155,12 +150,7 @@ class PurchaseOrderListController extends Controller
                 'can_update_po' => $this->canUpdatePo($user, $purchaseRequisition),
                 'can_done' => $this->canDone($user, $purchaseRequisition),
                 'items' => $purchaseRequisition->items
-                    ->map(fn ($item) => [
-                        'id' => $item->id,
-                        'product_name' => $item->product_name,
-                        'uom' => $item->uom,
-                        'qty' => $item->qty,
-                    ])
+                    ->map(fn ($item) => $this->itemPayload($item))
                     ->values(),
                 'attachments' => $purchaseRequisition->attachments
                     ->map(fn ($attachment) => [
@@ -193,7 +183,7 @@ class PurchaseOrderListController extends Controller
             'requester:id,name,department_id',
             'department:id,name,code',
             'approvedBy:id,name',
-            'items:id,purchase_requisition_id,product_name,uom,qty',
+            'items:id,purchase_requisition_id,item_code,item_name,description_of_goods,unit,quantity,required_date,price,product_name,uom,qty',
             'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
         ]);
 
@@ -227,12 +217,7 @@ class PurchaseOrderListController extends Controller
                 'can_update_po' => $this->canUpdatePo($user, $purchaseRequisition),
                 'can_done' => $this->canDone($user, $purchaseRequisition),
                 'items' => $purchaseRequisition->items
-                    ->map(fn ($item) => [
-                        'id' => $item->id,
-                        'product_name' => $item->product_name,
-                        'uom' => $item->uom,
-                        'qty' => $item->qty,
-                    ])
+                    ->map(fn ($item) => $this->itemPayload($item))
                     ->values(),
                 'attachments' => $purchaseRequisition->attachments
                     ->map(fn ($attachment) => [
@@ -401,6 +386,23 @@ class PurchaseOrderListController extends Controller
         $precision = $unitIndex === 0 ? 0 : 2;
 
         return number_format($bytes, $precision) . ' ' . $units[$unitIndex];
+    }
+
+    private function itemPayload($item): array
+    {
+        return [
+            'id' => $item->id,
+            'item_code' => $item->item_code,
+            'item_name' => $item->item_name ?: $item->product_name,
+            'description_of_goods' => $item->description_of_goods ?: $item->product_name,
+            'unit' => $item->unit ?: $item->uom,
+            'quantity' => $item->quantity ?? $item->qty,
+            'required_date' => optional($item->required_date)->toDateString(),
+            'price' => $item->price ?? 0,
+            'product_name' => $item->item_name ?: $item->product_name,
+            'uom' => $item->unit ?: $item->uom,
+            'qty' => $item->quantity ?? $item->qty,
+        ];
     }
 
     public function destroy(Request $request, PurchaseRequisition $purchaseRequisition)

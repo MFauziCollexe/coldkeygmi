@@ -8,6 +8,7 @@ return [
             ['key' => 'gmisl.procurement', 'label' => 'Procurement', 'children' => [
                 ['key' => 'gmisl.procurement.purchase_requisition', 'label' => 'Purchase Requisition'],
                 ['key' => 'gmisl.procurement.purchase_order', 'label' => 'Purchase Order'],
+                ['key' => 'gmisl.procurement.approval', 'label' => 'Approval'],
             ]],
             ['key' => 'gmisl.utility', 'label' => 'Utility', 'children' => [
                 ['key' => 'utility.tickets', 'label' => 'Tickets'],
@@ -38,6 +39,7 @@ return [
             ['key' => 'gmisl.master_data.stock_card_item_type', 'label' => 'Jenis/Tipe Barang'],
             ['key' => 'gmisl.master_data.stock_card_unit', 'label' => 'Master UoM'],
             ['key' => 'gmisl.master_data.attendance_lock_area', 'label' => 'Area Absensi'],
+            ['key' => 'gmisl.master_data.procurement_master_item', 'label' => 'Master Item'],
         ],
     ],
     [

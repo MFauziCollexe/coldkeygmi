@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="p-4 md:p-6">
-      <div class="mx-auto max-w-6xl space-y-4">
+      <div class="mx-auto max-w-7xl space-y-4">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 class="text-2xl font-bold">Edit Purchase Requisition</h2>
@@ -18,29 +18,18 @@
           <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div class="space-y-4">
               <div>
-                <label class="mb-1 block text-sm text-slate-300">PR Number</label>
+                <label class="mb-1 block text-sm text-slate-300">No PR</label>
                 <input :value="purchaseRequisition.pr_number || ''" disabled class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 disabled:opacity-100" />
               </div>
 
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="relative pt-0">
-                  <label class="absolute left-3 -top-0.5 z-10 -translate-y-1/2 bg-slate-800 px-1 text-sm text-slate-300">PR Date</label>
-                  <EnhancedDatePicker
-                    :model-value="purchaseRequisition.pr_date || ''"
-                    disabled
-                    placeholder="dd/mm/yyyy"
-                    input-class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 placeholder-transparent"
-                  />
-                </div>
-                <div class="relative pt-0">
-                  <label class="absolute left-3 -top-0.5 z-10 -translate-y-1/2 bg-slate-800 px-1 text-sm text-slate-300">Request Date</label>
-                  <EnhancedDatePicker
-                    v-model="form.request_date"
-                    placeholder="dd/mm/yyyy"
-                    input-class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 placeholder-transparent"
-                  />
-                  <div v-if="form.errors.request_date" class="mt-1 text-xs text-rose-300">{{ form.errors.request_date }}</div>
-                </div>
+              <div class="relative pt-0">
+                <label class="absolute left-3 -top-0.5 z-10 -translate-y-1/2 bg-slate-800 px-1 text-sm text-slate-300">PR Date</label>
+                <EnhancedDatePicker
+                  :model-value="purchaseRequisition.pr_date || ''"
+                  disabled
+                  placeholder="dd/mm/yyyy"
+                  input-class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100 placeholder-transparent"
+                />
               </div>
 
               <div>
@@ -67,46 +56,7 @@
             </div>
           </div>
 
-          <div class="overflow-hidden rounded-lg border border-slate-700">
-            <div class="flex items-center justify-between border-b border-slate-700 bg-slate-900 px-4 py-3">
-              <h3 class="font-semibold text-slate-100">Items</h3>
-              <button type="button" class="rounded bg-indigo-600 px-3 py-2 text-sm text-white" @click="addItem">
-                Add Item
-              </button>
-            </div>
-
-            <div class="space-y-4 p-4">
-              <div v-for="(item, index) in form.items" :key="index" class="rounded border border-slate-700 bg-slate-900/40 p-4">
-                <div class="mb-3 flex items-center justify-between">
-                  <div class="font-semibold text-slate-100">Item {{ index + 1 }}</div>
-                  <button type="button" class="rounded bg-rose-600 px-3 py-2 text-xs text-white" @click="removeItem(index)">
-                    Remove
-                  </button>
-                </div>
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <div>
-                    <label class="mb-1 block text-sm text-slate-400">Product Name</label>
-                    <input v-model="item.product_name" type="text" class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100" />
-                    <div v-if="itemError(index, 'product_name')" class="mt-1 text-xs text-rose-300">{{ itemError(index, 'product_name') }}</div>
-                  </div>
-                  <div>
-                    <label class="mb-1 block text-sm text-slate-400">Qty</label>
-                    <input v-model="item.qty" type="number" min="0" step="0.01" class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100" />
-                    <div v-if="itemError(index, 'qty')" class="mt-1 text-xs text-rose-300">{{ itemError(index, 'qty') }}</div>
-                  </div>
-                  <div>
-                    <label class="mb-1 block text-sm text-slate-400">UoM</label>
-                    <select v-model="item.uom" class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100">
-                      <option value="">Pilih UoM</option>
-                      <option v-for="unit in uomOptions" :key="unit.id" :value="unit.name">{{ unit.name }}</option>
-                    </select>
-                    <div v-if="itemError(index, 'uom')" class="mt-1 text-xs text-rose-300">{{ itemError(index, 'uom') }}</div>
-                  </div>
-                </div>
-              </div>
-              <div v-if="form.errors.items" class="text-xs text-rose-300">{{ form.errors.items }}</div>
-            </div>
-          </div>
+          <PurchaseRequisitionItemEditor :form="form" :uom-options="uomOptions" :master-items="masterItems" :minimum-required-date="minimumRequiredDate" />
 
           <div class="space-y-4 rounded-lg border border-slate-700 p-4">
             <div>
@@ -168,45 +118,38 @@
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
+import PurchaseRequisitionItemEditor from './Partials/PurchaseRequisitionItemEditor.vue';
 import { ref } from 'vue';
 
 const props = defineProps({
   purchaseRequisition: { type: Object, required: true },
   uomOptions: { type: Array, default: () => [] },
+  masterItems: { type: Array, default: () => [] },
+  minimumRequiredDate: { type: String, default: '' },
   currentUser: { type: Object, default: () => ({}) },
 });
 
 const existingAttachments = ref([...(props.purchaseRequisition.attachments || [])]);
 const fileInput = ref(null);
 const form = useForm({
-  request_date: String(props.purchaseRequisition.request_date || ''),
   priority: String(props.purchaseRequisition.priority || 'medium'),
   department_id: props.currentUser.department_id || '',
   note: props.purchaseRequisition.note || '',
-  items: (props.purchaseRequisition.items || []).map((item) => ({
-    product_name: item.product_name || '',
-    uom: item.uom || '',
-    qty: item.qty || '',
+  items: (props.purchaseRequisition.items || []).map((item, index) => ({
+    _key: `existing-${item.id || index}`,
+    procurement_master_item_id: item.procurement_master_item_id || '',
+    item_code: item.item_code || '',
+    item_name: item.item_name || item.product_name || '',
+    description_of_goods: item.description_of_goods || '',
+    specification: item.specification || '',
+    unit: item.unit || item.uom || '',
+    quantity: item.quantity || item.qty || '',
+    required_date: item.required_date || '',
+    price: item.price || '',
   })),
   attachments: [],
   delete_attachment_ids: [],
 });
-
-if (!form.items.length) {
-  form.items.push({ product_name: '', uom: '', qty: '' });
-}
-
-function addItem() {
-  form.items.push({ product_name: '', uom: '', qty: '' });
-}
-
-function removeItem(index) {
-  form.items.splice(index, 1);
-}
-
-function itemError(index, field) {
-  return form.errors[`items.${index}.${field}`] || '';
-}
 
 function handleFileUpload(event) {
   const files = Array.from(event?.target?.files || []);
@@ -234,14 +177,6 @@ function formatLocalFileSize(size) {
     unitIndex += 1;
   }
   return `${value.toFixed(unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`;
-}
-
-function formatDisplayDate(value) {
-  const text = String(value || '').trim();
-  if (!text || !text.includes('-')) return text;
-  const [year, month, day] = text.split('-');
-  if (!year || !month || !day) return text;
-  return `${day}/${month}/${year}`;
 }
 
 function submit() {

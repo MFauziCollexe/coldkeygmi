@@ -12,6 +12,16 @@ class PurchaseRequisitionItem extends Model
 
     protected $fillable = [
         'purchase_requisition_id',
+        'procurement_master_item_id',
+        'line_no',
+        'item_code',
+        'item_name',
+        'description_of_goods',
+        'specification',
+        'unit',
+        'quantity',
+        'required_date',
+        'price',
         'product_name',
         'uom',
         'qty',
@@ -19,10 +29,18 @@ class PurchaseRequisitionItem extends Model
 
     protected $casts = [
         'qty' => 'decimal:2',
+        'quantity' => 'decimal:2',
+        'price' => 'decimal:2',
+        'required_date' => 'date',
     ];
 
     public function purchaseRequisition(): BelongsTo
     {
         return $this->belongsTo(PurchaseRequisition::class);
+    }
+
+    public function procurementMasterItem(): BelongsTo
+    {
+        return $this->belongsTo(ProcurementMasterItem::class);
     }
 }

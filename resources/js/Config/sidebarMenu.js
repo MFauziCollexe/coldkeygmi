@@ -74,6 +74,13 @@ export const sidebarMenuConfig = [
                         route: "/gmisl/procurement/purchase-order",
                         module_key: "gmisl.procurement.purchase_order",
                     },
+                    {
+                        id: "procurement-approval",
+                        label: "Approval",
+                        icon: "CheckCheck",
+                        route: "/gmisl/procurement/approval",
+                        module_key: "gmisl.procurement.approval",
+                    },
                 ],
             },
             {
@@ -333,6 +340,13 @@ export const sidebarMenuConfig = [
                 icon: "Building",
                 route: "/master-data/attendance-lock-area",
                 module_key: "gmisl.master_data.attendance_lock_area",
+            },
+            {
+                id: "procurement-master-item",
+                label: "Master Item",
+                icon: "Package",
+                route: "/master-data/master-item",
+                module_key: "gmisl.master_data.procurement_master_item",
             },
         ],
     },
