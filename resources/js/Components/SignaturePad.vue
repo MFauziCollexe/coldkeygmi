@@ -93,13 +93,13 @@ const sourceDimensions = ref({
 });
 const displayWidth = ref(props.canvasWidth);
 const displayHeight = ref(props.canvasHeight);
+const documentLoaded = ref(false);
 
 let canvas = null;
 let currentPath = null;
 let backgroundImage = null;
 let resizeObserver = null;
 
-const documentLoaded = computed(() => !!props.documentUrl);
 const canUndo = computed(() => signaturePaths.value.length > 0);
 
 onMounted(async () => {
@@ -122,6 +122,7 @@ onMounted(async () => {
 
 watch(() => props.documentUrl, (newUrl) => {
   if (!newUrl) {
+    documentLoaded.value = false;
     return;
   }
 
@@ -196,9 +197,11 @@ async function initCanvas() {
 
     canvas.backgroundImage = backgroundImage;
     updateCanvasDimensions();
+    documentLoaded.value = true;
   } catch (error) {
-    console.error('Failed to initialize signature canvas:', error);
-    emit('error', 'Failed to load document image');
+    console.error('Failed to load document image — non-image file or unreachable URL:', error);
+    documentLoaded.value = false;
+    emit('error', 'Document is not an image file. Signature is only available for image attachments.');
     return;
   }
 
@@ -216,8 +219,8 @@ function updateCanvasDimensions() {
     return;
   }
 
-  const sourceWidth = Number(sourceDimensions.value.width || props.canvasWidth);
-  const sourceHeight = Number(sourceDimensions.value.height || props.canvasHeight);
+  const sourceWidth = Math.max(1, Number(sourceDimensions.value.width || props.canvasWidth));
+  const sourceHeight = Math.max(1, Number(sourceDimensions.value.height || props.canvasHeight));
   const availableWidth = Math.max(
     240,
     Math.min(props.canvasWidth, canvasContainer.value?.clientWidth || props.canvasWidth)

@@ -154,7 +154,7 @@
                     Original
                   </a>
                   <button
-                    v-if="canSignAttachment(attachment) && isImageFile(attachment.filename)"
+                    v-if="canSignAttachment(attachment) && isImageFile(attachment.filename) && (attachment.original_url || attachment.url)"
                     @click="openSignatureModal(attachment)"
                     class="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
                     type="button"

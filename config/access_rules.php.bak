@@ -369,36 +369,5 @@ return [
                 ],
             ],
         ],
-        'gmisl.procurement.purchase_requisition' => [
-            'scopes' => [
-                'view_list' => [
-                    'all_if' => [
-                        ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'IT'],
-                        ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                        ['type' => 'department_code', 'value' => 'FAT'],
-                    ],
-                    'ids_from' => [
-                        'managed_departments',
-                        'own_department',
-                    ],
-                ],
-            ],
-            'abilities' => [
-                'delete' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'IT'],
-                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
-                ],
-                'approve' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'OWNER'],
-                ],
-                'reject' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'OWNER'],
-                ],
-            ],
-        ],
     ],
 ];
