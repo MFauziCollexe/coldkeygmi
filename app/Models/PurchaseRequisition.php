@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 class PurchaseRequisition extends Model
@@ -56,6 +57,18 @@ class PurchaseRequisition extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function suppliers(): BelongsToMany
+    {
+        return $this->belongsToMany(Supplier::class, 'pr_supplier', 'purchase_requisition_id', 'supplier_id')
+            ->withPivot(['id', 'lead_time', 'payment_terms', 'is_recommended'])
+            ->withTimestamps();
+    }
+
+    public function prSuppliers(): HasMany
+    {
+        return $this->hasMany(PurchaseRequisitionSupplier::class);
     }
 
     public function approvedBy(): BelongsTo

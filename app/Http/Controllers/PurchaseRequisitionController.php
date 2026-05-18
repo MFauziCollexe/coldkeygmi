@@ -7,7 +7,10 @@ use App\Models\ProcurementMasterItem;
 use App\Models\PurchaseRequisitionAttachment;
 use App\Models\PurchaseRequisition;
 use App\Models\PurchaseRequisitionItem;
+use App\Models\PurchaseRequisitionSupplier;
+use App\Models\PurchaseRequisitionSupplierItemQuote;
 use App\Models\StockCardUnit;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Services\ImageMergeService;
 use Illuminate\Http\Request;
@@ -15,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class PurchaseRequisitionController extends Controller
@@ -25,6 +29,17 @@ class PurchaseRequisitionController extends Controller
     private const OWNER_DEPARTMENT_CODE = 'OWNER';
     private const IT_DEPARTMENT_CODE = 'IT';
     private const FAT_DEPARTMENT_CODE = 'FAT';
+    private const PAYMENT_METHOD_OPTIONS = [
+        'Tunai',
+        'COD',
+        'Transfer',
+        'E-wallet',
+        'QRIS',
+        'Kredit',
+        'Debit',
+        'Cek',
+        'Giro',
+    ];
 
     public function index(Request $request)
     {
@@ -177,6 +192,7 @@ class PurchaseRequisitionController extends Controller
             ]);
 
             $this->syncItems($purchaseRequisition, $validated['items']);
+            $this->syncSupplierComparisonRows($purchaseRequisition);
 
             if ($request->hasFile('attachments')) {
                 foreach ((array) $request->file('attachments') as $file) {
@@ -296,6 +312,7 @@ class PurchaseRequisitionController extends Controller
             $purchaseRequisition->items()->delete();
 
             $this->syncItems($purchaseRequisition, $validated['items']);
+            $this->syncSupplierComparisonRows($purchaseRequisition);
 
             $attachmentIdsToDelete = collect($validated['delete_attachment_ids'] ?? [])
                 ->map(fn ($id) => (int) $id)
@@ -396,6 +413,109 @@ class PurchaseRequisitionController extends Controller
         return redirect()->route('purchase-requisition.index')->with('success', 'Purchase requisition berhasil di-reject.');
     }
 
+    public function syncSuppliers(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!$this->isFatDepartmentUser($user)) {
+            abort(403, 'Hanya departemen FAT yang dapat menambahkan vendor.');
+        }
+
+        $validated = $request->validate([
+            'supplier_ids' => ['present', 'array', 'max:3'],
+            'supplier_ids.*' => ['exists:suppliers,id'],
+        ]);
+
+        $purchaseRequisition->suppliers()->sync($validated['supplier_ids']);
+        $this->syncSupplierComparisonRows($purchaseRequisition->fresh());
+
+        return redirect()->route('purchase-requisition.show', $purchaseRequisition->id)
+            ->with('success', 'Vendor berhasil diperbarui.');
+    }
+
+    public function saveSupplierComparisons(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!$this->isFatDepartmentUser($user) && !$this->isOwnerDepartmentUser($user)) {
+            abort(403, 'Hanya departemen FAT dan Owner yang dapat mengubah komparasi vendor.');
+        }
+
+        $validated = $request->validate([
+            'comparisons' => ['required', 'array', 'min:1', 'max:3'],
+            'comparisons.*.supplier_id' => ['required', 'exists:suppliers,id'],
+            'comparisons.*.lead_time' => ['nullable', 'string', 'max:100'],
+            'comparisons.*.payment_terms' => ['nullable', 'string', Rule::in(self::PAYMENT_METHOD_OPTIONS)],
+            'comparisons.*.items' => ['required', 'array', 'min:1'],
+            'comparisons.*.items.*.purchase_requisition_item_id' => ['required', 'integer', 'exists:purchase_requisition_items,id'],
+            'comparisons.*.items.*.quoted_price' => ['nullable', 'numeric', 'min:0'],
+            'comparisons.*.items.*.is_selected' => ['nullable', 'boolean'],
+        ]);
+
+        $purchaseRequisition->loadMissing([
+            'items:id,purchase_requisition_id',
+            'prSuppliers.supplier:id',
+            'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
+        ]);
+
+        $this->syncSupplierComparisonRows($purchaseRequisition);
+        $purchaseRequisition->load([
+            'items:id,purchase_requisition_id',
+            'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
+        ]);
+
+        $prSuppliers = $purchaseRequisition->prSuppliers->keyBy('supplier_id');
+        $itemIds = $purchaseRequisition->items->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        DB::transaction(function () use ($validated, $prSuppliers, $itemIds, $purchaseRequisition) {
+            PurchaseRequisitionSupplierItemQuote::query()
+                ->whereIn('purchase_requisition_item_id', $itemIds)
+                ->update(['is_selected' => false]);
+
+            foreach ($validated['comparisons'] as $comparison) {
+                $supplierId = (int) $comparison['supplier_id'];
+                /** @var PurchaseRequisitionSupplier|null $prSupplier */
+                $prSupplier = $prSuppliers->get($supplierId);
+
+                if (!$prSupplier) {
+                    continue;
+                }
+
+                $prSupplier->update([
+                    'lead_time' => $comparison['lead_time'] ?? null,
+                    'payment_terms' => $comparison['payment_terms'] ?? null,
+                ]);
+
+                foreach ($comparison['items'] as $itemPayload) {
+                    $itemId = (int) $itemPayload['purchase_requisition_item_id'];
+                    if (!in_array($itemId, $itemIds, true)) {
+                        continue;
+                    }
+
+                    PurchaseRequisitionSupplierItemQuote::query()->updateOrCreate(
+                        [
+                            'pr_supplier_id' => $prSupplier->id,
+                            'purchase_requisition_item_id' => $itemId,
+                        ],
+                        [
+                            'quoted_price' => array_key_exists('quoted_price', $itemPayload) && $itemPayload['quoted_price'] !== null && $itemPayload['quoted_price'] !== ''
+                                ? $itemPayload['quoted_price']
+                                : null,
+                            'is_selected' => (bool) ($itemPayload['is_selected'] ?? false),
+                        ]
+                    );
+                }
+            }
+        });
+
+        return redirect()->route('purchase-requisition.show', $purchaseRequisition->id)
+            ->with('success', 'Komparasi vendor berhasil disimpan.');
+    }
+
     public function show(Request $request, PurchaseRequisition $purchaseRequisition)
     {
         /** @var \App\Models\User|null $user */
@@ -420,6 +540,9 @@ class PurchaseRequisitionController extends Controller
             'approvedBy:id,name',
             'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,price,product_name,uom,qty',
             'attachments:id,purchase_requisition_id,filename,path,mime_type,size,original_path,signed_path,signature_status,signed_by,signed_at,signature_meta',
+            'suppliers:id,name,code,contact_person,phone,email',
+            'prSuppliers.supplier:id,name,supplier_type,code,contact_person,phone,email',
+            'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
         ]);
 
         // Eager load signer for attachments
@@ -427,10 +550,16 @@ class PurchaseRequisitionController extends Controller
 
         $canApprove = $this->canApprove($user, $purchaseRequisition);
         $canReject = $canApprove; // same condition: owner dept + status waiting
+        $backUrl = $request->query('return_to');
+
+        if (!is_string($backUrl) || $backUrl === '' || !str_starts_with($backUrl, '/')) {
+            $backUrl = '/gmisl/procurement/purchase-requisition';
+        }
 
         return Inertia::render('Procurement/PurchaseRequisition/Show', [
             'title' => 'Detail Purchase Requisition',
             'description' => 'Detail Purchase Requisition',
+            'backUrl' => $backUrl,
             'purchaseRequisition' => [
                 'id' => $purchaseRequisition->id,
                 'pr_number' => $purchaseRequisition->pr_number,
@@ -471,9 +600,23 @@ class PurchaseRequisitionController extends Controller
                 'can_approve' => $canApprove,
                 'can_reject' => $canReject,
                 'all_image_attachments_signed' => $this->allImageAttachmentsSigned($purchaseRequisition),
+                'suppliers' => $purchaseRequisition->suppliers
+                    ->map(fn ($supplier) => [
+                        'id' => $supplier->id,
+                        'name' => $supplier->name,
+                        'supplier_type' => $supplier->supplier_type,
+                        'code' => $supplier->code,
+                        'contact_person' => $supplier->contact_person,
+                        'phone' => $supplier->phone,
+                        'email' => $supplier->email,
+                    ])
+                    ->values(),
+                'supplier_comparisons' => $this->supplierComparisonsPayload($purchaseRequisition),
             ],
             'uomOptions' => $this->uomOptions(),
             'masterItems' => $this->masterItemOptions(),
+            'allSuppliers' => $this->supplierOptions(),
+            'paymentMethodOptions' => self::PAYMENT_METHOD_OPTIONS,
             'currentUser' => $this->currentUserPayload($user),
         ]);
     }
@@ -550,6 +693,22 @@ class PurchaseRequisitionController extends Controller
             ->map(fn (StockCardUnit $unit) => [
                 'id' => $unit->id,
                 'name' => $unit->name,
+            ])
+            ->values();
+    }
+
+    private function supplierOptions()
+    {
+        return Supplier::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'supplier_type', 'code', 'contact_person'])
+            ->map(fn (Supplier $supplier) => [
+                'id' => $supplier->id,
+                'name' => $supplier->name,
+                'supplier_type' => $supplier->supplier_type,
+                'code' => $supplier->code,
+                'contact_person' => $supplier->contact_person,
             ])
             ->values();
     }
@@ -778,6 +937,73 @@ class PurchaseRequisitionController extends Controller
              'uom' => $item->unit ?: $item->uom,
              'qty' => $item->quantity ?? $item->qty,
          ];
+     }
+
+     private function syncSupplierComparisonRows(PurchaseRequisition $purchaseRequisition): void
+     {
+         $purchaseRequisition->loadMissing([
+             'items:id,purchase_requisition_id',
+             'prSuppliers:id,purchase_requisition_id,supplier_id',
+         ]);
+
+         $itemIds = $purchaseRequisition->items->pluck('id')->all();
+
+         foreach ($purchaseRequisition->prSuppliers as $prSupplier) {
+             foreach ($itemIds as $itemId) {
+                 PurchaseRequisitionSupplierItemQuote::query()->firstOrCreate([
+                     'pr_supplier_id' => $prSupplier->id,
+                     'purchase_requisition_item_id' => $itemId,
+                 ]);
+             }
+         }
+     }
+
+     private function supplierComparisonsPayload(PurchaseRequisition $purchaseRequisition): array
+     {
+         $purchaseRequisition->loadMissing([
+             'items:id,purchase_requisition_id,quantity',
+             'prSuppliers.supplier:id,name,supplier_type,code,contact_person,phone,email',
+             'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
+         ]);
+
+         return $purchaseRequisition->prSuppliers
+             ->map(function (PurchaseRequisitionSupplier $prSupplier) use ($purchaseRequisition) {
+                 $quotesByItem = $prSupplier->itemQuotes->keyBy('purchase_requisition_item_id');
+                 $itemsPayload = $purchaseRequisition->items
+                     ->map(function (PurchaseRequisitionItem $item) use ($quotesByItem) {
+                         /** @var PurchaseRequisitionSupplierItemQuote|null $quote */
+                         $quote = $quotesByItem->get($item->id);
+
+                             return [
+                                 'purchase_requisition_item_id' => $item->id,
+                                 'quoted_price' => $quote?->quoted_price,
+                                 'quantity' => (float) ($item->quantity ?? 0),
+                                 'is_selected' => (bool) ($quote?->is_selected ?? false),
+                             ];
+                         })
+                     ->values();
+
+                 $totalAmount = $itemsPayload->sum(
+                     fn (array $item) => ((float) ($item['quoted_price'] ?? 0)) * ((float) ($item['quantity'] ?? 0))
+                 );
+
+                 return [
+                     'supplier_id' => $prSupplier->supplier_id,
+                     'pivot_id' => $prSupplier->id,
+                     'name' => $prSupplier->supplier?->name,
+                     'supplier_type' => $prSupplier->supplier?->supplier_type,
+                     'code' => $prSupplier->supplier?->code,
+                     'contact_person' => $prSupplier->supplier?->contact_person,
+                     'phone' => $prSupplier->supplier?->phone,
+                     'email' => $prSupplier->supplier?->email,
+                     'lead_time' => $prSupplier->lead_time,
+                     'payment_terms' => $prSupplier->payment_terms,
+                     'total_amount' => $totalAmount,
+                     'items' => $itemsPayload,
+                 ];
+             })
+             ->values()
+             ->all();
      }
 
      private function syncItems(PurchaseRequisition $purchaseRequisition, array $items): void

@@ -12,6 +12,7 @@ class Supplier extends Model
 
     protected $fillable = [
         'name',
+        'supplier_type',
         'code',
         'contact_person',
         'phone',

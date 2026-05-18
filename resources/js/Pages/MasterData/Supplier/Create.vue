@@ -15,6 +15,12 @@
           </div>
 
           <div>
+            <label class="mb-1 block text-sm">Supplier Type</label>
+            <input v-model="form.supplier_type" type="text" class="w-full rounded bg-slate-900 px-3 py-2 border border-slate-700" />
+            <div v-if="form.errors.supplier_type" class="mt-1 text-sm text-red-400">{{ form.errors.supplier_type }}</div>
+          </div>
+
+          <div>
             <label class="mb-1 block text-sm">Code</label>
             <input v-model="form.code" type="text" class="w-full rounded bg-slate-900 px-3 py-2 border border-slate-700" />
             <div v-if="form.errors.code" class="mt-1 text-sm text-red-400">{{ form.errors.code }}</div>
@@ -67,6 +73,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 
 const form = useForm({
   name: '',
+  supplier_type: '',
   code: '',
   contact_person: '',
   phone: '',

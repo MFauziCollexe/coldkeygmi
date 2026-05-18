@@ -296,6 +296,12 @@ Route::put('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\
 Route::delete('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\Http\Controllers\PurchaseRequisitionController::class, 'destroy'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.destroy');
+Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/suppliers', [App\Http\Controllers\PurchaseRequisitionController::class, 'syncSuppliers'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.suppliers.sync');
+Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/supplier-comparisons', [App\Http\Controllers\PurchaseRequisitionController::class, 'saveSupplierComparisons'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.suppliers.comparisons.save');
 
 // Attachment Signing (for Purchase Requisition)
 Route::post(
@@ -361,6 +367,9 @@ Route::resource('master-data/supplier', App\Http\Controllers\SupplierController:
     ->except(['show'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->names('suppliers');
+Route::get('master-data/supplier/list', [App\Http\Controllers\SupplierController::class, 'list'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('suppliers.list');
 
 // Master Data - Vehicle Type (route: /master-data/vehicle-type)
 Route::resource('master-data/vehicle-type', VehicleTypeController::class)

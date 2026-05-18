@@ -80,6 +80,7 @@ export const sidebarMenuConfig = [
                         icon: "CheckCheck",
                         route: "/gmisl/procurement/approval",
                         module_key: "gmisl.procurement.approval",
+                        department_codes: ["OWNER"],
                     },
                 ],
             },

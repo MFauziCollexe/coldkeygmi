@@ -72,6 +72,15 @@ class SupplierController extends Controller
             ->with('success', 'Supplier berhasil dihapus.');
     }
 
+    public function list(Request $request)
+    {
+        return Supplier::query()
+            ->select('id', 'name', 'supplier_type', 'code', 'contact_person', 'phone', 'email')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+    }
+
     private function validatePayload(Request $request, ?int $supplierId = null): array
     {
         $codeRule = 'nullable|string|max:50|unique:suppliers,code';
@@ -81,6 +90,7 @@ class SupplierController extends Controller
 
         return $request->validate([
             'name' => 'required|string|max:255',
+            'supplier_type' => 'nullable|string|max:100',
             'code' => $codeRule,
             'contact_person' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:50',

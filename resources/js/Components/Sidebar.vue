@@ -69,8 +69,23 @@ if (page.props && page.props.auth && Array.isArray(page.props.auth.module_permis
 }
 
 const userPerms = computed(() => userPermsRef.value || []);
+const currentDepartmentCode = computed(() => String(page.props.auth?.user?.department?.code || '').toUpperCase());
+
+function departmentAllowed(item) {
+  if (!Array.isArray(item.department_codes) || item.department_codes.length === 0) {
+    return true;
+  }
+
+  return item.department_codes
+    .map(code => String(code || '').toUpperCase())
+    .includes(currentDepartmentCode.value);
+}
 
 function itemAllowed(item) {
+  if (!departmentAllowed(item)) {
+    return false;
+  }
+
   // if item has explicit module_key, check permission strictly
   if (item.module_key) {
     const key = item.module_key;

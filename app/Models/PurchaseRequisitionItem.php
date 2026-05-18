@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseRequisitionItem extends Model
 {
@@ -42,5 +43,10 @@ class PurchaseRequisitionItem extends Model
     public function procurementMasterItem(): BelongsTo
     {
         return $this->belongsTo(ProcurementMasterItem::class);
+    }
+
+    public function supplierQuotes(): HasMany
+    {
+        return $this->hasMany(PurchaseRequisitionSupplierItemQuote::class);
     }
 }
