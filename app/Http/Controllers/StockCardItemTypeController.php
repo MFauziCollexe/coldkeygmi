@@ -19,7 +19,10 @@ class StockCardItemTypeController extends Controller
 
         if ($request->filled('search')) {
             $search = trim((string) $request->input('search'));
-            $query->where('name', 'like', "%{$search}%");
+            $query->where(function ($subQuery) use ($search) {
+                $subQuery->where('code', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
+            });
         }
 
         if ($request->filled('is_active')) {
@@ -40,11 +43,13 @@ class StockCardItemTypeController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
+            'code' => 'required|string|max:50|unique:stock_card_item_types,code',
             'name' => 'required|string|max:255|unique:stock_card_item_types,name',
             'is_active' => 'boolean',
         ]);
 
         StockCardItemType::create([
+            'code' => trim((string) $data['code']),
             'name' => trim((string) $data['name']),
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);
@@ -63,11 +68,13 @@ class StockCardItemTypeController extends Controller
     public function update(Request $request, StockCardItemType $stockCardItemType)
     {
         $data = $request->validate([
+            'code' => 'required|string|max:50|unique:stock_card_item_types,code,' . $stockCardItemType->id,
             'name' => 'required|string|max:255|unique:stock_card_item_types,name,' . $stockCardItemType->id,
             'is_active' => 'boolean',
         ]);
 
         $stockCardItemType->update([
+            'code' => trim((string) $data['code']),
             'name' => trim((string) $data['name']),
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);

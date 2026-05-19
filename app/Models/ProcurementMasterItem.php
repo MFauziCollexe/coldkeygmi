@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProcurementMasterItem extends Model
 {
@@ -15,18 +16,22 @@ class ProcurementMasterItem extends Model
         'item_name',
         'description_of_goods',
         'item_type',
+        'category_id',
         'unit',
-        'default_price',
         'is_active',
     ];
 
     protected $casts = [
-        'default_price' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 
     public function purchaseRequisitionItems(): HasMany
     {
         return $this->hasMany(PurchaseRequisitionItem::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ProcurementCategory::class, 'category_id');
     }
 }

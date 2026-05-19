@@ -2,7 +2,7 @@
   <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
     <div>
       <label class="mb-1 block text-sm text-slate-300">Item Code</label>
-      <input v-model="form.item_code" type="text" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-slate-100" />
+      <input v-model="form.item_code" type="text" readonly class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-400" />
       <div v-if="form.errors.item_code" class="mt-1 text-xs text-rose-300">{{ form.errors.item_code }}</div>
     </div>
 
@@ -28,18 +28,21 @@
     </div>
 
     <div>
+      <label class="mb-1 block text-sm text-slate-300">Category</label>
+      <select v-model="form.category_id" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-slate-100">
+        <option value="">Pilih Category</option>
+        <option v-for="category in categoryOptions" :key="category.id" :value="category.id">{{ category.name }}</option>
+      </select>
+      <div v-if="form.errors.category_id" class="mt-1 text-xs text-rose-300">{{ form.errors.category_id }}</div>
+    </div>
+
+    <div>
       <label class="mb-1 block text-sm text-slate-300">Unit</label>
       <select v-model="form.unit" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-slate-100">
         <option value="">Pilih Unit</option>
         <option v-for="unit in unitOptions" :key="unit.id" :value="unit.name">{{ unit.name }}</option>
       </select>
       <div v-if="form.errors.unit" class="mt-1 text-xs text-rose-300">{{ form.errors.unit }}</div>
-    </div>
-
-    <div>
-      <label class="mb-1 block text-sm text-slate-300">Default Price</label>
-      <input v-model="form.default_price" type="number" min="0" step="0.01" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-slate-100" />
-      <div v-if="form.errors.default_price" class="mt-1 text-xs text-rose-300">{{ form.errors.default_price }}</div>
     </div>
 
     <div class="md:col-span-2">
@@ -57,5 +60,6 @@ defineProps({
   form: { type: Object, required: true },
   itemTypeOptions: { type: Array, default: () => [] },
   unitOptions: { type: Array, default: () => [] },
+  categoryOptions: { type: Array, default: () => [] },
 });
 </script>

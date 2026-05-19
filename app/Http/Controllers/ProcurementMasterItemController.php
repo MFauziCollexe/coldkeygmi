@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
+use App\Models\ProcurementCategory;
 use App\Models\ProcurementMasterItem;
 use App\Models\StockCardItemType;
 use App\Models\StockCardUnit;
@@ -45,12 +46,15 @@ class ProcurementMasterItemController extends Controller
         return Inertia::render('Procurement/MasterItem/Create', [
             'itemTypeOptions' => $this->itemTypeOptions(),
             'unitOptions' => $this->unitOptions(),
+            'categoryOptions' => $this->categoryOptions(),
+            'generatedItemCode' => $this->generateItemCode(),
         ]);
     }
 
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        $data['item_code'] = $this->generateItemCode();
 
         ProcurementMasterItem::create($data);
 
@@ -58,23 +62,22 @@ class ProcurementMasterItemController extends Controller
             ->with('success', 'Master item berhasil dibuat.');
     }
 
-    public function edit(ProcurementMasterItem $procurementMasterItem)
-    {
-        return Inertia::render('Procurement/MasterItem/Edit', [
-            'item' => $procurementMasterItem,
-            'itemTypeOptions' => $this->itemTypeOptions(),
-            'unitOptions' => $this->unitOptions(),
-        ]);
-    }
-
     public function update(Request $request, ProcurementMasterItem $procurementMasterItem)
     {
-        $data = $this->validated($request, $procurementMasterItem);
+        $data = $this->validated($request);
 
         $procurementMasterItem->update($data);
 
         return $this->redirectToRememberedIndex($request, 'procurement-master-items', 'procurement-master-item.index')
             ->with('success', 'Master item berhasil diperbarui.');
+    }
+
+    private function generateItemCode(): string
+    {
+        $lastItem = ProcurementMasterItem::orderBy('id', 'desc')->first();
+        $lastCode = $lastItem ? (int) substr($lastItem->item_code, 3) : 0;
+        $newNumber = $lastCode + 1;
+        return 'ITM' . str_pad((string) $newNumber, 5, '0', STR_PAD_LEFT);
     }
 
     public function destroy(Request $request, ProcurementMasterItem $procurementMasterItem)
@@ -87,25 +90,25 @@ class ProcurementMasterItemController extends Controller
 
     private function validated(Request $request, ?ProcurementMasterItem $item = null): array
     {
-        $validated = $request->validate([
-            'item_code' => ['required', 'string', 'max:100', Rule::unique('procurement_master_items', 'item_code')->ignore($item?->id)],
+        $rules = [
             'item_name' => ['required', 'string', 'max:255'],
             'description_of_goods' => ['required', 'string'],
             'item_type' => ['nullable', 'string', 'max:255', 'exists:stock_card_item_types,name'],
+            'category_id' => ['nullable', 'exists:procurement_categories,id'],
             'unit' => ['required', 'string', 'max:100', 'exists:stock_card_units,name'],
-            'default_price' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['boolean'],
-        ]);
+        ];
+
+        $validated = $request->validate($rules);
 
         return [
-            'item_code' => trim((string) $validated['item_code']),
             'item_name' => trim((string) $validated['item_name']),
             'description_of_goods' => trim((string) $validated['description_of_goods']),
             'item_type' => isset($validated['item_type']) && $validated['item_type'] !== ''
                 ? trim((string) $validated['item_type'])
                 : null,
+            'category_id' => $validated['category_id'] ?? null,
             'unit' => trim((string) $validated['unit']),
-            'default_price' => $validated['default_price'] ?? null,
             'is_active' => (bool) ($validated['is_active'] ?? true),
         ];
     }
@@ -132,6 +135,18 @@ class ProcurementMasterItemController extends Controller
             ->map(fn (StockCardUnit $unit) => [
                 'id' => $unit->id,
                 'name' => $unit->name,
+            ])
+            ->values();
+    }
+
+    private function categoryOptions()
+    {
+        return ProcurementCategory::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (ProcurementCategory $category) => [
+                'id' => $category->id,
+                'name' => $category->name,
             ])
             ->values();
     }

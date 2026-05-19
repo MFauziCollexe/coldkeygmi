@@ -141,6 +141,7 @@ function createItem() {
     description_of_goods: '',
     specification: '',
     unit: '',
+    category_id: '',
     quantity: '',
     required_date: '',
     price: '',
@@ -181,7 +182,7 @@ function applyMasterItem(index, rawId) {
     item.specification = '';
   }
   item.unit = masterItem.unit || '';
-  item.price = masterItem.default_price || '';
+  item.category_id = masterItem.category_id || '';
 }
 
 function normalizeQuantity(index) {

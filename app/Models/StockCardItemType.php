@@ -10,6 +10,7 @@ class StockCardItemType extends Model
     use HasFactory;
 
     protected $fillable = [
+        'code',
         'name',
         'is_active',
     ];

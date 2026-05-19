@@ -10,8 +10,8 @@
           <Link href="/master-data/master-item" class="text-sm text-indigo-400">Back to list</Link>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
-          <MasterItemForm :form="form" :item-type-options="itemTypeOptions" :unit-options="unitOptions" />
+<form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
+           <MasterItemForm :form="form" :item-type-options="itemTypeOptions" :unit-options="unitOptions" :category-options="categoryOptions" />
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
             <Link href="/master-data/master-item" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">Cancel</Link>
             <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700" :disabled="form.processing">
@@ -33,6 +33,7 @@ const props = defineProps({
   item: { type: Object, required: true },
   itemTypeOptions: { type: Array, default: () => [] },
   unitOptions: { type: Array, default: () => [] },
+  categoryOptions: { type: Array, default: () => [] },
 });
 
 const form = useForm({
@@ -40,8 +41,8 @@ const form = useForm({
   item_name: props.item.item_name || '',
   description_of_goods: props.item.description_of_goods || '',
   item_type: props.item.item_type || '',
+  category_id: props.item.category_id || '',
   unit: props.item.unit || '',
-  default_price: props.item.default_price || '',
   is_active: props.item.is_active === true,
 });
 

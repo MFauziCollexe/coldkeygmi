@@ -835,7 +835,7 @@ class PurchaseRequisitionController extends Controller
                 'item_name',
                 'description_of_goods',
                 'unit',
-                'default_price',
+                'category_id',
             ])
             ->map(fn (ProcurementMasterItem $item) => [
                 'id' => $item->id,
@@ -843,7 +843,7 @@ class PurchaseRequisitionController extends Controller
                 'item_name' => $item->item_name,
                 'description_of_goods' => $item->description_of_goods,
                 'unit' => $item->unit,
-                'default_price' => $item->default_price,
+                'category_id' => $item->category_id,
                 'label' => $item->item_code . ' - ' . $item->item_name,
             ])
             ->values();

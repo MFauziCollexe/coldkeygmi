@@ -10,8 +10,8 @@
           <Link href="/master-data/master-item" class="text-sm text-indigo-400">Back to list</Link>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
-          <MasterItemForm :form="form" :item-type-options="itemTypeOptions" :unit-options="unitOptions" />
+<form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
+           <MasterItemForm :form="form" :item-type-options="itemTypeOptions" :unit-options="unitOptions" :category-options="categoryOptions" />
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
             <Link href="/master-data/master-item" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">Cancel</Link>
             <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700" :disabled="form.processing">
@@ -29,18 +29,20 @@ import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MasterItemForm from './Partials/MasterItemForm.vue';
 
-defineProps({
+const props = defineProps({
   itemTypeOptions: { type: Array, default: () => [] },
   unitOptions: { type: Array, default: () => [] },
+  categoryOptions: { type: Array, default: () => [] },
+  generatedItemCode: { type: String, default: '' },
 });
 
 const form = useForm({
-  item_code: '',
+  item_code: props.generatedItemCode,
   item_name: '',
   description_of_goods: '',
   item_type: '',
+  category_id: '',
   unit: '',
-  default_price: '',
   is_active: true,
 });
 
