@@ -18,6 +18,14 @@
            {{ $page.props.errors.vendor }}
          </div>
 
+         <div v-if="$page.props.errors?.status" class="rounded border border-rose-600 bg-rose-600/20 px-4 py-3 text-sm text-rose-200">
+           {{ $page.props.errors.status }}
+         </div>
+
+         <div v-if="$page.props.errors?.invoice_file" class="rounded border border-rose-600 bg-rose-600/20 px-4 py-3 text-sm text-rose-200">
+           {{ $page.props.errors.invoice_file }}
+         </div>
+
          <div class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
           <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div class="space-y-4">
@@ -42,12 +50,11 @@
               <table class="w-full min-w-[1200px] border-collapse text-sm text-slate-800">
                 <thead>
                   <tr class="bg-gradient-to-b from-[#7489ba] to-[#556d9a] text-center text-[12px] font-semibold text-white">
-                    <th class="border border-slate-400 px-2 py-1.5">Item</th>
                     <th class="border border-slate-400 px-2 py-1.5">Description</th>
-                    <th class="border border-slate-400 px-2 py-1.5">Qty</th>
                     <th class="border border-slate-400 px-2 py-1.5">Item Unit</th>
+                    <th class="border border-slate-400 px-2 py-1.5">Qty</th>
                     <th class="border border-slate-400 px-2 py-1.5">Required Date</th>
-                    <th class="border border-slate-400 px-2 py-1.5">Notes</th>
+                    <th class="border border-slate-400 px-2 py-1.5">Note</th>
                     <th class="border border-slate-400 px-2 py-1.5">Qty Received</th>
                   </tr>
                 </thead>
@@ -57,17 +64,14 @@
                     :key="item.id || index"
                     class="align-top bg-[#f7f7f9]"
                   >
-                    <td class="border border-slate-300 px-2 py-1.5 font-medium">
-                      {{ item.item_code || item.item_name || '-' }}
-                    </td>
                     <td class="border border-slate-300 px-2 py-1.5">
-                      <div>{{ item.description_of_goods || item.item_name || '-' }}</div>
-                    </td>
-                    <td class="border border-slate-300 px-2 py-1.5 text-center">
-                      {{ item.quantity || 0 }}
+                      <div>{{ item.description_of_goods || '-' }}</div>
                     </td>
                     <td class="border border-slate-300 px-2 py-1.5">
                       {{ item.unit || '-' }}
+                    </td>
+                    <td class="border border-slate-300 px-2 py-1.5 text-center">
+                      {{ formatQuantity(item.quantity) }}
                     </td>
                     <td class="border border-slate-300 px-2 py-1.5 text-center">
                       {{ formatCompactDate(item.required_date) }}
@@ -80,7 +84,7 @@
                     </td>
                   </tr>
                   <tr v-if="!purchaseRequisition.items?.length">
-                    <td colspan="7" class="border border-slate-300 py-4 text-center text-sm text-slate-500">Tidak ada item.</td>
+                    <td colspan="6" class="border border-slate-300 py-4 text-center text-sm text-slate-500">Tidak ada item.</td>
                   </tr>
                 </tbody>
               </table>
@@ -145,7 +149,7 @@
               <div class="flex items-center gap-2">
                 <span class="text-xs text-slate-400">Maksimal 3 vendor</span>
                 <button
-                  v-if="isFatUser"
+                  v-if="canFatManageComparison"
                   type="button"
                   @click="openSupplierModal"
                   class="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
@@ -163,14 +167,6 @@
                   <h3 class="text-sm font-semibold uppercase tracking-wide text-white">Vendor Comparison</h3>
                   <p class="text-xs text-blue-100/80">Vendor/supplier, qty, harga, payment type, total, dan action.</p>
                 </div>
-                <button
-                  v-if="isFatUser"
-                  type="button"
-                  @click="saveSupplierComparisons"
-                  class="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                >
-                  Simpan Komparasi
-                </button>
               </div>
 
               <div class="overflow-x-auto p-1">
@@ -205,7 +201,7 @@
                           <div v-if="comparison.supplier_type" class="text-xs text-slate-500">{{ comparison.supplier_type }}</div>
                           <div class="text-xs text-slate-500">{{ comparison.code ? comparison.code + ' - ' : '' }}{{ comparison.contact_person || '-' }}</div>
                           <button
-                            v-if="isFatUser"
+                            v-if="canFatManageComparison"
                             type="button"
                             class="mt-2 rounded bg-rose-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-rose-700"
                             @click="removeSupplier(comparison.supplier_id)"
@@ -222,7 +218,7 @@
                         </td>
                         <td class="border border-slate-300 px-2 py-2">
                           <input
-                            v-if="isFatUser"
+                            v-if="canFatManageComparison"
                             v-model="comparison.prices[item.id].quoted_price"
                             type="number"
                             min="0"
@@ -240,7 +236,7 @@
                           class="border border-slate-300 px-2 py-2"
                         >
                           <select
-                            v-if="isFatUser"
+                            v-if="canFatManageComparison"
                             v-model="comparison.payment_terms"
                             class="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
                           >
@@ -262,7 +258,7 @@
                         </td>
                         <td class="border border-slate-300 px-2 py-2 text-center">
                           <button
-                            v-if="isOwnerDepartmentUser"
+                            v-if="canOwnerSelectVendor"
                             type="button"
                             class="rounded border px-3 py-1.5 text-xs font-semibold transition"
                             :class="isItemSelected(comparison, item.id)
@@ -283,6 +279,47 @@
                     </template>
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="canViewInvoiceSection" class="space-y-4 rounded-lg border border-slate-700 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <label class="block text-sm font-medium text-slate-200">Invoice Vendor</label>
+                <p class="mt-1 text-xs text-slate-400">Area upload invoice hanya untuk departemen FAT setelah status On Process by Vendor.</p>
+              </div>
+              <div v-if="purchaseRequisition.po_processed_at" class="text-xs text-slate-400">
+                Processed: {{ purchaseRequisition.po_processed_at }}
+              </div>
+            </div>
+
+            <div v-if="purchaseRequisition.po_invoice_url" class="rounded-lg bg-slate-900 px-3 py-3 text-sm">
+              <div class="text-slate-300">File invoice saat ini:</div>
+              <a :href="purchaseRequisition.po_invoice_url" target="_blank" rel="noopener noreferrer" class="mt-1 block truncate text-indigo-300 hover:text-indigo-200">
+                {{ purchaseRequisition.po_invoice_filename || 'Lihat Invoice' }}
+              </a>
+            </div>
+
+            <div v-if="canUploadInvoice" class="space-y-3">
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx"
+                class="block w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+                @change="handleInvoiceUpload"
+              />
+              <div v-if="invoiceForm.invoice_file" class="rounded bg-slate-900 px-3 py-2 text-sm text-slate-300">
+                {{ invoiceForm.invoice_file.name }}
+              </div>
+              <div class="flex justify-end">
+                <button
+                  type="button"
+                  class="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 disabled:opacity-50"
+                  :disabled="invoiceForm.processing || !invoiceForm.invoice_file"
+                  @click="submitInvoice"
+                >
+                  {{ invoiceForm.processing ? 'Uploading...' : 'Upload Invoice' }}
+                </button>
               </div>
             </div>
           </div>
@@ -347,6 +384,22 @@
 
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
             <Link :href="backUrl" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">Close</Link>
+            <button
+              v-if="canSubmitVendorRequest"
+              type="button"
+              class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+              @click="saveSupplierComparisons"
+            >
+              Ajukan Permintaan
+            </button>
+            <button
+              v-if="canProcessVendor"
+              type="button"
+              class="rounded bg-amber-600 px-4 py-2 text-white hover:bg-amber-700"
+              @click="confirmProcessVendor"
+            >
+              On Process by Vendor
+            </button>
             <button v-if="canDelete" type="button" class="rounded bg-rose-600 px-4 py-2 text-white hover:bg-rose-700" @click="confirmDelete">
               Delete
             </button>
@@ -387,7 +440,7 @@
 
 <script setup>
 import { defineComponent, h, ref } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Swal from 'sweetalert2';
 
@@ -401,9 +454,19 @@ const props = defineProps({
 
 const canApprove = props.purchaseRequisition.can_approve === true;
 const canReject = props.purchaseRequisition.can_reject === true;
+const canProcessVendor = props.purchaseRequisition.can_process_vendor === true;
+const canUploadInvoice = props.purchaseRequisition.can_upload_invoice === true;
 const isItUser = String(props.currentUser?.department_code || '').toUpperCase() === 'IT';
 const isFatUser = String(props.currentUser?.department_code || '').toUpperCase() === 'FAT';
 const isOwnerDepartmentUser = String(props.currentUser?.department_code || '').toUpperCase() === 'OWNER';
+const currentStatus = String(props.purchaseRequisition?.status || '').trim().toLowerCase();
+const isWaitingStatus = currentStatus === 'waiting';
+const isApprovedStatus = currentStatus === 'approved';
+const isProcessStatus = currentStatus === 'process';
+const canFatManageComparison = isFatUser && isWaitingStatus;
+const canOwnerSelectVendor = isOwnerDepartmentUser && isWaitingStatus;
+const canSubmitVendorRequest = isFatUser && isWaitingStatus;
+const canViewInvoiceSection = isFatUser && (isProcessStatus || canUploadInvoice || Boolean(props.purchaseRequisition.po_invoice_url));
 const canDelete = isItUser;
 const showImagePreviewModal = ref(false);
 const previewAttachment = ref(null);
@@ -412,6 +475,9 @@ const previewTitle = ref('');
 const showSupplierModal = ref(false);
 const selectedSupplierIds = ref([]);
 const supplierComparisons = ref(buildSupplierComparisons(props.purchaseRequisition));
+const invoiceForm = useForm({
+  invoice_file: null,
+});
 
 const ReadOnlyField = defineComponent({
   props: { label: String, value: String },
@@ -525,6 +591,18 @@ function isItemSelected(comparison, itemId) {
   return comparison.prices[itemId]?.is_selected === true;
 }
 
+function hasSelectedVendorForAllItems() {
+  const items = props.purchaseRequisition.items || [];
+
+  if (!items.length) {
+    return false;
+  }
+
+  return items.every((item) => {
+    return supplierComparisons.value.some((comparison) => comparison.prices[item.id]?.is_selected === true);
+  });
+}
+
 function toggleItemSelection(supplierId, itemId) {
   supplierComparisons.value = supplierComparisons.value.map((comparison) => {
     const nextPrices = { ...comparison.prices };
@@ -570,6 +648,17 @@ function isImageFile(filename) {
 }
 
 async function confirmApprove() {
+  if (!hasSelectedVendorForAllItems()) {
+    await Swal.fire({
+      title: 'Vendor belum dipilih',
+      text: 'Pilih satu vendor untuk setiap item sebelum approve PR.',
+      icon: 'warning',
+      confirmButtonColor: '#f59e0b',
+      confirmButtonText: 'OK',
+    });
+    return;
+  }
+
   const result = await Swal.fire({
     title: 'Approve Purchase Requisition?',
     text: 'Are you sure you want to approve this PR?',
@@ -582,7 +671,9 @@ async function confirmApprove() {
   });
 
   if (result.isConfirmed) {
-    router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/approve`, {}, { preserveScroll: true });
+    submitSupplierComparisons(() => {
+      router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/approve`, {}, { preserveScroll: true });
+    });
   }
 }
 
@@ -632,6 +723,23 @@ async function confirmDelete() {
   }
 }
 
+async function confirmProcessVendor() {
+  const result = await Swal.fire({
+    title: 'Ubah ke On Process by Vendor?',
+    text: 'Status PR akan berubah menjadi On Process by Vendor.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#d97706',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Ya, Proses',
+    cancelButtonText: 'Batal',
+  });
+
+  if (result.isConfirmed) {
+    router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/process-vendor`, {}, { preserveScroll: true });
+  }
+}
+
 function saveSuppliers() {
   if (selectedSupplierIds.value.length === 0) return;
   
@@ -647,9 +755,72 @@ function saveSuppliers() {
   });
 }
 
+function handleInvoiceUpload(event) {
+  const file = event?.target?.files?.[0] || null;
+  invoiceForm.invoice_file = file;
+}
+
+function submitInvoice() {
+  if (!invoiceForm.invoice_file) {
+    Swal.fire({
+      title: 'File invoice belum dipilih',
+      text: 'Pilih file invoice terlebih dahulu sebelum upload.',
+      icon: 'warning',
+      confirmButtonColor: '#f59e0b',
+      confirmButtonText: 'OK',
+    });
+    return;
+  }
+
+  invoiceForm.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/invoice`, {
+    preserveScroll: true,
+    forceFormData: true,
+    onSuccess: () => {
+      invoiceForm.reset();
+    },
+  });
+}
+
 function saveSupplierComparisons() {
   if (!supplierComparisons.value.length) return;
 
+  if (!validateSupplierComparisons()) {
+    return;
+  }
+
+  submitSupplierComparisons(() => {
+    window.location.reload();
+  });
+}
+
+function validateSupplierComparisons() {
+  const hasMissingPaymentTerms = supplierComparisons.value.some((comparison) => {
+    return String(comparison.payment_terms || '').trim() === '';
+  });
+
+  const hasMissingQuotedPrice = supplierComparisons.value.some((comparison) => {
+    return (props.purchaseRequisition.items || []).some((item) => {
+      const rawValue = comparison.prices[item.id]?.quoted_price;
+      return rawValue === '' || rawValue === null || rawValue === undefined;
+    });
+  });
+
+  if (!hasMissingPaymentTerms && !hasMissingQuotedPrice) {
+    return true;
+  }
+
+  Swal.fire({
+    title: 'Data vendor belum lengkap',
+    text: 'Harga dan payment type untuk semua vendor harus diisi sebelum ajukan permintaan.',
+    icon: 'warning',
+    confirmButtonColor: '#f59e0b',
+    confirmButtonText: 'OK',
+  });
+
+  return false;
+}
+
+function submitSupplierComparisons(onSuccess) {
   router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/supplier-comparisons`, {
     comparisons: supplierComparisons.value.map((comparison) => ({
       supplier_id: comparison.supplier_id,
@@ -668,7 +839,9 @@ function saveSupplierComparisons() {
     })),
   }, {
     onSuccess: () => {
-      window.location.reload();
+      if (typeof onSuccess === 'function') {
+        onSuccess();
+      }
     },
   });
 }

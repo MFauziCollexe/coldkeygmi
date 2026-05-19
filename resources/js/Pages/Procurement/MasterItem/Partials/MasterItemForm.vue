@@ -18,10 +18,13 @@
       <div v-if="form.errors.description_of_goods" class="mt-1 text-xs text-rose-300">{{ form.errors.description_of_goods }}</div>
     </div>
 
-    <div class="md:col-span-2">
-      <label class="mb-1 block text-sm text-slate-300">Specification</label>
-      <textarea v-model="form.specification" rows="4" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-slate-100"></textarea>
-      <div v-if="form.errors.specification" class="mt-1 text-xs text-rose-300">{{ form.errors.specification }}</div>
+    <div>
+      <label class="mb-1 block text-sm text-slate-300">Type Item</label>
+      <select v-model="form.item_type" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-slate-100">
+        <option value="">Pilih Type Item</option>
+        <option v-for="itemType in itemTypeOptions" :key="itemType.id" :value="itemType.name">{{ itemType.name }}</option>
+      </select>
+      <div v-if="form.errors.item_type" class="mt-1 text-xs text-rose-300">{{ form.errors.item_type }}</div>
     </div>
 
     <div>
@@ -52,6 +55,7 @@
 <script setup>
 defineProps({
   form: { type: Object, required: true },
+  itemTypeOptions: { type: Array, default: () => [] },
   unitOptions: { type: Array, default: () => [] },
 });
 </script>

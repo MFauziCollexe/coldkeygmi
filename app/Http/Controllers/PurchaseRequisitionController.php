@@ -77,8 +77,9 @@ class PurchaseRequisitionController extends Controller
                     'created_at' => $purchaseRequisition->created_at?->format('Y-m-d H:i'),
                     'approved_at' => $purchaseRequisition->approved_at?->format('Y-m-d H:i'),
                     'approved_by_name' => optional($purchaseRequisition->approvedBy)->name,
-'can_edit' => $this->canEdit($user, $purchaseRequisition),
-                     'can_approve' => $this->canApprove($user, $purchaseRequisition),
+                    'can_edit' => $this->canEdit($user, $purchaseRequisition),
+                    'can_approve' => $this->canApprove($user, $purchaseRequisition),
+                    'can_process_vendor' => $this->canProcessVendor($user, $purchaseRequisition),
                     'items' => $purchaseRequisition->items
                         ->map(fn ($item) => $this->itemPayload($item))
                         ->values(),
@@ -159,7 +160,7 @@ class PurchaseRequisitionController extends Controller
             'items.*.description_of_goods' => ['required', 'string'],
             'items.*.specification' => ['nullable', 'string'],
             'items.*.unit' => ['required', 'string', 'max:100', 'exists:stock_card_units,name'],
-            'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.quantity' => ['required', 'integer', 'gt:0'],
             'items.*.required_date' => ['required', 'date'],
             'items.*.price' => ['required', 'numeric', 'min:0'],
             'attachments' => ['nullable', 'array'],
@@ -281,7 +282,7 @@ class PurchaseRequisitionController extends Controller
             'items.*.description_of_goods' => ['required', 'string'],
             'items.*.specification' => ['nullable', 'string'],
             'items.*.unit' => ['required', 'string', 'max:100', 'exists:stock_card_units,name'],
-            'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.quantity' => ['required', 'integer', 'gt:0'],
             'items.*.required_date' => ['required', 'date'],
             'items.*.price' => ['required', 'numeric', 'min:0'],
             'attachments' => ['nullable', 'array'],
@@ -375,6 +376,12 @@ class PurchaseRequisitionController extends Controller
             ]);
         }
 
+        if (!$this->hasSelectedVendorForEveryItem($purchaseRequisition)) {
+            return redirect()->back()->withErrors([
+                'vendor' => 'Pilih vendor untuk setiap item terlebih dahulu sebelum approve PR.',
+            ]);
+        }
+
         $purchaseRequisition->update([
             'status' => 'approved',
             'approved_by' => $user?->id,
@@ -424,6 +431,12 @@ class PurchaseRequisitionController extends Controller
             abort(403, 'Hanya departemen FAT yang dapat menambahkan vendor.');
         }
 
+        if ($this->isApprovedStatus($purchaseRequisition->status)) {
+            return redirect()->back()->withErrors([
+                'vendor' => 'Vendor PR yang sudah di-approve tidak bisa diubah lagi.',
+            ]);
+        }
+
         $validated = $request->validate([
             'supplier_ids' => ['present', 'array', 'max:3'],
             'supplier_ids.*' => ['exists:suppliers,id'],
@@ -444,6 +457,12 @@ class PurchaseRequisitionController extends Controller
 
         if (!$this->isFatDepartmentUser($user) && !$this->isOwnerDepartmentUser($user)) {
             abort(403, 'Hanya departemen FAT dan Owner yang dapat mengubah komparasi vendor.');
+        }
+
+        if ($this->isApprovedStatus($purchaseRequisition->status)) {
+            return redirect()->back()->withErrors([
+                'vendor' => 'Komparasi vendor PR yang sudah di-approve tidak bisa diubah lagi.',
+            ]);
         }
 
         $validated = $request->validate([
@@ -515,6 +534,74 @@ class PurchaseRequisitionController extends Controller
 
         return redirect()->route('purchase-requisition.show', $purchaseRequisition->id)
             ->with('success', 'Komparasi vendor berhasil disimpan.');
+    }
+
+    public function processVendor(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!$this->isFatDepartmentUser($user)) {
+            abort(403, 'Hanya departemen FAT yang dapat memproses PR by vendor.');
+        }
+
+        if (strtolower(trim((string) $purchaseRequisition->status)) !== 'approved') {
+            return redirect()->back()->withErrors([
+                'status' => 'Hanya PR dengan status approved yang bisa diubah ke On Process by Vendor.',
+            ]);
+        }
+
+        $purchaseRequisition->update([
+            'status' => 'process',
+            'po_processed_by' => $user?->id,
+            'po_processed_at' => now(),
+        ]);
+
+        return redirect()->route('purchase-requisition.index')->with('success', 'Status PR berhasil diubah menjadi On Process by Vendor.');
+    }
+
+    public function saveInvoice(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!$this->isFatDepartmentUser($user)) {
+            abort(403, 'Hanya departemen FAT yang dapat upload invoice.');
+        }
+
+        if (strtolower(trim((string) $purchaseRequisition->status)) !== 'process') {
+            return redirect()->back()->withErrors([
+                'status' => 'Invoice hanya bisa di-upload saat status PR On Process by Vendor.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'invoice_file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx', 'max:10240'],
+        ]);
+
+        $file = $request->file('invoice_file');
+
+        if (!$file) {
+            return redirect()->back()->withErrors([
+                'invoice_file' => 'File invoice tidak valid.',
+            ]);
+        }
+
+        if ($purchaseRequisition->po_photo_path && Storage::disk('public')->exists($purchaseRequisition->po_photo_path)) {
+            Storage::disk('public')->delete($purchaseRequisition->po_photo_path);
+        }
+
+        $path = $file->store('purchase-requisitions/invoices/' . $purchaseRequisition->id, 'public');
+
+        $purchaseRequisition->update([
+            'po_photo_path' => $path,
+            'po_photo_filename' => $file->getClientOriginalName(),
+            'po_photo_mime_type' => $file->getClientMimeType(),
+        ]);
+
+        return redirect()->back()->with('success', 'Invoice berhasil di-upload.');
     }
 
     public function show(Request $request, PurchaseRequisition $purchaseRequisition)
@@ -598,9 +685,17 @@ class PurchaseRequisitionController extends Controller
                         'is_image' => $this->isImageFile($attachment->filename),
                     ])
                     ->values(),
-'can_approve' => $canApprove,
+                 'can_approve' => $canApprove,
                  'can_reject' => $canReject,
-                 'suppliers' => $purchaseRequisition->suppliers
+                 'can_process_vendor' => $this->canProcessVendor($user, $purchaseRequisition),
+                 'can_upload_invoice' => $this->canUploadInvoice($user, $purchaseRequisition),
+                 'po_processed_at' => $purchaseRequisition->po_processed_at?->format('Y-m-d H:i'),
+                 'po_invoice_url' => $purchaseRequisition->po_photo_path
+                    ? Storage::disk('public')->url($purchaseRequisition->po_photo_path)
+                    : null,
+                 'po_invoice_filename' => $purchaseRequisition->po_photo_filename,
+                 'po_invoice_mime_type' => $purchaseRequisition->po_photo_mime_type,
+                  'suppliers' => $purchaseRequisition->suppliers
                     ->map(fn ($supplier) => [
                         'id' => $supplier->id,
                         'name' => $supplier->name,
@@ -659,6 +754,18 @@ class PurchaseRequisitionController extends Controller
         return $this->isOwnerDepartmentUser($user)
             && strtolower(trim((string) $purchaseRequisition->status)) === 'waiting'
             && $suppliersLoaded;
+    }
+
+    private function canProcessVendor(?User $user, PurchaseRequisition $purchaseRequisition): bool
+    {
+        return $this->isFatDepartmentUser($user)
+            && strtolower(trim((string) $purchaseRequisition->status)) === 'approved';
+    }
+
+    private function canUploadInvoice(?User $user, PurchaseRequisition $purchaseRequisition): bool
+    {
+        return $this->isFatDepartmentUser($user)
+            && strtolower(trim((string) $purchaseRequisition->status)) === 'process';
     }
 
     private function canEdit(?User $user, PurchaseRequisition $purchaseRequisition): bool
@@ -727,7 +834,6 @@ class PurchaseRequisitionController extends Controller
                 'item_code',
                 'item_name',
                 'description_of_goods',
-                'specification',
                 'unit',
                 'default_price',
             ])
@@ -736,7 +842,6 @@ class PurchaseRequisitionController extends Controller
                 'item_code' => $item->item_code,
                 'item_name' => $item->item_name,
                 'description_of_goods' => $item->description_of_goods,
-                'specification' => $item->specification,
                 'unit' => $item->unit,
                 'default_price' => $item->default_price,
                 'label' => $item->item_code . ' - ' . $item->item_name,
@@ -1061,5 +1166,38 @@ class PurchaseRequisitionController extends Controller
          return $imageAttachments->every(
              fn (PurchaseRequisitionAttachment $attachment) => $attachment->signature_status === 'signed'
          );
+     }
+
+     private function isApprovedStatus(?string $status): bool
+     {
+         return strtolower(trim((string) $status)) === 'approved';
+     }
+
+     private function hasSelectedVendorForEveryItem(PurchaseRequisition $purchaseRequisition): bool
+     {
+         $purchaseRequisition->loadMissing([
+             'items:id,purchase_requisition_id',
+             'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,is_selected',
+         ]);
+
+         $itemIds = $purchaseRequisition->items
+             ->pluck('id')
+             ->map(fn ($id) => (int) $id)
+             ->filter()
+             ->values();
+
+         if ($itemIds->isEmpty()) {
+             return false;
+         }
+
+         $selectedItemIds = $purchaseRequisition->prSuppliers
+             ->flatMap(fn (PurchaseRequisitionSupplier $prSupplier) => $prSupplier->itemQuotes)
+             ->filter(fn (PurchaseRequisitionSupplierItemQuote $quote) => (bool) $quote->is_selected)
+             ->pluck('purchase_requisition_item_id')
+             ->map(fn ($id) => (int) $id)
+             ->unique()
+             ->values();
+
+         return $itemIds->diff($selectedItemIds)->isEmpty();
      }
 }

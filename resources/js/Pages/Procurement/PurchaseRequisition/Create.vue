@@ -51,8 +51,8 @@
           </div>
 
           <PurchaseRequisitionItemEditor :form="form" :uom-options="uomOptions" :master-items="masterItems" :minimum-required-date="minimumRequiredDate" />
-          <AttachmentUploader :form="form" />
           <NoteField :form="form" />
+          <AttachmentUploader :form="form" />
 
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
             <Link href="/gmisl/procurement/purchase-requisition" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">Cancel</Link>

@@ -58,6 +58,12 @@
 
           <PurchaseRequisitionItemEditor :form="form" :uom-options="uomOptions" :master-items="masterItems" :minimum-required-date="minimumRequiredDate" />
 
+          <div>
+            <label class="mb-1 block text-sm text-slate-300">Note</label>
+            <textarea v-model="form.note" rows="4" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100"></textarea>
+            <div v-if="form.errors.note" class="mt-1 text-xs text-rose-300">{{ form.errors.note }}</div>
+          </div>
+
           <div class="space-y-4 rounded-lg border border-slate-700 p-4">
             <div>
               <label class="block text-sm font-medium text-slate-200">Existing Attachment</label>
@@ -94,12 +100,6 @@
                 </button>
               </div>
             </div>
-          </div>
-
-          <div>
-            <label class="mb-1 block text-sm text-slate-300">Note</label>
-            <textarea v-model="form.note" rows="4" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-100"></textarea>
-            <div v-if="form.errors.note" class="mt-1 text-xs text-rose-300">{{ form.errors.note }}</div>
           </div>
 
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">

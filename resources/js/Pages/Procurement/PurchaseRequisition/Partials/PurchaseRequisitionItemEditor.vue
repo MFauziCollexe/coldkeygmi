@@ -18,8 +18,6 @@
         <colgroup>
           <col class="w-[52px]" />
           <col class="w-[280px]" />
-          <col class="w-[110px]" />
-          <col class="w-[160px]" />
           <col class="w-[170px]" />
           <col class="w-[170px]" />
           <col class="w-[90px]" />
@@ -32,10 +30,8 @@
           <tr class="bg-gradient-to-b from-[#7489ba] to-[#556d9a] text-center text-[12px] font-semibold text-white">
             <th class="border border-slate-400 px-2 py-1.5">No</th>
             <th class="border border-slate-400 px-2 py-1.5">Master Item</th>
-            <th class="border border-slate-400 px-2 py-1.5">Item Code</th>
-            <th class="border border-slate-400 px-2 py-1.5">Item Name</th>
             <th class="border border-slate-400 px-2 py-1.5">Description</th>
-            <th class="border border-slate-400 px-2 py-1.5">Specification</th>
+            <th class="border border-slate-400 px-2 py-1.5">Note</th>
             <th class="border border-slate-400 px-2 py-1.5">Qty</th>
             <th class="border border-slate-400 px-2 py-1.5">Item Unit</th>
             <th class="border border-slate-400 px-2 py-1.5">Required Date</th>
@@ -60,29 +56,25 @@
               </select>
               <div v-if="itemError(index, 'procurement_master_item_id')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'procurement_master_item_id') }}</div>
             </td>
-
-            <td class="border border-slate-300 px-2 py-2">
-              <input v-model="item.item_code" type="text" readonly class="w-full rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700" />
-              <div v-if="itemError(index, 'item_code')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'item_code') }}</div>
-            </td>
-
-            <td class="border border-slate-300 px-2 py-2">
-              <input v-model="item.item_name" type="text" readonly class="w-full rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700" />
-              <div v-if="itemError(index, 'item_name')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'item_name') }}</div>
-            </td>
-
             <td class="border border-slate-300 px-2 py-2">
               <textarea v-model="item.description_of_goods" rows="1" readonly class="h-[36px] min-h-[36px] w-full resize-none rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700"></textarea>
               <div v-if="itemError(index, 'description_of_goods')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'description_of_goods') }}</div>
             </td>
 
             <td class="border border-slate-300 px-2 py-2">
-              <textarea v-model="item.specification" rows="1" readonly class="h-[36px] min-h-[36px] w-full resize-none rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700"></textarea>
+              <textarea v-model="item.specification" rows="1" readonly class="h-[36px] min-h-[36px] w-full resize-none rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700" placeholder="Note item"></textarea>
               <div v-if="itemError(index, 'specification')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'specification') }}</div>
             </td>
 
             <td class="border border-slate-300 px-2 py-2">
-              <input v-model="item.quantity" type="number" min="0" step="0.01" class="h-[36px] w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-center text-sm text-slate-800" />
+              <input
+                v-model="item.quantity"
+                type="number"
+                min="1"
+                step="1"
+                class="h-[36px] w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-center text-sm text-slate-800"
+                @input="normalizeQuantity(index)"
+              />
               <div v-if="itemError(index, 'quantity')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'quantity') }}</div>
             </td>
 
@@ -117,7 +109,7 @@
           </tr>
 
           <tr v-if="!form.items.length">
-            <td colspan="11" class="border border-slate-300 py-4 text-center text-sm text-slate-500">Belum ada item.</td>
+            <td colspan="9" class="border border-slate-300 py-4 text-center text-sm text-slate-500">Belum ada item.</td>
           </tr>
         </tbody>
       </table>
@@ -185,8 +177,25 @@ function applyMasterItem(index, rawId) {
   item.item_code = masterItem.item_code || '';
   item.item_name = masterItem.item_name || '';
   item.description_of_goods = masterItem.description_of_goods || '';
-  item.specification = masterItem.specification || '';
+  if (!item.specification) {
+    item.specification = '';
+  }
   item.unit = masterItem.unit || '';
   item.price = masterItem.default_price || '';
+}
+
+function normalizeQuantity(index) {
+  const item = props.form.items[index];
+  const rawValue = String(item?.quantity ?? '').trim();
+
+  if (rawValue === '') {
+    item.quantity = '';
+    return;
+  }
+
+  const normalized = rawValue.replace(/[^\d-]/g, '');
+  const parsed = Number.parseInt(normalized, 10);
+
+  item.quantity = Number.isNaN(parsed) || parsed < 1 ? '' : parsed;
 }
 </script>

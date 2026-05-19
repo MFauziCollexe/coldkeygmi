@@ -70,7 +70,7 @@
                             <div class="truncate font-medium text-slate-100">{{ item.item_code || '-' }} - {{ item.item_name || '-' }}</div>
                             <div class="truncate text-slate-400">{{ item.description_of_goods || '-' }}</div>
                           </div>
-                          <div class="whitespace-nowrap text-slate-300">{{ item.quantity || 0 }} {{ item.unit || '-' }}</div>
+                          <div class="whitespace-nowrap text-slate-300">{{ formatQuantity(item.quantity) }} {{ item.unit || '-' }}</div>
                         </div>
                         <div v-if="requisition.items.length > 2" class="text-xs text-slate-500">+{{ requisition.items.length - 2 }} item lainnya</div>
                       </div>
@@ -82,9 +82,12 @@
                       </span>
                     </td>
                     <td class="px-4 py-3 text-right">
-                      <Link :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`" class="mr-3 text-blue-400 hover:text-blue-300">View</Link>
-                      <Link v-if="requisition.can_edit" :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`" class="text-amber-400 hover:text-amber-300">
-                        Edit
+                      <Link
+                        :href="actionHref(requisition)"
+                        class="font-medium"
+                        :class="requisition.can_edit ? 'text-amber-400 hover:text-amber-300' : 'text-blue-400 hover:text-blue-300'"
+                      >
+                        {{ requisition.can_edit ? 'Edit' : 'View' }}
                       </Link>
                     </td>
                   </tr>
@@ -111,9 +114,12 @@
                 </div>
 
                 <div class="mt-4 flex justify-end gap-3">
-                  <Link :href="`/gmisl/procurement/purchase-requisition/${requisition.id}`" class="text-blue-400">View</Link>
-                  <Link v-if="requisition.can_edit" :href="`/gmisl/procurement/purchase-requisition/${requisition.id}/edit`" class="text-amber-400">
-                    Edit
+                  <Link
+                    :href="actionHref(requisition)"
+                    class="font-medium"
+                    :class="requisition.can_edit ? 'text-amber-400' : 'text-blue-400'"
+                  >
+                    {{ requisition.can_edit ? 'Edit' : 'View' }}
                   </Link>
                 </div>
               </div>
@@ -153,6 +159,20 @@ function statusClass(status) {
   if (normalized === 'done') return 'bg-sky-700/30 text-sky-300 border border-sky-500/40';
   if (normalized === 'rejected') return 'bg-rose-700/30 text-rose-300 border border-rose-500/40';
   return 'bg-slate-700/40 text-slate-200 border border-slate-600';
+}
+
+function formatQuantity(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return '0';
+  return String(Math.round(number));
+}
+
+function actionHref(requisition) {
+  if (requisition?.can_edit) {
+    return `/gmisl/procurement/purchase-requisition/${requisition.id}/edit`;
+  }
+
+  return `/gmisl/procurement/purchase-requisition/${requisition.id}`;
 }
 
 </script>

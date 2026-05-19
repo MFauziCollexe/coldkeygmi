@@ -323,10 +323,17 @@ export const sidebarMenuConfig = [
             },
             {
                 id: "stock-card-item-type",
-                label: "Jenis/Tipe Barang",
+                label: "Master Item Type",
                 icon: "ListTree",
                 route: "/master-data/stock-card-item-type",
                 module_key: "gmisl.master_data.stock_card_item_type",
+            },
+            {
+                id: "procurement-category",
+                label: "Master Category",
+                icon: "Folder",
+                route: "/master-data/procurement-category",
+                module_key: "gmisl.master_data.procurement_category",
             },
             {
                 id: "stock-card-unit",

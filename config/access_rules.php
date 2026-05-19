@@ -400,5 +400,19 @@ return [
                 ],
             ],
         ],
+        'gmisl.master_data.procurement_master_item' => [
+            'abilities' => [
+                'manage' => [
+                    ['type' => 'admin'],
+                ],
+            ],
+        ],
+        'gmisl.master_data.procurement_category' => [
+            'abilities' => [
+                'manage' => [
+                    ['type' => 'admin'],
+                ],
+            ],
+        ],
     ],
 ];

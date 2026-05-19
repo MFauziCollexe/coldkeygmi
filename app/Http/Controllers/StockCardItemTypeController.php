@@ -50,7 +50,7 @@ class StockCardItemTypeController extends Controller
         ]);
 
         return $this->redirectToRememberedIndex($request, 'stock-card-item-types', 'stock-card-item-types.index')
-            ->with('success', 'Jenis/Tipe barang berhasil dibuat.');
+            ->with('success', 'Master item type berhasil dibuat.');
     }
 
     public function edit(StockCardItemType $stockCardItemType)
@@ -73,7 +73,7 @@ class StockCardItemTypeController extends Controller
         ]);
 
         return $this->redirectToRememberedIndex($request, 'stock-card-item-types', 'stock-card-item-types.index')
-            ->with('success', 'Jenis/Tipe barang berhasil diperbarui.');
+            ->with('success', 'Master item type berhasil diperbarui.');
     }
 
     public function destroy(Request $request, StockCardItemType $stockCardItemType)
@@ -81,6 +81,6 @@ class StockCardItemTypeController extends Controller
         $stockCardItemType->delete();
 
         return $this->redirectToRememberedIndex($request, 'stock-card-item-types', 'stock-card-item-types.index')
-            ->with('success', 'Jenis/Tipe barang berhasil dihapus.');
+            ->with('success', 'Master item type berhasil dihapus.');
     }
 }

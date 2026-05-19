@@ -2,13 +2,13 @@
   <AppLayout>
     <div class="max-w-3xl p-4 md:p-6">
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 class="text-2xl font-bold">Tambah Master Item Type</h2>
-        <Link href="/master-data/stock-card-item-type" class="text-indigo-400">Back to list</Link>
+        <h2 class="text-2xl font-bold">Edit Master Category</h2>
+        <Link href="/master-data/procurement-category" class="text-indigo-400">Back to list</Link>
       </div>
 
       <form class="space-y-4 rounded bg-slate-800 p-4 md:p-6" @submit.prevent="submit">
         <div>
-          <label class="mb-1 block text-sm">Nama Item Type</label>
+          <label class="mb-1 block text-sm">Nama Category</label>
           <input v-model="form.name" type="text" class="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2" />
           <div v-if="form.errors.name" class="mt-1 text-sm text-red-400">{{ form.errors.name }}</div>
         </div>
@@ -19,8 +19,8 @@
         </label>
 
         <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
-          <Link href="/master-data/stock-card-item-type" class="rounded bg-slate-700 px-4 py-2 text-white hover:bg-slate-600">Cancel</Link>
-          <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700" :disabled="form.processing">Save</button>
+          <Link href="/master-data/procurement-category" class="rounded bg-slate-700 px-4 py-2 text-white hover:bg-slate-600">Cancel</Link>
+          <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700" :disabled="form.processing">Save Changes</button>
         </div>
       </form>
     </div>
@@ -31,12 +31,18 @@
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
+const props = defineProps({
+  category: Object,
+});
+
+const category = props.category || {};
+
 const form = useForm({
-  name: '',
-  is_active: true,
+  name: category.name || '',
+  is_active: category.is_active !== false,
 });
 
 function submit() {
-  form.post('/master-data/stock-card-item-type');
+  form.put(`/master-data/procurement-category/${category.id}`);
 }
 </script>

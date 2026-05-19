@@ -2,15 +2,15 @@
   <AppLayout>
     <div class="p-4 md:p-6">
       <div class="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <h2 class="text-2xl font-bold">Master Jenis / Tipe Barang</h2>
+        <h2 class="text-2xl font-bold">Master Item Type</h2>
         <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <input v-model="filters.search" @input="onSearchInput" placeholder="Cari jenis / tipe..." class="rounded bg-slate-800 px-3 py-2 text-sm" />
+          <input v-model="filters.search" @input="onSearchInput" placeholder="Cari item type..." class="rounded bg-slate-800 px-3 py-2 text-sm" />
           <select v-model="filters.is_active" @change="fetch" class="rounded bg-slate-800 px-3 py-2 text-sm">
             <option value="">Semua Status</option>
             <option value="1">Aktif</option>
             <option value="0">Nonaktif</option>
           </select>
-          <Link href="/master-data/stock-card-item-type/create" class="rounded bg-indigo-600 px-4 py-2 text-white">Tambah Jenis/Tipe</Link>
+          <Link href="/master-data/stock-card-item-type/create" class="rounded bg-indigo-600 px-4 py-2 text-white">Tambah Item Type</Link>
         </div>
       </div>
 
@@ -103,7 +103,7 @@ function fetch(page = 1) {
 async function destroy(id) {
   const ok = await swalConfirm({
     title: 'Hapus Data',
-    text: 'Hapus jenis / tipe barang ini?',
+    text: 'Hapus master item type ini?',
     confirmButtonText: 'Hapus',
     confirmButtonColor: '#dc2626',
   });

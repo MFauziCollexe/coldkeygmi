@@ -2,13 +2,13 @@
   <AppLayout>
     <div class="max-w-3xl p-4 md:p-6">
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 class="text-2xl font-bold">Edit Jenis / Tipe Barang</h2>
+        <h2 class="text-2xl font-bold">Edit Master Item Type</h2>
         <Link href="/master-data/stock-card-item-type" class="text-indigo-400">Back to list</Link>
       </div>
 
       <form class="space-y-4 rounded bg-slate-800 p-4 md:p-6" @submit.prevent="submit">
         <div>
-          <label class="mb-1 block text-sm">Nama Jenis / Tipe</label>
+          <label class="mb-1 block text-sm">Nama Item Type</label>
           <input v-model="form.name" type="text" class="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2" />
           <div v-if="form.errors.name" class="mt-1 text-sm text-red-400">{{ form.errors.name }}</div>
         </div>

@@ -11,7 +11,7 @@
         </div>
 
         <form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
-          <MasterItemForm :form="form" :unit-options="unitOptions" />
+          <MasterItemForm :form="form" :item-type-options="itemTypeOptions" :unit-options="unitOptions" />
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
             <Link href="/master-data/master-item" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">Cancel</Link>
             <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700" :disabled="form.processing">
@@ -30,6 +30,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import MasterItemForm from './Partials/MasterItemForm.vue';
 
 defineProps({
+  itemTypeOptions: { type: Array, default: () => [] },
   unitOptions: { type: Array, default: () => [] },
 });
 
@@ -37,7 +38,7 @@ const form = useForm({
   item_code: '',
   item_name: '',
   description_of_goods: '',
-  specification: '',
+  item_type: '',
   unit: '',
   default_price: '',
   is_active: true,

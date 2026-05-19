@@ -302,6 +302,12 @@ Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/suppli
 Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/supplier-comparisons', [App\Http\Controllers\PurchaseRequisitionController::class, 'saveSupplierComparisons'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.suppliers.comparisons.save');
+Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/process-vendor', [App\Http\Controllers\PurchaseRequisitionController::class, 'processVendor'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.process-vendor');
+Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/invoice', [App\Http\Controllers\PurchaseRequisitionController::class, 'saveInvoice'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.invoice.save');
 
 // Attachment Signing (for Purchase Requisition)
 Route::post(
@@ -390,6 +396,11 @@ Route::put('master-data/stock-card/{stockCardItem}', [App\Http\Controllers\Stock
 Route::resource('master-data/stock-card-item-type', \App\Http\Controllers\StockCardItemTypeController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card_item_type'])
     ->names('stock-card-item-types');
+Route::resource('master-data/procurement-category', \App\Http\Controllers\ProcurementCategoryController::class)
+    ->except(['show'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.procurement_category'])
+    ->parameters(['procurement-category' => 'procurementCategory'])
+    ->names('procurement-category');
 Route::resource('master-data/stock-card-unit', \App\Http\Controllers\StockCardUnitController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card_unit'])
     ->names('stock-card-units');

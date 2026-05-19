@@ -14,7 +14,7 @@ class ProcurementMasterItem extends Model
         'item_code',
         'item_name',
         'description_of_goods',
-        'specification',
+        'item_type',
         'unit',
         'default_price',
         'is_active',
