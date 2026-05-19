@@ -56,6 +56,7 @@ class PurchaseRequisitionController extends Controller
                 'approvedBy:id,name',
                 'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,price,product_name,uom,qty',
                 'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
+                'suppliers:id',
             ])
             ->orderByRaw("CASE WHEN status = 'waiting' THEN 0 WHEN status = 'approved' THEN 1 WHEN status = 'process' THEN 2 WHEN status = 'done' THEN 3 ELSE 4 END")
             ->orderByDesc('created_at')
@@ -76,8 +77,8 @@ class PurchaseRequisitionController extends Controller
                     'created_at' => $purchaseRequisition->created_at?->format('Y-m-d H:i'),
                     'approved_at' => $purchaseRequisition->approved_at?->format('Y-m-d H:i'),
                     'approved_by_name' => optional($purchaseRequisition->approvedBy)->name,
-                    'can_edit' => $this->canEdit($user, $purchaseRequisition),
-                    'can_approve' => $this->canApprove($user, $purchaseRequisition),
+'can_edit' => $this->canEdit($user, $purchaseRequisition),
+                     'can_approve' => $this->canApprove($user, $purchaseRequisition),
                     'items' => $purchaseRequisition->items
                         ->map(fn ($item) => $this->itemPayload($item))
                         ->values(),
@@ -368,9 +369,9 @@ class PurchaseRequisitionController extends Controller
             ]);
         }
 
-        if (!$this->allImageAttachmentsSigned($purchaseRequisition)) {
+        if (!$purchaseRequisition->suppliers()->exists()) {
             return redirect()->back()->withErrors([
-                'signature' => 'Semua attachment gambar wajib ditandatangani terlebih dahulu sebelum PR bisa di-approve.',
+                'vendor' => 'PR harus memiliki minimal 1 vendor sebelum bisa di-approve.',
             ]);
         }
 
@@ -597,10 +598,9 @@ class PurchaseRequisitionController extends Controller
                         'is_image' => $this->isImageFile($attachment->filename),
                     ])
                     ->values(),
-                'can_approve' => $canApprove,
-                'can_reject' => $canReject,
-                'all_image_attachments_signed' => $this->allImageAttachmentsSigned($purchaseRequisition),
-                'suppliers' => $purchaseRequisition->suppliers
+'can_approve' => $canApprove,
+                 'can_reject' => $canReject,
+                 'suppliers' => $purchaseRequisition->suppliers
                     ->map(fn ($supplier) => [
                         'id' => $supplier->id,
                         'name' => $supplier->name,
@@ -652,9 +652,13 @@ class PurchaseRequisitionController extends Controller
 
     private function canApprove(?User $user, PurchaseRequisition $purchaseRequisition): bool
     {
+        $suppliersLoaded = $purchaseRequisition->relationLoaded('suppliers')
+            ? $purchaseRequisition->suppliers->isNotEmpty()
+            : $purchaseRequisition->suppliers()->exists();
+
         return $this->isOwnerDepartmentUser($user)
             && strtolower(trim((string) $purchaseRequisition->status)) === 'waiting'
-            && $this->allImageAttachmentsSigned($purchaseRequisition);
+            && $suppliersLoaded;
     }
 
     private function canEdit(?User $user, PurchaseRequisition $purchaseRequisition): bool

@@ -20,9 +20,13 @@
           </div>
         </div>
 
-        <div v-if="$page.props.flash?.success" class="rounded border border-green-600 bg-green-600/20 px-4 py-3 text-sm text-green-300">
-          {{ $page.props.flash.success }}
-        </div>
+<div v-if="$page.props.flash?.success" class="rounded border border-green-600 bg-green-600/20 px-4 py-3 text-sm text-green-300">
+           {{ $page.props.flash.success }}
+         </div>
+
+         <div v-if="$page.props.errors?.vendor" class="rounded border border-rose-600 bg-rose-600/20 px-4 py-3 text-sm text-rose-200">
+           {{ $page.props.errors.vendor }}
+         </div>
 
         <section class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
           <div class="flex items-center justify-between">

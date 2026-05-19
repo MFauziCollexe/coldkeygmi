@@ -10,11 +10,15 @@
           <Link :href="backUrl" class="text-sm text-indigo-400">Back to list</Link>
         </div>
 
-        <div v-if="$page.props.flash?.success" class="rounded border border-green-600 bg-green-600/20 px-4 py-3 text-sm text-green-300">
-          {{ $page.props.flash.success }}
-        </div>
+<div v-if="$page.props.flash?.success" class="rounded border border-green-600 bg-green-600/20 px-4 py-3 text-sm text-green-300">
+           {{ $page.props.flash.success }}
+         </div>
 
-        <div class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
+         <div v-if="$page.props.errors?.vendor" class="rounded border border-rose-600 bg-rose-600/20 px-4 py-3 text-sm text-rose-200">
+           {{ $page.props.errors.vendor }}
+         </div>
+
+         <div class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
           <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div class="space-y-4">
               <ReadOnlyField label="No PR" :value="purchaseRequisition.pr_number || '-'" />

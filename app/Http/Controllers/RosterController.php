@@ -1105,6 +1105,7 @@ class RosterController extends Controller
                 ['nrp' => '25110419', 'name' => 'Reza Sahidul A'],
                 ['nrp' => '25111022', 'name' => 'Rizky Fadhlika W. D'],
                 ['nrp' => '25111021', 'name' => 'Sultan Rafliansyah'],
+                ['nrp' => '26033042', 'name' => 'Fajar Dariyanto'],
             ];
         }
 
@@ -1163,6 +1164,7 @@ class RosterController extends Controller
             ['nrp' => '25110420', 'name' => 'ILHAM M'],
             ['nrp' => '25111021', 'name' => 'SULTAN RAFLIAN'],
             ['nrp' => '25111022', 'name' => 'RIZKY FADLIKA'],
+            ['nrp' => '26033042', 'name' => 'FAJAR DARIYANTO'],
             ['nrp' => '25111723', 'name' => 'HUSNI A'],
             ['nrp' => '25111724', 'name' => 'EKO P'],
             ['nrp' => '25111725', 'name' => 'RAFI EKA'],
