@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\PurchaseRequisition;
+use App\Models\PurchaseRequisitionItem;
+use App\Models\PurchaseRequisitionSupplier;
+use App\Models\PurchaseRequisitionSupplierItemQuote;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +18,7 @@ class PurchaseOrderListController extends Controller
     use RemembersIndexUrl;
 
     private const ACCESS_MODULE = 'gmisl.procurement.purchase_order';
+    private const OWNER_DEPARTMENT_CODE = 'OWNER';
     private const FAT_DEPARTMENT_CODE = 'FAT';
     private const IT_DEPARTMENT_CODE = 'IT';
 
@@ -30,6 +34,8 @@ class PurchaseOrderListController extends Controller
         $user?->loadMissing('department');
         $search = trim((string) $request->query('search', ''));
 
+        abort_unless($this->canAccessPurchaseOrderModule($user), 403, 'Hanya departemen Owner, FAT, atau IT yang dapat melihat purchase order.');
+
         $purchaseOrders = PurchaseRequisition::query()
             ->with([
                 'requester:id,name,department_id',
@@ -37,6 +43,8 @@ class PurchaseOrderListController extends Controller
                 'approvedBy:id,name',
                 'items:id,purchase_requisition_id,item_code,item_name,description_of_goods,unit,quantity,required_date,price,product_name,uom,qty',
                 'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
+                'prSuppliers.supplier:id,name,code',
+                'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
             ])
             ->whereIn('status', ['approved', 'process', 'done'])
             ->when($search !== '', function ($query) use ($search) {
@@ -54,6 +62,7 @@ class PurchaseOrderListController extends Controller
                 return [
                     'id' => $purchaseRequisition->id,
                     'pr_number' => $purchaseRequisition->pr_number,
+                    'po_number' => $purchaseRequisition->po_number,
                     'pr_date' => optional($purchaseRequisition->pr_date)->toDateString(),
                     'request_date' => optional($purchaseRequisition->request_date)->toDateString(),
                     'priority' => $purchaseRequisition->priority,
@@ -70,12 +79,14 @@ class PurchaseOrderListController extends Controller
                     'approved_at' => $purchaseRequisition->approved_at?->format('Y-m-d H:i'),
                     'approved_by_name' => optional($purchaseRequisition->approvedBy)->name,
                     'po_processed_at' => $purchaseRequisition->po_processed_at?->format('Y-m-d H:i'),
-                    'po_done_at' => $purchaseRequisition->po_done_at?->format('Y-m-d H:i'),
-                    'can_process' => $this->canProcess($user, $purchaseRequisition),
-                    'can_update_po' => $this->canUpdatePo($user, $purchaseRequisition),
-                    'can_done' => $this->canDone($user, $purchaseRequisition),
-                    'can_open' => $this->canOpen($user, $purchaseRequisition),
-                    'items' => $purchaseRequisition->items
+                'po_done_at' => $purchaseRequisition->po_done_at?->format('Y-m-d H:i'),
+                'can_process' => $this->canProcess($user, $purchaseRequisition),
+                'can_update_po' => $this->canUpdatePo($user, $purchaseRequisition),
+                'can_done' => $this->canDone($user, $purchaseRequisition),
+                'can_open' => $this->canOpen($user, $purchaseRequisition),
+                'can_delete' => $this->isItDepartmentUser($user),
+                'po_summary' => $this->purchaseOrderSummaryPayload($purchaseRequisition),
+                'items' => $purchaseRequisition->items
                         ->map(fn ($item) => $this->itemPayload($item))
                         ->values(),
                     'attachments' => $purchaseRequisition->attachments
@@ -121,6 +132,8 @@ class PurchaseOrderListController extends Controller
             'approvedBy:id,name',
             'items:id,purchase_requisition_id,item_code,item_name,description_of_goods,unit,quantity,required_date,price,product_name,uom,qty',
             'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
+            'prSuppliers.supplier:id,name,code',
+            'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
         ]);
 
         return Inertia::render('Procurement/PurchaseOrder/Form', [
@@ -129,6 +142,7 @@ class PurchaseOrderListController extends Controller
             'purchaseOrder' => [
                 'id' => $purchaseRequisition->id,
                 'pr_number' => $purchaseRequisition->pr_number,
+                'po_number' => $purchaseRequisition->po_number,
                 'pr_date' => optional($purchaseRequisition->pr_date)->toDateString(),
                 'request_date' => optional($purchaseRequisition->request_date)->toDateString(),
                 'priority' => $purchaseRequisition->priority,
@@ -149,6 +163,8 @@ class PurchaseOrderListController extends Controller
                 'can_process' => $this->canProcess($user, $purchaseRequisition),
                 'can_update_po' => $this->canUpdatePo($user, $purchaseRequisition),
                 'can_done' => $this->canDone($user, $purchaseRequisition),
+                'can_delete' => $this->isItDepartmentUser($user),
+                'po_summary' => $this->purchaseOrderSummaryPayload($purchaseRequisition),
                 'items' => $purchaseRequisition->items
                     ->map(fn ($item) => $this->itemPayload($item))
                     ->values(),
@@ -185,6 +201,8 @@ class PurchaseOrderListController extends Controller
             'approvedBy:id,name',
             'items:id,purchase_requisition_id,item_code,item_name,description_of_goods,unit,quantity,required_date,price,product_name,uom,qty',
             'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
+            'prSuppliers.supplier:id,name,code',
+            'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
         ]);
 
         return Inertia::render('Procurement/PurchaseOrder/Show', [
@@ -193,6 +211,7 @@ class PurchaseOrderListController extends Controller
             'purchaseOrder' => [
                 'id' => $purchaseRequisition->id,
                 'pr_number' => $purchaseRequisition->pr_number,
+                'po_number' => $purchaseRequisition->po_number,
                 'pr_date' => optional($purchaseRequisition->pr_date)->toDateString(),
                 'request_date' => optional($purchaseRequisition->request_date)->toDateString(),
                 'priority' => $purchaseRequisition->priority,
@@ -216,6 +235,8 @@ class PurchaseOrderListController extends Controller
                 'can_process' => $this->canProcess($user, $purchaseRequisition),
                 'can_update_po' => $this->canUpdatePo($user, $purchaseRequisition),
                 'can_done' => $this->canDone($user, $purchaseRequisition),
+                'can_delete' => $this->isItDepartmentUser($user),
+                'po_summary' => $this->purchaseOrderSummaryPayload($purchaseRequisition),
                 'items' => $purchaseRequisition->items
                     ->map(fn ($item) => $this->itemPayload($item))
                     ->values(),
@@ -254,8 +275,17 @@ class PurchaseOrderListController extends Controller
             ]);
         }
 
+        if (!$this->hasSelectedVendorForEveryItem($purchaseRequisition)) {
+            return redirect()->back()->withErrors([
+                'vendor' => 'Pilih vendor untuk setiap item terlebih dahulu sebelum memproses purchase order.',
+            ]);
+        }
+
+        $this->syncApprovedPurchaseOrderSnapshot($purchaseRequisition);
+
         $purchaseRequisition->update([
             'status' => 'process',
+            'po_number' => $purchaseRequisition->po_number ?: PurchaseRequisition::generatePoNumber(now()),
             'po_processed_by' => $user?->id,
             'po_processed_at' => now(),
             'po_done_by' => null,
@@ -330,8 +360,20 @@ class PurchaseOrderListController extends Controller
 
     private function canOpen(?User $user, PurchaseRequisition $purchaseRequisition): bool
     {
-        return $this->isFatDepartmentUser($user)
+        return $this->canAccessPurchaseOrderModule($user)
             && in_array(strtolower(trim((string) $purchaseRequisition->status)), ['approved', 'process', 'done'], true);
+    }
+
+    private function canAccessPurchaseOrderModule(?User $user): bool
+    {
+        return $this->isOwnerDepartmentUser($user)
+            || $this->isFatDepartmentUser($user)
+            || $this->isItDepartmentUser($user);
+    }
+
+    private function isOwnerDepartmentUser(?User $user): bool
+    {
+        return strtoupper(trim((string) ($user?->department?->code ?? ''))) === self::OWNER_DEPARTMENT_CODE;
     }
 
     private function isFatDepartmentUser(?User $user): bool
@@ -405,6 +447,131 @@ class PurchaseOrderListController extends Controller
         ];
     }
 
+    private function purchaseOrderSummaryPayload(PurchaseRequisition $purchaseRequisition): array
+    {
+        $purchaseRequisition->loadMissing([
+            'items:id,purchase_requisition_id,item_code,item_name,description_of_goods,unit,quantity,required_date,price,product_name,uom,qty',
+            'prSuppliers.supplier:id,name,code',
+            'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
+        ]);
+
+        $selectedRows = $purchaseRequisition->prSuppliers
+            ->flatMap(function (PurchaseRequisitionSupplier $prSupplier) {
+                return $prSupplier->itemQuotes
+                    ->filter(fn (PurchaseRequisitionSupplierItemQuote $quote) => (bool) $quote->is_selected)
+                    ->map(function (PurchaseRequisitionSupplierItemQuote $quote) use ($prSupplier) {
+                        return [
+                            'purchase_requisition_item_id' => (int) $quote->purchase_requisition_item_id,
+                            'supplier_id' => (int) $prSupplier->supplier_id,
+                            'supplier_name' => $prSupplier->supplier?->name,
+                            'supplier_code' => $prSupplier->supplier?->code,
+                            'payment_terms' => $prSupplier->payment_terms,
+                            'quoted_price' => (float) ($quote->quoted_price ?? 0),
+                        ];
+                    });
+            })
+            ->keyBy('purchase_requisition_item_id');
+
+        $items = $purchaseRequisition->items
+            ->map(function (PurchaseRequisitionItem $item) use ($selectedRows) {
+                $selectedRow = $selectedRows->get((int) $item->id);
+                $quantity = (float) ($item->quantity ?? $item->qty ?? 0);
+                $approvedPrice = $selectedRow['quoted_price'] ?? (float) ($item->price ?? 0);
+                $lineTotal = $quantity * $approvedPrice;
+
+                return [
+                    'id' => $item->id,
+                    'item_code' => $item->item_code,
+                    'item_name' => $item->item_name ?: $item->product_name,
+                    'description_of_goods' => $item->description_of_goods ?: $item->product_name,
+                    'unit' => $item->unit ?: $item->uom,
+                    'quantity' => $quantity,
+                    'approved_price' => $approvedPrice,
+                    'line_total' => $lineTotal,
+                    'supplier_id' => $selectedRow['supplier_id'] ?? null,
+                    'supplier_name' => $selectedRow['supplier_name'] ?? null,
+                    'supplier_code' => $selectedRow['supplier_code'] ?? null,
+                    'payment_terms' => $selectedRow['payment_terms'] ?? null,
+                ];
+            })
+            ->values();
+
+        $supplierGroups = $items
+            ->groupBy(fn (array $item) => (string) ($item['supplier_id'] ?? ''))
+            ->map(function ($groupedItems) {
+                $first = $groupedItems->first();
+
+                return [
+                    'supplier_id' => $first['supplier_id'] ?? null,
+                    'supplier_name' => $first['supplier_name'] ?? null,
+                    'supplier_code' => $first['supplier_code'] ?? null,
+                    'payment_terms' => $first['payment_terms'] ?? null,
+                    'total_amount' => $groupedItems->sum('line_total'),
+                ];
+            })
+            ->filter(fn (array $group) => $group['supplier_id'] !== null)
+            ->values();
+
+        return [
+            'items' => $items->all(),
+            'suppliers' => $supplierGroups->all(),
+            'grand_total' => (float) $items->sum('line_total'),
+        ];
+    }
+
+    private function syncApprovedPurchaseOrderSnapshot(PurchaseRequisition $purchaseRequisition): void
+    {
+        $purchaseRequisition->loadMissing([
+            'items:id,purchase_requisition_id,price',
+            'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
+        ]);
+
+        $selectedQuotes = $purchaseRequisition->prSuppliers
+            ->flatMap(fn (PurchaseRequisitionSupplier $prSupplier) => $prSupplier->itemQuotes)
+            ->filter(fn (PurchaseRequisitionSupplierItemQuote $quote) => (bool) $quote->is_selected)
+            ->keyBy('purchase_requisition_item_id');
+
+        foreach ($purchaseRequisition->items as $item) {
+            $selectedQuote = $selectedQuotes->get($item->id);
+
+            if (!$selectedQuote) {
+                continue;
+            }
+
+            $item->update([
+                'price' => $selectedQuote->quoted_price ?? 0,
+            ]);
+        }
+    }
+
+    private function hasSelectedVendorForEveryItem(PurchaseRequisition $purchaseRequisition): bool
+    {
+        $purchaseRequisition->loadMissing([
+            'items:id,purchase_requisition_id',
+            'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,is_selected',
+        ]);
+
+        $itemIds = $purchaseRequisition->items
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values();
+
+        if ($itemIds->isEmpty()) {
+            return false;
+        }
+
+        $selectedItemIds = $purchaseRequisition->prSuppliers
+            ->flatMap(fn (PurchaseRequisitionSupplier $prSupplier) => $prSupplier->itemQuotes)
+            ->filter(fn (PurchaseRequisitionSupplierItemQuote $quote) => (bool) $quote->is_selected)
+            ->pluck('purchase_requisition_item_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        return $itemIds->diff($selectedItemIds)->isEmpty();
+    }
+
     public function destroy(Request $request, PurchaseRequisition $purchaseRequisition)
     {
         /** @var \App\Models\User|null $user */
@@ -416,8 +583,8 @@ class PurchaseOrderListController extends Controller
         }
 
         $status = strtolower(trim((string) $purchaseRequisition->status));
-        if (!in_array($status, ['approved', 'process'], true)) {
-            abort(403, 'Purchase order hanya bisa dihapus untuk status approved atau process.');
+        if (!in_array($status, ['approved', 'process', 'done'], true)) {
+            abort(403, 'Purchase order hanya bisa dihapus untuk status approved, process, atau done.');
         }
 
         if ($purchaseRequisition->po_photo_path && Storage::disk('public')->exists($purchaseRequisition->po_photo_path)) {
@@ -426,6 +593,7 @@ class PurchaseOrderListController extends Controller
 
         $purchaseRequisition->update([
             'status' => 'approved',
+            'po_number' => null,
             'po_comment' => null,
             'po_photo_path' => null,
             'po_photo_filename' => null,

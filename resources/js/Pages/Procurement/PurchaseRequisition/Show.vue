@@ -76,9 +76,9 @@
                     <td class="border border-slate-300 px-2 py-1.5 text-center">
                       {{ formatCompactDate(item.required_date) }}
                     </td>
-                    <td class="border border-slate-300 px-2 py-1.5">
-                      {{ item.specification || '-' }}
-                    </td>
+<td class="border border-slate-300 px-2 py-1.5">
+                       {{ purchaseRequisition.note || '-' }}
+                     </td>
                     <td class="border border-slate-300 bg-[#e7e7ea] px-2 py-1.5 text-center">
                       0
                     </td>
@@ -171,17 +171,17 @@
 
               <div class="overflow-x-auto p-1">
                 <table class="w-full min-w-[1120px] border-collapse text-sm text-slate-800">
-                  <thead>
-                    <tr class="bg-gradient-to-b from-[#7489ba] to-[#556d9a] text-center text-[12px] font-semibold text-white">
-                      <th class="w-[22%] border border-slate-400 px-2 py-1.5">Vendor / Supplier</th>
-                      <th class="w-[17%] border border-slate-400 px-2 py-1.5">Item</th>
-                      <th class="w-[6%] border border-slate-400 px-2 py-1.5">Qty</th>
-                      <th class="w-[12%] border border-slate-400 px-2 py-1.5">Harga</th>
-                      <th class="w-[20%] border border-slate-400 px-2 py-1.5">Payment Type</th>
-                      <th class="w-[11%] border border-slate-400 px-2 py-1.5">Total</th>
-                      <th class="w-[12%] border border-slate-400 px-2 py-1.5">Action</th>
-                    </tr>
-                  </thead>
+<thead>
+                     <tr class="bg-gradient-to-b from-[#7489ba] to-[#556d9a] text-center text-[12px] font-semibold text-white">
+                       <th class="w-[22%] border border-slate-400 px-2 py-1.5">Vendor / Supplier</th>
+                       <th class="w-[17%] border border-slate-400 px-2 py-1.5">Item</th>
+                       <th class="w-[6%] border border-slate-400 px-2 py-1.5">Qty</th>
+                       <th class="w-[14%] border border-slate-400 px-2 py-1.5">Harga</th>
+                       <th class="w-[18%] border border-slate-400 px-2 py-1.5">Payment Type</th>
+                       <th class="w-[11%] border border-slate-400 px-2 py-1.5">Total</th>
+                       <th class="w-[12%] border border-slate-400 px-2 py-1.5">Action</th>
+                     </tr>
+                   </thead>
                   <tbody>
                     <template
                       v-for="comparison in supplierComparisons"
@@ -467,7 +467,7 @@ const canFatManageComparison = isFatUser && isWaitingStatus;
 const canOwnerSelectVendor = isOwnerDepartmentUser && isWaitingStatus;
 const canSubmitVendorRequest = isFatUser && isWaitingStatus;
 const canViewInvoiceSection = isFatUser && (isProcessStatus || canUploadInvoice || Boolean(props.purchaseRequisition.po_invoice_url));
-const canDelete = isItUser;
+const canDelete = props.purchaseRequisition.can_delete === true || isItUser;
 const showImagePreviewModal = ref(false);
 const previewAttachment = ref(null);
 const previewUrl = ref('');

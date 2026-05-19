@@ -54,7 +54,7 @@ class PurchaseRequisitionController extends Controller
                 'requester:id,name,department_id',
                 'department:id,name,code',
                 'approvedBy:id,name',
-                'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,price,product_name,uom,qty',
+                'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,product_name,uom,qty',
                 'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
                 'suppliers:id',
             ])
@@ -162,7 +162,6 @@ class PurchaseRequisitionController extends Controller
             'items.*.unit' => ['required', 'string', 'max:100', 'exists:stock_card_units,name'],
             'items.*.quantity' => ['required', 'integer', 'gt:0'],
             'items.*.required_date' => ['required', 'date'],
-            'items.*.price' => ['required', 'numeric', 'min:0'],
             'attachments' => ['nullable', 'array'],
             'attachments.*' => ['file', 'max:10240'],
         ]);
@@ -223,12 +222,12 @@ class PurchaseRequisitionController extends Controller
 
         abort_unless($this->canEdit($user, $purchaseRequisition), 403, 'Purchase requisition ini tidak bisa diubah.');
 
-        $purchaseRequisition->load([
-            'requester:id,name,department_id',
-            'department:id,name,code',
-            'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,price,product_name,uom,qty',
-            'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
-        ]);
+         $purchaseRequisition->load([
+             'requester:id,name,department_id',
+             'department:id,name,code',
+             'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,product_name,uom,qty',
+             'attachments:id,purchase_requisition_id,filename,path,mime_type,size',
+         ]);
 
         return Inertia::render('Procurement/PurchaseRequisition/Edit', [
             'title' => 'Edit Purchase Requisition',
@@ -241,6 +240,7 @@ class PurchaseRequisitionController extends Controller
                 'status' => $purchaseRequisition->status,
                 'note' => $purchaseRequisition->note,
                 'reject_note' => $purchaseRequisition->reject_note,
+                'can_delete' => $this->isItDepartmentUser($user),
                 'items' => $purchaseRequisition->items
                     ->map(fn ($item) => $this->itemPayload($item))
                     ->values(),
@@ -284,7 +284,6 @@ class PurchaseRequisitionController extends Controller
             'items.*.unit' => ['required', 'string', 'max:100', 'exists:stock_card_units,name'],
             'items.*.quantity' => ['required', 'integer', 'gt:0'],
             'items.*.required_date' => ['required', 'date'],
-            'items.*.price' => ['required', 'numeric', 'min:0'],
             'attachments' => ['nullable', 'array'],
             'attachments.*' => ['file', 'max:10240'],
             'delete_attachment_ids' => ['nullable', 'array'],
@@ -536,27 +535,36 @@ class PurchaseRequisitionController extends Controller
             ->with('success', 'Komparasi vendor berhasil disimpan.');
     }
 
-    public function processVendor(Request $request, PurchaseRequisition $purchaseRequisition)
-    {
-        /** @var \App\Models\User|null $user */
-        $user = $request->user();
-        $user?->loadMissing('department');
+      public function processVendor(Request $request, PurchaseRequisition $purchaseRequisition)
+      {
+          /** @var \App\Models\User|null $user */
+          $user = $request->user();
+          $user?->loadMissing('department');
 
         if (!$this->isFatDepartmentUser($user)) {
             abort(403, 'Hanya departemen FAT yang dapat memproses PR by vendor.');
         }
 
-        if (strtolower(trim((string) $purchaseRequisition->status)) !== 'approved') {
-            return redirect()->back()->withErrors([
-                'status' => 'Hanya PR dengan status approved yang bisa diubah ke On Process by Vendor.',
-            ]);
-        }
+          if (strtolower(trim((string) $purchaseRequisition->status)) !== 'approved') {
+              return redirect()->back()->withErrors([
+                  'status' => 'Hanya PR dengan status approved yang bisa diubah ke On Process by Vendor.',
+              ]);
+          }
 
-        $purchaseRequisition->update([
-            'status' => 'process',
-            'po_processed_by' => $user?->id,
-            'po_processed_at' => now(),
-        ]);
+          if (!$this->hasSelectedVendorForEveryItem($purchaseRequisition)) {
+              return redirect()->back()->withErrors([
+                  'vendor' => 'Pilih vendor untuk setiap item terlebih dahulu sebelum ubah ke On Process by Vendor.',
+              ]);
+          }
+
+          $this->syncApprovedPurchaseOrderSnapshot($purchaseRequisition);
+
+          $purchaseRequisition->update([
+              'status' => 'process',
+              'po_number' => $purchaseRequisition->po_number ?: PurchaseRequisition::generatePoNumber(now()),
+              'po_processed_by' => $user?->id,
+              'po_processed_at' => now(),
+          ]);
 
         return redirect()->route('purchase-requisition.index')->with('success', 'Status PR berhasil diubah menjadi On Process by Vendor.');
     }
@@ -622,16 +630,16 @@ class PurchaseRequisitionController extends Controller
             abort(403, 'Anda tidak memiliki akses untuk melihat purchase requisition ini.');
         }
 
-        $purchaseRequisition->load([
-            'requester:id,name,department_id',
-            'department:id,name,code',
-            'approvedBy:id,name',
-            'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,price,product_name,uom,qty',
-            'attachments:id,purchase_requisition_id,filename,path,mime_type,size,original_path,signed_path,signature_status,signed_by,signed_at,signature_meta',
-            'suppliers:id,name,code,contact_person,phone,email',
-            'prSuppliers.supplier:id,name,supplier_type,code,contact_person,phone,email',
-            'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
-        ]);
+         $purchaseRequisition->load([
+             'requester:id,name,department_id',
+             'department:id,name,code',
+             'approvedBy:id,name',
+             'items:id,purchase_requisition_id,procurement_master_item_id,line_no,item_code,item_name,description_of_goods,specification,unit,quantity,required_date,product_name,uom,qty',
+             'attachments:id,purchase_requisition_id,filename,path,mime_type,size,original_path,signed_path,signature_status,signed_by,signed_at,signature_meta',
+             'suppliers:id,name,code,contact_person,phone,email',
+             'prSuppliers.supplier:id,name,supplier_type,code,contact_person,phone,email',
+             'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
+         ]);
 
         // Eager load signer for attachments
         $purchaseRequisition->load(['attachments.signer:id,name']);
@@ -648,10 +656,11 @@ class PurchaseRequisitionController extends Controller
             'title' => 'Detail Purchase Requisition',
             'description' => 'Detail Purchase Requisition',
             'backUrl' => $backUrl,
-            'purchaseRequisition' => [
-                'id' => $purchaseRequisition->id,
-                'pr_number' => $purchaseRequisition->pr_number,
-                'pr_date' => optional($purchaseRequisition->pr_date)->toDateString(),
+              'purchaseRequisition' => [
+                  'id' => $purchaseRequisition->id,
+                  'pr_number' => $purchaseRequisition->pr_number,
+                  'po_number' => $purchaseRequisition->po_number,
+                  'pr_date' => optional($purchaseRequisition->pr_date)->toDateString(),
                 'priority' => $purchaseRequisition->priority,
                 'status' => $purchaseRequisition->status,
                 'note' => $purchaseRequisition->note,
@@ -664,6 +673,7 @@ class PurchaseRequisitionController extends Controller
                 'created_at' => $purchaseRequisition->created_at?->format('Y-m-d H:i'),
                 'approved_at' => $purchaseRequisition->approved_at?->format('Y-m-d H:i'),
                 'approved_by_name' => optional($purchaseRequisition->approvedBy)->name,
+                'can_delete' => $this->isItDepartmentUser($user),
                 'items' => $purchaseRequisition->items
                     ->map(fn ($item) => $this->itemPayload($item))
                     ->values(),
@@ -689,10 +699,11 @@ class PurchaseRequisitionController extends Controller
                  'can_reject' => $canReject,
                  'can_process_vendor' => $this->canProcessVendor($user, $purchaseRequisition),
                  'can_upload_invoice' => $this->canUploadInvoice($user, $purchaseRequisition),
-                 'po_processed_at' => $purchaseRequisition->po_processed_at?->format('Y-m-d H:i'),
-                 'po_invoice_url' => $purchaseRequisition->po_photo_path
-                    ? Storage::disk('public')->url($purchaseRequisition->po_photo_path)
-                    : null,
+                   'po_processed_at' => $purchaseRequisition->po_processed_at?->format('Y-m-d H:i'),
+                   'po_summary' => $this->purchaseOrderSummaryPayload($purchaseRequisition),
+                   'po_invoice_url' => $purchaseRequisition->po_photo_path
+                      ? Storage::disk('public')->url($purchaseRequisition->po_photo_path)
+                      : null,
                  'po_invoice_filename' => $purchaseRequisition->po_photo_filename,
                  'po_invoice_mime_type' => $purchaseRequisition->po_photo_mime_type,
                   'suppliers' => $purchaseRequisition->suppliers
@@ -1028,25 +1039,24 @@ class PurchaseRequisitionController extends Controller
          return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
      }
 
-     private function itemPayload(PurchaseRequisitionItem $item): array
-     {
-         return [
-             'id' => $item->id,
-             'procurement_master_item_id' => $item->procurement_master_item_id,
-             'line_no' => $item->line_no,
-             'item_code' => $item->item_code,
-             'item_name' => $item->item_name ?: $item->product_name,
-             'description_of_goods' => $item->description_of_goods ?: $item->product_name,
-             'specification' => $item->specification,
-             'unit' => $item->unit ?: $item->uom,
-             'quantity' => $item->quantity ?? $item->qty,
-             'required_date' => optional($item->required_date)->toDateString(),
-             'price' => $item->price ?? 0,
-             'product_name' => $item->item_name ?: $item->product_name,
-             'uom' => $item->unit ?: $item->uom,
-             'qty' => $item->quantity ?? $item->qty,
-         ];
-     }
+      private function itemPayload(PurchaseRequisitionItem $item): array
+      {
+          return [
+              'id' => $item->id,
+              'procurement_master_item_id' => $item->procurement_master_item_id,
+              'line_no' => $item->line_no,
+              'item_code' => $item->item_code,
+              'item_name' => $item->item_name ?: $item->product_name,
+              'description_of_goods' => $item->description_of_goods ?: $item->product_name,
+              'specification' => $item->specification,
+              'unit' => $item->unit ?: $item->uom,
+              'quantity' => $item->quantity ?? $item->qty,
+              'required_date' => optional($item->required_date)->toDateString(),
+              'product_name' => $item->item_name ?: $item->product_name,
+              'uom' => $item->unit ?: $item->uom,
+              'qty' => $item->quantity ?? $item->qty,
+          ];
+      }
 
      private function syncSupplierComparisonRows(PurchaseRequisition $purchaseRequisition): void
      {
@@ -1115,6 +1125,103 @@ class PurchaseRequisitionController extends Controller
              ->all();
      }
 
+     private function purchaseOrderSummaryPayload(PurchaseRequisition $purchaseRequisition): array
+     {
+         $purchaseRequisition->loadMissing([
+             'items:id,purchase_requisition_id,item_code,item_name,description_of_goods,unit,quantity,required_date,price,product_name,uom,qty',
+             'prSuppliers.supplier:id,name,code',
+             'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
+         ]);
+
+         $selectedRows = $purchaseRequisition->prSuppliers
+             ->flatMap(function (PurchaseRequisitionSupplier $prSupplier) {
+                 return $prSupplier->itemQuotes
+                     ->filter(fn (PurchaseRequisitionSupplierItemQuote $quote) => (bool) $quote->is_selected)
+                     ->map(function (PurchaseRequisitionSupplierItemQuote $quote) use ($prSupplier) {
+                         return [
+                             'purchase_requisition_item_id' => (int) $quote->purchase_requisition_item_id,
+                             'supplier_id' => (int) $prSupplier->supplier_id,
+                             'supplier_name' => $prSupplier->supplier?->name,
+                             'supplier_code' => $prSupplier->supplier?->code,
+                             'payment_terms' => $prSupplier->payment_terms,
+                             'quoted_price' => (float) ($quote->quoted_price ?? 0),
+                         ];
+                     });
+             })
+             ->keyBy('purchase_requisition_item_id');
+
+         $items = $purchaseRequisition->items
+             ->map(function (PurchaseRequisitionItem $item) use ($selectedRows) {
+                 $selectedRow = $selectedRows->get((int) $item->id);
+                 $quantity = (float) ($item->quantity ?? $item->qty ?? 0);
+                 $approvedPrice = $selectedRow['quoted_price'] ?? (float) ($item->price ?? 0);
+                 $lineTotal = $quantity * $approvedPrice;
+
+                 return [
+                     'id' => $item->id,
+                     'item_code' => $item->item_code,
+                     'item_name' => $item->item_name ?: $item->product_name,
+                     'description_of_goods' => $item->description_of_goods ?: $item->product_name,
+                     'unit' => $item->unit ?: $item->uom,
+                     'quantity' => $quantity,
+                     'approved_price' => $approvedPrice,
+                     'line_total' => $lineTotal,
+                     'supplier_id' => $selectedRow['supplier_id'] ?? null,
+                     'supplier_name' => $selectedRow['supplier_name'] ?? null,
+                     'supplier_code' => $selectedRow['supplier_code'] ?? null,
+                     'payment_terms' => $selectedRow['payment_terms'] ?? null,
+                 ];
+             })
+             ->values();
+
+         $supplierGroups = $items
+             ->groupBy(fn (array $item) => (string) ($item['supplier_id'] ?? ''))
+             ->map(function ($groupedItems) {
+                 $first = $groupedItems->first();
+
+                 return [
+                     'supplier_id' => $first['supplier_id'] ?? null,
+                     'supplier_name' => $first['supplier_name'] ?? null,
+                     'supplier_code' => $first['supplier_code'] ?? null,
+                     'payment_terms' => $first['payment_terms'] ?? null,
+                     'total_amount' => $groupedItems->sum('line_total'),
+                 ];
+             })
+             ->filter(fn (array $group) => $group['supplier_id'] !== null)
+             ->values();
+
+         return [
+             'items' => $items->all(),
+             'suppliers' => $supplierGroups->all(),
+             'grand_total' => (float) $items->sum('line_total'),
+         ];
+     }
+
+     private function syncApprovedPurchaseOrderSnapshot(PurchaseRequisition $purchaseRequisition): void
+     {
+         $purchaseRequisition->loadMissing([
+             'items:id,purchase_requisition_id,price',
+             'prSuppliers.itemQuotes:id,pr_supplier_id,purchase_requisition_item_id,quoted_price,is_selected',
+         ]);
+
+         $selectedQuotes = $purchaseRequisition->prSuppliers
+             ->flatMap(fn (PurchaseRequisitionSupplier $prSupplier) => $prSupplier->itemQuotes)
+             ->filter(fn (PurchaseRequisitionSupplierItemQuote $quote) => (bool) $quote->is_selected)
+             ->keyBy('purchase_requisition_item_id');
+
+         foreach ($purchaseRequisition->items as $item) {
+             $selectedQuote = $selectedQuotes->get($item->id);
+
+             if (!$selectedQuote) {
+                 continue;
+             }
+
+             $item->update([
+                 'price' => $selectedQuote->quoted_price ?? 0,
+             ]);
+         }
+     }
+
      private function syncItems(PurchaseRequisition $purchaseRequisition, array $items): void
      {
          foreach (array_values($items) as $index => $item) {
@@ -1128,7 +1235,7 @@ class PurchaseRequisitionController extends Controller
                  'unit' => trim((string) $item['unit']),
                  'quantity' => $item['quantity'],
                  'required_date' => $item['required_date'],
-                 'price' => $item['price'],
+                  'price' => array_key_exists('price', $item) ? $item['price'] : null,
                  'product_name' => trim((string) $item['item_name']),
                  'uom' => trim((string) $item['unit']),
                  'qty' => $item['quantity'],

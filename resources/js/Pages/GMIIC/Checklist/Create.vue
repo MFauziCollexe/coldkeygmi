@@ -262,6 +262,27 @@
         @remove-photo="removeMaintenancePhoto"
       />
 
+      <GensetRunningTemplate
+        v-else-if="entry && isGensetRunning"
+        :entry="entry"
+        :months="kotakP3KMonths"
+        :weeks="gensetRunningWeeks"
+        :active-month="activeGensetRunningMonth"
+        :active-month-label="getKotakP3KMonthLabel(activeGensetRunningMonth)"
+        :can-scan-barcode="gensetRunningMonthValidation.canScan"
+        :can-approve-entry="canApproveEntry"
+        :current-barcode="currentGensetRunningBarcode"
+        :month-note="gensetRunningMonthNote"
+        :is-active-month-approved="isActiveGensetRunningMonthApproved"
+        :active-month-status-label="gensetRunningActiveMonthStatusLabel"
+        :show-qr-scanner="showQrScanner"
+        @approve="approveChecklist"
+        @scan-barcode="scanGensetRunningBarcode"
+        @set-active-month="setGensetRunningActiveMonth"
+        @cycle-week-answer="cycleGensetRunningWeekAnswer"
+        @update-month-note="updateGensetRunningMonthNote"
+      />
+
       <div
         v-if="scannerModalOpen"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
@@ -365,6 +386,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 import { swalConfirm } from '@/Utils/swalConfirm';
 import FireSafetyTemplate from './Templates/FireSafetyTemplate.vue';
+import GensetRunningTemplate from './Templates/GensetRunningTemplate.vue';
 import KotakP3KTemplate from './Templates/KotakP3KTemplate.vue';
 import NonWarehouseSanitationTemplate from './Templates/NonWarehouseSanitationTemplate.vue';
 import PatroliSecurityTemplate from './Templates/PatroliSecurityTemplate.vue';
@@ -377,6 +399,7 @@ import PersonalHygieneTemplate from './Templates/PersonalHygieneTemplate.vue';
 import {
   buildWarehouseAreaRows,
   checklistOptions,
+  createGensetRunningEntry,
   createFireSafetyEntry,
   createFireSafetyLocationState,
   createKotakP3KEntry,
@@ -396,6 +419,7 @@ import {
   formatMonthYearDisplay,
   formatShortDateDisplay,
   formatWeekDisplay,
+  gensetRunningWeeks,
   getMaintenanceDailyAreaLabel,
   getFireSafetyCardTitle,
   getFireSafetyLocationLabel,
@@ -415,6 +439,7 @@ import {
   maintenanceVisitTypeOptions,
   patroliSecurityAreaOptions,
   personalHygieneRows as personalHygieneRowTemplates,
+  rebuildGensetRunningSections,
   rebuildMaintenanceDailySections,
   rebuildMaintenanceWeeklyRows,
   rebuildPatroliSecuritySections,
@@ -436,7 +461,7 @@ import {
   toWeekInputValue,
   warehouseAreaOptions,
 } from './checklistConfig';
-const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance'];
+const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running'];
 
 const props = defineProps({
   selectedTemplate: {
@@ -754,6 +779,7 @@ const isSaranaPrasarana = computed(() => selectedChecklist.value === 'sarana_dan
 const isPatroliSecurity = computed(() => selectedChecklist.value === 'patroli_security');
 const isSiteVisitHse = computed(() => selectedChecklist.value === 'site_visit_hse');
 const isSiteVisitMaintenance = computed(() => selectedChecklist.value === 'site_visit_maintenance');
+const isGensetRunning = computed(() => selectedChecklist.value === 'genset_running');
 
 const saranaPrasaranaDays = computed(() => {
   if (!isSaranaPrasarana.value || !entry.value) {
@@ -1241,6 +1267,14 @@ const activeKotakP3KMonth = computed(() => {
   return entry.value.form.active_month || 'jan';
 });
 
+const activeGensetRunningMonth = computed(() => {
+  if (!isGensetRunning.value || !entry.value) {
+    return 'jan';
+  }
+
+  return entry.value.form.active_month || 'jan';
+});
+
 const activeFireSafetyMonth = computed(() => {
   if (!isFireSafety.value || !entry.value) {
     return 'jan';
@@ -1362,6 +1396,81 @@ const currentKotakP3KBarcode = computed(() => {
   }
 
   return entry.value.form.monthly_barcodes?.[activeKotakP3KMonth.value] || '';
+});
+
+const gensetRunningMonthNote = computed({
+  get() {
+    if (!isGensetRunning.value || !entry.value) {
+      return '';
+    }
+
+    return entry.value.form.monthly_notes?.[activeGensetRunningMonth.value] || '';
+  },
+  set(value) {
+    if (!isGensetRunning.value || !entry.value) {
+      return;
+    }
+
+    entry.value.form.monthly_notes = {
+      ...(entry.value.form.monthly_notes || {}),
+      [activeGensetRunningMonth.value]: value,
+    };
+  },
+});
+
+const currentGensetRunningBarcode = computed(() => {
+  if (!isGensetRunning.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.monthly_barcodes?.[activeGensetRunningMonth.value] || '';
+});
+
+const gensetRunningApprovedMonths = computed(() => {
+  if (!isGensetRunning.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.approved_months) ? entry.value.form.approved_months : [];
+});
+
+const isActiveGensetRunningMonthApproved = computed(() => {
+  return gensetRunningApprovedMonths.value.includes(activeGensetRunningMonth.value);
+});
+
+const gensetRunningActiveMonthStatusLabel = computed(() => {
+  return isActiveGensetRunningMonthApproved.value ? 'Approved' : 'Pending';
+});
+
+const gensetRunningMonthValidation = computed(() => {
+  if (!isGensetRunning.value || !entry.value) {
+    return {
+      allAnswersFilled: false,
+      hasNoAnswer: false,
+      hasRequiredNote: false,
+      canScan: false,
+    };
+  }
+
+  const answers = (entry.value.form.sections || []).flatMap((section) => (
+    (section.items || []).flatMap((item) => (
+      gensetRunningWeeks.map((week) => item.months?.[activeGensetRunningMonth.value]?.[week.key] || '')
+    ))
+  ));
+  const allAnswersFilled = answers.every((answer) => answer === 'yes' || answer === 'no');
+  const hasNoAnswer = answers.includes('no');
+  const hasRequiredNote = String(gensetRunningMonthNote.value || '').trim() !== '';
+  const canScan = !isActiveGensetRunningMonthApproved.value
+    && showQrScanner.value
+    && allAnswersFilled
+    && (!hasNoAnswer || hasRequiredNote);
+
+  return {
+    allAnswersFilled,
+    hasNoAnswer,
+    hasRequiredNote,
+    canScan,
+  };
 });
 
 const kotakP3KApprovedMonths = computed(() => {
@@ -1803,6 +1912,20 @@ const canApproveEntry = computed(() => {
       && (showQrScanner.value ? String(currentKotakP3KBarcode.value || '').trim() !== '' : true);
   }
 
+  if (isGensetRunning.value) {
+    if (!canApproveCurrentTemplate.value) {
+      return false;
+    }
+
+    if (isActiveGensetRunningMonthApproved.value) {
+      return false;
+    }
+
+    return gensetRunningMonthValidation.value.allAnswersFilled
+      && (!gensetRunningMonthValidation.value.hasNoAnswer || gensetRunningMonthValidation.value.hasRequiredNote)
+      && (showQrScanner.value ? String(currentGensetRunningBarcode.value || '').trim() !== '' : true);
+  }
+
   if (isSanitation.value) {
     if (!nextPendingSanitationDay.value) {
       return false;
@@ -2089,6 +2212,10 @@ function createEntryByTemplate(templateId, options = {}) {
 
   if (templateId === 'site_visit_maintenance') {
     return createSiteVisitMaintenanceEntry(userName);
+  }
+
+  if (templateId === 'genset_running') {
+    return createGensetRunningEntry(userName);
   }
 
   return null;
@@ -2401,6 +2528,76 @@ function hydrateSiteVisitMaintenanceEntry(savedEntry) {
       sections: rebuildMaintenanceDailySections(savedEntry?.form?.sections || []),
       rows: rebuildMaintenanceWeeklyRows(savedEntry?.form?.rows || []),
     },
+    };
+}
+
+function hydrateGensetRunningEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'genset_running') {
+    return savedEntry;
+  }
+
+  const now = new Date();
+
+  return {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      year: String(savedEntry?.form?.year || now.getFullYear()),
+      area: String(savedEntry?.form?.area || '').trim() || 'genset',
+      pic: savedEntry?.form?.pic || currentUser.value?.name || 'User Login',
+      date: String(savedEntry?.form?.date || '').trim() || formatDateDisplay(now),
+      document_no: String(savedEntry?.form?.document_no || '').trim() || 'DF-GMI-MTC-04',
+      rev: String(savedEntry?.form?.rev || '').trim() || '00',
+      page: String(savedEntry?.form?.page || '').trim() || '1',
+      active_month: String(savedEntry?.form?.active_month || '').trim() || 'jan',
+      approved_months: Array.isArray(savedEntry?.form?.approved_months) ? [...savedEntry.form.approved_months] : [],
+      monthly_notes: {
+        jan: '',
+        feb: '',
+        mar: '',
+        apr: '',
+        may: '',
+        jun: '',
+        jul: '',
+        aug: '',
+        sep: '',
+        oct: '',
+        nov: '',
+        dec: '',
+        ...(savedEntry?.form?.monthly_notes || {}),
+      },
+      monthly_barcodes: {
+        jan: '',
+        feb: '',
+        mar: '',
+        apr: '',
+        may: '',
+        jun: '',
+        jul: '',
+        aug: '',
+        sep: '',
+        oct: '',
+        nov: '',
+        dec: '',
+        ...(savedEntry?.form?.monthly_barcodes || {}),
+      },
+      monthly_check_dates: {
+        jan: '',
+        feb: '',
+        mar: '',
+        apr: '',
+        may: '',
+        jun: '',
+        jul: '',
+        aug: '',
+        sep: '',
+        oct: '',
+        nov: '',
+        dec: '',
+        ...(savedEntry?.form?.monthly_check_dates || {}),
+      },
+      sections: rebuildGensetRunningSections(savedEntry?.form?.sections || []),
+    },
   };
 }
 
@@ -2411,8 +2608,9 @@ function hydrateChecklistEntry(savedEntry) {
   const patroliSecurityHydratedEntry = hydratePatroliSecurityEntry(saranaPrasaranaHydratedEntry);
   const personalHygieneHydratedEntry = hydratePersonalHygieneEntry(patroliSecurityHydratedEntry);
   const siteVisitHseHydratedEntry = hydrateSiteVisitHseEntry(personalHygieneHydratedEntry);
+  const siteVisitMaintenanceHydratedEntry = hydrateSiteVisitMaintenanceEntry(siteVisitHseHydratedEntry);
 
-  return hydrateSiteVisitMaintenanceEntry(siteVisitHseHydratedEntry);
+  return hydrateGensetRunningEntry(siteVisitMaintenanceHydratedEntry);
 }
 
 function createInitialEntry() {
@@ -2517,6 +2715,19 @@ async function approveChecklist() {
     };
     entry.value.form.approved = true;
     persistCurrentFireSafetyState();
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
+    return;
+  }
+
+  if (isGensetRunning.value) {
+    entry.value.form.approved_months = [
+      ...new Set([...(entry.value.form.approved_months || []), activeGensetRunningMonth.value]),
+    ];
+    entry.value.form.monthly_check_dates = {
+      ...(entry.value.form.monthly_check_dates || {}),
+      [activeGensetRunningMonth.value]: formatDayMonthDisplay(now),
+    };
+    entry.value.form.approved = true;
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
     return;
   }
@@ -2643,6 +2854,20 @@ async function scanBarcode() {
   await startBarcodeScanner();
 }
 
+async function scanGensetRunningBarcode() {
+  if (!entry.value || !isGensetRunning.value || !showQrScanner.value || !gensetRunningMonthValidation.value.canScan) {
+    return;
+  }
+
+  scannerMode.value = 'genset_running';
+  scannerError.value = '';
+  scannerLoading.value = true;
+  scannerModalOpen.value = true;
+
+  await nextTick();
+  await startBarcodeScanner();
+}
+
 async function scanSanitationArea() {
   if (!entry.value || !isSanitation.value || !nextPendingSanitationDay.value || !showQrScanner.value) {
     return;
@@ -2760,6 +2985,14 @@ function setKotakP3KActiveMonth(monthKey) {
   entry.value.form.active_month = monthKey;
 }
 
+function setGensetRunningActiveMonth(monthKey) {
+  if (!entry.value || !isGensetRunning.value) {
+    return;
+  }
+
+  entry.value.form.active_month = monthKey;
+}
+
 function setFireSafetyActiveMonth(monthKey) {
   if (!entry.value || !isFireSafety.value) {
     return;
@@ -2782,8 +3015,47 @@ function cycleKotakP3KMonthAnswer(item, monthKey) {
   };
 }
 
+function cycleGensetRunningWeekAnswer({ sectionId, rowId, monthKey, weekKey }) {
+  if (!entry.value || !isGensetRunning.value || isActiveGensetRunningMonthApproved.value || monthKey !== activeGensetRunningMonth.value) {
+    return;
+  }
+
+  entry.value.form.sections = (entry.value.form.sections || []).map((section) => {
+    if (section.id !== sectionId) {
+      return section;
+    }
+
+    return {
+      ...section,
+      items: (section.items || []).map((row) => {
+        if (row.id !== rowId) {
+          return row;
+        }
+
+        const currentValue = row.months?.[monthKey]?.[weekKey] || '';
+        const nextValue = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : '';
+
+        return {
+          ...row,
+          months: {
+            ...(row.months || {}),
+            [monthKey]: {
+              ...(row.months?.[monthKey] || {}),
+              [weekKey]: nextValue,
+            },
+          },
+        };
+      }),
+    };
+  });
+}
+
 function updateKotakP3KMonthNote(value) {
   kotakP3KMonthNote.value = value;
+}
+
+function updateGensetRunningMonthNote(value) {
+  gensetRunningMonthNote.value = value;
 }
 
 function updateFireSafetyCardType(cardType) {
@@ -3857,6 +4129,10 @@ function getExpectedBarcodeValuesForCurrentScannerMode() {
     return getLocationBarcodeAliases(entry.value.form.location);
   }
 
+  if (scannerMode.value === 'genset_running') {
+    return getPatroliSecurityBarcodeAliases('genset');
+  }
+
   if (scannerMode.value === 'fire_safety') {
     return getLocationBarcodeAliases(entry.value.form.location)
       .concat(getFireSafetyLocationLabel(entry.value.form.card_type, entry.value.form.location));
@@ -4306,20 +4582,31 @@ async function startBarcodeScanner() {
           return;
         }
 
-        if (entry.value) {
-          if (scannerMode.value === 'kotak_p3k') {
-            entry.value.form.barcode = decodedText;
-            entry.value.form.monthly_barcodes = {
-              ...(entry.value.form.monthly_barcodes || {}),
-              [activeKotakP3KMonth.value]: decodedText,
-            };
-            entry.value.form.monthly_check_dates = {
-              ...(entry.value.form.monthly_check_dates || {}),
-              [activeKotakP3KMonth.value]: formatShortDateDisplay(new Date()),
-            };
-          }
+          if (entry.value) {
+            if (scannerMode.value === 'kotak_p3k') {
+              entry.value.form.barcode = decodedText;
+              entry.value.form.monthly_barcodes = {
+                ...(entry.value.form.monthly_barcodes || {}),
+                [activeKotakP3KMonth.value]: decodedText,
+              };
+              entry.value.form.monthly_check_dates = {
+                ...(entry.value.form.monthly_check_dates || {}),
+                [activeKotakP3KMonth.value]: formatShortDateDisplay(new Date()),
+              };
+            }
 
-          if (scannerMode.value === 'sanitation_area' && nextPendingSanitationDay.value) {
+            if (scannerMode.value === 'genset_running') {
+              entry.value.form.monthly_barcodes = {
+                ...(entry.value.form.monthly_barcodes || {}),
+                [activeGensetRunningMonth.value]: decodedText,
+              };
+              entry.value.form.monthly_check_dates = {
+                ...(entry.value.form.monthly_check_dates || {}),
+                [activeGensetRunningMonth.value]: formatShortDateDisplay(new Date()),
+              };
+            }
+
+            if (scannerMode.value === 'sanitation_area' && nextPendingSanitationDay.value) {
             const day = nextPendingSanitationDay.value.day;
             const dayScans = entry.value.form.area_scans_by_day?.[day] || {};
 

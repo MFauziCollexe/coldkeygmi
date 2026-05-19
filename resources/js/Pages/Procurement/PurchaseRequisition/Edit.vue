@@ -104,6 +104,9 @@
 
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
             <Link href="/gmisl/procurement/purchase-requisition" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">Cancel</Link>
+            <button v-if="canDelete" type="button" class="rounded bg-rose-600 px-4 py-2 text-white hover:bg-rose-700" @click="confirmDelete">
+              Delete
+            </button>
             <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700" :disabled="form.processing">
               {{ form.processing ? 'Updating...' : 'Update' }}
             </button>
@@ -115,11 +118,12 @@
 </template>
 
 <script setup>
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import PurchaseRequisitionItemEditor from './Partials/PurchaseRequisitionItemEditor.vue';
 import { ref } from 'vue';
+import Swal from 'sweetalert2';
 
 const props = defineProps({
   purchaseRequisition: { type: Object, required: true },
@@ -129,6 +133,7 @@ const props = defineProps({
   currentUser: { type: Object, default: () => ({}) },
 });
 
+const canDelete = props.purchaseRequisition.can_delete === true || String(props.currentUser?.department_code || '').toUpperCase() === 'IT';
 const existingAttachments = ref([...(props.purchaseRequisition.attachments || [])]);
 const fileInput = ref(null);
 const form = useForm({
@@ -192,5 +197,24 @@ function submit() {
       form.transform((data) => data);
     },
   });
+}
+
+async function confirmDelete() {
+  const result = await Swal.fire({
+    title: 'Delete Purchase Requisition?',
+    text: 'Are you sure you want to delete this PR? This action cannot be undone.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Yes, Delete',
+    cancelButtonText: 'No, Cancel',
+  });
+
+  if (result.isConfirmed) {
+    router.delete(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}`, {
+      preserveScroll: true,
+    });
+  }
 }
 </script>

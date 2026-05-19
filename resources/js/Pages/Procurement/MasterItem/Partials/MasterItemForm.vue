@@ -2,7 +2,7 @@
   <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
     <div>
       <label class="mb-1 block text-sm text-slate-300">Item Code</label>
-      <input v-model="form.item_code" type="text" readonly class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-slate-400" />
+      <input v-model="form.item_code" type="text" readonly class="w-full rounded-lg border border-slate-700 bg-slate-800 text-slate-400 px-3 py-3" />
       <div v-if="form.errors.item_code" class="mt-1 text-xs text-rose-300">{{ form.errors.item_code }}</div>
     </div>
 
@@ -56,10 +56,32 @@
 </template>
 
 <script setup>
-defineProps({
+import { watch } from 'vue';
+
+const props = defineProps({
   form: { type: Object, required: true },
   itemTypeOptions: { type: Array, default: () => [] },
   unitOptions: { type: Array, default: () => [] },
   categoryOptions: { type: Array, default: () => [] },
+  isEdit: { type: Boolean, default: false },
 });
+
+watch(
+  () => props.form.item_type,
+  (newType) => {
+    if (!props.isEdit && newType) {
+      const selectedType = props.itemTypeOptions.find((t) => t.name === newType);
+      if (selectedType?.code) {
+        fetch(`/procurement-master-item/generate-code?type=${encodeURIComponent(newType)}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.item_code) {
+              props.form.item_code = data.item_code;
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }
+);
 </script>

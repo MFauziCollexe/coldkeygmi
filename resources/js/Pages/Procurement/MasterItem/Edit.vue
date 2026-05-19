@@ -11,7 +11,7 @@
         </div>
 
 <form @submit.prevent="submit" class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
-           <MasterItemForm :form="form" :item-type-options="itemTypeOptions" :unit-options="unitOptions" :category-options="categoryOptions" />
+           <MasterItemForm :form="form" :item-type-options="itemTypeOptions" :unit-options="unitOptions" :category-options="categoryOptions" :is-edit="true" />
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
             <Link href="/master-data/master-item" class="rounded bg-slate-700 px-4 py-2 text-center text-white hover:bg-slate-600">Cancel</Link>
             <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700" :disabled="form.processing">

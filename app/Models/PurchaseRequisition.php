@@ -25,6 +25,7 @@ class PurchaseRequisition extends Model
         'approved_by',
         'approved_at',
         'note',
+        'po_number',
         'reject_note',
         'po_comment',
         'po_photo_path',
@@ -95,6 +96,24 @@ class PurchaseRequisition extends Model
             ->where('pr_number', 'like', $prefix . '%')
             ->orderByDesc('pr_number')
             ->value('pr_number');
+
+        $sequence = 1;
+        if (is_string($last) && preg_match('/^' . preg_quote($prefix, '/') . '(\d{4})$/', $last, $matches)) {
+            $sequence = ((int) $matches[1]) + 1;
+        }
+
+        return $prefix . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
+    }
+
+    public static function generatePoNumber(?Carbon $date = null): string
+    {
+        $baseDate = $date ?: now();
+        $prefix = 'PO' . $baseDate->format('y-m') . '-';
+
+        $last = static::query()
+            ->where('po_number', 'like', $prefix . '%')
+            ->orderByDesc('po_number')
+            ->value('po_number');
 
         $sequence = 1;
         if (is_string($last) && preg_match('/^' . preg_quote($prefix, '/') . '(\d{4})$/', $last, $matches)) {

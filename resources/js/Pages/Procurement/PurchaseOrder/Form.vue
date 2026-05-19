@@ -23,7 +23,8 @@
         <section class="space-y-4 rounded bg-slate-800 p-4 md:p-6">
           <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <div class="text-lg font-semibold text-slate-100">{{ purchaseOrder.pr_number }}</div>
+              <div class="text-lg font-semibold text-slate-100">{{ purchaseOrder.po_number || '-' }}</div>
+              <div class="mt-1 text-sm text-slate-400">PR: {{ purchaseOrder.pr_number }}</div>
               <div class="mt-1 text-sm text-slate-400">
                 {{ purchaseOrder.department_name || '-' }} | {{ purchaseOrder.requester_name || '-' }}
               </div>
@@ -39,6 +40,10 @@
           </div>
 
           <div class="grid grid-cols-1 gap-3 text-sm text-slate-300 md:grid-cols-4">
+            <div>
+              <div class="text-xs uppercase tracking-wide text-slate-500">PO Number</div>
+              <div>{{ purchaseOrder.po_number || '-' }}</div>
+            </div>
             <div>
               <div class="text-xs uppercase tracking-wide text-slate-500">PR Date</div>
               <div>{{ purchaseOrder.pr_date || '-' }}</div>
@@ -73,8 +78,24 @@
             {{ purchaseOrder.note }}
           </div>
 
+          <div v-if="purchaseOrder.po_summary?.suppliers?.length" class="space-y-2">
+            <div class="text-sm font-semibold text-slate-100">Selected Vendor Summary</div>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div
+                v-for="supplier in purchaseOrder.po_summary.suppliers"
+                :key="`supplier-summary-${supplier.supplier_id}`"
+                class="rounded border border-slate-700 bg-slate-950/40 p-3 text-sm text-slate-300"
+              >
+                <div class="font-semibold text-slate-100">{{ supplier.supplier_name || '-' }}</div>
+                <div class="mt-1 text-xs text-slate-400">{{ supplier.supplier_code || '-' }}</div>
+                <div class="mt-2">Payment Type: {{ supplier.payment_terms || '-' }}</div>
+                <div class="mt-1">Subtotal: {{ formatCurrency(supplier.total_amount) }}</div>
+              </div>
+            </div>
+          </div>
+
           <div>
-            <div class="mb-2 text-sm font-semibold text-slate-100">Items</div>
+            <div class="mb-2 text-sm font-semibold text-slate-100">Approved Items</div>
             <div class="overflow-hidden rounded border border-slate-700">
               <table class="w-full table-auto text-sm">
                 <thead class="bg-slate-950/50 text-left text-slate-400">
@@ -82,15 +103,29 @@
                     <th class="px-3 py-2">Product</th>
                     <th class="px-3 py-2">Qty</th>
                     <th class="px-3 py-2">UoM</th>
+                    <th class="px-3 py-2">Vendor</th>
+                    <th class="px-3 py-2">Payment Type</th>
+                    <th class="px-3 py-2 text-right">Harga Approved</th>
+                    <th class="px-3 py-2 text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="item in purchaseOrder.items" :key="item.id" class="border-t border-slate-700 text-slate-200">
-                    <td class="px-3 py-2">{{ item.product_name }}</td>
-                    <td class="px-3 py-2">{{ item.qty }}</td>
-                    <td class="px-3 py-2">{{ item.uom }}</td>
+                  <tr v-for="item in approvedItems" :key="item.id" class="border-t border-slate-700 text-slate-200">
+                    <td class="px-3 py-2">{{ item.item_name || item.product_name }}</td>
+                    <td class="px-3 py-2">{{ item.quantity }}</td>
+                    <td class="px-3 py-2">{{ item.unit }}</td>
+                    <td class="px-3 py-2">{{ item.supplier_name || '-' }}</td>
+                    <td class="px-3 py-2">{{ item.payment_terms || '-' }}</td>
+                    <td class="px-3 py-2 text-right">{{ formatCurrency(item.approved_price) }}</td>
+                    <td class="px-3 py-2 text-right">{{ formatCurrency(item.line_total) }}</td>
                   </tr>
                 </tbody>
+                <tfoot v-if="approvedItems.length" class="bg-slate-950/40 text-slate-200">
+                  <tr>
+                    <td colspan="6" class="px-3 py-2 text-right font-semibold">Grand Total</td>
+                    <td class="px-3 py-2 text-right font-semibold">{{ formatCurrency(grandTotal) }}</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
@@ -173,7 +208,7 @@
             </div>
           </div>
 
-          <div v-if="purchaseOrder.can_process || purchaseOrder.can_update_po || purchaseOrder.status === 'done'" class="flex flex-col gap-2 md:flex-row md:justify-end">
+          <div v-if="purchaseOrder.can_process || purchaseOrder.can_update_po || purchaseOrder.status === 'done' || canDelete()" class="flex flex-col gap-2 md:flex-row md:justify-end">
             <button
               v-if="purchaseOrder.can_process"
               type="button"
@@ -200,6 +235,14 @@
             >
               {{ processing ? 'Saving...' : 'Done' }}
             </button>
+            <button
+              v-if="canDelete()"
+              type="button"
+              class="rounded bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+              @click="confirmDelete"
+            >
+              Reset PO
+            </button>
             <div v-if="purchaseOrder.status === 'done'" class="rounded bg-sky-700/20 px-4 py-2 text-sm font-semibold text-sky-300">
               Purchase order sudah done
             </div>
@@ -214,6 +257,7 @@
 import { computed, ref } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Swal from 'sweetalert2';
 
 const props = defineProps({
   purchaseOrder: { type: Object, required: true },
@@ -229,6 +273,8 @@ const form = ref({
 });
 
 const validationErrors = computed(() => Object.values(page.props.errors || {}).filter(Boolean));
+const approvedItems = computed(() => props.purchaseOrder.po_summary?.items || []);
+const grandTotal = computed(() => Number(props.purchaseOrder.po_summary?.grand_total || 0));
 
 function processOrder() {
   router.post(`/gmisl/procurement/purchase-order/${props.purchaseOrder.id}/process`, {}, {
@@ -264,6 +310,39 @@ function isImageFile(filename, mimeType) {
   if (normalizedMime.startsWith('image/')) return true;
   const extension = String(filename || '').split('.').pop()?.toLowerCase() || '';
   return ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension);
+}
+
+function formatCurrency(value) {
+  const number = Number(value || 0);
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 2 }).format(number);
+}
+
+function canDelete() {
+  if (props.purchaseOrder?.can_delete !== true && String(props.currentUser?.department_code || '').toUpperCase() !== 'IT') {
+    return false;
+  }
+
+  const normalizedStatus = String(props.purchaseOrder?.status || '').trim().toLowerCase();
+  return ['approved', 'process', 'done'].includes(normalizedStatus);
+}
+
+async function confirmDelete() {
+  const result = await Swal.fire({
+    title: 'Reset Purchase Order?',
+    text: 'Data proses PO akan dibersihkan dan status kembali ke Approved. Data PR tetap tersimpan. Lanjutkan?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Ya, Reset',
+    cancelButtonText: 'Batal',
+  });
+
+  if (result.isConfirmed) {
+    router.delete(`/gmisl/procurement/purchase-order/${props.purchaseOrder?.id}`, {
+      preserveScroll: true,
+    });
+  }
 }
 
 function formatStatus(status) {

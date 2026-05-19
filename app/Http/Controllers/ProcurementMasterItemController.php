@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
@@ -15,10 +14,21 @@ class ProcurementMasterItemController extends Controller
 {
     use RemembersIndexUrl;
 
+    // ...existing code...
+
+    public function edit(ProcurementMasterItem $procurementMasterItem)
+    {
+        return Inertia::render('Procurement/MasterItem/Edit', [
+            'item' => $procurementMasterItem,
+            'itemTypeOptions' => $this->itemTypeOptions(),
+            'unitOptions' => $this->unitOptions(),
+            'categoryOptions' => $this->categoryOptions(),
+        ]);
+    }
+    
     public function index(Request $request)
     {
         $this->rememberIndexUrl($request, 'procurement-master-items');
-
         $query = ProcurementMasterItem::query();
 
         if ($request->filled('search')) {
@@ -47,14 +57,26 @@ class ProcurementMasterItemController extends Controller
             'itemTypeOptions' => $this->itemTypeOptions(),
             'unitOptions' => $this->unitOptions(),
             'categoryOptions' => $this->categoryOptions(),
-            'generatedItemCode' => $this->generateItemCode(),
         ]);
+    }
+
+    public function generateCode(Request $request)
+    {
+        $itemType = $request->query('type');
+        $itemCode = $this->generateItemCodeForType($itemType);
+
+        return response()->json(['item_code' => $itemCode]);
     }
 
     public function store(Request $request)
     {
         $data = $this->validated($request);
-        $data['item_code'] = $this->generateItemCode();
+        
+        $itemCode = $request->input('item_code');
+        if (!$itemCode || $itemCode === '') {
+            $itemCode = $this->generateItemCodeForType($data['item_type'] ?? null);
+        }
+        $data['item_code'] = $itemCode;
 
         ProcurementMasterItem::create($data);
 
@@ -80,6 +102,32 @@ class ProcurementMasterItemController extends Controller
         return 'ITM' . str_pad((string) $newNumber, 5, '0', STR_PAD_LEFT);
     }
 
+    private function generateItemCodeForType(?string $itemTypeName): string
+    {
+        $prefix = 'ITM';
+        if ($itemTypeName) {
+            $itemType = StockCardItemType::where('name', $itemTypeName)->first();
+            if ($itemType && $itemType->code) {
+                $prefix = $itemType->code;
+            }
+        }
+
+        $lastItem = ProcurementMasterItem::where('item_code', 'like', $prefix . '-%')
+            ->orderBy('id', 'desc')
+            ->first();
+        
+        $lastNumber = 0;
+        if ($lastItem) {
+            $parts = explode('-', $lastItem->item_code);
+            if (count($parts) === 2 && is_numeric($parts[1])) {
+                $lastNumber = (int) $parts[1];
+            }
+        }
+        
+        $newNumber = $lastNumber + 1;
+        return $prefix . '-' . str_pad((string) $newNumber, 5, '0', STR_PAD_LEFT);
+    }
+
     public function destroy(Request $request, ProcurementMasterItem $procurementMasterItem)
     {
         $procurementMasterItem->delete();
@@ -91,6 +139,7 @@ class ProcurementMasterItemController extends Controller
     private function validated(Request $request, ?ProcurementMasterItem $item = null): array
     {
         $rules = [
+            'item_code' => ['nullable', 'string', 'max:100'],
             'item_name' => ['required', 'string', 'max:255'],
             'description_of_goods' => ['required', 'string'],
             'item_type' => ['nullable', 'string', 'max:255', 'exists:stock_card_item_types,name'],
@@ -102,6 +151,7 @@ class ProcurementMasterItemController extends Controller
         $validated = $request->validate($rules);
 
         return [
+            'item_code' => trim((string) ($validated['item_code'] ?? '')),
             'item_name' => trim((string) $validated['item_name']),
             'description_of_goods' => trim((string) $validated['description_of_goods']),
             'item_type' => isset($validated['item_type']) && $validated['item_type'] !== ''
@@ -118,9 +168,10 @@ class ProcurementMasterItemController extends Controller
         return StockCardItemType::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name'])
+            ->get(['id', 'code', 'name'])
             ->map(fn (StockCardItemType $itemType) => [
                 'id' => $itemType->id,
+                'code' => $itemType->code,
                 'name' => $itemType->name,
             ])
             ->values();

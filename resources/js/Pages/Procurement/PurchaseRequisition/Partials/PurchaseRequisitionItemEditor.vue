@@ -15,29 +15,27 @@
 
     <div class="overflow-x-auto p-1">
       <table class="w-full min-w-[1500px] border-collapse text-sm text-slate-800">
-        <colgroup>
-          <col class="w-[52px]" />
-          <col class="w-[280px]" />
-          <col class="w-[170px]" />
-          <col class="w-[170px]" />
-          <col class="w-[90px]" />
-          <col class="w-[120px]" />
-          <col class="w-[130px]" />
-          <col class="w-[110px]" />
-          <col class="w-[90px]" />
-        </colgroup>
+<colgroup>
+            <col class="w-[52px]" />
+            <col class="w-[150px]" />
+            <col class="w-[170px]" />
+            <col class="w-[170px]" />
+            <col class="w-[90px]" />
+            <col class="w-[120px]" />
+            <col class="w-[130px]" />
+            <col class="w-[90px]" />
+          </colgroup>
         <thead>
-          <tr class="bg-gradient-to-b from-[#7489ba] to-[#556d9a] text-center text-[12px] font-semibold text-white">
-            <th class="border border-slate-400 px-2 py-1.5">No</th>
-            <th class="border border-slate-400 px-2 py-1.5">Master Item</th>
-            <th class="border border-slate-400 px-2 py-1.5">Description</th>
-            <th class="border border-slate-400 px-2 py-1.5">Note</th>
-            <th class="border border-slate-400 px-2 py-1.5">Qty</th>
-            <th class="border border-slate-400 px-2 py-1.5">Item Unit</th>
-            <th class="border border-slate-400 px-2 py-1.5">Required Date</th>
-            <th class="border border-slate-400 px-2 py-1.5">Price</th>
-            <th class="border border-slate-400 px-2 py-1.5">Action</th>
-          </tr>
+<tr class="bg-gradient-to-b from-[#7489ba] to-[#556d9a] text-center text-[12px] font-semibold text-white">
+             <th class="border border-slate-400 px-2 py-1.5">No</th>
+             <th class="border border-slate-400 px-2 py-1.5">Master Item</th>
+             <th class="border border-slate-400 px-2 py-1.5">Description</th>
+             <th class="border border-slate-400 px-2 py-1.5">Note</th>
+             <th class="border border-slate-400 px-2 py-1.5">Qty</th>
+             <th class="border border-slate-400 px-2 py-1.5">Item Unit</th>
+             <th class="border border-slate-400 px-2 py-1.5">Required Date</th>
+             <th class="border border-slate-400 px-2 py-1.5">Action</th>
+           </tr>
         </thead>
         <tbody>
           <tr v-for="(item, index) in form.items" :key="item._key || index" class="align-top bg-[#f7f7f9]">
@@ -62,8 +60,13 @@
             </td>
 
             <td class="border border-slate-300 px-2 py-2">
-              <textarea v-model="item.specification" rows="1" readonly class="h-[36px] min-h-[36px] w-full resize-none rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700" placeholder="Note item"></textarea>
-              <div v-if="itemError(index, 'specification')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'specification') }}</div>
+              <textarea
+                :value="form.note || ''"
+                rows="1"
+                readonly
+                class="h-[36px] min-h-[36px] w-full resize-none rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700"
+                placeholder="Note PR"
+              ></textarea>
             </td>
 
             <td class="border border-slate-300 px-2 py-2">
@@ -96,10 +99,7 @@
               <div v-if="itemError(index, 'required_date')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'required_date') }}</div>
             </td>
 
-            <td class="border border-slate-300 px-2 py-2">
-              <input v-model="item.price" type="number" min="0" step="0.01" readonly class="w-full rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700" />
-              <div v-if="itemError(index, 'price')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'price') }}</div>
-            </td>
+
 
             <td class="border border-slate-300 px-2 py-2 text-center">
               <button type="button" class="rounded bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700" @click="removeItem(index)">
@@ -109,7 +109,7 @@
           </tr>
 
           <tr v-if="!form.items.length">
-            <td colspan="9" class="border border-slate-300 py-4 text-center text-sm text-slate-500">Belum ada item.</td>
+            <td colspan="8" class="border border-slate-300 py-4 text-center text-sm text-slate-500">Belum ada item.</td>
           </tr>
         </tbody>
       </table>

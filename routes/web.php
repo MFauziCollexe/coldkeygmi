@@ -353,10 +353,13 @@ Route::redirect('gmisl/procurement/master-item', '/master-data/master-item');
 
 // Master Data - Procurement Master Item
 Route::resource('master-data/master-item', App\Http\Controllers\ProcurementMasterItemController::class)
-    ->except(['show'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.procurement_master_item'])
-    ->parameters(['master-item' => 'procurementMasterItem'])
-    ->names('procurement-master-item');
+     ->except(['show'])
+     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.procurement_master_item'])
+     ->parameters(['master-item' => 'procurementMasterItem'])
+     ->names('procurement-master-item');
+Route::get('procurement-master-item/generate-code', [App\Http\Controllers\ProcurementMasterItemController::class, 'generateCode'])
+     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.procurement_master_item'])
+     ->name('procurement-master-item.generate-code');
 
 // Master Data - Department (route: /master-data/department)
 Route::resource('master-data/department', DepartmentController::class)

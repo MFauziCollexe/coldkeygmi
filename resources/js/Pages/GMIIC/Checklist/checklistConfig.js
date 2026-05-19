@@ -13,6 +13,7 @@ export const checklistOptions = [
     { id: "patroli_security", name: "Patroli Security" },
     { id: "site_visit_hse", name: "Site Visit HSE" },
     { id: "site_visit_maintenance", name: "Site Visit Maintenance" },
+    { id: "genset_running", name: "Pemanasan (Running) Genset" },
     { id: "sarana_dan_prasarana", name: "Sarana dan Prasarana" },
     {
         id: "warehouse_sanitation_1",
@@ -737,6 +738,49 @@ export const maintenanceWeeklyItems = [
     "Ketersediaan Solar",
 ];
 
+export const gensetRunningWeeks = [
+    { key: "m1", label: "M1" },
+    { key: "m2", label: "M2" },
+    { key: "m3", label: "M3" },
+    { key: "m4", label: "M4" },
+];
+
+export const gensetRunningSections = [
+    {
+        id: "visual",
+        title: "VISUAL",
+        items: [
+            { id: "bersih", name: "BERSIH" },
+            { id: "kotor", name: "KOTOR" },
+        ],
+    },
+    {
+        id: "pengecekan",
+        title: "PENGECEKAN",
+        items: [
+            { id: "baterai", name: "BATERAI" },
+            { id: "oli", name: "OLI" },
+            { id: "cooling_water", name: "COOLING WATER" },
+            { id: "kecukupan_solar", name: "KECUKUPAN SOLAR" },
+        ],
+    },
+    {
+        id: "perlakuan",
+        title: "PERLAKUAN",
+        items: [
+            { id: "tambah_oli", name: "TAMBAH OLI" },
+            { id: "ganti_oli", name: "GANTI OLI" },
+            { id: "ganti_baterai", name: "GANTI BATERAI" },
+            { id: "tambah_solar", name: "TAMBAH SOLAR" },
+        ],
+    },
+    {
+        id: "kinerja_alat",
+        title: "KINERJA ALAT",
+        items: [{ id: "running", name: "RUNNING" }],
+    },
+];
+
 export const maintenanceDailyAreaOptions = [
     {
         id: "lantai_1_area_belakang",
@@ -1049,6 +1093,72 @@ function createMaintenanceWeeklyRows() {
             groupedChecklistAreaLabels.lantai_1_area_belakang,
         ),
     );
+}
+
+function createGensetRunningWeekValue(initialValue = "") {
+    return gensetRunningWeeks.reduce((result, week) => {
+        result[week.key] = initialValue;
+        return result;
+    }, {});
+}
+
+function createGensetRunningMonthValue(initialValue = "") {
+    return kotakP3KMonths.reduce((result, month) => {
+        result[month.key] =
+            typeof initialValue === "function"
+                ? initialValue(month.key)
+                : initialValue;
+        return result;
+    }, {});
+}
+
+function createGensetRunningSectionsState() {
+    return gensetRunningSections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        items: section.items.map((item, index) => ({
+            no: index + 1,
+            id: item.id,
+            name: item.name,
+            months: createGensetRunningMonthValue(() =>
+                createGensetRunningWeekValue(""),
+            ),
+        })),
+    }));
+}
+
+export function rebuildGensetRunningSections(existingSections = []) {
+    return createGensetRunningSectionsState().map((section) => {
+        const matchedSection = existingSections.find(
+            (item) => item.id === section.id,
+        );
+
+        return {
+            ...section,
+            items: section.items.map((row) => {
+                const matchedRow = matchedSection?.items?.find(
+                    (item) => item.id === row.id,
+                );
+
+                if (!matchedRow) {
+                    return row;
+                }
+
+                const nextMonths = { ...row.months };
+                Object.keys(nextMonths).forEach((monthKey) => {
+                    nextMonths[monthKey] = {
+                        ...row.months[monthKey],
+                        ...(matchedRow.months?.[monthKey] || {}),
+                    };
+                });
+
+                return {
+                    ...row,
+                    months: nextMonths,
+                };
+            }),
+        };
+    });
 }
 
 function createSaranaPrasaranaSections(periodValue) {
@@ -1444,6 +1554,34 @@ export function createSiteVisitMaintenanceEntry(userName) {
     };
 }
 
+export function createGensetRunningEntry(userName) {
+    const now = new Date();
+    const activeMonth = getCurrentKotakP3KMonthKey(now);
+
+    return {
+        id: `genset_running-${Date.now()}`,
+        template_id: "genset_running",
+        name: "Pemanasan (Running) Genset",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            year: String(now.getFullYear()),
+            area: "genset",
+            pic: userName || "User Login",
+            date: formatDateDisplay(now),
+            document_no: "DF-GMI-MTC-04",
+            rev: "00",
+            page: "1",
+            approved: false,
+            active_month: activeMonth,
+            approved_months: [],
+            monthly_notes: createGensetRunningMonthValue(""),
+            monthly_barcodes: createGensetRunningMonthValue(""),
+            monthly_check_dates: createGensetRunningMonthValue(""),
+            sections: createGensetRunningSectionsState(),
+        },
+    };
+}
+
 export function createWasteTransportEntry(userName) {
     const now = new Date();
     const period = toPeriodValue(now);
@@ -1742,6 +1880,10 @@ export function getChecklistEntryAreaLabel(entry) {
         }
 
         return getMaintenanceDailyAreaLabel(entry.form?.selected_area);
+    }
+
+    if (entry?.template_id === "genset_running") {
+        return groupedChecklistAreaLabels.genset;
     }
 
     return "-";

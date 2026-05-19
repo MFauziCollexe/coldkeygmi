@@ -42,6 +42,7 @@
                 <thead>
                   <tr class="text-left text-slate-400">
                     <th class="py-2">No</th>
+                    <th>No PO</th>
                     <th>PR</th>
                     <th>Req</th>
                     <th>Departement</th>
@@ -53,6 +54,7 @@
                 <tbody>
                   <tr v-for="(order, index) in filteredPurchaseOrders" :key="order.id" class="border-t border-slate-700">
                     <td class="py-3">{{ index + 1 }}</td>
+                    <td>{{ order.po_number || '-' }}</td>
                     <td>{{ order.pr_number }}</td>
                     <td>{{ order.requester_name || '-' }}</td>
                     <td>{{ order.department_name || '-' }}</td>
@@ -119,6 +121,7 @@
                   </div>
 
                   <div class="space-y-1 text-sm">
+                    <div><span class="text-slate-400">PO:</span> {{ order.po_number || '-' }}</div>
                     <div><span class="text-slate-400">PR:</span> {{ order.pr_number || '-' }}</div>
                     <div><span class="text-slate-400">Req:</span> {{ order.requester_name || '-' }}</div>
                     <div><span class="text-slate-400">Departement:</span> {{ order.department_name || '-' }}</div>
