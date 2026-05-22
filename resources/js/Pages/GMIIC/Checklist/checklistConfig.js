@@ -14,6 +14,8 @@ export const checklistOptions = [
     { id: "site_visit_hse", name: "Site Visit HSE" },
     { id: "site_visit_maintenance", name: "Site Visit Maintenance" },
     { id: "genset_running", name: "Pemanasan (Running) Genset" },
+    { id: "running_genset", name: "Running Genset" },
+    { id: "kompresor_harian", name: "Kompresor" },
     { id: "sarana_dan_prasarana", name: "Sarana dan Prasarana" },
     {
         id: "warehouse_sanitation_1",
@@ -738,17 +740,10 @@ export const maintenanceWeeklyItems = [
     "Ketersediaan Solar",
 ];
 
-export const gensetRunningWeeks = [
-    { key: "m1", label: "M1" },
-    { key: "m2", label: "M2" },
-    { key: "m3", label: "M3" },
-    { key: "m4", label: "M4" },
-];
-
 export const gensetRunningSections = [
     {
         id: "visual",
-        title: "VISUAL",
+        title: "A. VISUAL",
         items: [
             { id: "bersih", name: "BERSIH" },
             { id: "kotor", name: "KOTOR" },
@@ -756,7 +751,7 @@ export const gensetRunningSections = [
     },
     {
         id: "pengecekan",
-        title: "PENGECEKAN",
+        title: "B. PENGECEKAN",
         items: [
             { id: "baterai", name: "BATERAI" },
             { id: "oli", name: "OLI" },
@@ -766,7 +761,7 @@ export const gensetRunningSections = [
     },
     {
         id: "perlakuan",
-        title: "PERLAKUAN",
+        title: "C. PERLAKUAN",
         items: [
             { id: "tambah_oli", name: "TAMBAH OLI" },
             { id: "ganti_oli", name: "GANTI OLI" },
@@ -776,8 +771,36 @@ export const gensetRunningSections = [
     },
     {
         id: "kinerja_alat",
-        title: "KINERJA ALAT",
+        title: "D. KINERJA ALAT",
         items: [{ id: "running", name: "RUNNING" }],
+    },
+];
+
+export const runningGensetSections = [
+    {
+        id: "visual",
+        title: "B. VISUAL",
+        items: [
+            { id: "bersih", name: "BERSIH" },
+            { id: "kotor", name: "KOTOR" },
+        ],
+    },
+    {
+        id: "pengecekan",
+        title: "C. PENGECEKAN",
+        items: [
+            { id: "level_oli", name: "LEVEL OLI" },
+            { id: "air_radiator", name: "AIR RADIATOR" },
+            { id: "stock_solar", name: "STOCK SOLAR" },
+        ],
+    },
+    {
+        id: "perlakuan",
+        title: "D. PERLAKUAN",
+        items: [
+            { id: "tambah_oli", name: "TAMBAH OLI" },
+            { id: "tambah_solar", name: "TAMBAH SOLAR" },
+        ],
     },
 ];
 
@@ -1095,68 +1118,121 @@ function createMaintenanceWeeklyRows() {
     );
 }
 
-function createGensetRunningWeekValue(initialValue = "") {
-    return gensetRunningWeeks.reduce((result, week) => {
-        result[week.key] = initialValue;
-        return result;
-    }, {});
+function createGensetRunningRow(id, name, no, sectionId, sectionTitle) {
+    return {
+        id,
+        no,
+        name,
+        section_id: sectionId,
+        section_title: sectionTitle,
+        status: "",
+        scan_location: groupedChecklistAreaLabels.genset,
+    };
 }
 
-function createGensetRunningMonthValue(initialValue = "") {
-    return kotakP3KMonths.reduce((result, month) => {
-        result[month.key] =
-            typeof initialValue === "function"
-                ? initialValue(month.key)
-                : initialValue;
-        return result;
-    }, {});
-}
-
-function createGensetRunningSectionsState() {
-    return gensetRunningSections.map((section) => ({
-        id: section.id,
-        title: section.title,
-        items: section.items.map((item, index) => ({
-            no: index + 1,
-            id: item.id,
-            name: item.name,
-            months: createGensetRunningMonthValue(() =>
-                createGensetRunningWeekValue(""),
+function createGensetRunningRows() {
+    return gensetRunningSections.flatMap((section) =>
+        section.items.map((item, index) =>
+            createGensetRunningRow(
+                item.id,
+                item.name,
+                index + 1,
+                section.id,
+                section.title,
             ),
-        })),
+        ),
+    );
+}
+
+export function rebuildGensetRunningRows(existingRows = []) {
+    return createGensetRunningRows().map((row) => {
+        const matchedRow = existingRows.find((item) => item.id === row.id);
+
+        return {
+            ...row,
+            status: matchedRow?.status || "",
+        };
+    });
+}
+
+function createRunningGensetRow(id, name, no, sectionId, sectionTitle) {
+    return {
+        id,
+        no,
+        name,
+        section_id: sectionId,
+        section_title: sectionTitle,
+        status: "",
+        scan_location: groupedChecklistAreaLabels.genset,
+    };
+}
+
+function createRunningGensetRows() {
+    return runningGensetSections.flatMap((section) =>
+        section.items.map((item, index) =>
+            createRunningGensetRow(
+                item.id,
+                item.name,
+                index + 1,
+                section.id,
+                section.title,
+            ),
+        ),
+    );
+}
+
+export function rebuildRunningGensetRows(existingRows = []) {
+    return createRunningGensetRows().map((row) => {
+        const matchedRow = existingRows.find((item) => item.id === row.id);
+
+        return {
+            ...row,
+            status: matchedRow?.status || "",
+        };
+    });
+}
+
+function createKompresorDailyRows(periodValue) {
+    return getDaysInPeriod(periodValue).map((dayInfo) => ({
+        day: dayInfo.day,
+        date: dayInfo.date,
+        status_mesin: "",
+        visual_bersih: "",
+        visual_kotor: "",
+        tek_suct: "",
+        tek_disch: "",
+        delta_tekanan_oli: "",
+        check_1: "",
+        check_2: "",
+        check_3: "",
+        check_4: "",
+        tambah_grease_motor: "",
+        tambah_oli: "",
+        hours_meter: "",
     }));
 }
 
-export function rebuildGensetRunningSections(existingSections = []) {
-    return createGensetRunningSectionsState().map((section) => {
-        const matchedSection = existingSections.find(
-            (item) => item.id === section.id,
+export function rebuildKompresorDailyRows(periodValue, existingRows = []) {
+    return createKompresorDailyRows(periodValue).map((row) => {
+        const matchedRow = existingRows.find(
+            (item) => Number(item.day) === Number(row.day),
         );
 
         return {
-            ...section,
-            items: section.items.map((row) => {
-                const matchedRow = matchedSection?.items?.find(
-                    (item) => item.id === row.id,
-                );
-
-                if (!matchedRow) {
-                    return row;
-                }
-
-                const nextMonths = { ...row.months };
-                Object.keys(nextMonths).forEach((monthKey) => {
-                    nextMonths[monthKey] = {
-                        ...row.months[monthKey],
-                        ...(matchedRow.months?.[monthKey] || {}),
-                    };
-                });
-
-                return {
-                    ...row,
-                    months: nextMonths,
-                };
-            }),
+            ...row,
+            status_mesin: matchedRow?.status_mesin || "",
+            visual_bersih: matchedRow?.visual_bersih || "",
+            visual_kotor: matchedRow?.visual_kotor || "",
+            tek_suct: matchedRow?.tek_suct || "",
+            tek_disch: matchedRow?.tek_disch || "",
+            delta_tekanan_oli: matchedRow?.delta_tekanan_oli || "",
+            check_1: matchedRow?.check_1 || "",
+            check_2: matchedRow?.check_2 || "",
+            check_3: matchedRow?.check_3 || "",
+            check_4: matchedRow?.check_4 || "",
+            tambah_grease_motor: matchedRow?.tambah_grease_motor || "",
+            tambah_oli: matchedRow?.tambah_oli || "",
+            hours_meter: matchedRow?.hours_meter || "",
         };
     });
 }
@@ -1556,7 +1632,7 @@ export function createSiteVisitMaintenanceEntry(userName) {
 
 export function createGensetRunningEntry(userName) {
     const now = new Date();
-    const activeMonth = getCurrentKotakP3KMonthKey(now);
+    const periodValue = toWeekInputValue(now);
 
     return {
         id: `genset_running-${Date.now()}`,
@@ -1564,20 +1640,80 @@ export function createGensetRunningEntry(userName) {
         name: "Pemanasan (Running) Genset",
         created_at: formatDateTimeDisplay(now),
         form: {
-            year: String(now.getFullYear()),
-            area: "genset",
+            period_value: periodValue,
+            period: formatWeekDisplay(periodValue),
+            selected_area: "genset",
             pic: userName || "User Login",
             date: formatDateDisplay(now),
             document_no: "DF-GMI-MTC-04",
             rev: "00",
+            effective_date: "22 Desember 2025",
             page: "1",
             approved: false,
-            active_month: activeMonth,
-            approved_months: [],
-            monthly_notes: createGensetRunningMonthValue(""),
-            monthly_barcodes: createGensetRunningMonthValue(""),
-            monthly_check_dates: createGensetRunningMonthValue(""),
-            sections: createGensetRunningSectionsState(),
+            area_barcodes: {},
+            area_scan_dates: {},
+            area_notes: {
+                genset: "",
+            },
+            rows: createGensetRunningRows(),
+        },
+    };
+}
+
+export function createRunningGensetEntry(userName) {
+    const now = new Date();
+    const dateValue = toDateInputValue(now);
+
+    return {
+        id: `running_genset-${Date.now()}`,
+        template_id: "running_genset",
+        name: "Running Genset",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            selected_area: "genset",
+            pic: userName || "User Login",
+            approved: false,
+            document_no: "FRM.MTC.01.03",
+            rev: "00",
+            effective_date: "22 Desember 2025",
+            page: "1 dari 1",
+            date_value: dateValue,
+            date: formatDateDisplay(now),
+            hour_meter: "",
+            area_barcodes: {},
+            area_scan_dates: {},
+            area_notes: {
+                genset: "",
+            },
+            rows: createRunningGensetRows(),
+        },
+    };
+}
+
+export function createKompresorHarianEntry(userName) {
+    const now = new Date();
+    const period = toPeriodValue(now);
+
+    return {
+        id: `kompresor_harian-${Date.now()}`,
+        template_id: "kompresor_harian",
+        name: "Kompresor",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            period,
+            year: String(now.getFullYear()),
+            compressor_no: "",
+            location: "GOLDEN MULTI INDOTAMA",
+            pic: userName || "User Login",
+            document_no: "DF-GMI-MTC-06",
+            approved: false,
+            check_headers: {
+                check_1: "TEMP SUCT (deg C)",
+                check_2: "TEMP DISCH (deg C)",
+                check_3: "TEMP OLI (deg C)",
+                check_4: "LEVE OLI (%)",
+            },
+            rows: createKompresorDailyRows(period),
         },
     };
 }
@@ -1884,6 +2020,14 @@ export function getChecklistEntryAreaLabel(entry) {
 
     if (entry?.template_id === "genset_running") {
         return groupedChecklistAreaLabels.genset;
+    }
+
+    if (entry?.template_id === "running_genset") {
+        return groupedChecklistAreaLabels.genset;
+    }
+
+    if (entry?.template_id === "kompresor_harian") {
+        return "KOMPRESOR";
     }
 
     return "-";

@@ -265,22 +265,51 @@
       <GensetRunningTemplate
         v-else-if="entry && isGensetRunning"
         :entry="entry"
-        :months="kotakP3KMonths"
-        :weeks="gensetRunningWeeks"
-        :active-month="activeGensetRunningMonth"
-        :active-month-label="getKotakP3KMonthLabel(activeGensetRunningMonth)"
-        :can-scan-barcode="gensetRunningMonthValidation.canScan"
-        :can-approve-entry="canApproveEntry"
+        :rows="gensetRunningRows"
+        :note="gensetRunningNote"
         :current-barcode="currentGensetRunningBarcode"
-        :month-note="gensetRunningMonthNote"
-        :is-active-month-approved="isActiveGensetRunningMonthApproved"
-        :active-month-status-label="gensetRunningActiveMonthStatusLabel"
+        :scan-date="currentGensetRunningScanDate"
+        :can-scan-barcode="gensetRunningValidation.canScan"
+        :can-approve-entry="canApproveEntry"
+        :is-approved="isGensetRunningApproved"
+        :status-label="gensetRunningStatusLabel"
         :show-qr-scanner="showQrScanner"
         @approve="approveChecklist"
         @scan-barcode="scanGensetRunningBarcode"
-        @set-active-month="setGensetRunningActiveMonth"
-        @cycle-week-answer="cycleGensetRunningWeekAnswer"
-        @update-month-note="updateGensetRunningMonthNote"
+        @update-period="updateGensetRunningPeriod"
+        @cycle-row-status="cycleGensetRunningRowStatus"
+        @update-note="updateGensetRunningNote"
+      />
+
+      <RunningGensetTemplate
+        v-else-if="entry && isRunningGenset"
+        :entry="entry"
+        :rows="runningGensetRows"
+        :note="runningGensetNote"
+        :current-barcode="currentRunningGensetBarcode"
+        :scan-date="currentRunningGensetScanDate"
+        :can-scan-barcode="runningGensetValidation.canScan"
+        :can-approve-entry="canApproveEntry"
+        :is-approved="isRunningGensetApproved"
+        :show-qr-scanner="showQrScanner"
+        @approve="approveChecklist"
+        @scan-barcode="scanRunningGensetBarcode"
+        @update-date="updateRunningGensetDate"
+        @update-hour-meter="updateRunningGensetHourMeter"
+        @cycle-row-status="cycleRunningGensetRowStatus"
+        @update-note="updateRunningGensetNote"
+      />
+
+      <KompresorHarianTemplate
+        v-else-if="entry && isKompresorHarian"
+        :entry="entry"
+        :rows="kompresorHarianRows"
+        :can-approve-entry="canApproveEntry"
+        @approve="approveChecklist"
+        @update-field="updateKompresorHarianField"
+        @update-check-header="updateKompresorCheckHeader"
+        @update-row-field="updateKompresorRowField"
+        @cycle-row-symbol="cycleKompresorRowSymbol"
       />
 
       <div
@@ -396,10 +425,14 @@ import SiteVisitMaintenanceTemplate from './Templates/SiteVisitMaintenanceTempla
 import WasteTransportTemplate from './Templates/WasteTransportTemplate.vue';
 import WarehouseSanitationTemplate from './Templates/WarehouseSanitationTemplate.vue';
 import PersonalHygieneTemplate from './Templates/PersonalHygieneTemplate.vue';
+import KompresorHarianTemplate from './Templates/KompresorHarianTemplate.vue';
+import RunningGensetTemplate from './Templates/RunningGensetTemplate.vue';
 import {
   buildWarehouseAreaRows,
   checklistOptions,
+  createKompresorHarianEntry,
   createGensetRunningEntry,
+  createRunningGensetEntry,
   createFireSafetyEntry,
   createFireSafetyLocationState,
   createKotakP3KEntry,
@@ -419,7 +452,6 @@ import {
   formatMonthYearDisplay,
   formatShortDateDisplay,
   formatWeekDisplay,
-  gensetRunningWeeks,
   getMaintenanceDailyAreaLabel,
   getFireSafetyCardTitle,
   getFireSafetyLocationLabel,
@@ -439,7 +471,9 @@ import {
   maintenanceVisitTypeOptions,
   patroliSecurityAreaOptions,
   personalHygieneRows as personalHygieneRowTemplates,
-  rebuildGensetRunningSections,
+  rebuildKompresorDailyRows,
+  rebuildGensetRunningRows,
+  rebuildRunningGensetRows,
   rebuildMaintenanceDailySections,
   rebuildMaintenanceWeeklyRows,
   rebuildPatroliSecuritySections,
@@ -461,7 +495,7 @@ import {
   toWeekInputValue,
   warehouseAreaOptions,
 } from './checklistConfig';
-const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running'];
+const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian'];
 
 const props = defineProps({
   selectedTemplate: {
@@ -780,6 +814,8 @@ const isPatroliSecurity = computed(() => selectedChecklist.value === 'patroli_se
 const isSiteVisitHse = computed(() => selectedChecklist.value === 'site_visit_hse');
 const isSiteVisitMaintenance = computed(() => selectedChecklist.value === 'site_visit_maintenance');
 const isGensetRunning = computed(() => selectedChecklist.value === 'genset_running');
+const isRunningGenset = computed(() => selectedChecklist.value === 'running_genset');
+const isKompresorHarian = computed(() => selectedChecklist.value === 'kompresor_harian');
 
 const saranaPrasaranaDays = computed(() => {
   if (!isSaranaPrasarana.value || !entry.value) {
@@ -1267,14 +1303,6 @@ const activeKotakP3KMonth = computed(() => {
   return entry.value.form.active_month || 'jan';
 });
 
-const activeGensetRunningMonth = computed(() => {
-  if (!isGensetRunning.value || !entry.value) {
-    return 'jan';
-  }
-
-  return entry.value.form.active_month || 'jan';
-});
-
 const activeFireSafetyMonth = computed(() => {
   if (!isFireSafety.value || !entry.value) {
     return 'jan';
@@ -1398,22 +1426,30 @@ const currentKotakP3KBarcode = computed(() => {
   return entry.value.form.monthly_barcodes?.[activeKotakP3KMonth.value] || '';
 });
 
-const gensetRunningMonthNote = computed({
+const gensetRunningRows = computed(() => {
+  if (!isGensetRunning.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.rows) ? entry.value.form.rows : [];
+});
+
+const gensetRunningNote = computed({
   get() {
     if (!isGensetRunning.value || !entry.value) {
       return '';
     }
 
-    return entry.value.form.monthly_notes?.[activeGensetRunningMonth.value] || '';
+    return entry.value.form.area_notes?.genset || '';
   },
   set(value) {
     if (!isGensetRunning.value || !entry.value) {
       return;
     }
 
-    entry.value.form.monthly_notes = {
-      ...(entry.value.form.monthly_notes || {}),
-      [activeGensetRunningMonth.value]: value,
+    entry.value.form.area_notes = {
+      ...(entry.value.form.area_notes || {}),
+      genset: value,
     };
   },
 });
@@ -1423,26 +1459,26 @@ const currentGensetRunningBarcode = computed(() => {
     return '';
   }
 
-  return entry.value.form.monthly_barcodes?.[activeGensetRunningMonth.value] || '';
+  return entry.value.form.area_barcodes?.genset || '';
 });
 
-const gensetRunningApprovedMonths = computed(() => {
+const currentGensetRunningScanDate = computed(() => {
   if (!isGensetRunning.value || !entry.value) {
-    return [];
+    return '';
   }
 
-  return Array.isArray(entry.value.form.approved_months) ? entry.value.form.approved_months : [];
+  return entry.value.form.area_scan_dates?.genset || '';
 });
 
-const isActiveGensetRunningMonthApproved = computed(() => {
-  return gensetRunningApprovedMonths.value.includes(activeGensetRunningMonth.value);
+const isGensetRunningApproved = computed(() => {
+  return Boolean(entry.value?.form?.approved);
 });
 
-const gensetRunningActiveMonthStatusLabel = computed(() => {
-  return isActiveGensetRunningMonthApproved.value ? 'Approved' : 'Pending';
+const gensetRunningStatusLabel = computed(() => {
+  return isGensetRunningApproved.value ? 'Approved' : 'Pending';
 });
 
-const gensetRunningMonthValidation = computed(() => {
+const gensetRunningValidation = computed(() => {
   if (!isGensetRunning.value || !entry.value) {
     return {
       allAnswersFilled: false,
@@ -1452,18 +1488,15 @@ const gensetRunningMonthValidation = computed(() => {
     };
   }
 
-  const answers = (entry.value.form.sections || []).flatMap((section) => (
-    (section.items || []).flatMap((item) => (
-      gensetRunningWeeks.map((week) => item.months?.[activeGensetRunningMonth.value]?.[week.key] || '')
-    ))
-  ));
-  const allAnswersFilled = answers.every((answer) => answer === 'yes' || answer === 'no');
+  const answers = gensetRunningRows.value.map((row) => row.status || '');
+  const allAnswersFilled = answers.length > 0 && answers.every((answer) => answer === 'yes' || answer === 'no');
   const hasNoAnswer = answers.includes('no');
-  const hasRequiredNote = String(gensetRunningMonthNote.value || '').trim() !== '';
-  const canScan = !isActiveGensetRunningMonthApproved.value
+  const hasRequiredNote = String(gensetRunningNote.value || '').trim() !== '';
+  const canScan = !isGensetRunningApproved.value
     && showQrScanner.value
     && allAnswersFilled
-    && (!hasNoAnswer || hasRequiredNote);
+    && (!hasNoAnswer || hasRequiredNote)
+    && !String(currentGensetRunningBarcode.value || '').trim();
 
   return {
     allAnswersFilled,
@@ -1471,6 +1504,96 @@ const gensetRunningMonthValidation = computed(() => {
     hasRequiredNote,
     canScan,
   };
+});
+
+const runningGensetRows = computed(() => {
+  if (!isRunningGenset.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.rows) ? entry.value.form.rows : [];
+});
+
+const runningGensetNote = computed({
+  get() {
+    if (!isRunningGenset.value || !entry.value) {
+      return '';
+    }
+
+    return entry.value.form.area_notes?.genset || '';
+  },
+  set(value) {
+    if (!isRunningGenset.value || !entry.value) {
+      return;
+    }
+
+    entry.value.form.area_notes = {
+      ...(entry.value.form.area_notes || {}),
+      genset: value,
+    };
+  },
+});
+
+const currentRunningGensetBarcode = computed(() => {
+  if (!isRunningGenset.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.area_barcodes?.genset || '';
+});
+
+const currentRunningGensetScanDate = computed(() => {
+  if (!isRunningGenset.value || !entry.value) {
+    return '';
+  }
+
+  return entry.value.form.area_scan_dates?.genset || '';
+});
+
+const isRunningGensetApproved = computed(() => {
+  return Boolean(entry.value?.form?.approved);
+});
+
+const runningGensetValidation = computed(() => {
+  if (!isRunningGenset.value || !entry.value) {
+    return {
+      hasHourMeter: false,
+      allAnswersFilled: false,
+      hasNoAnswer: false,
+      hasRequiredNote: false,
+      canScan: false,
+    };
+  }
+
+  const validStatuses = ['yes', 'no', 'minus'];
+  const statuses = runningGensetRows.value.map((row) => row.status || '');
+  const hasHourMeter = String(entry.value.form.hour_meter || '').trim() !== '';
+  const allAnswersFilled = statuses.length > 0 && statuses.every((status) => validStatuses.includes(status));
+  const hasNoAnswer = statuses.includes('no');
+  const hasRequiredNote = String(runningGensetNote.value || '').trim() !== '';
+  const canScan = !isRunningGensetApproved.value
+    && showQrScanner.value
+    && Boolean(String(entry.value.form.date_value || '').trim())
+    && hasHourMeter
+    && allAnswersFilled
+    && (!hasNoAnswer || hasRequiredNote)
+    && !String(currentRunningGensetBarcode.value || '').trim();
+
+  return {
+    hasHourMeter,
+    allAnswersFilled,
+    hasNoAnswer,
+    hasRequiredNote,
+    canScan,
+  };
+});
+
+const kompresorHarianRows = computed(() => {
+  if (!isKompresorHarian.value || !entry.value) {
+    return [];
+  }
+
+  return Array.isArray(entry.value.form.rows) ? entry.value.form.rows : [];
 });
 
 const kotakP3KApprovedMonths = computed(() => {
@@ -1917,13 +2040,34 @@ const canApproveEntry = computed(() => {
       return false;
     }
 
-    if (isActiveGensetRunningMonthApproved.value) {
+    if (isGensetRunningApproved.value) {
       return false;
     }
 
-    return gensetRunningMonthValidation.value.allAnswersFilled
-      && (!gensetRunningMonthValidation.value.hasNoAnswer || gensetRunningMonthValidation.value.hasRequiredNote)
+    return gensetRunningValidation.value.allAnswersFilled
+      && (!gensetRunningValidation.value.hasNoAnswer || gensetRunningValidation.value.hasRequiredNote)
       && (showQrScanner.value ? String(currentGensetRunningBarcode.value || '').trim() !== '' : true);
+  }
+
+  if (isRunningGenset.value) {
+    if (!canApproveCurrentTemplate.value || isRunningGensetApproved.value) {
+      return false;
+    }
+
+    return Boolean(String(entry.value?.form?.date_value || '').trim())
+      && runningGensetValidation.value.hasHourMeter
+      && runningGensetValidation.value.allAnswersFilled
+      && (!runningGensetValidation.value.hasNoAnswer || runningGensetValidation.value.hasRequiredNote)
+      && (showQrScanner.value ? String(currentRunningGensetBarcode.value || '').trim() !== '' : true);
+  }
+
+  if (isKompresorHarian.value) {
+    if (!canApproveCurrentTemplate.value || Boolean(entry.value?.form?.approved)) {
+      return false;
+    }
+
+    return Boolean(String(entry.value?.form?.period || '').trim())
+      && Boolean(String(entry.value?.form?.compressor_no || '').trim());
   }
 
   if (isSanitation.value) {
@@ -2216,6 +2360,14 @@ function createEntryByTemplate(templateId, options = {}) {
 
   if (templateId === 'genset_running') {
     return createGensetRunningEntry(userName);
+  }
+
+  if (templateId === 'running_genset') {
+    return createRunningGensetEntry(userName);
+  }
+
+  if (templateId === 'kompresor_harian') {
+    return createKompresorHarianEntry(userName);
   }
 
   return null;
@@ -2537,66 +2689,124 @@ function hydrateGensetRunningEntry(savedEntry) {
   }
 
   const now = new Date();
+  const legacySections = Array.isArray(savedEntry?.form?.sections) ? savedEntry.form.sections : [];
+  const legacyActiveMonth = String(savedEntry?.form?.active_month || '').trim() || 'jan';
+  const legacyRows = rebuildGensetRunningRows(
+    Array.isArray(savedEntry?.form?.rows) && savedEntry.form.rows.length
+      ? savedEntry.form.rows
+      : legacySections.flatMap((section) => (
+        (section.items || []).map((item) => {
+          const monthAnswers = item?.months?.[legacyActiveMonth] || {};
+          const status = ['m4', 'm3', 'm2', 'm1']
+            .map((weekKey) => monthAnswers?.[weekKey] || '')
+            .find((value) => value === 'yes' || value === 'no') || '';
+
+          return {
+            id: item.id,
+            status,
+          };
+        })
+      )),
+  );
+  const fallbackPeriodValue = toWeekInputValue(now);
 
   return {
     ...savedEntry,
     form: {
       ...savedEntry.form,
-      year: String(savedEntry?.form?.year || now.getFullYear()),
-      area: String(savedEntry?.form?.area || '').trim() || 'genset',
+      period_value: String(savedEntry?.form?.period_value || '').trim() || fallbackPeriodValue,
+      period: String(savedEntry?.form?.period || '').trim() || formatWeekDisplay(fallbackPeriodValue),
+      selected_area: String(savedEntry?.form?.selected_area || '').trim() || 'genset',
       pic: savedEntry?.form?.pic || currentUser.value?.name || 'User Login',
       date: String(savedEntry?.form?.date || '').trim() || formatDateDisplay(now),
       document_no: String(savedEntry?.form?.document_no || '').trim() || 'DF-GMI-MTC-04',
       rev: String(savedEntry?.form?.rev || '').trim() || '00',
+      effective_date: String(savedEntry?.form?.effective_date || '').trim() || '22 Desember 2025',
       page: String(savedEntry?.form?.page || '').trim() || '1',
-      active_month: String(savedEntry?.form?.active_month || '').trim() || 'jan',
-      approved_months: Array.isArray(savedEntry?.form?.approved_months) ? [...savedEntry.form.approved_months] : [],
-      monthly_notes: {
-        jan: '',
-        feb: '',
-        mar: '',
-        apr: '',
-        may: '',
-        jun: '',
-        jul: '',
-        aug: '',
-        sep: '',
-        oct: '',
-        nov: '',
-        dec: '',
-        ...(savedEntry?.form?.monthly_notes || {}),
+      approved: Boolean(savedEntry?.form?.approved),
+      area_barcodes: {
+        genset: '',
+        ...(savedEntry?.form?.area_barcodes || {}),
       },
-      monthly_barcodes: {
-        jan: '',
-        feb: '',
-        mar: '',
-        apr: '',
-        may: '',
-        jun: '',
-        jul: '',
-        aug: '',
-        sep: '',
-        oct: '',
-        nov: '',
-        dec: '',
-        ...(savedEntry?.form?.monthly_barcodes || {}),
+      area_scan_dates: {
+        genset: '',
+        ...(savedEntry?.form?.area_scan_dates || {}),
       },
-      monthly_check_dates: {
-        jan: '',
-        feb: '',
-        mar: '',
-        apr: '',
-        may: '',
-        jun: '',
-        jul: '',
-        aug: '',
-        sep: '',
-        oct: '',
-        nov: '',
-        dec: '',
-        ...(savedEntry?.form?.monthly_check_dates || {}),
+      area_notes: {
+        genset: '',
+        ...(savedEntry?.form?.area_notes || {}),
       },
-      sections: rebuildGensetRunningSections(savedEntry?.form?.sections || []),
+      rows: legacyRows,
+    },
+  };
+}
+
+function hydrateRunningGensetEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'running_genset') {
+    return savedEntry;
+  }
+
+  const now = new Date();
+  const fallbackDateValue = toDateInputValue(now);
+
+  return {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      selected_area: String(savedEntry?.form?.selected_area || '').trim() || 'genset',
+      pic: savedEntry?.form?.pic || currentUser.value?.name || 'User Login',
+      approved: Boolean(savedEntry?.form?.approved),
+      document_no: String(savedEntry?.form?.document_no || '').trim() || 'FRM.MTC.01.03',
+      rev: String(savedEntry?.form?.rev || '').trim() || '00',
+      effective_date: String(savedEntry?.form?.effective_date || '').trim() || '22 Desember 2025',
+      page: String(savedEntry?.form?.page || '').trim() || '1 dari 1',
+      date_value: String(savedEntry?.form?.date_value || '').trim() || fallbackDateValue,
+      date: String(savedEntry?.form?.date || '').trim() || formatDateInputDisplay(fallbackDateValue),
+      hour_meter: String(savedEntry?.form?.hour_meter || ''),
+      area_barcodes: {
+        genset: '',
+        ...(savedEntry?.form?.area_barcodes || {}),
+      },
+      area_scan_dates: {
+        genset: '',
+        ...(savedEntry?.form?.area_scan_dates || {}),
+      },
+      area_notes: {
+        genset: '',
+        ...(savedEntry?.form?.area_notes || {}),
+      },
+      rows: rebuildRunningGensetRows(savedEntry?.form?.rows || []),
+    },
+  };
+}
+
+function hydrateKompresorHarianEntry(savedEntry) {
+  if (savedEntry?.template_id !== 'kompresor_harian') {
+    return savedEntry;
+  }
+
+  const period = String(savedEntry?.form?.period || '').trim() || toPeriodValue(new Date());
+  const [year] = period.split('-');
+
+  return {
+    ...savedEntry,
+    form: {
+      ...savedEntry.form,
+      period,
+      year: String(savedEntry?.form?.year || '').trim() || year || String(new Date().getFullYear()),
+      compressor_no: String(savedEntry?.form?.compressor_no || ''),
+      location: String(savedEntry?.form?.location || '').trim() || 'GOLDEN MULTI INDOTAMA',
+      pic: savedEntry?.form?.pic || currentUser.value?.name || 'User Login',
+      document_no: String(savedEntry?.form?.document_no || '').trim() || 'DF-GMI-MTC-06',
+      approved: Boolean(savedEntry?.form?.approved),
+      check_headers: {
+        check_1: 'TEMP SUCT (deg C)',
+        check_2: 'TEMP DISCH (deg C)',
+        check_3: 'TEMP OLI (deg C)',
+        check_4: 'LEVE OLI (%)',
+        ...(savedEntry?.form?.check_headers || {}),
+      },
+      rows: rebuildKompresorDailyRows(period, savedEntry?.form?.rows || []),
     },
   };
 }
@@ -2609,8 +2819,10 @@ function hydrateChecklistEntry(savedEntry) {
   const personalHygieneHydratedEntry = hydratePersonalHygieneEntry(patroliSecurityHydratedEntry);
   const siteVisitHseHydratedEntry = hydrateSiteVisitHseEntry(personalHygieneHydratedEntry);
   const siteVisitMaintenanceHydratedEntry = hydrateSiteVisitMaintenanceEntry(siteVisitHseHydratedEntry);
+  const gensetRunningHydratedEntry = hydrateGensetRunningEntry(siteVisitMaintenanceHydratedEntry);
+  const runningGensetHydratedEntry = hydrateRunningGensetEntry(gensetRunningHydratedEntry);
 
-  return hydrateGensetRunningEntry(siteVisitMaintenanceHydratedEntry);
+  return hydrateKompresorHarianEntry(runningGensetHydratedEntry);
 }
 
 function createInitialEntry() {
@@ -2720,13 +2932,6 @@ async function approveChecklist() {
   }
 
   if (isGensetRunning.value) {
-    entry.value.form.approved_months = [
-      ...new Set([...(entry.value.form.approved_months || []), activeGensetRunningMonth.value]),
-    ];
-    entry.value.form.monthly_check_dates = {
-      ...(entry.value.form.monthly_check_dates || {}),
-      [activeGensetRunningMonth.value]: formatDayMonthDisplay(now),
-    };
     entry.value.form.approved = true;
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true });
     return;
@@ -2855,11 +3060,25 @@ async function scanBarcode() {
 }
 
 async function scanGensetRunningBarcode() {
-  if (!entry.value || !isGensetRunning.value || !showQrScanner.value || !gensetRunningMonthValidation.value.canScan) {
+  if (!entry.value || !isGensetRunning.value || !showQrScanner.value || !gensetRunningValidation.value.canScan) {
     return;
   }
 
   scannerMode.value = 'genset_running';
+  scannerError.value = '';
+  scannerLoading.value = true;
+  scannerModalOpen.value = true;
+
+  await nextTick();
+  await startBarcodeScanner();
+}
+
+async function scanRunningGensetBarcode() {
+  if (!entry.value || !isRunningGenset.value || !showQrScanner.value || !runningGensetValidation.value.canScan) {
+    return;
+  }
+
+  scannerMode.value = 'running_genset';
   scannerError.value = '';
   scannerLoading.value = true;
   scannerModalOpen.value = true;
@@ -2985,14 +3204,6 @@ function setKotakP3KActiveMonth(monthKey) {
   entry.value.form.active_month = monthKey;
 }
 
-function setGensetRunningActiveMonth(monthKey) {
-  if (!entry.value || !isGensetRunning.value) {
-    return;
-  }
-
-  entry.value.form.active_month = monthKey;
-}
-
 function setFireSafetyActiveMonth(monthKey) {
   if (!entry.value || !isFireSafety.value) {
     return;
@@ -3015,37 +3226,22 @@ function cycleKotakP3KMonthAnswer(item, monthKey) {
   };
 }
 
-function cycleGensetRunningWeekAnswer({ sectionId, rowId, monthKey, weekKey }) {
-  if (!entry.value || !isGensetRunning.value || isActiveGensetRunningMonthApproved.value || monthKey !== activeGensetRunningMonth.value) {
+function cycleGensetRunningRowStatus({ rowId }) {
+  if (!entry.value || !isGensetRunning.value || isGensetRunningApproved.value) {
     return;
   }
 
-  entry.value.form.sections = (entry.value.form.sections || []).map((section) => {
-    if (section.id !== sectionId) {
-      return section;
+  entry.value.form.rows = (entry.value.form.rows || []).map((row) => {
+    if (row.id !== rowId) {
+      return row;
     }
 
+    const currentValue = row.status || '';
+    const nextValue = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : '';
+
     return {
-      ...section,
-      items: (section.items || []).map((row) => {
-        if (row.id !== rowId) {
-          return row;
-        }
-
-        const currentValue = row.months?.[monthKey]?.[weekKey] || '';
-        const nextValue = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : '';
-
-        return {
-          ...row,
-          months: {
-            ...(row.months || {}),
-            [monthKey]: {
-              ...(row.months?.[monthKey] || {}),
-              [weekKey]: nextValue,
-            },
-          },
-        };
-      }),
+      ...row,
+      status: nextValue,
     };
   });
 }
@@ -3054,8 +3250,127 @@ function updateKotakP3KMonthNote(value) {
   kotakP3KMonthNote.value = value;
 }
 
-function updateGensetRunningMonthNote(value) {
-  gensetRunningMonthNote.value = value;
+function updateGensetRunningPeriod(value) {
+  if (!entry.value || !isGensetRunning.value) {
+    return;
+  }
+
+  const nextValue = String(value || '').trim();
+  entry.value.form.period_value = nextValue;
+  entry.value.form.period = nextValue ? formatWeekDisplay(nextValue) : '';
+}
+
+function updateGensetRunningNote(value) {
+  gensetRunningNote.value = value;
+}
+
+function cycleRunningGensetRowStatus({ rowId }) {
+  if (!entry.value || !isRunningGenset.value || isRunningGensetApproved.value) {
+    return;
+  }
+
+  const statusOrder = ['', 'yes', 'no', 'minus'];
+
+  entry.value.form.rows = (entry.value.form.rows || []).map((row) => {
+    if (row.id !== rowId) {
+      return row;
+    }
+
+    const currentValue = row.status || '';
+    const currentIndex = statusOrder.indexOf(currentValue);
+    const nextValue = statusOrder[(currentIndex + 1) % statusOrder.length];
+
+    return {
+      ...row,
+      status: nextValue,
+    };
+  });
+}
+
+function updateRunningGensetDate(value) {
+  if (!entry.value || !isRunningGenset.value) {
+    return;
+  }
+
+  entry.value.form.date_value = value;
+  entry.value.form.date = formatDateInputDisplay(value);
+  entry.value.form.area_barcodes = {};
+  entry.value.form.area_scan_dates = {};
+  entry.value.form.approved = false;
+}
+
+function updateRunningGensetHourMeter(value) {
+  if (!entry.value || !isRunningGenset.value) {
+    return;
+  }
+
+  entry.value.form.hour_meter = String(value || '');
+}
+
+function updateRunningGensetNote(value) {
+  runningGensetNote.value = value;
+}
+
+function updateKompresorHarianField(field, value) {
+  if (!entry.value || !isKompresorHarian.value) {
+    return;
+  }
+
+  if (field === 'period') {
+    const period = String(value || '').trim();
+    entry.value.form.period = period;
+    entry.value.form.year = period.split('-')[0] || entry.value.form.year;
+    entry.value.form.rows = rebuildKompresorDailyRows(period, entry.value.form.rows || []);
+    return;
+  }
+
+  entry.value.form[field] = value;
+}
+
+function updateKompresorCheckHeader(key, value) {
+  if (!entry.value || !isKompresorHarian.value) {
+    return;
+  }
+
+  entry.value.form.check_headers = {
+    ...(entry.value.form.check_headers || {}),
+    [key]: String(value || ''),
+  };
+}
+
+function updateKompresorRowField(day, field, value) {
+  if (!entry.value || !isKompresorHarian.value) {
+    return;
+  }
+
+  entry.value.form.rows = kompresorHarianRows.value.map((row) => (
+    Number(row.day) === Number(day)
+      ? { ...row, [field]: value }
+      : row
+  ));
+}
+
+function cycleKompresorRowSymbol(day, field) {
+  if (!entry.value || !isKompresorHarian.value || Boolean(entry.value.form.approved)) {
+    return;
+  }
+
+  const symbolOrder = ['', 'yes', 'no', 'minus'];
+
+  entry.value.form.rows = kompresorHarianRows.value.map((row) => {
+    if (Number(row.day) !== Number(day)) {
+      return row;
+    }
+
+    const currentValue = String(row[field] || '');
+    const currentIndex = symbolOrder.indexOf(currentValue);
+    const nextValue = symbolOrder[(currentIndex + 1) % symbolOrder.length];
+
+    return {
+      ...row,
+      [field]: nextValue,
+    };
+  });
 }
 
 function updateFireSafetyCardType(cardType) {
@@ -4133,6 +4448,10 @@ function getExpectedBarcodeValuesForCurrentScannerMode() {
     return getPatroliSecurityBarcodeAliases('genset');
   }
 
+  if (scannerMode.value === 'running_genset') {
+    return getPatroliSecurityBarcodeAliases('genset');
+  }
+
   if (scannerMode.value === 'fire_safety') {
     return getLocationBarcodeAliases(entry.value.form.location)
       .concat(getFireSafetyLocationLabel(entry.value.form.card_type, entry.value.form.location));
@@ -4596,13 +4915,24 @@ async function startBarcodeScanner() {
             }
 
             if (scannerMode.value === 'genset_running') {
-              entry.value.form.monthly_barcodes = {
-                ...(entry.value.form.monthly_barcodes || {}),
-                [activeGensetRunningMonth.value]: decodedText,
+              entry.value.form.area_barcodes = {
+                ...(entry.value.form.area_barcodes || {}),
+                genset: decodedText,
               };
-              entry.value.form.monthly_check_dates = {
-                ...(entry.value.form.monthly_check_dates || {}),
-                [activeGensetRunningMonth.value]: formatShortDateDisplay(new Date()),
+              entry.value.form.area_scan_dates = {
+                ...(entry.value.form.area_scan_dates || {}),
+                genset: formatShortDateDisplay(new Date()),
+              };
+            }
+
+            if (scannerMode.value === 'running_genset') {
+              entry.value.form.area_barcodes = {
+                ...(entry.value.form.area_barcodes || {}),
+                genset: decodedText,
+              };
+              entry.value.form.area_scan_dates = {
+                ...(entry.value.form.area_scan_dates || {}),
+                genset: formatShortDateDisplay(new Date()),
               };
             }
 

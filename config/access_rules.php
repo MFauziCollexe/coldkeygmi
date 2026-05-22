@@ -68,6 +68,8 @@ $templatePermissions = array_merge(
             'sarana_dan_prasarana',
             'site_visit_maintenance',
             'genset_running',
+            'running_genset',
+            'kompresor_harian',
         ],
         $mergeChecklistRules($itChecklistRules, $maintenanceChecklistRules)
     ),

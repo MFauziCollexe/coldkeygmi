@@ -17,7 +17,7 @@
           </tr>
           <tr>
             <td class="border border-black px-2 py-3 text-center sm:w-80 sm:px-3">
-              <div class="text-sm font-bold leading-tight sm:text-xl">CHECKLIST PEMANASAN (RUNNING) GENSET</div>
+              <div class="text-sm font-bold leading-tight sm:text-xl">CHECKLIST RUNNING GENSET</div>
             </td>
             <td class="border border-black p-0 align-top">
               <table class="w-full border-collapse text-[11px] sm:text-sm">
@@ -48,23 +48,23 @@
 
     <div class="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
       <div class="flex flex-col gap-3 font-semibold lg:flex-row lg:flex-wrap lg:items-center">
-        <div class="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
-          <span class="text-base sm:min-w-24 sm:text-lg">Periode:</span>
+        <div class="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
+          <span class="text-base sm:min-w-24 sm:text-lg">Tanggal:</span>
           <input
-            :value="entry.form.period_value"
-            type="week"
+            :value="entry.form.date_value"
+            type="date"
             class="w-full max-w-[220px] rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 sm:max-w-none"
             :disabled="isApproved"
-            @input="$emit('update-period', $event.target.value)"
+            @input="$emit('update-date', $event.target.value)"
           />
         </div>
 
-        <div class="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
+        <div class="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
           <span class="text-base sm:min-w-24 sm:text-lg">Area:</span>
           <div class="text-sm font-normal text-slate-900">GENSET</div>
         </div>
 
-        <div class="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
+        <div class="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
           <span class="text-base sm:min-w-24 sm:text-lg">PIC:</span>
           <div class="text-sm font-normal text-slate-900">{{ entry.form.pic }}</div>
         </div>
@@ -110,18 +110,26 @@
       </div>
     </div>
 
-    <div class="mb-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-      <div>
-        <div class="font-semibold">Tanggal</div>
-        <div>{{ entry.form.date }}</div>
+    <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div class="rounded border border-slate-300 bg-slate-50 p-3">
+        <label class="mb-2 block text-sm font-semibold">A. HOUR METER</label>
+        <input
+          :value="entry.form.hour_meter"
+          type="text"
+          class="w-full rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900"
+          :disabled="isApproved"
+          placeholder="Isi hour meter"
+          @input="$emit('update-hour-meter', $event.target.value)"
+        />
       </div>
-      <div>
-        <div class="font-semibold">Periode Tampil</div>
-        <div>{{ entry.form.period }}</div>
-      </div>
-      <div>
-        <div class="font-semibold">Status</div>
-        <div>{{ statusLabel }}</div>
+
+      <div class="rounded border border-slate-300 bg-slate-50 p-3">
+        <div class="mb-2 text-sm font-semibold">Status</div>
+        <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-3">
+          <div>&#10003; = Centang</div>
+          <div>&#10005; = Silang</div>
+          <div>- = Minus</div>
+        </div>
       </div>
     </div>
 
@@ -131,36 +139,31 @@
           <tr class="bg-slate-100">
             <th class="w-10 border border-black px-1 py-2 text-center sm:w-12 sm:px-2">No</th>
             <th class="border border-black px-2 py-2 text-center sm:min-w-[420px]">ITEM</th>
-            <th class="w-[84px] border border-black px-1 py-2 text-center text-[11px] leading-tight whitespace-normal sm:min-w-[220px] sm:px-2 sm:text-sm">
+            <th class="w-[110px] border border-black px-1 py-2 text-center text-[11px] leading-tight whitespace-normal sm:min-w-[160px] sm:px-2 sm:text-sm">
               Kondisi
             </th>
           </tr>
         </thead>
         <tbody>
-          <template
-            v-for="section in groupedRows"
-            :key="section.id"
-          >
+          <template v-for="section in groupedRows" :key="section.id">
             <tr class="bg-slate-50">
               <td colspan="3" class="border border-black px-2 py-2 text-sm font-bold sm:text-base">
                 {{ section.title }}
               </td>
             </tr>
-            <tr
-              v-for="row in section.items"
-              :key="row.id"
-            >
+            <tr v-for="row in section.items" :key="row.id">
               <td class="border border-black px-1 py-1 text-center align-top sm:px-2">{{ row.no }}</td>
               <td class="border border-black px-2 py-1 leading-snug break-words">{{ row.name }}</td>
               <td class="border border-black p-0 text-center">
                 <button
                   type="button"
                   :disabled="isApproved"
-                  class="flex h-10 w-full items-center justify-center text-lg font-semibold leading-none sm:h-11 sm:text-xl"
+                  class="flex h-10 w-full items-center justify-center text-base font-semibold leading-none sm:h-11 sm:text-lg"
                   @click="$emit('cycle-row-status', { rowId: row.id })"
                 >
                   <span v-if="row.status === 'yes'">&#10003;</span>
                   <span v-else-if="row.status === 'no'" class="text-rose-600">&#10005;</span>
+                  <span v-else-if="row.status === 'minus'" class="text-slate-600">-</span>
                 </button>
               </td>
             </tr>
@@ -222,10 +225,6 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  statusLabel: {
-    type: String,
-    default: 'Pending',
-  },
   showQrScanner: {
     type: Boolean,
     default: true,
@@ -256,7 +255,8 @@ const groupedRows = computed(() => {
 defineEmits([
   'approve',
   'scan-barcode',
-  'update-period',
+  'update-date',
+  'update-hour-meter',
   'cycle-row-status',
   'update-note',
 ]);

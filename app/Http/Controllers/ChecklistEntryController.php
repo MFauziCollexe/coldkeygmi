@@ -596,6 +596,7 @@ class ChecklistEntryController extends Controller
             'sarana_dan_prasarana' => $this->hasSaranaPrasaranaScanForLatestApproval($form),
             'patroli_security', 'site_visit_hse' => $this->isFilled($this->latestListValue($form['approved_areas'] ?? [], $form['area_barcodes'] ?? [])),
             'site_visit_maintenance' => $this->hasMaintenanceQrScan($form),
+            'genset_running', 'running_genset' => $this->hasGensetRunningQrScan($form),
             default => true,
         };
 
@@ -682,6 +683,16 @@ class ChecklistEntryController extends Controller
         }
 
         return $this->isFilled($form['area_barcodes']['lantai_1_area_belakang'] ?? null);
+    }
+
+    private function hasGensetRunningQrScan(array $form): bool
+    {
+        $selectedArea = (string) ($form['selected_area'] ?? '');
+        if ($selectedArea !== '' && $this->isFilled($form['area_barcodes'][$selectedArea] ?? null)) {
+            return true;
+        }
+
+        return $this->isFilled($form['area_barcodes']['genset'] ?? null);
     }
 
     private function hasListExpanded(array $before, array $after): bool

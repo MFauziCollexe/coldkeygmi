@@ -47,7 +47,7 @@
         v-if="selectedChecklist && !canOpenCreatePage"
         class="mb-4 text-sm text-amber-300"
       >
-        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, `Sarana dan Prasarana`, `Patroli Security`, `Site Visit HSE`, `Site Visit Maintenance`, dan `Pemanasan (Running) Genset`.
+        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, `Sarana dan Prasarana`, `Patroli Security`, `Site Visit HSE`, `Site Visit Maintenance`, `Pemanasan (Running) Genset`, `Running Genset`, dan `Kompresor`.
       </div>
 
       <div class="rounded bg-slate-800 p-4">
@@ -188,7 +188,7 @@ const selectedChecklist = ref('');
 const selectedDate = ref(toDateInputValue(new Date()));
 const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : []);
 const selectedEntryIds = ref([]);
-const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running'];
+const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});
 const checklistSettings = computed(() => page.props.checklistSettings || {});
 const checklistTemplatePermissions = computed(() => page.props.checklistTemplatePermissions || {});
