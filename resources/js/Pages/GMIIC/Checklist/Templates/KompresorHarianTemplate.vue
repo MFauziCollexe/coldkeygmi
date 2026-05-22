@@ -1,52 +1,65 @@
 <template>
   <div class="rounded border border-slate-300 bg-white p-4 text-black shadow-sm">
-    <div class="overflow-x-auto border border-black">
-      <table class="w-full min-w-[1600px] border-collapse text-xs sm:text-sm">
+    <div class="overflow-hidden border border-black">
+      <table class="w-full border-collapse text-xs sm:text-sm table-fixed">
         <tbody>
           <tr>
-            <td colspan="14" class="border border-black px-3 py-3 text-center text-lg font-bold">
+            <td
+              colspan="14"
+              class="border border-black px-3 py-3 text-center text-lg font-bold"
+            >
               CHECKLIST HARIAN KOMPRESOR {{ entry.form.year }}
             </td>
           </tr>
+
           <tr>
             <td colspan="6" class="border border-black px-2 py-2">
-              <div class="grid grid-cols-[116px_16px_minmax(0,1fr)] items-center gap-2">
+              <div class="grid grid-cols-[160px_20px_minmax(0,1fr)] items-center gap-2">
                 <span class="font-semibold">KOMPRESOR NO</span>
                 <span>:</span>
+
                 <input
                   :value="entry.form.compressor_no"
                   type="text"
-                  class="w-full border-0 bg-transparent px-0 py-0 text-sm text-slate-900 focus:outline-none focus:ring-0"
+                  class="w-full border-0 bg-transparent text-sm text-slate-900 focus:outline-none focus:ring-0"
                   :disabled="entry.form.approved"
                   placeholder="Isi nomor kompresor"
                   @input="$emit('update-field', 'compressor_no', $event.target.value)"
                 />
               </div>
             </td>
+
             <td colspan="6" class="border border-black px-3 py-2 text-center font-semibold">
               LOKASI : {{ entry.form.location }}
             </td>
+
             <td colspan="2" class="border border-black px-3 py-2 text-center font-semibold">
               {{ entry.form.document_no }}
             </td>
           </tr>
+
           <tr>
             <td colspan="6" class="border border-black px-2 py-2">
-              <div class="grid grid-cols-[116px_16px_minmax(0,1fr)] items-center gap-2">
+              <div class="grid grid-cols-[160px_20px_minmax(0,1fr)] items-center gap-2">
                 <span class="font-semibold">BULAN, TAHUN</span>
                 <span>:</span>
+
                 <input
                   :value="entry.form.period"
                   type="month"
-                  class="w-full border-0 bg-transparent px-0 py-0 text-sm text-slate-900 focus:outline-none focus:ring-0"
+                  class="w-full border-0 bg-transparent text-sm text-slate-900 focus:outline-none focus:ring-0"
                   :disabled="entry.form.approved"
                   @input="$emit('update-field', 'period', $event.target.value)"
                 />
               </div>
             </td>
+
             <td colspan="8" class="border border-black px-3 py-2">
               <div class="flex items-center justify-end gap-3">
-                <div class="text-xs text-slate-600">PIC: {{ entry.form.pic }}</div>
+                <div class="text-xs text-slate-600">
+                  PIC: {{ entry.form.pic }}
+                </div>
+
                 <button
                   type="button"
                   :disabled="!canApproveEntry"
