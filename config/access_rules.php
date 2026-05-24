@@ -70,6 +70,8 @@ $templatePermissions = array_merge(
             'genset_running',
             'running_genset',
             'kompresor_harian',
+            'charger_baterai',
+            'checklist_baterai',
         ],
         $mergeChecklistRules($itChecklistRules, $maintenanceChecklistRules)
     ),

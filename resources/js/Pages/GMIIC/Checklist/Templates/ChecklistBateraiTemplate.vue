@@ -5,21 +5,21 @@
         <tbody>
           <tr>
             <td colspan="3" class="border border-black px-3 py-3 text-center text-lg font-bold sm:text-2xl">
-              CHECKLIST HARIAN KOMPRESOR
+              CHECKLIST BATERAI
             </td>
           </tr>
           <tr>
             <td colspan="2" class="border border-black px-2 py-2">
-              <div class="grid grid-cols-[140px_20px_minmax(0,1fr)] items-center gap-2">
-                <span class="font-semibold">KOMPRESOR NO</span>
+              <div class="grid grid-cols-[110px_20px_minmax(0,1fr)] items-center gap-2">
+                <span class="font-semibold">NO BATERAI</span>
                 <span>:</span>
                 <input
-                  :value="entry.form.compressor_no"
+                  :value="entry.form.battery_no"
                   type="text"
                   class="w-full border-0 bg-transparent text-sm text-slate-900 focus:outline-none focus:ring-0"
                   :disabled="entry.form.approved"
-                  placeholder="Isi nomor kompresor"
-                  @input="$emit('update-field', 'compressor_no', $event.target.value)"
+                  placeholder="Isi nomor baterai"
+                  @input="$emit('update-field', 'battery_no', $event.target.value)"
                 />
               </div>
             </td>
@@ -43,11 +43,6 @@
             :max="rows[rows.length - 1]?.date || undefined"
             @input="$emit('set-active-day', $event.target.value)"
           />
-        </div>
-
-        <div class="grid grid-cols-[100px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
-          <span class="text-base sm:min-w-24 sm:text-lg">Area:</span>
-          <div class="text-sm font-normal text-slate-900">{{ entry.form.location }}</div>
         </div>
 
         <div class="grid grid-cols-[100px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
@@ -92,7 +87,6 @@
               <td class="border border-black px-2 py-1 leading-snug break-words">{{ item.label }}</td>
               <td class="border border-black p-0 text-center">
                 <button
-                  v-if="item.type === 'symbol'"
                   type="button"
                   :disabled="isActiveDayApproved"
                   class="flex h-10 w-full items-center justify-center text-base font-semibold leading-none sm:h-11 sm:text-lg"
@@ -100,17 +94,8 @@
                 >
                   <span v-if="activeRow?.[item.key] === 'yes'">&#10003;</span>
                   <span v-else-if="activeRow?.[item.key] === 'no'" class="text-rose-600">&#10005;</span>
+                  <span v-else-if="activeRow?.[item.key] === 'minus'" class="text-slate-600">-</span>
                 </button>
-                <input
-                  v-else
-                  :value="activeRow?.[item.key] || ''"
-                  :type="item.type === 'number' ? 'number' : 'text'"
-                  :min="item.type === 'number' ? '0' : undefined"
-                  :step="item.type === 'number' ? 'any' : undefined"
-                  class="h-10 w-full border-0 bg-transparent px-2 text-center text-sm text-slate-900 focus:outline-none focus:ring-0 sm:h-11"
-                  :disabled="isActiveDayApproved"
-                  @input="$emit('update-row-field', activeRow?.day, item.key, $event.target.value)"
-                />
               </td>
             </tr>
           </template>
@@ -138,43 +123,15 @@
 <script setup>
 const sections = [
   {
-    id: 'status_mesin',
-    title: 'A. STATUS MESIN',
-    items: [{ no: 1, key: 'status_mesin', label: 'ON/OFF', type: 'symbol' }],
-  },
-  {
-    id: 'visual',
-    title: 'B. VISUAL',
-    items: [
-      { no: 1, key: 'visual_bersih', label: 'BERSIH', type: 'symbol' },
-      { no: 2, key: 'visual_kotor', label: 'KOTOR', type: 'symbol' },
-    ],
-  },
-  {
     id: 'pengecekan',
-    title: 'C. PENGECEKAN',
+    title: 'A. PENGECEKAN',
     items: [
-      { no: 1, key: 'tek_suct', label: 'TEK. SUCT (Mpa)', type: 'text' },
-      { no: 2, key: 'tek_disch', label: 'TEK DISCH (Mpa)', type: 'text' },
-      { no: 3, key: 'delta_tekanan_oli', label: 'DELTA TEKANAN OLI (Mpa)', type: 'text' },
-      { no: 4, key: 'check_1', label: 'TEMP SUCT (deg C)', type: 'text' },
-      { no: 5, key: 'check_2', label: 'TEMP DISCH (deg C)', type: 'text' },
-      { no: 6, key: 'check_3', label: 'TEMP OLI (deg C)', type: 'text' },
-      { no: 7, key: 'check_4', label: 'LEVE OLI (%)', type: 'text' },
+      { no: 1, key: 'level_elektrolit', label: 'LEVEL ELEKTROLIT' },
+      { no: 2, key: 'kabel_konektor', label: 'KABEL & KONEKTOR' },
+      { no: 3, key: 'cover_pelampung', label: 'COVER PELAMPUNG' },
+      { no: 4, key: 'kebersihan_baterai', label: 'KEBERSIHAN BATERAI' },
+      { no: 5, key: 'voltage_dc', label: 'VOLTAGE DC' },
     ],
-  },
-  {
-    id: 'perlakuan',
-    title: 'D. PERLAKUAN',
-    items: [
-      { no: 1, key: 'tambah_grease_motor', label: 'TAMBAH GREASE MOTOR', type: 'symbol' },
-      { no: 2, key: 'tambah_oli', label: 'TAMBAH OLI (LITER)', type: 'number' },
-    ],
-  },
-  {
-    id: 'hours_meter',
-    title: 'E. HOURS METER',
-    items: [{ no: 1, key: 'hours_meter', label: 'HOURS METER', type: 'text' }],
   },
 ]
 
@@ -184,15 +141,14 @@ const props = defineProps({
   activeRow: { type: Object, default: null },
   activeDay: { type: Number, default: 1 },
   isActiveDayApproved: { type: Boolean, default: false },
+  note: { type: String, default: '' },
   canApproveEntry: { type: Boolean, required: true },
   approvedDays: { type: Array, default: () => [] },
-  note: { type: String, default: '' },
 })
 
 const emit = defineEmits([
   'approve',
   'update-field',
-  'update-row-field',
   'cycle-row-symbol',
   'set-active-day',
   'update-note',

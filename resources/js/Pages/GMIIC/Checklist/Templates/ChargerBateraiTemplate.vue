@@ -5,21 +5,21 @@
         <tbody>
           <tr>
             <td colspan="3" class="border border-black px-3 py-3 text-center text-lg font-bold sm:text-2xl">
-              CHECKLIST HARIAN KOMPRESOR
+              CHECKLIST CHARGER BATERAI
             </td>
           </tr>
           <tr>
             <td colspan="2" class="border border-black px-2 py-2">
-              <div class="grid grid-cols-[140px_20px_minmax(0,1fr)] items-center gap-2">
-                <span class="font-semibold">KOMPRESOR NO</span>
+              <div class="grid grid-cols-[80px_20px_minmax(0,1fr)] items-center gap-2">
+                <span class="font-semibold">SN</span>
                 <span>:</span>
                 <input
-                  :value="entry.form.compressor_no"
+                  :value="entry.form.serial_no"
                   type="text"
                   class="w-full border-0 bg-transparent text-sm text-slate-900 focus:outline-none focus:ring-0"
                   :disabled="entry.form.approved"
-                  placeholder="Isi nomor kompresor"
-                  @input="$emit('update-field', 'compressor_no', $event.target.value)"
+                  placeholder="Isi serial number"
+                  @input="$emit('update-field', 'serial_no', $event.target.value)"
                 />
               </div>
             </td>
@@ -43,11 +43,6 @@
             :max="rows[rows.length - 1]?.date || undefined"
             @input="$emit('set-active-day', $event.target.value)"
           />
-        </div>
-
-        <div class="grid grid-cols-[100px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
-          <span class="text-base sm:min-w-24 sm:text-lg">Area:</span>
-          <div class="text-sm font-normal text-slate-900">{{ entry.form.location }}</div>
         </div>
 
         <div class="grid grid-cols-[100px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center sm:gap-3">
@@ -100,13 +95,12 @@
                 >
                   <span v-if="activeRow?.[item.key] === 'yes'">&#10003;</span>
                   <span v-else-if="activeRow?.[item.key] === 'no'" class="text-rose-600">&#10005;</span>
+                  <span v-else-if="activeRow?.[item.key] === 'minus'" class="text-slate-600">-</span>
                 </button>
                 <input
                   v-else
                   :value="activeRow?.[item.key] || ''"
-                  :type="item.type === 'number' ? 'number' : 'text'"
-                  :min="item.type === 'number' ? '0' : undefined"
-                  :step="item.type === 'number' ? 'any' : undefined"
+                  type="text"
                   class="h-10 w-full border-0 bg-transparent px-2 text-center text-sm text-slate-900 focus:outline-none focus:ring-0 sm:h-11"
                   :disabled="isActiveDayApproved"
                   @input="$emit('update-row-field', activeRow?.day, item.key, $event.target.value)"
@@ -138,43 +132,25 @@
 <script setup>
 const sections = [
   {
-    id: 'status_mesin',
-    title: 'A. STATUS MESIN',
-    items: [{ no: 1, key: 'status_mesin', label: 'ON/OFF', type: 'symbol' }],
-  },
-  {
-    id: 'visual',
-    title: 'B. VISUAL',
-    items: [
-      { no: 1, key: 'visual_bersih', label: 'BERSIH', type: 'symbol' },
-      { no: 2, key: 'visual_kotor', label: 'KOTOR', type: 'symbol' },
-    ],
-  },
-  {
     id: 'pengecekan',
-    title: 'C. PENGECEKAN',
+    title: 'A. PENGECEKAN',
     items: [
-      { no: 1, key: 'tek_suct', label: 'TEK. SUCT (Mpa)', type: 'text' },
-      { no: 2, key: 'tek_disch', label: 'TEK DISCH (Mpa)', type: 'text' },
-      { no: 3, key: 'delta_tekanan_oli', label: 'DELTA TEKANAN OLI (Mpa)', type: 'text' },
-      { no: 4, key: 'check_1', label: 'TEMP SUCT (deg C)', type: 'text' },
-      { no: 5, key: 'check_2', label: 'TEMP DISCH (deg C)', type: 'text' },
-      { no: 6, key: 'check_3', label: 'TEMP OLI (deg C)', type: 'text' },
-      { no: 7, key: 'check_4', label: 'LEVE OLI (%)', type: 'text' },
+      { no: 1, key: 'switch_on_off', label: 'SWITCH ON/OF', type: 'symbol' },
+      { no: 2, key: 'kondisi_fisik', label: 'KONDISI FISIK', type: 'symbol' },
+      { no: 3, key: 'kabel_konektor', label: 'KABEL & KONEKTOR', type: 'symbol' },
+      { no: 4, key: 'legrand', label: 'LEGRAND', type: 'symbol' },
+      { no: 5, key: 'display_charger', label: 'DISPLAY CHARGER', type: 'symbol' },
     ],
   },
   {
-    id: 'perlakuan',
-    title: 'D. PERLAKUAN',
-    items: [
-      { no: 1, key: 'tambah_grease_motor', label: 'TAMBAH GREASE MOTOR', type: 'symbol' },
-      { no: 2, key: 'tambah_oli', label: 'TAMBAH OLI (LITER)', type: 'number' },
-    ],
+    id: 'temuan',
+    title: 'B. TEMUAN',
+    items: [{ no: 1, key: 'temuan', label: 'TEMUAN', type: 'symbol' }],
   },
   {
-    id: 'hours_meter',
-    title: 'E. HOURS METER',
-    items: [{ no: 1, key: 'hours_meter', label: 'HOURS METER', type: 'text' }],
+    id: 'tindakan',
+    title: 'C. TINDAKAN',
+    items: [{ no: 1, key: 'tindakan', label: 'TINDAKAN', type: 'text' }],
   },
 ]
 
@@ -184,9 +160,9 @@ const props = defineProps({
   activeRow: { type: Object, default: null },
   activeDay: { type: Number, default: 1 },
   isActiveDayApproved: { type: Boolean, default: false },
+  note: { type: String, default: '' },
   canApproveEntry: { type: Boolean, required: true },
   approvedDays: { type: Array, default: () => [] },
-  note: { type: String, default: '' },
 })
 
 const emit = defineEmits([
