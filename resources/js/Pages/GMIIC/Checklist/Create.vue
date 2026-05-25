@@ -376,6 +376,7 @@ const currentTemplateProps = computed(() => {
     currentBarcode: siteVisitMaintenance.currentMaintenanceBarcode.value,
     canScanBarcode: siteVisitMaintenance.canScanMaintenance.value,
     canApproveEntry: canApproveEntry.value,
+    approvalDisabledReason: maintenanceApprovalDisabledReason.value,
     currentPhotos: siteVisitMaintenance.currentMaintenancePhotos.value,
     photoUploading: photo.maintenancePhotoUploading.value,
     photoError: siteVisitMaintenance.maintenancePhotoError.value,
@@ -690,6 +691,25 @@ const canApproveEntry = computed(() => {
 })
 
 // ─── approveChecklist ───────────────────────────────────────
+const maintenanceApprovalDisabledReason = computed(() => {
+  if (!entry.value || entry.value.template_id !== 'site_visit_maintenance' || canApproveEntry.value) return ''
+  if (!canApproveCurrentTemplate.value) return 'Akun ini belum memiliki akses approve untuk template maintenance.'
+
+  const visitType = String(entry.value.form.visit_type || '').trim()
+  const hasSchedule = visitType === 'maintenance_mingguan'
+    ? Boolean(String(entry.value.form.period_value || '').trim())
+    : Boolean(String(entry.value.form.date_value || '').trim())
+
+  if (!visitType) return 'Jenis checklist belum dipilih.'
+  if (!hasSchedule) return visitType === 'maintenance_mingguan' ? 'Periode belum dipilih.' : 'Tanggal belum dipilih.'
+  if (visitType === 'maintenance_harian' && !String(entry.value.form.selected_area || '').trim()) return 'Area belum dipilih.'
+  if (showQrScanner.value && !String(siteVisitMaintenance.currentMaintenanceBarcode.value || '').trim()) return 'QRCode area aktif belum discan.'
+  if (!siteVisitMaintenance.maintenanceValidation.value.allAnswersFilled) return 'Semua kondisi checklist harus diisi.'
+  if (siteVisitMaintenance.maintenanceValidation.value.hasNoAnswer && !siteVisitMaintenance.maintenanceValidation.value.hasRequiredNote) return 'Isi keterangan jika ada item bertanda silang.'
+
+  return 'Belum memenuhi syarat approval.'
+})
+
 async function approveChecklist() {
   if (!entry.value || !canApproveEntry.value) return
   const now = new Date()

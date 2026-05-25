@@ -137,7 +137,7 @@
         </div>
 
         <div class="max-w-[132px] text-xs text-slate-600">
-          {{ showQrScanner ? (currentBarcode || 'QRCode area aktif belum discan.') : 'Approve dapat langsung dilakukan.' }}
+          {{ approvalDisabledReason || (showQrScanner ? (currentBarcode || 'QRCode area aktif belum discan.') : 'Approve dapat langsung dilakukan.') }}
         </div>
       </div>
     </div>
@@ -374,6 +374,10 @@ defineProps({
   canApproveEntry: {
     type: Boolean,
     required: true,
+  },
+  approvalDisabledReason: {
+    type: String,
+    default: '',
   },
   currentPhotos: {
     type: Array,
