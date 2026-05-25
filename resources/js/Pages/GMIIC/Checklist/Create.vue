@@ -803,8 +803,7 @@ async function approveChecklist() {
     const activeRow = rows.find((row) => Number(row.day) === activeDay)
     if (activeRow && !approvedDays.includes(activeDay) && isKompresorDailyRowComplete(activeRow)) {
       entry.value.form.approved_days = [...new Set([...approvedDays, activeDay])].sort((a, b) => a - b)
-      const allDays = rows.map((row) => Number(row.day)).sort((a, b) => a - b)
-      entry.value.form.approved = allDays.length > 0 && allDays.every((d) => entry.value.form.approved_days.includes(d))
+      entry.value.form.approved = true
     }
     const savedApprovedDays = [...(entry.value.form.approved_days || [])].map(Number)
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
@@ -819,8 +818,7 @@ async function approveChecklist() {
     const activeRow = rows.find((row) => Number(row.day) === activeDay)
     if (activeRow && !approvedDays.includes(activeDay) && isChargerBateraiRowComplete(activeRow)) {
       entry.value.form.approved_days = [...new Set([...approvedDays, activeDay])].sort((a, b) => a - b)
-      const allDays = rows.map((row) => Number(row.day)).sort((a, b) => a - b)
-      entry.value.form.approved = allDays.length > 0 && allDays.every((d) => entry.value.form.approved_days.includes(d))
+      entry.value.form.approved = true
     }
     const savedApprovedDays = [...(entry.value.form.approved_days || [])].map(Number)
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
@@ -835,8 +833,7 @@ async function approveChecklist() {
     const activeRow = rows.find((row) => Number(row.day) === activeDay)
     if (activeRow && !approvedDays.includes(activeDay) && isChecklistBateraiRowComplete(activeRow)) {
       entry.value.form.approved_days = [...new Set([...approvedDays, activeDay])].sort((a, b) => a - b)
-      const allDays = rows.map((row) => Number(row.day)).sort((a, b) => a - b)
-      entry.value.form.approved = allDays.length > 0 && allDays.every((d) => entry.value.form.approved_days.includes(d))
+      entry.value.form.approved = true
     }
     const savedApprovedDays = [...(entry.value.form.approved_days || [])].map(Number)
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true })

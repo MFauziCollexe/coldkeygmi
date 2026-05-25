@@ -537,6 +537,14 @@ class ChecklistEntryController extends Controller
         }
 
         if (
+            in_array($entry['template_id'], ['kompresor_harian', 'charger_baterai', 'checklist_baterai'], true)
+            && is_array(data_get($entry, 'form.approved_days'))
+            && count(data_get($entry, 'form.approved_days')) > 0
+        ) {
+            return 'approved';
+        }
+
+        if (
             $entry['template_id'] === 'non_warehouse_sanitation'
             && is_array(data_get($entry, 'form.submitted_days'))
             && count(data_get($entry, 'form.submitted_days')) > 0

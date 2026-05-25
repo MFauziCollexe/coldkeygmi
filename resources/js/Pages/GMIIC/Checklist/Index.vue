@@ -189,6 +189,7 @@ const selectedDate = ref(toDateInputValue(new Date()));
 const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : []);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai'];
+const dailyApprovedTemplates = ['kompresor_harian', 'charger_baterai', 'checklist_baterai'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});
 const checklistSettings = computed(() => page.props.checklistSettings || {});
 const checklistTemplatePermissions = computed(() => page.props.checklistTemplatePermissions || {});
@@ -323,12 +324,12 @@ function getChecklistStatusLabel(entry) {
     return 'Approved';
   }
 
-  if (entry?.template_id === 'warehouse_sanitation_1' && entry?.form?.verification?.prepared_date) {
-    return 'Waiting Manager';
+  if (dailyApprovedTemplates.includes(entry?.template_id) && Array.isArray(entry?.form?.approved_days) && entry.form.approved_days.length) {
+    return 'Approved';
   }
 
-  if (entry?.template_id === 'kompresor_harian' && Array.isArray(entry?.form?.approved_days) && entry.form.approved_days.length) {
-    return 'Partial';
+  if (entry?.template_id === 'warehouse_sanitation_1' && entry?.form?.verification?.prepared_date) {
+    return 'Waiting Manager';
   }
 
   return 'Draft';
@@ -351,11 +352,11 @@ function getChecklistStatusClass(entry) {
     return 'bg-emerald-600 text-white';
   }
 
-  if (entry?.template_id === 'warehouse_sanitation_1' && entry?.form?.verification?.prepared_date) {
-    return 'bg-sky-600 text-white';
+  if (dailyApprovedTemplates.includes(entry?.template_id) && Array.isArray(entry?.form?.approved_days) && entry.form.approved_days.length) {
+    return 'bg-emerald-600 text-white';
   }
 
-  if (entry?.template_id === 'kompresor_harian' && Array.isArray(entry?.form?.approved_days) && entry.form.approved_days.length) {
+  if (entry?.template_id === 'warehouse_sanitation_1' && entry?.form?.verification?.prepared_date) {
     return 'bg-sky-600 text-white';
   }
 
