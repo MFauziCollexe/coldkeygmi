@@ -110,7 +110,7 @@
                 <td class="py-3">{{ index + 1 }}</td>
                 <td>{{ entry.name }}</td>
                 <td>{{ getChecklistEntryAreaLabel(entry) }}</td>
-                <td>{{ entry.form?.date || entry.form?.period || '-' }}</td>
+                <td>{{ getChecklistEntryDateLabel(entry) }}</td>
                 <td>{{ entry.form?.pic || '-' }}</td>
                 <td>
                   <span
@@ -388,6 +388,39 @@ function getChecklistEntryDateValue(entry) {
   }
 
   return null;
+}
+
+function getChecklistEntryDateLabel(entry) {
+  const directDate = normalizeIsoDate(entry?.form?.date_value);
+  if (directDate) {
+    return formatIsoDateDisplay(directDate);
+  }
+
+  const displayDate = parseChecklistDisplayDate(entry?.form?.date);
+  if (displayDate) {
+    return formatIsoDateDisplay(displayDate);
+  }
+
+  const periodDate = normalizeIsoDate(entry?.form?.period + '-01');
+  if (periodDate) {
+    return formatIsoDateDisplay(periodDate);
+  }
+
+  return entry?.form?.date || entry?.form?.period || '-';
+}
+
+function formatIsoDateDisplay(value) {
+  const normalized = normalizeIsoDate(value);
+  if (!normalized) {
+    return '-';
+  }
+
+  const [year, month, day] = normalized.split('-').map(Number);
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(year, month - 1, day));
 }
 
 function normalizeIsoDate(value) {
