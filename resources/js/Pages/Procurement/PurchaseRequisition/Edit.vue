@@ -100,6 +100,9 @@
                 </button>
               </div>
             </div>
+            <div v-if="form.attachments.length" class="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+              Attachment baru belum tersimpan. Klik Update untuk menyimpan file ke PR.
+            </div>
             <div v-if="attachmentErrorList.length" class="space-y-1">
               <div v-for="(error, index) in attachmentErrorList" :key="`attachment-error-${index}`" class="text-xs text-rose-300">
                 {{ error }}
@@ -198,12 +201,17 @@ function formatLocalFileSize(size) {
 }
 
 function submit() {
-  form.transform((data) => buildPayload(data, selectedInputFiles()));
+  form.processing = true;
+  form.clearErrors();
 
-  form.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}`, {
+  router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}`, buildPayload(selectedInputFiles()), {
     preserveScroll: true,
+    forceFormData: true,
+    onError: (errors) => {
+      form.setError(errors);
+    },
     onFinish: () => {
-      form.transform((data) => data);
+      form.processing = false;
     },
   });
 }
@@ -212,16 +220,16 @@ function selectedInputFiles() {
   return Array.from(fileInput.value?.files || []);
 }
 
-function buildPayload(data, inputFiles = []) {
+function buildPayload(inputFiles = []) {
   const payload = new FormData();
-  const attachments = data.attachments.length ? data.attachments : inputFiles;
+  const attachments = form.attachments.length ? form.attachments : inputFiles;
 
   payload.append('_method', 'put');
-  payload.append('priority', data.priority || '');
-  payload.append('department_id', data.department_id || '');
-  payload.append('note', data.note || '');
+  payload.append('priority', form.priority || '');
+  payload.append('department_id', form.department_id || '');
+  payload.append('note', form.note || '');
 
-  data.items.forEach((item, index) => {
+  form.items.forEach((item, index) => {
     appendItem(payload, item, index);
   });
 
@@ -229,7 +237,7 @@ function buildPayload(data, inputFiles = []) {
     payload.append('attachments[]', file);
   });
 
-  data.delete_attachment_ids.forEach((id) => {
+  form.delete_attachment_ids.forEach((id) => {
     payload.append('delete_attachment_ids[]', id);
   });
 
