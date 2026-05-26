@@ -290,6 +290,9 @@ Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/approv
 Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/reject', [App\Http\Controllers\PurchaseRequisitionController::class, 'reject'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.reject');
+Route::post('gmisl/procurement/purchase-requisition/{purchaseRequisition}/attachments', [App\Http\Controllers\PurchaseRequisitionController::class, 'storeAttachment'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
+    ->name('purchase-requisition.attachments.store');
 Route::put('gmisl/procurement/purchase-requisition/{purchaseRequisition}', [App\Http\Controllers\PurchaseRequisitionController::class, 'update'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.procurement.purchase_requisition'])
     ->name('purchase-requisition.update');

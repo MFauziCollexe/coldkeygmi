@@ -232,15 +232,9 @@ class PurchaseRequisitionController extends Controller
                 'items' => $purchaseRequisition->items
                     ->map(fn ($item) => $this->itemPayload($item))
                     ->values(),
-                'attachments' => $purchaseRequisition->attachments
-                    ->map(fn ($attachment) => [
-                        'id' => $attachment->id,
-                        'filename' => $attachment->filename,
-                        'mime_type' => $attachment->mime_type,
-                        'size' => $this->formatFileSize((int) ($attachment->size ?? 0)),
-                        'url' => Storage::disk('public')->url($attachment->path),
-                    ])
-                    ->values(),
+                  'attachments' => $purchaseRequisition->attachments
+                      ->map(fn ($attachment) => $this->attachmentPayload($attachment))
+                      ->values(),
             ],
             'uomOptions' => $this->uomOptions(),
             'masterItems' => $this->masterItemOptions(),
@@ -328,6 +322,46 @@ class PurchaseRequisitionController extends Controller
 
         return $this->redirectToRememberedIndex($request, 'purchase_requisitions', 'purchase-requisition.index')
             ->with('success', 'Purchase requisition berhasil diperbarui.');
+    }
+
+    public function storeAttachment(Request $request, PurchaseRequisition $purchaseRequisition)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $user?->loadMissing('department');
+
+        if (!$this->canEdit($user, $purchaseRequisition)) {
+            abort(403, 'Purchase requisition ini tidak bisa diubah.');
+        }
+
+        $request->validate([
+            'attachments' => ['required', 'array', 'min:1'],
+            'attachments.*' => ['file', 'max:10240'],
+        ]);
+
+        $attachments = $this->storeAttachments($purchaseRequisition, $request->file('attachments', []));
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'message' => 'Attachment berhasil disimpan.',
+                'attachments' => $attachments
+                    ->map(fn (PurchaseRequisitionAttachment $attachment) => $this->attachmentPayload($attachment))
+                    ->values(),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Attachment berhasil disimpan.');
+    }
+
+    private function attachmentPayload(PurchaseRequisitionAttachment $attachment): array
+    {
+        return [
+            'id' => $attachment->id,
+            'filename' => $attachment->filename,
+            'mime_type' => $attachment->mime_type,
+            'size' => $this->formatFileSize((int) ($attachment->size ?? 0)),
+            'url' => Storage::disk('public')->url($attachment->path),
+        ];
     }
 
     public function approve(Request $request, PurchaseRequisition $purchaseRequisition)
@@ -1220,8 +1254,10 @@ class PurchaseRequisitionController extends Controller
          }
      }
 
-     private function storeAttachments(PurchaseRequisition $purchaseRequisition, mixed $attachments): void
+     private function storeAttachments(PurchaseRequisition $purchaseRequisition, mixed $attachments): \Illuminate\Support\Collection
      {
+         $storedAttachments = collect();
+
          foreach (array_filter((array) $attachments) as $file) {
              if (!$file instanceof \Illuminate\Http\UploadedFile || !$file->isValid()) {
                  continue;
@@ -1229,13 +1265,15 @@ class PurchaseRequisitionController extends Controller
 
              $path = $file->store('purchase-requisitions/' . $purchaseRequisition->id, 'public');
 
-             $purchaseRequisition->attachments()->create([
+             $storedAttachments->push($purchaseRequisition->attachments()->create([
                  'filename' => $file->getClientOriginalName(),
                  'path' => $path,
                  'mime_type' => $file->getClientMimeType(),
                  'size' => $file->getSize(),
-             ]);
+             ]));
          }
+
+         return $storedAttachments;
      }
 
      private function requiredDateErrors(array $items, Carbon $minimumRequiredDate): array

@@ -127,6 +127,7 @@
 
 <script setup>
 import { Link, router, useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import PurchaseRequisitionItemEditor from './Partials/PurchaseRequisitionItemEditor.vue';
@@ -144,6 +145,7 @@ const props = defineProps({
 const canDelete = props.purchaseRequisition.can_delete === true || String(props.currentUser?.department_code || '').toUpperCase() === 'IT';
 const existingAttachments = ref([...(props.purchaseRequisition.attachments || [])]);
 const fileInput = ref(null);
+const uploadError = ref('');
 const form = useForm({
   priority: String(props.purchaseRequisition.priority || 'medium'),
   department_id: props.currentUser.department_id || '',
@@ -163,10 +165,14 @@ const form = useForm({
   attachments: [],
   delete_attachment_ids: [],
 });
+const initialPrState = JSON.stringify(prStatePayload());
 const attachmentErrorList = computed(() =>
-  Object.entries(form.errors)
+  [
+    uploadError.value,
+    ...Object.entries(form.errors)
     .filter(([key]) => key === 'attachments' || key.startsWith('attachments.'))
-    .map(([, value]) => value)
+    .map(([, value]) => value),
+  ].filter(Boolean)
 );
 
 function handleFileUpload(event) {
@@ -200,11 +206,25 @@ function formatLocalFileSize(size) {
   return `${value.toFixed(unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`;
 }
 
-function submit() {
+async function submit() {
+  uploadError.value = '';
   form.processing = true;
   form.clearErrors();
 
-  router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}`, buildPayload(selectedInputFiles()), {
+  try {
+    const uploadedCount = await uploadPendingAttachments();
+
+    if (uploadedCount > 0 && !hasPrDataChanges() && form.delete_attachment_ids.length === 0) {
+      form.processing = false;
+      return;
+    }
+  } catch (error) {
+    uploadError.value = error.response?.data?.message || 'Attachment gagal disimpan.';
+    form.processing = false;
+    return;
+  }
+
+  router.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}`, buildPayload(), {
     preserveScroll: true,
     forceFormData: true,
     onError: (errors) => {
@@ -216,13 +236,71 @@ function submit() {
   });
 }
 
+async function uploadPendingAttachments() {
+  const attachments = form.attachments.length ? form.attachments : selectedInputFiles();
+
+  if (!attachments.length) {
+    return 0;
+  }
+
+  const payload = new FormData();
+  attachments.forEach((file) => {
+    payload.append('attachments[]', file);
+  });
+
+  const response = await axios.post(
+    `/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}/attachments`,
+    payload,
+    {
+      headers: {
+        Accept: 'application/json',
+        'X-Skip-Global-Loading': '1',
+      },
+    },
+  );
+
+  existingAttachments.value = [
+    ...existingAttachments.value,
+    ...(response.data?.attachments || []),
+  ];
+
+  form.attachments = [];
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+
+  return response.data?.attachments?.length || 0;
+}
+
+function hasPrDataChanges() {
+  return JSON.stringify(prStatePayload()) !== initialPrState;
+}
+
+function prStatePayload() {
+  return {
+    priority: form.priority || '',
+    department_id: form.department_id || '',
+    note: form.note || '',
+    items: form.items.map((item) => ({
+      procurement_master_item_id: item.procurement_master_item_id || '',
+      item_code: item.item_code || '',
+      item_name: item.item_name || '',
+      description_of_goods: item.description_of_goods || '',
+      specification: item.specification || '',
+      unit: item.unit || '',
+      quantity: item.quantity || '',
+      required_date: item.required_date || '',
+      price: item.price || '',
+    })),
+  };
+}
+
 function selectedInputFiles() {
   return Array.from(fileInput.value?.files || []);
 }
 
-function buildPayload(inputFiles = []) {
+function buildPayload() {
   const payload = new FormData();
-  const attachments = form.attachments.length ? form.attachments : inputFiles;
 
   payload.append('_method', 'put');
   payload.append('priority', form.priority || '');
@@ -231,10 +309,6 @@ function buildPayload(inputFiles = []) {
 
   form.items.forEach((item, index) => {
     appendItem(payload, item, index);
-  });
-
-  attachments.forEach((file) => {
-    payload.append('attachments[]', file);
   });
 
   form.delete_attachment_ids.forEach((id) => {
