@@ -194,19 +194,7 @@ class PurchaseRequisitionController extends Controller
 
             $this->syncItems($purchaseRequisition, $validated['items']);
             $this->syncSupplierComparisonRows($purchaseRequisition);
-
-            if ($request->hasFile('attachments')) {
-                foreach ((array) $request->file('attachments') as $file) {
-                    $path = $file->store('purchase-requisitions/' . $purchaseRequisition->id, 'public');
-
-                    $purchaseRequisition->attachments()->create([
-                        'filename' => $file->getClientOriginalName(),
-                        'path' => $path,
-                        'mime_type' => $file->getClientMimeType(),
-                        'size' => $file->getSize(),
-                    ]);
-                }
-            }
+            $this->storeAttachments($purchaseRequisition, $request->file('attachments', []));
         });
 
         return redirect()
@@ -335,18 +323,7 @@ class PurchaseRequisitionController extends Controller
                 }
             }
 
-            if ($request->hasFile('attachments')) {
-                foreach ((array) $request->file('attachments') as $file) {
-                    $path = $file->store('purchase-requisitions/' . $purchaseRequisition->id, 'public');
-
-                    $purchaseRequisition->attachments()->create([
-                        'filename' => $file->getClientOriginalName(),
-                        'path' => $path,
-                        'mime_type' => $file->getClientMimeType(),
-                        'size' => $file->getSize(),
-                    ]);
-                }
-            }
+            $this->storeAttachments($purchaseRequisition, $request->file('attachments', []));
         });
 
         return $this->redirectToRememberedIndex($request, 'purchase_requisitions', 'purchase-requisition.index')
@@ -1239,6 +1216,24 @@ class PurchaseRequisitionController extends Controller
                  'product_name' => trim((string) $item['item_name']),
                  'uom' => trim((string) $item['unit']),
                  'qty' => $item['quantity'],
+             ]);
+         }
+     }
+
+     private function storeAttachments(PurchaseRequisition $purchaseRequisition, mixed $attachments): void
+     {
+         foreach (array_filter((array) $attachments) as $file) {
+             if (!$file instanceof \Illuminate\Http\UploadedFile || !$file->isValid()) {
+                 continue;
+             }
+
+             $path = $file->store('purchase-requisitions/' . $purchaseRequisition->id, 'public');
+
+             $purchaseRequisition->attachments()->create([
+                 'filename' => $file->getClientOriginalName(),
+                 'path' => $path,
+                 'mime_type' => $file->getClientMimeType(),
+                 'size' => $file->getSize(),
              ]);
          }
      }

@@ -90,9 +90,49 @@ const form = useForm({
 });
 
 function submit() {
+  form.transform((data) => buildPayload(data));
+
   form.post('/gmisl/procurement/purchase-requisition', {
     preserveScroll: true,
-    forceFormData: true,
+    onFinish: () => {
+      form.transform((data) => data);
+    },
+  });
+}
+
+function buildPayload(data) {
+  const payload = new FormData();
+
+  payload.append('priority', data.priority || '');
+  payload.append('department_id', data.department_id || '');
+  payload.append('note', data.note || '');
+
+  data.items.forEach((item, index) => {
+    appendItem(payload, item, index);
+  });
+
+  data.attachments.forEach((file) => {
+    payload.append('attachments[]', file);
+  });
+
+  return payload;
+}
+
+function appendItem(payload, item, index) {
+  const fields = [
+    'procurement_master_item_id',
+    'item_code',
+    'item_name',
+    'description_of_goods',
+    'specification',
+    'unit',
+    'quantity',
+    'required_date',
+    'price',
+  ];
+
+  fields.forEach((field) => {
+    payload.append(`items[${index}][${field}]`, item[field] ?? '');
   });
 }
 
