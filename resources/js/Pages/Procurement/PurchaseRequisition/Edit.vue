@@ -100,6 +100,11 @@
                 </button>
               </div>
             </div>
+            <div v-if="attachmentErrorList.length" class="space-y-1">
+              <div v-for="(error, index) in attachmentErrorList" :key="`attachment-error-${index}`" class="text-xs text-rose-300">
+                {{ error }}
+              </div>
+            </div>
           </div>
 
           <div class="flex flex-col-reverse gap-3 border-t border-slate-700 pt-4 sm:flex-row sm:justify-end">
@@ -122,7 +127,7 @@ import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import PurchaseRequisitionItemEditor from './Partials/PurchaseRequisitionItemEditor.vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import Swal from 'sweetalert2';
 
 const props = defineProps({
@@ -155,15 +160,23 @@ const form = useForm({
   attachments: [],
   delete_attachment_ids: [],
 });
+const attachmentErrorList = computed(() =>
+  Object.entries(form.errors)
+    .filter(([key]) => key === 'attachments' || key.startsWith('attachments.'))
+    .map(([, value]) => value)
+);
 
 function handleFileUpload(event) {
   const files = Array.from(event?.target?.files || []);
   form.attachments = [...form.attachments, ...files];
-  event.target.value = '';
 }
 
 function removeAttachment(index) {
   form.attachments.splice(index, 1);
+
+  if (!form.attachments.length && fileInput.value) {
+    fileInput.value.value = '';
+  }
 }
 
 function removeExistingAttachment(attachment) {
@@ -185,7 +198,7 @@ function formatLocalFileSize(size) {
 }
 
 function submit() {
-  form.transform((data) => buildPayload(data));
+  form.transform((data) => buildPayload(data, selectedInputFiles()));
 
   form.post(`/gmisl/procurement/purchase-requisition/${props.purchaseRequisition.id}`, {
     preserveScroll: true,
@@ -195,8 +208,13 @@ function submit() {
   });
 }
 
-function buildPayload(data) {
+function selectedInputFiles() {
+  return Array.from(fileInput.value?.files || []);
+}
+
+function buildPayload(data, inputFiles = []) {
   const payload = new FormData();
+  const attachments = data.attachments.length ? data.attachments : inputFiles;
 
   payload.append('_method', 'put');
   payload.append('priority', data.priority || '');
@@ -207,7 +225,7 @@ function buildPayload(data) {
     appendItem(payload, item, index);
   });
 
-  data.attachments.forEach((file) => {
+  attachments.forEach((file) => {
     payload.append('attachments[]', file);
   });
 
