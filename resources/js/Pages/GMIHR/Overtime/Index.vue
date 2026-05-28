@@ -6,7 +6,8 @@
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="button"
-            class="rounded bg-emerald-600 px-4 py-2 text-white"
+            class="rounded bg-emerald-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!canExport"
             @click="exportExcel"
           >
             Export Excel
@@ -20,7 +21,7 @@
       <!-- Filters -->
       <div class="mb-4 rounded-lg border border-slate-700 bg-slate-800 p-3">
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <div class="md:col-span-4 relative">
+          <div class="md:col-span-3 relative">
             <input
               v-model="filters.search"
               @keyup.enter="fetchData"
@@ -32,7 +33,7 @@
             </label>
           </div>
 
-          <div class="md:col-span-3 relative group">
+          <div class="md:col-span-2 relative group">
             <SearchableSelect
               v-model="filters.status"
               :options="statusOptions"
@@ -57,7 +58,7 @@
             </label>
           </div>
 
-          <div v-if="isAdmin" class="md:col-span-5 relative group">
+          <div v-if="isAdmin" class="md:col-span-3 relative group">
             <SearchableSelect
               v-model="filters.department_id"
               :options="departments"
@@ -80,6 +81,26 @@
             >
               Department
             </label>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="text-xs text-slate-300">Tanggal Dari</label>
+            <input
+              v-model="filters.start_date"
+              type="date"
+              class="mt-1 h-[42px] w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              @change="fetchData"
+            />
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="text-xs text-slate-300">Sampai</label>
+            <input
+              v-model="filters.end_date"
+              type="date"
+              class="mt-1 h-[42px] w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              @change="fetchData"
+            />
           </div>
         </div>
       </div>
@@ -323,7 +344,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, onMounted, onBeforeUnmount, onUpdated } from 'vue';
+import { computed, ref, reactive, nextTick, onMounted, onBeforeUnmount, onUpdated } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -344,6 +365,8 @@ const filters = reactive({
   search: props.filters?.search || '',
   status: props.filters?.status || '',
   department_id: props.filters?.department_id || '',
+  start_date: props.filters?.start_date || '',
+  end_date: props.filters?.end_date || '',
 });
 
 const showCreateModal = ref(false);
@@ -362,12 +385,15 @@ const statusOptions = [
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
 ];
+const canExport = computed(() => Boolean(filters.start_date && filters.end_date));
 
 function fetchData() {
   const params = {};
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.department_id) params.department_id = filters.department_id;
+  if (filters.start_date) params.start_date = filters.start_date;
+  if (filters.end_date) params.end_date = filters.end_date;
   
   router.get('/overtime', params, { 
     preserveState: true, 
@@ -376,10 +402,17 @@ function fetchData() {
 }
 
 function exportExcel() {
+  if (!canExport.value) {
+    window.alert('Pilih Tanggal Dari dan Sampai terlebih dahulu sebelum export.');
+    return;
+  }
+
   const params = {};
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.department_id) params.department_id = filters.department_id;
+  params.start_date = filters.start_date;
+  params.end_date = filters.end_date;
   params.export = 1;
 
   const qs = new URLSearchParams(params).toString();
@@ -391,6 +424,8 @@ function goToPage(pageNum) {
   if (filters.search) params.search = filters.search;
   if (filters.status) params.status = filters.status;
   if (filters.department_id) params.department_id = filters.department_id;
+  if (filters.start_date) params.start_date = filters.start_date;
+  if (filters.end_date) params.end_date = filters.end_date;
   
   router.get('/overtime', params, { 
     preserveState: true, 

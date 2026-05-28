@@ -154,6 +154,24 @@ class OvertimeController extends Controller
         $startDate = request('start_date');
         $endDate = request('end_date');
 
+        $dateRules = $request->boolean('export')
+            ? ['required', 'date']
+            : ['nullable', 'date'];
+        $endDateRules = $dateRules;
+
+        if ($request->filled('start_date')) {
+            $endDateRules[] = 'after_or_equal:start_date';
+        }
+
+        $request->validate([
+            'start_date' => $dateRules,
+            'end_date' => $endDateRules,
+        ], [
+            'start_date.required' => 'Tanggal Dari wajib diisi sebelum export.',
+            'end_date.required' => 'Tanggal Sampai wajib diisi sebelum export.',
+            'end_date.after_or_equal' => 'Tanggal Sampai harus sama dengan atau setelah Tanggal Dari.',
+        ]);
+
         if ($search) {
             $query->where(function ($q) use ($search) {
                 if (Schema::hasColumn('overtimes', 'employee_id')) {
