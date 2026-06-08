@@ -15,6 +15,11 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class StockCardController extends Controller
 {
@@ -107,6 +112,96 @@ class StockCardController extends Controller
                 'page' => '1 of 1',
                 'classification' => 'Confidential',
             ],
+        ]);
+    }
+
+    public function export(Request $request)
+    {
+        abort_unless(
+            $this->accessRules()->allows($request->user(), self::ACCESS_MODULE, 'view_history'),
+            403
+        );
+
+        $search = trim((string) $request->string('q'));
+        $itemIdInput = trim((string) $request->input('item_id', 'all'));
+
+        $items = $this->baseItemsQuery($search)
+            ->orderBy('name')
+            ->get();
+
+        $selectedItemId = ctype_digit($itemIdInput) ? (int) $itemIdInput : null;
+        $selectedItem = $selectedItemId ? $items->firstWhere('id', $selectedItemId) : null;
+        $rows = $selectedItem ? $this->buildCardRows($selectedItem) : $this->buildAllCardRows($items);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Stock Card');
+
+        $sheet->mergeCells('A1:F1');
+        $sheet->setCellValue('A1', 'KARTU STOCK BARANG - NON PRODUK');
+        $sheet->setCellValue('A2', 'Nama Barang');
+        $sheet->setCellValue('B2', $selectedItem ? $selectedItem->name : 'Semua Barang');
+        $sheet->setCellValue('A3', 'Jenis / Tipe Barang');
+        $sheet->setCellValue('B3', $selectedItem ? $selectedItem->item_type : 'Semua Barang');
+        $sheet->setCellValue('D3', 'Satuan');
+        $sheet->setCellValue('E3', $selectedItem ? $selectedItem->unit : '-');
+
+        $headers = ['Tanggal', 'Nama Barang', 'Masuk', 'Dipakai', 'Sisa Stock', 'Keterangan'];
+        $sheet->fromArray($headers, null, 'A5');
+
+        $rowIndex = 6;
+        foreach ($rows as $row) {
+            $sheet->fromArray([
+                $row['date'] ?? '',
+                $row['item_name'] ?? '',
+                $row['incoming'] ?? '',
+                $row['outgoing'] ?? '',
+                $row['balance'] ?? '',
+                $row['note'] ?? '',
+            ], null, 'A' . $rowIndex);
+
+            if (!empty($row['is_latest_balance'])) {
+                $sheet->getStyle('A' . $rowIndex . ':F' . $rowIndex)
+                    ->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()
+                    ->setARGB('FFE0F2FE');
+            }
+
+            $rowIndex++;
+        }
+
+        $lastRow = max(5, $rowIndex - 1);
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A1:F1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A5:F5')->getFont()->setBold(true);
+        $sheet->getStyle('A5:F5')
+            ->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setARGB('FFE2E8F0');
+        $sheet->getStyle('A5:F' . $lastRow)
+            ->getBorders()
+            ->getAllBorders()
+            ->setBorderStyle(Border::BORDER_THIN);
+        if ($lastRow >= 6) {
+            $sheet->getStyle('C6:E' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        }
+        $sheet->getStyle('A1:F' . $lastRow)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+
+        foreach (range('A', 'F') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filenamePart = $selectedItem ? $selectedItem->name : 'all';
+        $safeFilenamePart = preg_replace('/[^A-Za-z0-9_-]+/', '_', strtolower($filenamePart)) ?: 'all';
+        $filename = 'stock_card_' . $safeFilenamePart . '_' . now()->format('Ymd_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 

@@ -110,6 +110,9 @@ Route::delete('gmisl/utility/berita-acara/{beritaAcara}', [App\Http\Controllers\
 Route::get('gmisl/utility/stock-card', [App\Http\Controllers\StockCardController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
     ->name('stock-card.index');
+Route::get('gmisl/utility/stock-card/export', [App\Http\Controllers\StockCardController::class, 'export'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
+    ->name('stock-card.export');
 Route::post('gmisl/utility/stock-card/stock-in', [App\Http\Controllers\StockCardController::class, 'storeStockIn'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
     ->name('stock-card.stock-in.store');

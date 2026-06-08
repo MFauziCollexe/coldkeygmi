@@ -141,13 +141,23 @@
 
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div class="rounded border border-slate-700 bg-slate-800 p-4">
-          <input
-            v-model="filters.q"
-            type="text"
-            placeholder="Cari nama barang / tipe / code..."
-            class="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-            @input="onSearchInput"
-          />
+          <div class="flex flex-col gap-3 sm:flex-row">
+            <input
+              v-model="filters.q"
+              type="text"
+              placeholder="Cari nama barang / tipe / code..."
+              class="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              @input="onSearchInput"
+            />
+            <button
+              type="button"
+              class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              :disabled="!abilities.view_history"
+              @click="exportExcel"
+            >
+              Export Excel
+            </button>
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -566,6 +576,12 @@ function currentQuery() {
   return query;
 }
 
+const exportUrl = computed(() => {
+  const params = new URLSearchParams(currentQuery());
+  const query = params.toString();
+  return query ? `/gmisl/utility/stock-card/export?${query}` : '/gmisl/utility/stock-card/export';
+});
+
 function fetchList() {
   router.get('/gmisl/utility/stock-card', currentQuery(), {
     preserveState: true,
@@ -576,6 +592,10 @@ function fetchList() {
 function onSearchInput() {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => fetchList(), 300);
+}
+
+function exportExcel() {
+  window.location.href = exportUrl.value;
 }
 
 function preferredItemId() {
