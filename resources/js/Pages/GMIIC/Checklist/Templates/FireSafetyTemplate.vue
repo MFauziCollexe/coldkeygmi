@@ -117,7 +117,7 @@
                 <div class="relative">
                   <select
                     :value="entry.form.location"
-                    class="w-64 appearance-none rounded border border-slate-300 bg-white px-2 py-1 pr-10 text-sm text-slate-900"
+                    class="w-full appearance-none rounded border border-slate-300 bg-white px-2 py-1 pr-10 text-sm text-slate-900"
                     @change="$emit('update-location', $event.target.value)"
                   >
                     <option
