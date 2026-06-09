@@ -75,25 +75,72 @@ export const fireSafetyLocationOptionsByType = {
         { id: "area_lantai_3", name: groupedLocationLabels.area_lantai_3 },
     ],
     smoke_detector: [
-        { id: "lobby_lantai_1", name: groupedLocationLabels.lobby_lantai_1 },
-        { id: "lantai_2", name: groupedLocationLabels.lantai_2 },
-        {
-            id: "area_ruang_mesin",
-            name: groupedLocationLabels.area_ruang_mesin,
-        },
-        { id: "area_lantai_3", name: groupedLocationLabels.area_lantai_3 },
+        { id: "lantai_1_lobby", name: "Lantai 1 - Lobby" },
+        { id: "lantai_2_ruang_staff", name: "Lantai 2 - Ruang Staff" },
+        { id: "lantai_2_ruang_meeting", name: "Lantai 2 - Ruang Meeting" },
+        { id: "lantai_2_ruang_owner", name: "Lantai 2 - Ruang Owner" },
+        { id: "lantai_3_ruang_server", name: "Lantai 3 - Ruang Server" },
+        { id: "lantai_3_ruang_makan", name: "Lantai 3 - Ruang Makan" },
+        { id: "lantai_3_ruang_staff", name: "Lantai 3 - Ruang Staff" },
+        { id: "lantai_3_ruang_meeting", name: "Lantai 3 - Ruang Meeting" },
     ],
     fire_alarm: [
-        { id: "lobby_lantai_1", name: groupedLocationLabels.lobby_lantai_1 },
         {
-            id: "area_office_lantai_2",
-            name: groupedLocationLabels.area_office_lantai_2,
+            id: "lantai_1_ruang_penghangat_powder_6kg_001",
+            name: "Lantai 1 - Ruang Penghangat - Powder 6kg 001",
         },
         {
-            id: "area_ruang_mesin",
-            name: groupedLocationLabels.area_ruang_mesin,
+            id: "lantai_1_ruang_admin_powder_3kg_001",
+            name: "Lantai 1 - Ruang Admin - Powder 3kg 001",
         },
-        { id: "area_lantai_3", name: groupedLocationLabels.area_lantai_3 },
+        {
+            id: "lantai_1_ruang_loading_dock_powder_6kg_002",
+            name: "Lantai 1 - Ruang Loading Dock - Powder 6kg 002",
+        },
+        {
+            id: "lantai_1_ruang_loading_dock_powder_6kg_003",
+            name: "Lantai 1 - Ruang Loading Dock - Powder 6kg 003",
+        },
+        {
+            id: "lantai_1_ruang_anteroom__powder_6kg_001",
+            name: "Lantai 1 - Ruang Anteroom - Powder 6kg 001",
+        },
+        {
+            id: "lantai_1_ruang_baterai_co2_5kg_001",
+            name: "Lantai 1 - Ruang Baterai - CO2 5kg 001",
+        },
+        {
+            id: "lantai_1_ruang_mesin_co2_5kg_002",
+            name: "Lantai 1 - Ruang Mesin - CO2 5kg 002",
+        },
+        {
+            id: "lantai_1_travo_pln_belakang_co2_9kg_001",
+            name: "Lantai 1 - Trafo PLN Belakang - CO2 9kg 001",
+        },
+        {
+            id: "lantai_1_travo_pln_depan_co2_9kg_002",
+            name: "Lantai 1 - Trafo PLN Depan - CO2 9kg 002",
+        },
+        {
+            id: "lantai_2_pantry_powder_6kg_005",
+            name: "Lantai 2 - Pantry - Powder 6kg 005",
+        },
+        {
+            id: "lantai_3_ruang_server_co2_5kg_003",
+            name: "Lantai 3 - Ruang Server - CO2 5kg 003",
+        },
+        {
+            id: "lantai_3_ruang_makan_powder_6kg_006",
+            name: "Lantai 3 - Ruang Makan - Powder 6kg 006",
+        },
+        {
+            id: "lantai_3_ruang_staff_powder_6kg_007",
+            name: "Lantai 3 - Ruang Staff - Powder 6kg 007",
+        },
+        {
+            id: "lantai_3_ruang_meeting_powder_6kg_008",
+            name: "Lantai 3 - Ruang Meeting - Powder 6kg 008",
+        },
     ],
 };
 
