@@ -11,6 +11,7 @@ export const checklistOptions = [
     { id: "pengangkutan_sampah_pt_sier", name: "Pengangkutan Sampah PT SIER" },
     { id: "personal_hygiene_karyawan", name: "Personal Hygiene Karyawan" },
     { id: "patroli_security", name: "Patroli Security" },
+    { id: "jadwal_cleaning_ob", name: "Jadwal Cleaning OB" },
     { id: "site_visit_hse", name: "Site Visit HSE" },
     { id: "site_visit_maintenance", name: "Site Visit Maintenance" },
     { id: "genset_running", name: "Pemanasan (Running) Genset" },
@@ -692,6 +693,369 @@ export const patroliSecurityAreaOptions = patroliSecuritySections.map(
         name:
             groupedChecklistAreaLabels[section.id] ||
             section.title.replace(/^[A-Z]\.\s*/, ""),
+    }),
+);
+
+export const cleaningOBShifts = [
+    {
+        id: "07_00_08_30_ob_i_ii",
+        title: "07:00-08:30 OB I & II",
+        sections: [
+            {
+                id: "area_kantor_lt_2",
+                title: "AREA KANTOR LT 2",
+                items: [
+                    "Sapu, pel lantai",
+                    "Lap meja & kursi staf",
+                    "Pembuangan sampah",
+                    "Pembersihan kaca pintu & jendela",
+                ],
+            },
+            {
+                id: "ruang_meeting_lt_2",
+                title: "RUANG MEETING LT 2",
+                items: [
+                    "Sapu, pel lantai",
+                    "Lap meja & kursi meeting",
+                    "Pembuangan sampah",
+                    "Lap TV",
+                    "Isi air minum tamu",
+                    "Pembersihan kaca pintu & jendela",
+                ],
+            },
+            {
+                id: "ruang_direktur",
+                title: "RUANG DIREKTUR",
+                items: [
+                    "Sapu, pel lantai",
+                    "Lap meja & kursi kerja",
+                    "Lap sofa",
+                    "Pembuangan sampah",
+                    "Siram tanaman",
+                    "Pembersihan kaca pintu & jendela",
+                ],
+            },
+            {
+                id: "toilet_staf_lt_2",
+                title: "TOILET STAF LT 2",
+                items: [
+                    "Pembersihan lantai toilet",
+                    "Pembersihan closet",
+                    "Pembuangan sampah",
+                    "Pembersihan wastafel",
+                    "Pembersihan kaca",
+                    "Lap pantry + kulkas",
+                    "Rutin isi galon minum",
+                    "Rutin cek ketersediaan sabun dan tissu",
+                ],
+            },
+            {
+                id: "toilet_direksi_lt_2",
+                title: "TOILET DIREKSI LT 2",
+                items: [
+                    "Pembersihan lantai toilet",
+                    "Pembersihan closet",
+                    "Pembuangan sampah",
+                    "Rutin cek ketersediaan sabun dan tissu",
+                ],
+            },
+        ],
+    },
+    {
+        id: "08_30_09_30_ob_i",
+        title: "08:30-09:30 OB I",
+        sections: [
+            {
+                id: "area_tangga",
+                title: "AREA TANGGA",
+                items: [
+                    "Sapu, pel lantai dan railling tangga",
+                ],
+            },
+            {
+                id: "area_lobby",
+                title: "AREA LOBBY",
+                items: [
+                    "Sapu, pel lantai lobby sampai tangga luar",
+                    "Lap meja receptionist",
+                ],
+            },
+            {
+                id: "toilet_tamu",
+                title: "TOILET TAMU",
+                items: [
+                    "Pembersihan lantai toilet",
+                    "Pembersihan closet",
+                    "Pembuangan sampah",
+                    "Pembersihan wastafel",
+                    "Pembersihan kaca",
+                    "Rutin cek ketersediaan sabun dan tissu",
+                ],
+            },
+        ],
+    },
+    {
+        id: "08_30_09_30_ob_ii",
+        title: "08:30-09:30 OB II",
+        sections: [
+            {
+                id: "ruang_admin",
+                title: "RUANG ADMIN",
+                items: [
+                    "Sapu, pel lantai",
+                    "Lap meja & kursi kerja",
+                    "Pembuangan sampah",
+                    "Rutin isi galon minum",
+                ],
+            },
+            {
+                id: "ruang_loker",
+                title: "RUANG LOKER",
+                items: [
+                    "Sapu, pel lantai",
+                    "Penggantian kamper",
+                    "Scrubber",
+                ],
+            },
+            {
+                id: "toilet_karyawan_laki",
+                title: "TOILET KARYAWAN LAKI",
+                items: [
+                    "Pembersihan lantai toilet",
+                    "Pembersihan urinoir + mika",
+                    "Pembuangan sampah",
+                ],
+            },
+            {
+                id: "toilet_karyawan_perempuan",
+                title: "TOILET KARYAWAN PEREMPUAN",
+                items: [
+                    "Pembersihan lantai toilet",
+                    "Pembersihan closet",
+                    "Pembuangan sampah",
+                ],
+            },
+            {
+                id: "wastafel_area_toilet_karyawan",
+                title: "WASTAFEL AREA TOILET KARYAWAN",
+                items: [
+                    "Pembersihan lantai area",
+                    "Pembersihan wastafel",
+                    "Pembersihan kaca",
+                ],
+            },
+        ],
+    },
+    {
+        id: "10_00_11_00_ob_i",
+        title: "10:00-11:00 OB I",
+        sections: [
+            {
+                id: "loading_dock",
+                title: "LOADING DOCK",
+                items: [
+                    "Scrubber lantai loading",
+                    "Pembuangan sampah",
+                ],
+            },
+        ],
+    },
+    {
+        id: "11_00_11_30_ob_i",
+        title: "11:00-11:30 OB I",
+        sections: [
+            {
+                id: "anterum",
+                title: "ANTERUM",
+                items: [
+                    "Scrubber",
+                    "Sapu, pel lantai",
+                    "Pembersihan sampah",
+                ],
+            },
+            { id: "cs_1_2", title: "CS 1-2", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
+            { id: "cs_3_4", title: "CS 3-4", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
+            { id: "cs_5_6", title: "CS 5-6", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
+            { id: "cs_7_8", title: "CS 7-8", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
+            { id: "cs_9_10", title: "CS 9-10", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
+            { id: "cs_11", title: "CS 11", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
+        ],
+    },
+    {
+        id: "10_00_10_30_ob_ii",
+        title: "10:00-10:30 OB II",
+        sections: [
+            {
+                id: "ruang_baterai",
+                title: "RUANG BATERAI",
+                items: [
+                    "Scrubber",
+                    "Sapu, pel lantai",
+                    "Pembersihan sampah",
+                ],
+            },
+        ],
+    },
+    {
+        id: "11_30_12_00_ob_ii",
+        title: "11:30-12:00 OB II",
+        sections: [
+            {
+                id: "ruang_mesin",
+                title: "RUANG MESIN",
+                items: [
+                    "Sapu, pel lantai",
+                    "Pembersihan sampah",
+                ],
+            },
+            {
+                id: "toilet",
+                title: "TOILET",
+                items: [
+                    "Pembersihan lantai toilet",
+                    "Pembersihan closet",
+                    "Pembersihan wastafel",
+                    "Pembuangan sampah",
+                ],
+            },
+            {
+                id: "ruang_kontrol",
+                title: "RUANG KONTROL",
+                items: [
+                    "Sapu, pel lantai",
+                    "Lap meja & kursi kerja",
+                    "Pembuangan sampah",
+                ],
+            },
+            {
+                id: "area_genset",
+                title: "AREA GENSET",
+                items: [
+                    "Sapu area",
+                    "Pembersihan sampah",
+                    "Pembersihan wastafel eyewash station",
+                    "Pembersihan wastafel area tangga darurat",
+                ],
+            },
+        ],
+    },
+    {
+        id: "13_00_13_30_ob_i",
+        title: "13:00-13:30 OB I",
+        sections: [
+            {
+                id: "pos_satpam",
+                title: "POS SATPAM",
+                items: [
+                    "Sapu, pel lantai",
+                    "Lap meja & kursi kerja",
+                    "Pembuangan sampah",
+                ],
+            },
+        ],
+    },
+    {
+        id: "13_30_14_00_ob_i",
+        title: "13:30-14:00 OB I",
+        sections: [
+            {
+                id: "musholah",
+                title: "MUSHOLAH",
+                items: [
+                    "Sapu, pel lantai",
+                    "Pembersihan bak pancuran wudhu",
+                    "Pembersihan rubber mat",
+                ],
+            },
+        ],
+    },
+    {
+        id: "14_00_14_30_ob_i",
+        title: "14:00-14:30 OB I",
+        sections: [
+            {
+                id: "ruang_loker",
+                title: "RUANG LOKER",
+                items: [
+                    "Pembersihan & perapian area",
+                ],
+            },
+            {
+                id: "ruang_istirahat",
+                title: "RUANG ISTIRAHAT",
+                items: [
+                    "Pembersihan & perapian area",
+                ],
+            },
+        ],
+    },
+    {
+        id: "14_30_15_00_ob_i",
+        title: "14:30-15:00 OB I",
+        sections: [
+            {
+                id: "area_lingkungan_gudang",
+                title: "AREA LINGKUNGAN GUDANG",
+                items: [
+                    "Patroli kebersihan lingkungan gudang",
+                ],
+            },
+        ],
+    },
+    {
+        id: "13_00_15_00_ob_ii",
+        title: "13:00-15:00 OB II",
+        sections: [
+            {
+                id: "lobby",
+                title: "LOBBY",
+                items: [
+                    "Pintu kaca area lobby",
+                ],
+            },
+            {
+                id: "server",
+                title: "SERVER",
+                items: [
+                    "Pembersihan area server",
+                ],
+            },
+            {
+                id: "apar_all_area_gudang",
+                title: "APAR ALL AREA GUDANG",
+                items: [
+                    "Pembersihan APAR ALL AREA GUDANG",
+                ],
+            },
+            {
+                id: "kipas_angin_musholah",
+                title: "KIPAS ANGIN MUSHOLAH",
+                items: [
+                    "Pembersihan kipas angin Musholah",
+                ],
+            },
+            {
+                id: "tps_b3",
+                title: "TPS B3",
+                items: [
+                    "Pembersihan TPS B3",
+                ],
+            },
+            {
+                id: "lantai_area_dock_levelary",
+                title: "LANTAI AREA DOCK LEVELARY",
+                items: [
+                    "Pembersihan lantai area dock levelary",
+                ],
+            },
+        ],
+    },
+];
+
+export const cleaningOBShiftOptions = cleaningOBShifts.map(
+    (shift) => ({
+        id: shift.id,
+        name: shift.title,
     }),
 );
 
@@ -1702,6 +2066,88 @@ export function createPatroliSecurityEntry(userName) {
             effective_date: "22 Desember 2025",
             page: "1 dari 1",
             sections: createPatroliSecuritySections(),
+        },
+    };
+}
+
+function createCleaningOBSections() {
+    return cleaningOBShifts.map((shift) => ({
+        id: shift.id,
+        title: shift.title,
+        sections: shift.sections.map((section) => ({
+            id: section.id,
+            title: section.title,
+            items: section.items.map((itemName, index) => ({
+                no: index + 1,
+                id: `${section.id}-${index + 1}`,
+                name: itemName,
+                status: "",
+            })),
+        })),
+    }));
+}
+
+export function rebuildCleaningOBSections(existingSections = []) {
+    return createCleaningOBSections().map((shift) => {
+        const matchedShift = existingSections.find(
+            (item) => item.id === shift.id,
+        );
+        return {
+            ...shift,
+            sections: shift.sections.map((section) => {
+                const matchedSection = matchedShift?.sections?.find(
+                    (s) => s.id === section.id,
+                );
+                return {
+                    ...section,
+                    items: section.items.map((item) => {
+                        const matchedItem = matchedSection?.items?.find(
+                            (i) => i.id === item.id,
+                        );
+                        return {
+                            ...item,
+                            status: matchedItem?.status || "",
+                        };
+                    }),
+                };
+            }),
+        };
+    });
+}
+
+export function getCleaningOBShiftLabel(shiftId) {
+    return (
+        cleaningOBShiftOptions.find((shift) => shift.id === shiftId)?.name || "-"
+    );
+}
+
+export function createCleaningOBEntry(userName) {
+    const now = new Date();
+    const defaultShift = cleaningOBShiftOptions[0]?.id || "";
+
+    return {
+        id: `jadwal_cleaning_ob-${Date.now()}`,
+        template_id: "jadwal_cleaning_ob",
+        name: "Jadwal Cleaning OB",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            date_value: toDateInputValue(now),
+            date: formatDateDisplay(now),
+            selected_shift: defaultShift,
+            pic: userName || "User Login",
+            approved: false,
+            approved_areas: [],
+            area_barcodes: {},
+            area_notes: {},
+            area_photo_paths: {},
+            area_photo_urls: {},
+            area_photo_names: {},
+            area_scan_dates: {},
+            document_no: "FRM.HSE.15.02",
+            rev: "00",
+            effective_date: "22 Desember 2025",
+            page: "1 dari 1",
+            sections: createCleaningOBSections(),
         },
     };
 }

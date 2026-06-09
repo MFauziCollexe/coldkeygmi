@@ -80,6 +80,12 @@ $templatePermissions = array_merge(
             'patroli_security',
         ],
         $mergeChecklistRules($itChecklistRules, $securityChecklistRules)
+    ),
+    $buildTemplatePermissions(
+        [
+            'jadwal_cleaning_ob',
+        ],
+        $mergeChecklistRules($itChecklistRules, $securityChecklistRules)
     )
 );
 

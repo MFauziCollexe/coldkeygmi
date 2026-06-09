@@ -13,12 +13,14 @@ import RunningGensetTemplate from '../Templates/RunningGensetTemplate.vue'
 import KompresorHarianTemplate from '../Templates/KompresorHarianTemplate.vue'
 import ChargerBateraiTemplate from '../Templates/ChargerBateraiTemplate.vue'
 import ChecklistBateraiTemplate from '../Templates/ChecklistBateraiTemplate.vue'
+import CleaningOBTemplate from '../Templates/CleaningOBTemplate.vue'
 
 const supportedTemplates = [
   'kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm',
   'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan',
   'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance',
   'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai',
+  'jadwal_cleaning_ob',
 ]
 
 export const templateRegistry = {
@@ -37,6 +39,7 @@ export const templateRegistry = {
   kompresor_harian: { component: KompresorHarianTemplate },
   charger_baterai: { component: ChargerBateraiTemplate },
   checklist_baterai: { component: ChecklistBateraiTemplate },
+  jadwal_cleaning_ob: { component: CleaningOBTemplate },
 }
 
 export const supportedTemplatesList = supportedTemplates

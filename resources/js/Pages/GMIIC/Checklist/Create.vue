@@ -69,7 +69,8 @@ import {
   createWasteTransportEntry, createWarehouseSanitationEntry, createPersonalHygieneEntry,
   createSaranaPrasaranaEntry, createPatroliSecurityEntry, createSiteVisitHseEntry,
   createSiteVisitMaintenanceEntry, createGensetRunningEntry, createRunningGensetEntry,
-  createKompresorHarianEntry, createChargerBateraiEntry, createChecklistBateraiEntry, formatMonthYearDisplay, formatDateTimeDisplay, formatDateDisplay,
+  createKompresorHarianEntry, createChargerBateraiEntry, createChecklistBateraiEntry,
+  createCleaningOBEntry, formatMonthYearDisplay, formatDateTimeDisplay, formatDateDisplay,
   formatShortDateDisplay, getKotakP3KMonthLabel, getLocationBarcodeAliases,
   getPatroliSecurityBarcodeAliases, getSanitationAreaBarcodeAliases, kotakP3KMonths,
 } from './checklistConfig'
@@ -92,6 +93,7 @@ import { useRunningGenset } from './composables/useRunningGenset'
 import { useKompresorHarian } from './composables/useKompresorHarian'
 import { useChargerBaterai } from './composables/useChargerBaterai'
 import { useChecklistBaterai } from './composables/useChecklistBaterai'
+import { useCleaningOB } from './composables/useCleaningOB'
 
 const props = defineProps({
   selectedTemplate: { type: String, default: '' },
@@ -144,6 +146,7 @@ const runningGenset = useRunningGenset(entry, { currentUser, showQrScanner })
 const kompresorHarian = useKompresorHarian(entry)
 const chargerBaterai = useChargerBaterai(entry)
 const checklistBaterai = useChecklistBaterai(entry)
+const cleaningOB = useCleaningOB(entry, { currentUser, showQrScanner })
 
 const scanner = useScanner({
   entry, showQrScanner,
@@ -157,6 +160,7 @@ const scanner = useScanner({
   isSiteVisitMaintenance: siteVisitMaintenance.isSiteVisitMaintenance,
   isSiteVisitHse: siteVisitHse.isSiteVisitHse,
   isPatroliSecurity: patroliSecurity.isPatroliSecurity,
+  isCleaningOB: cleaningOB.isCleaningOB,
   kotakP3KMonthValidation: kotakP3K.kotakP3KMonthValidation,
   gensetRunningValidation: gensetRunning.gensetRunningValidation,
   runningGensetValidation: runningGenset.runningGensetValidation,
@@ -166,6 +170,7 @@ const scanner = useScanner({
   canScanMaintenance: siteVisitMaintenance.canScanMaintenance,
   canScanSiteVisitHse: siteVisitHse.canScanSiteVisitHse,
   canScanPatroliSecurity: patroliSecurity.canScanPatroliSecurity,
+  canScanCleaningOB: cleaningOB.canScanCleaningOB,
   nextPendingSanitationDay: sanitation.nextPendingSanitationDay,
   nextPendingSaranaPrasaranaDay: saranaPrasarana.nextPendingSaranaPrasaranaDay,
   activeKotakP3KMonth: kotakP3K.activeKotakP3KMonth,
@@ -173,6 +178,7 @@ const scanner = useScanner({
   maintenanceScanTargetKey: siteVisitMaintenance.maintenanceScanTargetKey,
   siteVisitHseTargetKey: siteVisitHse.siteVisitHseTargetKey,
   patroliSecurityTargetKey: patroliSecurity.patroliSecurityTargetKey,
+  cleaningOBTargetKey: cleaningOB.cleaningOBTargetKey,
   formatShortDateDisplay, formatDateTimeDisplay,
   getLocationBarcodeAliases,
   getPatroliSecurityBarcodeAliases,
@@ -346,6 +352,24 @@ const currentTemplateProps = computed(() => {
     onUpdateNote: patroliSecurity.updatePatroliSecurityNote,
     onOpenCamera: photo.openPatroliSecurityCamera,
     onRemovePhoto: photo.removePatroliSecurityPhoto,
+  }
+
+  if (tid === 'jadwal_cleaning_ob') return {
+    entry: entry.value, shiftOptions: cleaningOB.cleaningOBShiftOptions,
+    currentSections: cleaningOB.currentCleaningOBSections.value,
+    approvedAreas: cleaningOB.cleaningOBApprovedAreas.value,
+    isAreaApproved: cleaningOB.cleaningOBApprovedAreas.value.includes(entry.value.form.selected_shift),
+    note: cleaningOB.cleaningOBNote.value,
+    noteLabel: cleaningOB.cleaningOBNoteLabel.value,
+    currentBarcode: cleaningOB.currentCleaningOBBarcode.value,
+    canScanBarcode: cleaningOB.canScanCleaningOB.value,
+    canApproveEntry: canApproveEntry.value,
+    showQrScanner: showQrScanner.value,
+    onApprove: approveChecklist, onScanBarcode: scanner.scanCleaningOBBarcode,
+    onUpdateDate: cleaningOB.updateCleaningOBDate,
+    onUpdateShift: cleaningOB.updateCleaningOBShift,
+    onCycleRowStatus: cleaningOB.cycleCleaningOBRowStatus,
+    onUpdateNote: cleaningOB.updateCleaningOBNote,
   }
 
   if (tid === 'site_visit_hse') return {
@@ -687,6 +711,16 @@ const canApproveEntry = computed(() => {
       && (!patroliSecurity.patroliSecurityValidation.value.hasNoAnswer || patroliSecurity.patroliSecurityValidation.value.hasRequiredNote)
   }
 
+  if (tid === 'jadwal_cleaning_ob') {
+    if (!canApproveCurrentTemplate.value) return false
+    const selectedShift = String(entry.value.form.selected_shift || '').trim()
+    return Boolean(String(entry.value.form.date_value || '').trim()) && Boolean(selectedShift)
+      && !cleaningOB.cleaningOBApprovedAreas.value.includes(selectedShift)
+      && (showQrScanner.value ? Boolean(String(cleaningOB.currentCleaningOBBarcode.value || '').trim()) : true)
+      && cleaningOB.cleaningOBValidation.value.allAnswersFilled
+      && (!cleaningOB.cleaningOBValidation.value.hasNoAnswer || cleaningOB.cleaningOBValidation.value.hasRequiredNote)
+  }
+
   return canApproveCurrentTemplate.value
 })
 
@@ -788,6 +822,14 @@ async function approveChecklist() {
     return
   }
 
+  if (tid === 'jadwal_cleaning_ob') {
+    const selectedShift = String(entry.value.form.selected_shift || '').trim()
+    entry.value.form.approved_areas = [...new Set([...(entry.value.form.approved_areas || []), selectedShift])]
+    entry.value.form.approved = cleaningOB.cleaningOBShiftOptions.every((shift) => entry.value.form.approved_areas.includes(shift.id))
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
+    return
+  }
+
   if (tid === 'site_visit_hse') {
     const selectedArea = String(entry.value.form.selected_area || '').trim()
     entry.value.form.approved_areas = [...new Set([...(entry.value.form.approved_areas || []), selectedArea])]
@@ -858,6 +900,7 @@ function createEntryByTemplate(templateId, options = {}) {
     personal_hygiene_karyawan: () => createPersonalHygieneEntry(userName),
     sarana_dan_prasarana: () => createSaranaPrasaranaEntry(userName),
     patroli_security: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createPatroliSecurityEntry(userName),
+    jadwal_cleaning_ob: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createCleaningOBEntry(userName),
     site_visit_hse: () => createSiteVisitHseEntry(userName),
     site_visit_maintenance: () => createSiteVisitMaintenanceEntry(userName),
     genset_running: () => createGensetRunningEntry(userName),
@@ -877,15 +920,17 @@ function createInitialEntry() {
   }
   const continuableSanitationEntry = selectedChecklist.value === 'non_warehouse_sanitation' ? sanitation.findOpenSanitationDraft(props.existingEntries) : null
   const continuablePatroliEntry = selectedChecklist.value === 'patroli_security' ? patroliSecurity.findOpenPatroliSecurityDraft(props.existingEntries) : null
-  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry })
+  const continuableCleaningOBEntry = selectedChecklist.value === 'jadwal_cleaning_ob' ? cleaningOB.findOpenCleaningOBDraft(props.existingEntries) : null
+  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry })
 }
 
 function refreshEntry() {
   if (props.entryId && entry.value?.id === props.entryId && entry.value?.template_id === selectedChecklist.value) return
   const continuableSanitationEntry = selectedChecklist.value === 'non_warehouse_sanitation' ? sanitation.findOpenSanitationDraft(knownChecklistEntries.value) : null
   const continuablePatroliEntry = selectedChecklist.value === 'patroli_security' ? patroliSecurity.findOpenPatroliSecurityDraft(knownChecklistEntries.value) : null
-  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry })
-  if ((continuableSanitationEntry && entry.value?.id === continuableSanitationEntry.id) || (continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id)) syncCurrentEntryUrl(entry.value)
+  const continuableCleaningOBEntry = selectedChecklist.value === 'jadwal_cleaning_ob' ? cleaningOB.findOpenCleaningOBDraft(knownChecklistEntries.value) : null
+  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry })
+  if ((continuableSanitationEntry && entry.value?.id === continuableSanitationEntry.id) || (continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id)) syncCurrentEntryUrl(entry.value)
 }
 
 // ─── Initial Save State ──────────────────────────────────────

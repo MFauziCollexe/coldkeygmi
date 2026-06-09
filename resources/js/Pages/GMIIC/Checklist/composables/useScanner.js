@@ -12,6 +12,7 @@ export function useScanner({
   isSiteVisitMaintenance,
   isSiteVisitHse,
   isPatroliSecurity,
+  isCleaningOB,
   showQrScanner,
   kotakP3KMonthValidation,
   gensetRunningValidation,
@@ -22,6 +23,7 @@ export function useScanner({
   canScanMaintenance,
   canScanSiteVisitHse,
   canScanPatroliSecurity,
+  canScanCleaningOB,
   nextPendingSanitationDay,
   nextPendingSaranaPrasaranaDay,
   activeKotakP3KMonth,
@@ -29,6 +31,7 @@ export function useScanner({
   maintenanceScanTargetKey,
   siteVisitHseTargetKey,
   patroliSecurityTargetKey,
+  cleaningOBTargetKey,
   formatShortDateDisplay,
   formatDateTimeDisplay,
   getLocationBarcodeAliases,
@@ -38,6 +41,7 @@ export function useScanner({
   getSaranaPrasaranaAreaLabel,
   getSiteVisitHseAreaLabel,
   getMaintenanceDailyAreaLabel,
+  getCleaningOBShiftLabel,
   warehouseAreaOptions,
   persistCurrentFireSafetyState,
 }) {
@@ -86,6 +90,7 @@ export function useScanner({
     if (mode === 'site_visit_hse') return [getSiteVisitHseAreaLabel(entry.value.form.selected_area)]
     if (mode === 'patroli_security') return getPatroliSecurityBarcodeAliases(entry.value.form.selected_area)
     if (mode === 'site_visit_maintenance') return [getMaintenanceDailyAreaLabel(maintenanceScanTargetKey.value)]
+    if (mode === 'cleaning_ob') return [getCleaningOBShiftLabel(cleaningOBTargetKey.value)]
     if (mode === 'warehouse_sanitation') {
       return warehouseAreaOptions
         .filter((area) => (entry.value.form.selected_areas || []).includes(area.id))
@@ -152,6 +157,11 @@ export function useScanner({
     openScanner('patroli_security')
   }
 
+  async function scanCleaningOBBarcode() {
+    if (!entry.value || !isCleaningOB.value || !showQrScanner.value || !canScanCleaningOB.value) return
+    openScanner('cleaning_ob')
+  }
+
   function handleScannedBarcode(decodedText) {
     if (!entry.value) return
 
@@ -216,6 +226,11 @@ export function useScanner({
     if (mode === 'patroli_security') {
       entry.value.form.area_barcodes = { ...(entry.value.form.area_barcodes || {}), [patroliSecurityTargetKey.value]: decodedText }
       entry.value.form.area_scan_dates = { ...(entry.value.form.area_scan_dates || {}), [patroliSecurityTargetKey.value]: formatShortDateDisplay(now) }
+    }
+
+    if (mode === 'cleaning_ob') {
+      entry.value.form.area_barcodes = { ...(entry.value.form.area_barcodes || {}), [cleaningOBTargetKey.value]: decodedText }
+      entry.value.form.area_scan_dates = { ...(entry.value.form.area_scan_dates || {}), [cleaningOBTargetKey.value]: formatShortDateDisplay(now) }
     }
   }
 
@@ -312,6 +327,7 @@ export function useScanner({
     scanMaintenanceBarcode,
     scanSiteVisitHseBarcode,
     scanPatroliSecurityBarcode,
+    scanCleaningOBBarcode,
     closeScannerModal,
     stopBarcodeScanner,
   }
