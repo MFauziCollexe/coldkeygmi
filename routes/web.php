@@ -228,6 +228,12 @@ Route::post('gmiic/checklist/site-visit-maintenance/photo', [App\Http\Controller
 Route::delete('gmiic/checklist/site-visit-maintenance/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteSiteVisitMaintenancePhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.site-visit-maintenance.photo.delete');
+Route::post('gmiic/checklist/cleaning-ob/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadCleaningOBPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.cleaning-ob.photo');
+Route::delete('gmiic/checklist/cleaning-ob/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteCleaningOBPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.cleaning-ob.photo.delete');
 
 // GMIVP - Visitor Form
 Route::get('gmi-visitor-permit/visitor-form', [App\Http\Controllers\VisitorFormController::class, 'index'])

@@ -63,7 +63,7 @@ export const fireSafetyCardOptions = [
 ];
 
 export const fireSafetyLocationOptionsByType = {
-    apar: [
+    fire_alarm: [
         { id: "lobby_lantai_1", name: groupedLocationLabels.lobby_lantai_1 },
         {
             id: "area_office_lantai_2",
@@ -85,7 +85,7 @@ export const fireSafetyLocationOptionsByType = {
         { id: "lantai_3_ruang_staff", name: "Lantai 3 - Ruang Staff" },
         { id: "lantai_3_ruang_meeting", name: "Lantai 3 - Ruang Meeting" },
     ],
-    fire_alarm: [
+    apar: [
         {
             id: "lantai_1_ruang_penghangat_powder_6kg_001",
             name: "Lantai 1 - Ruang Penghangat - Powder 6kg 001",
@@ -768,9 +768,7 @@ export const cleaningOBShifts = [
             {
                 id: "area_tangga",
                 title: "AREA TANGGA",
-                items: [
-                    "Sapu, pel lantai dan railling tangga",
-                ],
+                items: ["Sapu, pel lantai dan railling tangga"],
             },
             {
                 id: "area_lobby",
@@ -811,11 +809,7 @@ export const cleaningOBShifts = [
             {
                 id: "ruang_loker",
                 title: "RUANG LOKER",
-                items: [
-                    "Sapu, pel lantai",
-                    "Penggantian kamper",
-                    "Scrubber",
-                ],
+                items: ["Sapu, pel lantai", "Penggantian kamper", "Scrubber"],
             },
             {
                 id: "toilet_karyawan_laki",
@@ -853,10 +847,7 @@ export const cleaningOBShifts = [
             {
                 id: "loading_dock",
                 title: "LOADING DOCK",
-                items: [
-                    "Scrubber lantai loading",
-                    "Pembuangan sampah",
-                ],
+                items: ["Scrubber lantai loading", "Pembuangan sampah"],
             },
         ],
     },
@@ -867,18 +858,38 @@ export const cleaningOBShifts = [
             {
                 id: "anterum",
                 title: "ANTERUM",
-                items: [
-                    "Scrubber",
-                    "Sapu, pel lantai",
-                    "Pembersihan sampah",
-                ],
+                items: ["Scrubber", "Sapu, pel lantai", "Pembersihan sampah"],
             },
-            { id: "cs_1_2", title: "CS 1-2", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
-            { id: "cs_3_4", title: "CS 3-4", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
-            { id: "cs_5_6", title: "CS 5-6", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
-            { id: "cs_7_8", title: "CS 7-8", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
-            { id: "cs_9_10", title: "CS 9-10", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
-            { id: "cs_11", title: "CS 11", items: ["Sapu, pel lantai", "Pembersihan sampah"] },
+            {
+                id: "cs_1_2",
+                title: "CS 1-2",
+                items: ["Sapu, pel lantai", "Pembersihan sampah"],
+            },
+            {
+                id: "cs_3_4",
+                title: "CS 3-4",
+                items: ["Sapu, pel lantai", "Pembersihan sampah"],
+            },
+            {
+                id: "cs_5_6",
+                title: "CS 5-6",
+                items: ["Sapu, pel lantai", "Pembersihan sampah"],
+            },
+            {
+                id: "cs_7_8",
+                title: "CS 7-8",
+                items: ["Sapu, pel lantai", "Pembersihan sampah"],
+            },
+            {
+                id: "cs_9_10",
+                title: "CS 9-10",
+                items: ["Sapu, pel lantai", "Pembersihan sampah"],
+            },
+            {
+                id: "cs_11",
+                title: "CS 11",
+                items: ["Sapu, pel lantai", "Pembersihan sampah"],
+            },
         ],
     },
     {
@@ -888,11 +899,7 @@ export const cleaningOBShifts = [
             {
                 id: "ruang_baterai",
                 title: "RUANG BATERAI",
-                items: [
-                    "Scrubber",
-                    "Sapu, pel lantai",
-                    "Pembersihan sampah",
-                ],
+                items: ["Scrubber", "Sapu, pel lantai", "Pembersihan sampah"],
             },
         ],
     },
@@ -903,10 +910,7 @@ export const cleaningOBShifts = [
             {
                 id: "ruang_mesin",
                 title: "RUANG MESIN",
-                items: [
-                    "Sapu, pel lantai",
-                    "Pembersihan sampah",
-                ],
+                items: ["Sapu, pel lantai", "Pembersihan sampah"],
             },
             {
                 id: "toilet",
@@ -976,16 +980,12 @@ export const cleaningOBShifts = [
             {
                 id: "ruang_loker",
                 title: "RUANG LOKER",
-                items: [
-                    "Pembersihan & perapian area",
-                ],
+                items: ["Pembersihan & perapian area"],
             },
             {
                 id: "ruang_istirahat",
                 title: "RUANG ISTIRAHAT",
-                items: [
-                    "Pembersihan & perapian area",
-                ],
+                items: ["Pembersihan & perapian area"],
             },
         ],
     },
@@ -996,9 +996,7 @@ export const cleaningOBShifts = [
             {
                 id: "area_lingkungan_gudang",
                 title: "AREA LINGKUNGAN GUDANG",
-                items: [
-                    "Patroli kebersihan lingkungan gudang",
-                ],
+                items: ["Patroli kebersihan lingkungan gudang"],
             },
         ],
     },
@@ -1009,55 +1007,41 @@ export const cleaningOBShifts = [
             {
                 id: "lobby",
                 title: "LOBBY",
-                items: [
-                    "Pintu kaca area lobby",
-                ],
+                items: ["Pintu kaca area lobby"],
             },
             {
                 id: "server",
                 title: "SERVER",
-                items: [
-                    "Pembersihan area server",
-                ],
+                items: ["Pembersihan area server"],
             },
             {
                 id: "apar_all_area_gudang",
                 title: "APAR ALL AREA GUDANG",
-                items: [
-                    "Pembersihan APAR ALL AREA GUDANG",
-                ],
+                items: ["Pembersihan APAR ALL AREA GUDANG"],
             },
             {
                 id: "kipas_angin_musholah",
                 title: "KIPAS ANGIN MUSHOLAH",
-                items: [
-                    "Pembersihan kipas angin Musholah",
-                ],
+                items: ["Pembersihan kipas angin Musholah"],
             },
             {
                 id: "tps_b3",
                 title: "TPS B3",
-                items: [
-                    "Pembersihan TPS B3",
-                ],
+                items: ["Pembersihan TPS B3"],
             },
             {
                 id: "lantai_area_dock_levelary",
                 title: "LANTAI AREA DOCK LEVELARY",
-                items: [
-                    "Pembersihan lantai area dock levelary",
-                ],
+                items: ["Pembersihan lantai area dock levelary"],
             },
         ],
     },
 ];
 
-export const cleaningOBShiftOptions = cleaningOBShifts.map(
-    (shift) => ({
-        id: shift.id,
-        name: shift.title,
-    }),
-);
+export const cleaningOBShiftOptions = cleaningOBShifts.map((shift) => ({
+    id: shift.id,
+    name: shift.title,
+}));
 
 export const maintenanceVisitTypeOptions = [
     {
@@ -2117,7 +2101,8 @@ export function rebuildCleaningOBSections(existingSections = []) {
 
 export function getCleaningOBShiftLabel(shiftId) {
     return (
-        cleaningOBShiftOptions.find((shift) => shift.id === shiftId)?.name || "-"
+        cleaningOBShiftOptions.find((shift) => shift.id === shiftId)?.name ||
+        "-"
     );
 }
 

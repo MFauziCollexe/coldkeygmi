@@ -7,11 +7,15 @@ export function usePhotoCapture({
   isWasteTransport,
   isPatroliSecurity,
   isSiteVisitMaintenance,
+  isCleaningOB,
   patroliSecurityTargetKey,
   maintenanceScanTargetKey,
+  cleaningOBTargetKey,
   wasteTransportRows,
   currentPatroliSecurityPhotos,
+  currentCleaningOBPhotos,
   getPatroliSecurityAreaLabel,
+  getCleaningOBShiftLabel,
   patroliSecurityOverlayAddressLines,
   currentUser,
 }) {
@@ -26,6 +30,8 @@ export function usePhotoCapture({
   const patroliSecurityPhotoError = ref('')
   const maintenancePhotoUploading = ref(false)
   const maintenancePhotoError = ref('')
+  const cleaningOBPhotoUploading = ref(false)
+  const cleaningOBPhotoError = ref('')
 
   let photoStream = null
 
@@ -41,6 +47,10 @@ export function usePhotoCapture({
     } else if (mode === 'maintenance') {
       photoModalTitle.value = 'Ambil Foto Visit Maintenance'
       photoModalDescription.value = 'Gunakan kamera HP atau laptop, lalu ambil foto area maintenance secara langsung.'
+      photoCaptureButtonLabel.value = 'Capture & Upload'
+    } else if (mode === 'cleaning_ob') {
+      photoModalTitle.value = 'Ambil Foto Cleaning OB'
+      photoModalDescription.value = 'Gunakan kamera HP atau laptop, lalu ambil foto area cleaning secara langsung.'
       photoCaptureButtonLabel.value = 'Capture & Upload'
     } else {
       photoModalTitle.value = 'Ambil Foto Petugas Pengangkut'
@@ -78,6 +88,18 @@ export function usePhotoCapture({
     photoCaptureMode.value = 'maintenance'
     photoCaptureDay.value = null
     updatePhotoModalLabels('maintenance')
+    photoError.value = ''
+    photoLoading.value = true
+    photoModalOpen.value = true
+    await nextTick()
+    await startPhotoCamera()
+  }
+
+  async function openCleaningOBCamera() {
+    if (!entry.value || !isCleaningOB.value || !cleaningOBTargetKey.value) return
+    photoCaptureMode.value = 'cleaning_ob'
+    photoCaptureDay.value = null
+    updatePhotoModalLabels('cleaning_ob')
     photoError.value = ''
     photoLoading.value = true
     photoModalOpen.value = true
@@ -323,6 +345,12 @@ export function usePhotoCapture({
     return single ? [single] : []
   }
 
+  function normalizeCleaningOBPhotoBucket(bucket) {
+    if (Array.isArray(bucket)) return bucket.filter((item) => String(item || '').trim() !== '')
+    const single = String(bucket || '').trim()
+    return single ? [single] : []
+  }
+
   function updatePatroliSecurityPhotoState(payload = {}) {
     if (!entry.value || !isPatroliSecurity.value || !patroliSecurityTargetKey.value) return
     const targetKey = patroliSecurityTargetKey.value
@@ -398,6 +426,49 @@ export function usePhotoCapture({
     } catch (error) {
       patroliSecurityPhotoError.value = error?.response?.data?.message || 'Foto gagal dihapus.'
     }
+  }
+
+  function updateCleaningOBPhotoState(payload = {}) {
+    if (!entry.value || !isCleaningOB.value || !cleaningOBTargetKey.value) return
+    const targetKey = cleaningOBTargetKey.value
+    const nextPaths = { ...(entry.value.form.area_photo_paths || {}) }
+    const nextUrls = { ...(entry.value.form.area_photo_urls || {}) }
+    const nextNames = { ...(entry.value.form.area_photo_names || {}) }
+    const pathBucket = normalizeCleaningOBPhotoBucket(nextPaths[targetKey])
+    const urlBucket = normalizeCleaningOBPhotoBucket(nextUrls[targetKey])
+    const nameBucket = normalizeCleaningOBPhotoBucket(nextNames[targetKey])
+    const length = Math.max(pathBucket.length, urlBucket.length, nameBucket.length)
+    let photoEntries = Array.from({ length }, (_, index) => ({
+      path: pathBucket[index] || '', url: urlBucket[index] || '', name: nameBucket[index] || '',
+    })).filter((photo) => String(photo.path || photo.url || photo.name || '').trim() !== '')
+
+    if (payload.clear) {
+      photoEntries = []
+    } else if (payload.removePhoto) {
+      let removed = false
+      photoEntries = photoEntries.filter((photo) => {
+        if (removed) return true
+        const isMatch = (payload.removePhoto.path && photo.path === payload.removePhoto.path)
+          || (payload.removePhoto.url && photo.url === payload.removePhoto.url)
+          || (payload.removePhoto.name && photo.name === payload.removePhoto.name)
+        if (isMatch) { removed = true; return false }
+        return true
+      })
+    } else if (typeof payload.removeIndex === 'number') {
+      photoEntries.splice(payload.removeIndex, 1)
+    } else {
+      photoEntries.push({ path: payload.path || '', url: payload.url || '', name: payload.name || '' })
+    }
+    if (photoEntries.length === 0) {
+      delete nextPaths[targetKey]; delete nextUrls[targetKey]; delete nextNames[targetKey]
+    } else {
+      nextPaths[targetKey] = photoEntries.map((photo) => photo.path || '')
+      nextUrls[targetKey] = photoEntries.map((photo) => photo.url || '')
+      nextNames[targetKey] = photoEntries.map((photo) => photo.name || '')
+    }
+    entry.value.form.area_photo_paths = nextPaths
+    entry.value.form.area_photo_urls = nextUrls
+    entry.value.form.area_photo_names = nextNames
   }
 
   function updateMaintenancePhotoState(payload = {}) {
@@ -476,6 +547,39 @@ export function usePhotoCapture({
     }
   }
 
+  async function uploadCleaningOBPhoto(file) {
+    if (!entry.value || !isCleaningOB.value || !cleaningOBTargetKey.value || !file) return
+    cleaningOBPhotoUploading.value = true
+    cleaningOBPhotoError.value = ''
+    try {
+      const formData = new FormData()
+      formData.append('photo', file)
+      const response = await axios.post('/gmiic/checklist/cleaning-ob/photo', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      updateCleaningOBPhotoState({ path: response.data?.path || '', url: response.data?.url || '', name: response.data?.original_name || file.name || '' })
+    } catch (error) {
+      cleaningOBPhotoError.value = error?.response?.data?.message || 'Foto gagal di-upload.'
+    } finally {
+      cleaningOBPhotoUploading.value = false
+    }
+  }
+
+  async function removeCleaningOBPhoto(index) {
+    if (!entry.value || !isCleaningOB.value || !cleaningOBTargetKey.value) return
+    cleaningOBPhotoError.value = ''
+    const photo = currentCleaningOBPhotos.value[Number(index)]
+    if (!photo) return
+    const confirmed = await swalConfirm({ title: 'Hapus Foto', text: 'Foto shift ini akan dihapus. Lanjutkan?', confirmButtonText: 'Ya, Hapus', cancelButtonText: 'Tidak', confirmButtonColor: '#dc2626' })
+    if (!confirmed) return
+    try {
+      if (String(photo.path || '').trim()) {
+        await axios.delete('/gmiic/checklist/cleaning-ob/photo', { data: { path: photo.path } })
+      }
+      updateCleaningOBPhotoState({ removeIndex: Number(index), removePhoto: photo })
+    } catch (error) {
+      cleaningOBPhotoError.value = error?.response?.data?.message || 'Foto gagal dihapus.'
+    }
+  }
+
   async function capturePhoto() {
     if (!entry.value || !photoVideoRef.value) return
     const video = photoVideoRef.value
@@ -513,6 +617,15 @@ export function usePhotoCapture({
         const file = await canvasToJpegFile(canvas, `site-visit-maintenance-${maintenanceScanTargetKey.value}-${Date.now()}.jpg`)
         await uploadMaintenancePhoto(file)
         await closePhotoModal()
+        return
+      }
+      if (photoCaptureMode.value === 'cleaning_ob') {
+        if (!isCleaningOB.value || !cleaningOBTargetKey.value) return
+        const selectedShiftLabel = getCleaningOBShiftLabel(entry.value.form.selected_shift).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+        const file = await canvasToJpegFile(canvas, `cleaning-ob-${selectedShiftLabel || 'shift'}-${Date.now()}.jpg`)
+        await uploadCleaningOBPhoto(file)
+        await closePhotoModal()
+        return
       }
     } catch (error) {
       photoError.value = error?.message || 'Foto gagal diproses.'
@@ -545,22 +658,29 @@ export function usePhotoCapture({
     patroliSecurityPhotoError,
     maintenancePhotoUploading,
     maintenancePhotoError,
+    cleaningOBPhotoUploading,
+    cleaningOBPhotoError,
     photoModalTitle,
     photoModalDescription,
     photoCaptureButtonLabel,
     openWasteTransportCamera,
     openPatroliSecurityCamera,
     openMaintenanceCamera,
+    openCleaningOBCamera,
     capturePhoto,
     closePhotoModal,
     stopPhotoCamera,
     removePatroliSecurityPhoto,
     removeMaintenancePhoto,
+    removeCleaningOBPhoto,
     updatePatroliSecurityPhotoState,
     updateMaintenancePhotoState,
+    updateCleaningOBPhotoState,
     uploadPatroliSecurityPhoto,
     uploadMaintenancePhoto,
+    uploadCleaningOBPhoto,
     normalizePatroliSecurityPhotoBucket,
     normalizeMaintenancePhotoBucket,
+    normalizeCleaningOBPhotoBucket,
   }
 }

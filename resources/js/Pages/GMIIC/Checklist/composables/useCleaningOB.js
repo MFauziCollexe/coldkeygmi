@@ -1,8 +1,30 @@
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { cleaningOBShiftOptions, getCleaningOBShiftLabel, rebuildCleaningOBSections, formatDateInputDisplay } from '../checklistConfig'
 
 export function useCleaningOB(entry, { currentUser, showQrScanner }) {
   const isCleaningOB = computed(() => entry.value?.template_id === 'jadwal_cleaning_ob')
+
+  const cleaningOBPhotoUploading = ref(false)
+  const cleaningOBPhotoError = ref('')
+
+  const currentCleaningOBPhotos = computed(() => {
+    if (!isCleaningOB.value || !entry.value) return []
+    const targetKey = cleaningOBTargetKey.value
+    if (!targetKey) return []
+    const paths = normalizeCleaningOBPhotoBucket(entry.value.form.area_photo_paths?.[targetKey])
+    const urls = normalizeCleaningOBPhotoBucket(entry.value.form.area_photo_urls?.[targetKey])
+    const names = normalizeCleaningOBPhotoBucket(entry.value.form.area_photo_names?.[targetKey])
+    const length = Math.max(paths.length, urls.length, names.length)
+    return Array.from({ length }, (_, i) => ({
+      path: paths[i] || '', url: urls[i] || '', name: names[i] || '',
+    })).filter((p) => String(p.url || p.path || '').trim() !== '')
+  })
+
+  function normalizeCleaningOBPhotoBucket(bucket) {
+    if (Array.isArray(bucket)) return bucket.filter((item) => String(item || '').trim() !== '')
+    const single = String(bucket || '').trim()
+    return single ? [single] : []
+  }
 
   const cleaningOBApprovedAreas = computed(() => {
     if (!isCleaningOB.value || !entry.value) return []
@@ -118,5 +140,7 @@ export function useCleaningOB(entry, { currentUser, showQrScanner }) {
     canScanCleaningOB, cleaningOBShiftOptions, getCleaningOBShiftLabel,
     findOpenCleaningOBDraft, updateCleaningOBDate, updateCleaningOBShift,
     updateCleaningOBNote, cycleCleaningOBRowStatus,
+    currentCleaningOBPhotos, cleaningOBPhotoUploading, cleaningOBPhotoError,
+    normalizeCleaningOBPhotoBucket,
   }
 }

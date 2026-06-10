@@ -196,11 +196,15 @@ const photo = usePhotoCapture({
   isWasteTransport: wasteTransport.isWasteTransport,
   isPatroliSecurity: patroliSecurity.isPatroliSecurity,
   isSiteVisitMaintenance: siteVisitMaintenance.isSiteVisitMaintenance,
+  isCleaningOB: cleaningOB.isCleaningOB,
   patroliSecurityTargetKey: patroliSecurity.patroliSecurityTargetKey,
   maintenanceScanTargetKey: siteVisitMaintenance.maintenanceScanTargetKey,
+  cleaningOBTargetKey: cleaningOB.cleaningOBTargetKey,
   wasteTransportRows: wasteTransport.wasteTransportRows,
   currentPatroliSecurityPhotos: patroliSecurity.currentPatroliSecurityPhotos,
+  currentCleaningOBPhotos: cleaningOB.currentCleaningOBPhotos,
   getPatroliSecurityAreaLabel: patroliSecurity.getPatroliSecurityAreaLabel,
+  getCleaningOBShiftLabel: cleaningOB.getCleaningOBShiftLabel,
   patroliSecurityOverlayAddressLines: patroliSecurity.patroliSecurityOverlayAddressLines,
   currentUser,
 })
@@ -364,12 +368,17 @@ const currentTemplateProps = computed(() => {
     currentBarcode: cleaningOB.currentCleaningOBBarcode.value,
     canScanBarcode: cleaningOB.canScanCleaningOB.value,
     canApproveEntry: canApproveEntry.value,
+    currentPhotos: cleaningOB.currentCleaningOBPhotos.value,
+    photoUploading: photo.cleaningOBPhotoUploading.value,
+    photoError: cleaningOB.cleaningOBPhotoError.value,
     showQrScanner: showQrScanner.value,
     onApprove: approveChecklist, onScanBarcode: scanner.scanCleaningOBBarcode,
     onUpdateDate: cleaningOB.updateCleaningOBDate,
     onUpdateShift: cleaningOB.updateCleaningOBShift,
     onCycleRowStatus: cleaningOB.cycleCleaningOBRowStatus,
     onUpdateNote: cleaningOB.updateCleaningOBNote,
+    onOpenCamera: photo.openCleaningOBCamera,
+    onRemovePhoto: photo.removeCleaningOBPhoto,
   }
 
   if (tid === 'site_visit_hse') return {
