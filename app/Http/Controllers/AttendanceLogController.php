@@ -3053,7 +3053,7 @@ class AttendanceLogController extends Controller
             $endTime = '15:00:00';
         } else {
             $startTime = '08:00:00';
-            $endTime = $date->isSaturday() ? '13:00:00' : '16:00:00';
+            $endTime = $date->isFriday() ? '16:30:00' : ($date->isSaturday() ? '13:00:00' : '16:00:00');
         }
 
         $schedule = $this->normalizeAttendanceSaturdaySchedule($logDate, [
@@ -3102,10 +3102,13 @@ class AttendanceLogController extends Controller
         }
 
         if ($this->isAttendanceSecurityDepartmentName($departmentName)) {
+            $isFriday = $date->isFriday();
             return match ($normalizedShiftCode) {
                 'P' => ['start_time' => '07:00:00', 'end_time' => '19:00:00'],
                 'M' => ['start_time' => '19:00:00', 'end_time' => '07:00:00'],
-                'P1', 'H' => ['start_time' => '08:00:00', 'end_time' => '16:00:00'],
+                'P1', 'H' => $isFriday
+                    ? ['start_time' => '08:00:00', 'end_time' => '16:30:00']
+                    : ['start_time' => '08:00:00', 'end_time' => '16:00:00'],
                 default => $fallback,
             };
         }
@@ -3139,13 +3142,17 @@ class AttendanceLogController extends Controller
         ?string $departmentName,
         ?string $employeeNrp = null,
         ?string $employeeName = null
-    ): int {
+    ): float {
         if ($this->isAttendanceSecurityDepartmentName($departmentName)) {
             return 12;
         }
 
         if ($this->isAttendanceMaintananceDepartmentName($departmentName)) {
             return 8;
+        }
+
+        if ($date->isFriday()) {
+            return 8.5;
         }
 
         return $date->isSaturday() ? 5 : 8;

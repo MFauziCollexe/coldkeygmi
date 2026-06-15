@@ -1271,7 +1271,7 @@ class RosterController extends Controller
         }
 
         if ($this->isSecurityDepartment($departmentId)) {
-            return $this->resolveSecurityShiftTiming($rawCode, $employeeKey, $employeeNrp);
+            return $this->resolveSecurityShiftTiming($rawCode, $rosterDate, $employeeKey, $employeeNrp);
         }
 
         if (is_numeric($rawCode)) {
@@ -1307,7 +1307,7 @@ class RosterController extends Controller
         ];
     }
 
-    private function resolveSecurityShiftTiming(string $rawCode, string $employeeKey = '', string $employeeNrp = ''): array
+    private function resolveSecurityShiftTiming(string $rawCode, Carbon $rosterDate, string $employeeKey = '', string $employeeNrp = ''): array
     {
         return match ($rawCode) {
             'P' => [
@@ -1324,7 +1324,13 @@ class RosterController extends Controller
                 'work_hours' => 12,
                 'error' => null,
             ],
-            'P1', 'H' => [
+            'P1', 'H' => $rosterDate->isFriday() ? [
+                'is_off' => false,
+                'start_time' => '08:00:00',
+                'end_time' => '16:30:00',
+                'work_hours' => 8.5,
+                'error' => null,
+            ] : [
                 'is_off' => false,
                 'start_time' => '08:00:00',
                 'end_time' => '16:00:00',
@@ -1341,7 +1347,7 @@ class RosterController extends Controller
         };
     }
 
-    private function resolveDefaultWorkHours(Carbon $rosterDate, ?int $departmentId = null): int
+    private function resolveDefaultWorkHours(Carbon $rosterDate, ?int $departmentId = null): float
     {
         if ($this->isSecurityDepartment($departmentId)) {
             return 12;
@@ -1349,6 +1355,10 @@ class RosterController extends Controller
 
         if ($this->isMaintananceDepartment($departmentId)) {
             return 8;
+        }
+
+        if ($rosterDate->isFriday()) {
+            return 8.5;
         }
 
         return $rosterDate->isSaturday() ? 5 : 8;

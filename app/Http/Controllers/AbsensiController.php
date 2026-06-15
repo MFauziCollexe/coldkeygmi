@@ -274,7 +274,7 @@ class AbsensiController extends Controller
         }
 
         $start = '08:00';
-        $end = $date->isSaturday() ? '13:00' : '16:00';
+        $end = $date->isFriday() ? '16:30' : ($date->isSaturday() ? '13:00' : '16:00');
 
         return [
             'source_key' => 'non_roster',

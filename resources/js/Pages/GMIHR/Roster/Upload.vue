@@ -351,9 +351,10 @@ function normalizeRowOnClient(row) {
     }
 
     if (shiftCode === 'P1' || shiftCode === 'H') {
+      const isFriday = date.getDay() === 5;
       normalized.start_time = '08:00:00';
-      normalized.end_time = '16:00:00';
-      normalized.work_hours = 8;
+      normalized.end_time = isFriday ? '16:30:00' : '16:00:00';
+      normalized.work_hours = isFriday ? 8.5 : 8;
       return normalized;
     }
 
@@ -389,8 +390,12 @@ function resolveDefaultHoursOnClient(date) {
   }
 
   const isDateValid = date instanceof Date && !Number.isNaN(date.getTime());
-  const isSaturday = isDateValid ? date.getDay() === 6 : false;
-  return isSaturday ? 5 : 8;
+  if (isDateValid) {
+    const day = date.getDay();
+    if (day === 5) return 8.5;
+    if (day === 6) return 5;
+  }
+  return 8;
 }
 
 function detectTemplateTypeFromFilename(filename) {
