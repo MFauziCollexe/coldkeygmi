@@ -663,6 +663,7 @@ class PurchaseRequisitionController extends Controller
 
         $canApprove = $this->canApprove($user, $purchaseRequisition);
         $canReject = $canApprove; // same condition: owner dept + status waiting
+        $canViewInvoice = $this->accessRules()->allows($user, self::ACCESS_MODULE, 'view_invoice');
         $backUrl = $request->query('return_to');
 
         if (!is_string($backUrl) || $backUrl === '' || !str_starts_with($backUrl, '/')) {
@@ -712,17 +713,18 @@ class PurchaseRequisitionController extends Controller
                         'is_image' => $this->isImageFile($attachment->filename),
                     ])
                     ->values(),
-                 'can_approve' => $canApprove,
+                  'can_approve' => $canApprove,
                  'can_reject' => $canReject,
                  'can_process_vendor' => $this->canProcessVendor($user, $purchaseRequisition),
                  'can_upload_invoice' => $this->canUploadInvoice($user, $purchaseRequisition),
+                 'can_view_invoice' => $canViewInvoice,
                    'po_processed_at' => $purchaseRequisition->po_processed_at?->format('Y-m-d H:i'),
                    'po_summary' => $this->purchaseOrderSummaryPayload($purchaseRequisition),
-                   'po_invoice_url' => $purchaseRequisition->po_photo_path
+                   'po_invoice_url' => $canViewInvoice && $purchaseRequisition->po_photo_path
                       ? Storage::disk('public')->url($purchaseRequisition->po_photo_path)
                       : null,
-                 'po_invoice_filename' => $purchaseRequisition->po_photo_filename,
-                 'po_invoice_mime_type' => $purchaseRequisition->po_photo_mime_type,
+                 'po_invoice_filename' => $canViewInvoice ? $purchaseRequisition->po_photo_filename : null,
+                 'po_invoice_mime_type' => $canViewInvoice ? $purchaseRequisition->po_photo_mime_type : null,
                   'suppliers' => $purchaseRequisition->suppliers
                     ->map(fn ($supplier) => [
                         'id' => $supplier->id,

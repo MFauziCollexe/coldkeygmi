@@ -466,7 +466,7 @@ const isProcessStatus = currentStatus === 'process';
 const canFatManageComparison = isFatUser && isWaitingStatus;
 const canOwnerSelectVendor = isOwnerDepartmentUser && isWaitingStatus;
 const canSubmitVendorRequest = isFatUser && isWaitingStatus;
-const canViewInvoiceSection = isFatUser && (isProcessStatus || canUploadInvoice || Boolean(props.purchaseRequisition.po_invoice_url));
+const canViewInvoiceSection = props.purchaseRequisition.can_view_invoice === true && (isProcessStatus || canUploadInvoice || Boolean(props.purchaseRequisition.po_invoice_url));
 const canDelete = props.purchaseRequisition.can_delete === true || isItUser;
 const showImagePreviewModal = ref(false);
 const previewAttachment = ref(null);

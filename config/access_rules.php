@@ -411,6 +411,10 @@ return [
                     ['type' => 'admin'],
                     ['type' => 'department_code', 'value' => 'OWNER'],
                 ],
+                'view_invoice' => [
+                    ['type' => 'admin'],
+                    ['type' => 'department_code', 'value' => 'FAT'],
+                ],
             ],
         ],
         'gmisl.master_data.procurement_master_item' => [
