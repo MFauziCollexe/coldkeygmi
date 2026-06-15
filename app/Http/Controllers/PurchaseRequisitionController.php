@@ -13,6 +13,7 @@ use App\Models\StockCardUnit;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\ImageMergeService;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,11 @@ class PurchaseRequisitionController extends Controller
         'Giro',
     ];
 
+    protected function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
+    }
+
     public function index(Request $request)
     {
         $this->rememberIndexUrl($request, 'purchase_requisitions');
@@ -48,7 +54,7 @@ class PurchaseRequisitionController extends Controller
         /** @var \App\Models\User|null $user */
         $user = $request->user();
         $user?->loadMissing(['department']);
-        $isItUser = $this->isItDepartmentUser($user);
+        $canViewAll = $this->accessRules()->canViewAllDepartments($user, self::ACCESS_MODULE, 'view_list');
         $purchaseRequisitions = $this->visiblePurchaseRequisitionsQuery($user)
             ->with([
                 'requester:id,name,department_id',
@@ -60,7 +66,7 @@ class PurchaseRequisitionController extends Controller
             ])
             ->orderByRaw("CASE WHEN status = 'waiting' THEN 0 WHEN status = 'approved' THEN 1 WHEN status = 'process' THEN 2 WHEN status = 'done' THEN 3 ELSE 4 END")
             ->orderByDesc('created_at')
-            ->when(!$isItUser, fn ($q) => $q->limit(50))
+            ->when(!$canViewAll, fn ($q) => $q->limit(50))
             ->get()
             ->map(function (PurchaseRequisition $purchaseRequisition) use ($user) {
                 return [
@@ -740,21 +746,18 @@ class PurchaseRequisitionController extends Controller
 
     private function visiblePurchaseRequisitionsQuery(?User $user)
     {
-        $departmentId = (int) ($user?->department_id ?? 0);
         $isOwnerUser = $this->isOwnerDepartmentUser($user);
-        $isItUser = $this->isItDepartmentUser($user);
-        $isFatUser = $this->isFatDepartmentUser($user);
 
         return PurchaseRequisition::query()
-            ->where(function ($query) use ($departmentId, $isOwnerUser, $isItUser, $isFatUser, $user) {
-                // IT and FAT department users have full visibility to all PRs
-                if ($isItUser || $isFatUser) {
+            ->where(function ($query) use ($isOwnerUser, $user) {
+                if ($this->accessRules()->canViewAllDepartments($user, self::ACCESS_MODULE, 'view_list')) {
                     $query->whereNotNull('id');
                     return;
                 }
 
-                if ($departmentId > 0) {
-                    $query->orWhere('department_id', $departmentId);
+                $visibleDeptIds = $this->accessRules()->visibleDepartmentIds($user, self::ACCESS_MODULE, 'view_list');
+                if (!empty($visibleDeptIds)) {
+                    $query->orWhereIn('department_id', $visibleDeptIds);
                 }
 
                 if ($user?->id) {

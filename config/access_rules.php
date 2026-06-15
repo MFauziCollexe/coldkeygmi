@@ -388,6 +388,8 @@ return [
                         ['type' => 'department_code', 'value' => 'IT'],
                         ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
                         ['type' => 'department_code', 'value' => 'FAT'],
+                        ['type' => 'department_code', 'value' => 'HRD'],
+                        ['type' => 'department_name_contains', 'value' => 'HRD'],
                     ],
                     'ids_from' => [
                         'managed_departments',
