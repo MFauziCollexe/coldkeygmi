@@ -1287,13 +1287,20 @@ class RosterController extends Controller
             }
 
             $start = Carbon::createFromTime($hour, 0, 0);
-            $end = (clone $start)->addHours($defaultHours);
+
+            if ($rosterDate->isFriday() && $hour === 8) {
+                $end = Carbon::createFromTime(16, 30, 0);
+                $workHours = 8.5;
+            } else {
+                $end = (clone $start)->addHours($defaultHours);
+                $workHours = $defaultHours;
+            }
 
             return $this->normalizeSaturdayRosterTiming($rosterDate, $departmentId, [
                 'is_off' => false,
                 'start_time' => $start->format('H:i:s'),
                 'end_time' => $end->format('H:i:s'),
-                'work_hours' => $defaultHours,
+                'work_hours' => $workHours,
                 'error' => null,
             ]);
         }
@@ -1347,7 +1354,7 @@ class RosterController extends Controller
         };
     }
 
-    private function resolveDefaultWorkHours(Carbon $rosterDate, ?int $departmentId = null): float
+    private function resolveDefaultWorkHours(Carbon $rosterDate, ?int $departmentId = null): int
     {
         if ($this->isSecurityDepartment($departmentId)) {
             return 12;
@@ -1355,10 +1362,6 @@ class RosterController extends Controller
 
         if ($this->isMaintananceDepartment($departmentId)) {
             return 8;
-        }
-
-        if ($rosterDate->isFriday()) {
-            return 8.5;
         }
 
         return $rosterDate->isSaturday() ? 5 : 8;

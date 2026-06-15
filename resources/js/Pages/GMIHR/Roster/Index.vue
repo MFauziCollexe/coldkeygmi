@@ -330,7 +330,6 @@ function normalizeRowOnClient(row) {
     return normalized;
   }
 
-  const defaultHours = resolveDefaultHoursOnClient(date);
   const hour = Number(shiftCode);
   if (hour < 0 || hour > 23) {
     normalized.is_valid = false;
@@ -339,9 +338,17 @@ function normalizeRowOnClient(row) {
   }
 
   const pad = (n) => String(n).padStart(2, '0');
+  const isFriday = date.getDay() === 5;
   normalized.start_time = `${pad(hour)}:00:00`;
-  normalized.end_time = `${pad((hour + defaultHours) % 24)}:00:00`;
-  normalized.work_hours = defaultHours;
+
+  if (isFriday && hour === 8) {
+    normalized.end_time = '16:30:00';
+    normalized.work_hours = 8.5;
+  } else {
+    const defaultHours = resolveDefaultHoursOnClient(date);
+    normalized.end_time = `${pad((hour + defaultHours) % 24)}:00:00`;
+    normalized.work_hours = defaultHours;
+  }
   return normalized;
 }
 
@@ -351,12 +358,8 @@ function resolveDefaultHoursOnClient(date) {
   }
 
   const isDateValid = date instanceof Date && !Number.isNaN(date.getTime());
-  if (isDateValid) {
-    const day = date.getDay();
-    if (day === 5) return 8.5;
-    if (day === 6) return 5;
-  }
-  return 8;
+  const isSaturday = isDateValid ? date.getDay() === 6 : false;
+  return isSaturday ? 5 : 8;
 }
 
 function detectTemplateTypeFromFilename(filename) {

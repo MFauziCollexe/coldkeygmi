@@ -3122,14 +3122,19 @@ class AttendanceLogController extends Controller
             return $fallback;
         }
 
-        $defaultHours = $this->resolveAttendanceRosterDefaultHours(
-            $date,
-            $departmentName,
-            $employeeNrp,
-            $employeeName
-        );
         $start = Carbon::createFromTime($hour, 0, 0);
-        $end = (clone $start)->addHours($defaultHours);
+
+        if ($date->isFriday() && $hour === 8) {
+            $end = Carbon::createFromTime(16, 30, 0);
+        } else {
+            $defaultHours = $this->resolveAttendanceRosterDefaultHours(
+                $date,
+                $departmentName,
+                $employeeNrp,
+                $employeeName
+            );
+            $end = (clone $start)->addHours($defaultHours);
+        }
 
         return $this->normalizeAttendanceSaturdaySchedule($date->toDateString(), [
             'start_time' => $start->format('H:i:s'),
@@ -3142,17 +3147,13 @@ class AttendanceLogController extends Controller
         ?string $departmentName,
         ?string $employeeNrp = null,
         ?string $employeeName = null
-    ): float {
+    ): int {
         if ($this->isAttendanceSecurityDepartmentName($departmentName)) {
             return 12;
         }
 
         if ($this->isAttendanceMaintananceDepartmentName($departmentName)) {
             return 8;
-        }
-
-        if ($date->isFriday()) {
-            return 8.5;
         }
 
         return $date->isSaturday() ? 5 : 8;
