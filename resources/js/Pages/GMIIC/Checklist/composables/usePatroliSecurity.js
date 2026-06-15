@@ -43,9 +43,6 @@ export function usePatroliSecurity(entry, { currentUser, showQrScanner }) {
     },
   })
 
-  const patroliSecurityPhotoUploading = ref(false)
-  const patroliSecurityPhotoError = ref('')
-
   const currentPatroliSecurityPhotos = computed(() => {
     if (!isPatroliSecurity.value || !entry.value) return []
     const paths = normalizePatroliSecurityPhotoBucket(entry.value.form.area_photo_paths?.[patroliSecurityTargetKey.value])
@@ -124,8 +121,7 @@ export function usePatroliSecurity(entry, { currentUser, showQrScanner }) {
   return {
     isPatroliSecurity, patroliSecurityOverlayAddressLines, patroliSecurityApprovedAreas,
     currentPatroliSecuritySection, patroliSecurityTargetKey, currentPatroliSecurityBarcode,
-    patroliSecurityNoteLabel, patroliSecurityNote, patroliSecurityPhotoUploading,
-    patroliSecurityPhotoError, currentPatroliSecurityPhotos, patroliSecurityValidation,
+    patroliSecurityNoteLabel, patroliSecurityNote, currentPatroliSecurityPhotos, patroliSecurityValidation,
     canScanPatroliSecurity, patroliSecurityAreaOptions, getPatroliSecurityAreaLabel,
     findOpenPatroliSecurityDraft, updatePatroliSecurityDate, updatePatroliSecurityArea,
     updatePatroliSecurityNote, cyclePatroliSecurityRowStatus,

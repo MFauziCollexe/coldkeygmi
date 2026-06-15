@@ -4,9 +4,6 @@ import { cleaningOBShiftOptions, getCleaningOBShiftLabel, rebuildCleaningOBSecti
 export function useCleaningOB(entry, { currentUser, showQrScanner }) {
   const isCleaningOB = computed(() => entry.value?.template_id === 'jadwal_cleaning_ob')
 
-  const cleaningOBPhotoUploading = ref(false)
-  const cleaningOBPhotoError = ref('')
-
   const currentCleaningOBPhotos = computed(() => {
     if (!isCleaningOB.value || !entry.value) return []
     const targetKey = cleaningOBTargetKey.value
@@ -140,7 +137,7 @@ export function useCleaningOB(entry, { currentUser, showQrScanner }) {
     canScanCleaningOB, cleaningOBShiftOptions, getCleaningOBShiftLabel,
     findOpenCleaningOBDraft, updateCleaningOBDate, updateCleaningOBShift,
     updateCleaningOBNote, cycleCleaningOBRowStatus,
-    currentCleaningOBPhotos, cleaningOBPhotoUploading, cleaningOBPhotoError,
+    currentCleaningOBPhotos,
     normalizeCleaningOBPhotoBucket,
   }
 }
