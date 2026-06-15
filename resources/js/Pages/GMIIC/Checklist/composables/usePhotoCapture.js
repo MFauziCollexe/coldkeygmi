@@ -349,6 +349,93 @@ export function usePhotoCapture({
     context.restore()
   }
 
+  function applyCleaningOBPhotoOverlay(canvas, capturedAt = new Date()) {
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Overlay foto gagal diproses.')
+    const width = canvas.width
+    const height = canvas.height
+    const cardWidth = Math.max(180, Math.min(270, Math.round(width * 0.29)))
+    const scale = cardWidth / 230
+    const cardHeight = Math.round(197 * scale)
+    const cardX = Math.round(18 * scale)
+    const cardY = height - cardHeight - Math.round(18 * scale)
+    const headerHeight = Math.round(34 * scale)
+    const sidePadding = Math.round(10 * scale)
+    const dividerWidth = cardWidth - sidePadding * 2
+    const timeText = formatPatroliSecurityOverlayTime(capturedAt)
+    const dayText = formatPatroliSecurityOverlayDay(capturedAt)
+    const dateText = formatPatroliSecurityOverlayDate(capturedAt)
+    const shiftLabel = getCleaningOBShiftLabel(entry.value?.form?.selected_shift)
+    const shiftText = `Shift: ${shiftLabel || '-'}`
+    const personnelText = `Personil: ${getPatroliSecurityPersonnelName()}`
+    const verifiedText = 'Diverifikasi oleh Tim GMI'
+
+    context.save()
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = 'high'
+    context.shadowColor = 'rgba(0, 0, 0, 0.45)'
+    context.shadowBlur = Math.max(1, scale * 1.4)
+    context.shadowOffsetX = 0
+    context.shadowOffsetY = Math.max(1, scale * 0.8)
+    context.fillStyle = 'rgba(15, 20, 30, 0.88)'
+    context.fillRect(cardX, cardY, cardWidth, cardHeight)
+    context.strokeStyle = 'rgba(72, 111, 212, 0.95)'
+    context.lineWidth = Math.max(2, scale * 1.4)
+    context.strokeRect(cardX, cardY, cardWidth, cardHeight)
+    context.fillStyle = '#2f5fc5'
+    context.fillRect(cardX, cardY, cardWidth, headerHeight)
+    context.fillStyle = '#ffffff'
+    context.font = `700 ${Math.round(14 * scale)}px "Arial", sans-serif`
+    context.textBaseline = 'middle'
+    context.fillText('CLEANING OB GMI', cardX + sidePadding, cardY + headerHeight / 2)
+
+    const timeBaselineY = cardY + headerHeight + Math.round(46 * scale)
+    context.fillStyle = '#ffffff'
+    context.textBaseline = 'alphabetic'
+    context.font = `700 ${Math.round(30 * scale)}px "Arial", sans-serif`
+    context.fillText(timeText, cardX + sidePadding, timeBaselineY)
+
+    const timeMetrics = context.measureText(timeText)
+    const separatorX = cardX + sidePadding + timeMetrics.width + Math.round(8 * scale)
+    context.strokeStyle = 'rgba(255, 255, 255, 0.95)'
+    context.lineWidth = Math.max(2, scale * 1.1)
+    context.beginPath()
+    context.moveTo(separatorX, cardY + headerHeight + Math.round(10 * scale))
+    context.lineTo(separatorX, cardY + headerHeight + Math.round(52 * scale))
+    context.stroke()
+
+    const dayDateX = separatorX + Math.round(8 * scale)
+    context.font = `700 ${Math.round(12 * scale)}px "Arial", sans-serif`
+    context.fillText(dayText, dayDateX, cardY + headerHeight + Math.round(24 * scale))
+    context.font = `700 ${Math.round(11 * scale)}px "Arial", sans-serif`
+    context.fillText(dateText, dayDateX, cardY + headerHeight + Math.round(42 * scale))
+
+    drawPatroliSecurityDivider(context, cardX + sidePadding, cardY + headerHeight + Math.round(64 * scale), dividerWidth, Math.max(4, Math.round(5 * scale)), Math.max(3, Math.round(3 * scale)))
+
+    const iconX = cardX + sidePadding + Math.round(5 * scale)
+    const textX = cardX + sidePadding + Math.round(22 * scale)
+
+    context.font = `700 ${Math.round(11 * scale)}px "Arial", sans-serif`
+    context.fillStyle = '#ffffff'
+    context.fillText(shiftText, textX, cardY + headerHeight + Math.round(84 * scale))
+
+    const personIconSize = Math.round(11 * scale)
+    const personnelY = cardY + headerHeight + Math.round(106 * scale)
+    drawPatroliSecurityPersonIcon(context, iconX, personnelY - Math.round(2 * scale), personIconSize)
+    context.font = `700 ${Math.round(10 * scale)}px "Arial", sans-serif`
+    context.fillText(personnelText, textX, personnelY + Math.round(3 * scale))
+
+    drawPatroliSecurityDivider(context, cardX + sidePadding, cardY + cardHeight - Math.round(26 * scale), dividerWidth, Math.max(4, Math.round(5 * scale)), Math.max(3, Math.round(3 * scale)))
+
+    const shieldIconSize = Math.round(10 * scale)
+    const verifiedY = cardY + cardHeight - Math.round(10 * scale)
+    drawPatroliSecurityShieldIcon(context, iconX, verifiedY - Math.round(2 * scale), shieldIconSize)
+    context.fillStyle = '#cfd5df'
+    context.font = `700 ${Math.round(9 * scale)}px "Arial", sans-serif`
+    context.fillText(verifiedText, textX, verifiedY + Math.round(2 * scale))
+    context.restore()
+  }
+
   function normalizePatroliSecurityPhotoBucket(bucket) {
     if (Array.isArray(bucket)) return bucket.filter((item) => String(item || '').trim() !== '')
     const single = String(bucket || '').trim()
@@ -642,6 +729,7 @@ export function usePhotoCapture({
       }
       if (photoCaptureMode.value === 'cleaning_ob') {
         if (!isCleaningOB.value || !cleaningOBTargetKey.value) return
+        applyCleaningOBPhotoOverlay(canvas, new Date())
         const selectedShiftLabel = getCleaningOBShiftLabel(entry.value.form.selected_shift).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
         const file = await canvasToJpegFile(canvas, `cleaning-ob-${selectedShiftLabel || 'shift'}-${Date.now()}.jpg`)
         await uploadCleaningOBPhoto(file)
