@@ -32,6 +32,7 @@ export function usePhotoCapture({
   const maintenancePhotoError = ref('')
   const cleaningOBPhotoUploading = ref(false)
   const cleaningOBPhotoError = ref('')
+  const photoCapturing = ref(false)
 
   let photoStream = null
 
@@ -118,6 +119,14 @@ export function usePhotoCapture({
       if (photoVideoRef.value) {
         photoVideoRef.value.srcObject = photoStream
         await photoVideoRef.value.play()
+        if (!photoVideoRef.value.videoWidth || !photoVideoRef.value.videoHeight) {
+          await Promise.race([
+            new Promise((resolve) => {
+              photoVideoRef.value.addEventListener('loadedmetadata', resolve, { once: true })
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout menunggu video kamera.')), 8000)),
+          ])
+        }
       }
       photoError.value = ''
     } catch (error) {
@@ -138,10 +147,17 @@ export function usePhotoCapture({
 
   function canvasToJpegFile(canvas, fileName) {
     return new Promise((resolve, reject) => {
+      let settled = false
+      const timer = setTimeout(() => {
+        if (!settled) { settled = true; reject(new Error('Foto gagal diproses (waktu habis).')) }
+      }, 10000)
       canvas.toBlob((blob) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
         if (!blob) { reject(new Error('Foto gagal diproses.')); return }
         resolve(new File([blob], fileName, { type: 'image/jpeg' }))
-      }, 'image/jpeg', 0.98)
+      }, 'image/jpeg', 0.85)
     })
   }
 
@@ -581,15 +597,20 @@ export function usePhotoCapture({
   }
 
   async function capturePhoto() {
-    if (!entry.value || !photoVideoRef.value) return
+    if (!entry.value || !photoVideoRef.value || photoCapturing.value) return
     const video = photoVideoRef.value
-    const width = video.videoWidth || 1280
-    const height = video.videoHeight || 720
+    if (!video.videoWidth || !video.videoHeight) {
+      photoError.value = 'Kamera belum siap. Tunggu sesaat lalu coba lagi.'
+      return
+    }
+    photoCapturing.value = true
+    const width = video.videoWidth
+    const height = video.videoHeight
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
     const context = canvas.getContext('2d')
-    if (!context) { photoError.value = 'Foto gagal diproses.'; return }
+    if (!context) { photoError.value = 'Foto gagal diproses.'; photoCapturing.value = false; return }
     context.drawImage(video, 0, 0, width, height)
 
     try {
@@ -629,6 +650,8 @@ export function usePhotoCapture({
       }
     } catch (error) {
       photoError.value = error?.message || 'Foto gagal diproses.'
+    } finally {
+      photoCapturing.value = false
     }
   }
 
@@ -650,6 +673,7 @@ export function usePhotoCapture({
   return {
     photoModalOpen,
     photoLoading,
+    photoCapturing,
     photoError,
     photoCaptureDay,
     photoCaptureMode,

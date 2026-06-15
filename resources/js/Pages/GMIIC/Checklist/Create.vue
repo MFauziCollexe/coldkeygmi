@@ -51,7 +51,7 @@
           </div>
           <div class="mt-4 flex justify-end gap-3">
             <button type="button" class="rounded bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600" @click="closePhotoModal">Batal</button>
-            <button type="button" :disabled="photoLoading" class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-600" @click="capturePhoto">{{ photoCaptureButtonLabel }}</button>
+            <button type="button" :disabled="photoLoading || photoCapturing" class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-600" @click="capturePhoto">{{ photoCapturing ? 'Memproses...' : photoCaptureButtonLabel }}</button>
           </div>
         </div>
       </div>
@@ -210,7 +210,7 @@ const photo = usePhotoCapture({
 })
 
 const { scannerModalOpen, scannerLoading, scannerError, closeScannerModal } = scanner
-const { photoModalOpen, photoLoading, photoError, photoVideoRef, photoModalTitle, photoModalDescription, photoCaptureButtonLabel, capturePhoto, closePhotoModal } = photo
+const { photoModalOpen, photoLoading, photoCapturing, photoError, photoVideoRef, photoModalTitle, photoModalDescription, photoCaptureButtonLabel, capturePhoto, closePhotoModal } = photo
 
 entry.value = createInitialEntry()
 
