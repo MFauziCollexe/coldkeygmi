@@ -189,7 +189,8 @@ class AccessRuleService
 
     public function allows(User|int|null $user, string $moduleKey, string $ability, array $context = []): bool
     {
-        $rules = (array) data_get($this->modules(), "{$moduleKey}.abilities.{$ability}", []);
+        $module = $this->modules()[$moduleKey] ?? [];
+        $rules = (array) data_get($module, "abilities.{$ability}", []);
         if (empty($rules)) {
             return false;
         }
@@ -208,7 +209,8 @@ class AccessRuleService
 
     public function setting(string $moduleKey, string $settingKey, mixed $default = null): mixed
     {
-        return data_get($this->modules(), "{$moduleKey}.settings.{$settingKey}", $default);
+        $module = $this->modules()[$moduleKey] ?? [];
+        return data_get($module, "settings.{$settingKey}", $default);
     }
 
     public function booleanSetting(string $moduleKey, string $settingKey, bool $default = false): bool
@@ -218,7 +220,8 @@ class AccessRuleService
 
     public function canViewAllDepartments(User|int|null $user, string $moduleKey, string $scope = 'view_list'): bool
     {
-        $rules = (array) data_get($this->modules(), "{$moduleKey}.scopes.{$scope}.all_if", []);
+        $module = $this->modules()[$moduleKey] ?? [];
+        $rules = (array) data_get($module, "scopes.{$scope}.all_if", []);
         if (empty($rules)) {
             return false;
         }
@@ -235,7 +238,8 @@ class AccessRuleService
                 ->all();
         }
 
-        $sources = (array) data_get($this->modules(), "{$moduleKey}.scopes.{$scope}.ids_from", []);
+        $module = $this->modules()[$moduleKey] ?? [];
+        $sources = (array) data_get($module, "scopes.{$scope}.ids_from", []);
         $resolvedUser = $this->resolveUser($user);
         $employee = $this->resolveEmployee($resolvedUser);
 
@@ -244,7 +248,7 @@ class AccessRuleService
             $departmentIds = array_merge($departmentIds, $this->resolveDepartmentIdsFromSource($source, $resolvedUser, $employee));
         }
 
-        $conditionalAppends = (array) data_get($this->modules(), "{$moduleKey}.scopes.{$scope}.append_ids_if", []);
+        $conditionalAppends = (array) data_get($module, "scopes.{$scope}.append_ids_if", []);
         foreach ($conditionalAppends as $appendConfig) {
             $conditions = (array) ($appendConfig['if'] ?? []);
             if (empty($conditions) || !$this->matchesAnyRule($resolvedUser, $conditions)) {

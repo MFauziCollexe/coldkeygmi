@@ -414,6 +414,8 @@ return [
                 'view_invoice' => [
                     ['type' => 'admin'],
                     ['type' => 'department_code', 'value' => 'FAT'],
+                    ['type' => 'department_code', 'value' => 'IT'],
+                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
                 ],
             ],
         ],
