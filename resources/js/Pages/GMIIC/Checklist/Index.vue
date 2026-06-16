@@ -90,6 +90,7 @@
                 <th>Date</th>
                 <th>PIC</th>
                 <th>Status</th>
+                <th>Waktu</th>
                 <th></th>
               </tr>
             </thead>
@@ -120,6 +121,7 @@
                     {{ getChecklistStatusLabel(entry) }}
                   </span>
                 </td>
+                <td>{{ entry.approved_at || entry.created_at || '-' }}</td>
                 <td class="text-right">
                   <Link
                     :href="`/gmiic/checklist/create?template=${encodeURIComponent(entry.template_id)}&entry_id=${encodeURIComponent(entry.id)}`"
