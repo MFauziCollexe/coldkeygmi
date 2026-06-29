@@ -267,6 +267,7 @@ class ChecklistEntryController extends Controller
                 $query->whereRaw('1 = 0');
             })
             ->orderByDesc('updated_at')
+            ->limit(200)
             ->get()
             ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
             ->filter(fn ($entry) => is_array($entry) && !empty($entry))
