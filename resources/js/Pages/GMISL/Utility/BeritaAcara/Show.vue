@@ -10,6 +10,13 @@
           <Link href="/gmisl/utility/berita-acara" class="rounded bg-slate-700 px-3 py-2 text-center text-sm font-semibold hover:bg-slate-600">
             Kembali
           </Link>
+          <Link
+            v-if="canEdit"
+            :href="`/gmisl/utility/berita-acara/${item.id}/edit`"
+            class="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 text-center"
+          >
+            Edit
+          </Link>
           <button
             type="button"
             class="rounded bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
@@ -66,6 +73,7 @@ import { swalConfirm } from '@/Utils/swalConfirm';
 const props = defineProps({
   item: { type: Object, required: true },
   canDelete: { type: Boolean, default: false },
+  canEdit: { type: Boolean, default: false },
 });
 
 function downloadPdf() {

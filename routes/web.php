@@ -96,6 +96,12 @@ Route::post('gmisl/utility/berita-acara', [App\Http\Controllers\BeritaAcaraContr
 Route::get('gmisl/utility/berita-acara/{beritaAcara}', [App\Http\Controllers\BeritaAcaraController::class, 'show'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
     ->name('berita-acara.show');
+Route::get('gmisl/utility/berita-acara/{beritaAcara}/edit', [App\Http\Controllers\BeritaAcaraController::class, 'edit'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
+    ->name('berita-acara.edit');
+Route::put('gmisl/utility/berita-acara/{beritaAcara}', [App\Http\Controllers\BeritaAcaraController::class, 'update'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
+    ->name('berita-acara.update');
 Route::get('gmisl/utility/berita-acara/{beritaAcara}/print', [App\Http\Controllers\BeritaAcaraController::class, 'print'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
     ->name('berita-acara.print');

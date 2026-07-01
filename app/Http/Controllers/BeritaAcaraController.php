@@ -125,6 +125,58 @@ class BeritaAcaraController extends Controller
             ->with('success', 'Berita Acara berhasil dibuat.');
     }
 
+    public function edit(Request $request, BeritaAcara $beritaAcara)
+    {
+        $beritaAcara->loadMissing([
+            'customer:id,name',
+            'department:id,name,code',
+        ]);
+
+        return Inertia::render('GMISL/Utility/BeritaAcara/Edit', [
+            'item' => $beritaAcara,
+            'customers' => Customer::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name']),
+            'departments' => Department::active()
+                ->orderBy('name')
+                ->get(['id', 'name', 'code']),
+        ]);
+    }
+
+    public function update(Request $request, BeritaAcara $beritaAcara)
+    {
+        $validated = $request->validate([
+            'incident_date' => ['required', 'date'],
+            'incident_place' => ['required', 'string', 'max:255'],
+            'incident_time' => ['required', 'date_format:H:i'],
+            'customer_id' => ['required', 'exists:customers,id'],
+            'vehicle_no' => ['nullable', 'string', 'max:50'],
+            'department_id' => ['required', 'exists:departments,id'],
+            'chronology' => ['required', 'string', 'max:20000'],
+        ]);
+
+        $incidentDate = Carbon::parse($validated['incident_date'])->toDateString();
+
+        $beritaAcara->update([
+            'event_date' => $incidentDate,
+            'event_location' => $validated['incident_place'],
+            'start_time' => $validated['incident_time'] . ':00',
+            'end_time' => $validated['incident_time'] . ':00',
+            'customer_id' => (int) $validated['customer_id'],
+            'department_id' => (int) $validated['department_id'],
+            'vehicle_no' => trim((string) ($validated['vehicle_no'] ?? '')) ?: null,
+            'incident_time' => $validated['incident_time'] . ':00',
+            'chronology' => $validated['chronology'],
+        ]);
+
+        $this->generateAndStorePdf($beritaAcara);
+
+        return redirect()
+            ->route('berita-acara.show', $beritaAcara->id)
+            ->with('success', 'Berita Acara berhasil diperbarui.');
+    }
+
     public function show(Request $request, BeritaAcara $beritaAcara)
     {
         $beritaAcara->loadMissing([
@@ -135,6 +187,7 @@ class BeritaAcaraController extends Controller
         return Inertia::render('GMISL/Utility/BeritaAcara/Show', [
             'item' => $beritaAcara,
             'canDelete' => $this->canDelete($request),
+            'canEdit' => $this->canEdit($request, $beritaAcara),
         ]);
     }
 
@@ -374,6 +427,21 @@ class BeritaAcaraController extends Controller
     private function canDelete(Request $request): bool
     {
         return $this->accessRules()->allows($request->user(), self::ACCESS_MODULE, 'delete');
+    }
+
+    private function canEdit(Request $request, ?BeritaAcara $beritaAcara = null): bool
+    {
+        $user = $request->user();
+        if (!$user) return false;
+
+        if ($this->accessRules()->isAdmin($user)) return true;
+
+        $departmentCode = strtoupper(trim((string) ($user->department?->code ?? '')));
+        if ($departmentCode === 'IT') return true;
+
+        if ($beritaAcara && (int) $beritaAcara->created_by === (int) $user->id) return true;
+
+        return false;
     }
 
     // Note: sementara input disederhanakan; field lain diisi default.
