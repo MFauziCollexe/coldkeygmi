@@ -727,7 +727,7 @@ export const patroliSecurityAreaOptions = patroliSecuritySections.map(
 export const cleaningOBShifts = [
     {
         id: "07_00_08_30_ob_i_ii",
-        title: "07:00-08:30 OB I & II",
+        title: "KANTOR , MEETING, DIREKTUR LT 2",
         sections: [
             {
                 id: "area_kantor_lt_2",
@@ -791,7 +791,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "08_30_09_30_ob_i",
-        title: "08:30-09:30 OB I",
+        title: "TANGGA , LOBBY , TAMU",
         sections: [
             {
                 id: "area_tangga",
@@ -822,7 +822,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "08_30_09_30_ob_ii",
-        title: "08:30-09:30 OB II",
+        title: "ADMIN , LOKER , KARYAWAN LAKI & PEREMPUAN, WASTAFEL AREA TOILET KARYAWAN",
         sections: [
             {
                 id: "ruang_admin",
@@ -870,7 +870,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "10_00_11_00_ob_i",
-        title: "10:00-11:00 OB I",
+        title: "LOADING DOCK",
         sections: [
             {
                 id: "loading_dock",
@@ -881,7 +881,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "11_00_11_30_ob_i",
-        title: "11:00-11:30 OB I",
+        title: "ANTERUM , CS 1-12",
         sections: [
             {
                 id: "anterum",
@@ -922,7 +922,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "10_00_10_30_ob_ii",
-        title: "10:00-10:30 OB II",
+        title: "RUANG BATERAI",
         sections: [
             {
                 id: "ruang_baterai",
@@ -933,7 +933,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "11_30_12_00_ob_ii",
-        title: "11:30-12:00 OB II",
+        title: "RUANG MESIN , TOILET , RUANG KONTROL , AREA GENSET",
         sections: [
             {
                 id: "ruang_mesin",
@@ -973,7 +973,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "13_00_13_30_ob_i",
-        title: "13:00-13:30 OB I",
+        title: "POS SATPAM",
         sections: [
             {
                 id: "pos_satpam",
@@ -988,7 +988,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "13_30_14_00_ob_i",
-        title: "13:30-14:00 OB I",
+        title: "MUSHOLAH",
         sections: [
             {
                 id: "musholah",
@@ -1003,7 +1003,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "14_00_14_30_ob_i",
-        title: "14:00-14:30 OB I",
+        title: "RUANG LOKER , RUANG ISTIRAHAT",
         sections: [
             {
                 id: "ruang_loker",
@@ -1019,7 +1019,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "14_30_15_00_ob_i",
-        title: "14:30-15:00 OB I",
+        title: "LINGKUNGAN GUDANG",
         sections: [
             {
                 id: "area_lingkungan_gudang",
@@ -1030,7 +1030,7 @@ export const cleaningOBShifts = [
     },
     {
         id: "13_00_15_00_ob_ii",
-        title: "13:00-15:00 OB II",
+        title: "LOBBY , SERVER , APAR ALL AREA GUDANG , KIPAS ANGIN MUSHOLAH , TPS B3 , LANTAI AREA DOCK LEVELARY",
         sections: [
             {
                 id: "lobby",
