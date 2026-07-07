@@ -222,6 +222,9 @@ Route::post('gmiic/checklist/entries/bulk-save', [App\Http\Controllers\Checklist
 Route::delete('gmiic/checklist/entries', [App\Http\Controllers\ChecklistEntryController::class, 'destroyMany'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.entries.delete');
+Route::get('gmiic/checklist/{entryCode}/pdf', [App\Http\Controllers\ChecklistEntryController::class, 'downloadPdf'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.pdf');
 Route::post('gmiic/checklist/patroli-security/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadPatroliSecurityPhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.patroli-security.photo');

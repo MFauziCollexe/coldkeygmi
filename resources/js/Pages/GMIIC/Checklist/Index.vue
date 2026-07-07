@@ -129,6 +129,13 @@
                   >
                     View
                   </Link>
+                  <a
+                    v-if="isEntryApproved(entry)"
+                    :href="`/gmiic/checklist/${encodeURIComponent(entry.id)}/pdf`"
+                    class="ml-2 text-emerald-400 hover:text-emerald-300"
+                  >
+                    Download
+                  </a>
                 </td>
               </tr>
             </tbody>
@@ -335,6 +342,16 @@ function getChecklistStatusLabel(entry) {
   }
 
   return 'Draft';
+}
+
+function isEntryApproved(entry) {
+  if (entry?.form?.approved) {
+    return true;
+  }
+  if (dailyApprovedTemplates.includes(entry?.template_id) && Array.isArray(entry?.form?.approved_days) && entry.form.approved_days.length) {
+    return true;
+  }
+  return false;
 }
 
 function getChecklistStatusClass(entry) {

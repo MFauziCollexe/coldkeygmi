@@ -9,6 +9,8 @@ use App\Models\ChecklistTemplate;
 use App\Models\Employee;
 use App\Models\LeavePermission;
 use App\Support\AccessRuleService;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -232,6 +234,70 @@ class ChecklistEntryController extends Controller
             'message' => 'Checklist berhasil dihapus.',
             'deleted_count' => $deletedCount,
         ]);
+    }
+
+    public function downloadPdf(Request $request, string $entryCode)
+    {
+        $user = $request->user();
+        $entry = $this->findChecklistEntry($entryCode, $user, true);
+
+        if (!$entry) {
+            abort(404, 'Checklist tidak ditemukan.');
+        }
+
+        $templateId = (string) ($entry['template_id'] ?? '');
+        $templateName = (string) ($entry['name'] ?? 'checklist');
+        $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $templateName) ?: 'checklist';
+        $downloadName = $safeName . '_' . $entryCode . '.pdf';
+
+        try {
+            $html = view('pdf.checklist', [
+                'entry' => $entry,
+            ])->render();
+
+            $options = new Options();
+            $options->set('isHtml5ParserEnabled', true);
+            $options->set('isRemoteEnabled', false);
+            $options->set('defaultFont', 'DejaVu Sans');
+            $options->set('tempDir', $this->ensureDompdfWorkDir('temp'));
+            $options->set('fontDir', $this->ensureDompdfWorkDir('fonts'));
+            $options->set('fontCache', $this->ensureDompdfWorkDir('fonts'));
+
+            $dompdf = new Dompdf($options);
+            $dompdf->setPaper('A4', $this->resolvePdfOrientation($entry));
+            $dompdf->loadHtml($html, 'UTF-8');
+            $dompdf->render();
+
+            return response($dompdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $downloadName . '"',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
+            ]);
+        } catch (\Throwable $e) {
+            abort(500, 'Gagal menghasilkan PDF: ' . $e->getMessage());
+        }
+    }
+
+    private function resolvePdfOrientation(array $entry): string
+    {
+        $landscapeTemplates = [
+            'kompresor_harian', 'charger_baterai', 'checklist_baterai',
+            'non_warehouse_sanitation', 'personal_hygiene_karyawan',
+            'sarana_dan_prasarana',
+        ];
+        $tid = (string) ($entry['template_id'] ?? '');
+        return in_array($tid, $landscapeTemplates, true) ? 'landscape' : 'portrait';
+    }
+
+    private function ensureDompdfWorkDir(string $segment): string
+    {
+        $path = storage_path('app/dompdf/' . $segment);
+        if (!is_dir($path) && !@mkdir($path, 0775, true) && !is_dir($path)) {
+            throw new \RuntimeException('Failed to create Dompdf directory: ' . $path);
+        }
+        return $path;
     }
 
     private function resolveChecklistAbilities(Request $request): array
