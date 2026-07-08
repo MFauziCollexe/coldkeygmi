@@ -1082,7 +1082,6 @@ class RosterController extends Controller
                 ['nrp' => '25081507', 'name' => 'IMANDA ARIESANDY'],
                 ['nrp' => '25091508', 'name' => 'ISNINDAR UMAR SAID'],
                 ['nrp' => '26010536', 'name' => 'JOJOK SETIYADI'],
-                ['nrp' => '25110418', 'name' => 'GROMY ANGGRIAWAN BUDHY PRABOWO'],
                 ['nrp' => '25111724', 'name' => 'EKO PURNIAWAN'],
                 ['nrp' => '25111725', 'name' => 'RAFI EKA PRASTIAWAN'],
                 ['nrp' => '25111727', 'name' => 'FEBRIHAN BAGUS PERMANA'],
@@ -1097,6 +1096,7 @@ class RosterController extends Controller
                 ['nrp' => '25101312', 'name' => 'FIRMAN EFENDI'],
                 ['nrp' => '25101313', 'name' => 'ELRIES ARIF AFIFUDIN'],
                 ['nrp' => '25100109', 'name' => 'YOGA ADITYA PRADANA'],
+                ['nrp' => '26020240', 'name' => 'YUDISTIRA ALDI KURNIAWAN'],
             ];
         }
 
