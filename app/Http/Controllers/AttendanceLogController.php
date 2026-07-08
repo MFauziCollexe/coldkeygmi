@@ -2368,7 +2368,7 @@ class AttendanceLogController extends Controller
 
     private function normalizePin(string $value): string
     {
-        return preg_replace('/\D+/', '', trim($value)) ?? '';
+        return mb_strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', trim($value)) ?? '');
     }
 
     private function pinCandidatesForMatch(string $pin): array
@@ -2382,16 +2382,18 @@ class AttendanceLogController extends Controller
 
         // Support legacy pattern where fingerprint stores extra 0 after "25":
         // 2581507 <-> 25081507
-        if (strlen($pin) === 7 && str_starts_with($pin, '25')) {
+        $isNumericPin = ctype_digit($pin);
+
+        if ($isNumericPin && strlen($pin) === 7 && str_starts_with($pin, '25')) {
             $candidates[] = substr($pin, 0, 2) . '0' . substr($pin, 2);
         }
-        if (strlen($pin) === 8 && str_starts_with($pin, '250')) {
+        if ($isNumericPin && strlen($pin) === 8 && str_starts_with($pin, '250')) {
             $candidates[] = substr($pin, 0, 2) . substr($pin, 3);
         }
 
         // Support PIN with leading zero in one source and without leading zero in another:
         // 080414383 <-> 80414383
-        if (str_starts_with($pin, '0')) {
+        if ($isNumericPin && str_starts_with($pin, '0')) {
             $trimmedLeadingZero = ltrim($pin, '0');
             if ($trimmedLeadingZero !== '') {
                 $candidates[] = $trimmedLeadingZero;
@@ -2400,7 +2402,7 @@ class AttendanceLogController extends Controller
 
         // Support decimal artifact from import (e.g. 25120126.0 -> 251201260 after normalization):
         // try removing one trailing zero variant.
-        if (strlen($pin) >= 8 && str_ends_with($pin, '0')) {
+        if ($isNumericPin && strlen($pin) >= 8 && str_ends_with($pin, '0')) {
             $candidates[] = substr($pin, 0, -1);
         }
 

@@ -132,6 +132,28 @@ class AttendanceLogControllerTest extends TestCase
         $this->assertSame('15:00:00', $schedule['end_time']);
     }
 
+    public function test_normalize_pin_preserves_letter_prefixes_to_avoid_employee_collision(): void
+    {
+        $controller = new AttendanceLogController();
+
+        $this->assertSame('AKU26002', $this->invokeNormalizePin($controller, 'AKU26002'));
+        $this->assertSame('KBM26002', $this->invokeNormalizePin($controller, 'KBM26002'));
+        $this->assertNotSame(
+            $this->invokeNormalizePin($controller, 'AKU26002'),
+            $this->invokeNormalizePin($controller, 'KBM26002')
+        );
+    }
+
+    public function test_pin_candidates_keep_numeric_legacy_variants_only_for_numeric_pins(): void
+    {
+        $controller = new AttendanceLogController();
+
+        $this->assertSame(['2581507', '25081507'], $this->invokePinCandidatesForMatch($controller, '2581507'));
+        $this->assertSame(['25081507', '2581507'], $this->invokePinCandidatesForMatch($controller, '25081507'));
+        $this->assertSame(['080414383', '80414383'], $this->invokePinCandidatesForMatch($controller, '080414383'));
+        $this->assertSame(['KBM26002'], $this->invokePinCandidatesForMatch($controller, 'KBM26002'));
+    }
+
     private function invokeResolveByScheduleWindows(
         AttendanceLogController $controller,
         Collection $scans,
@@ -171,6 +193,22 @@ class AttendanceLogControllerTest extends TestCase
             $storedStartTime,
             $storedEndTime
         );
+    }
+
+    private function invokeNormalizePin(AttendanceLogController $controller, string $pin): string
+    {
+        $method = new ReflectionMethod($controller, 'normalizePin');
+        $method->setAccessible(true);
+
+        return $method->invoke($controller, $pin);
+    }
+
+    private function invokePinCandidatesForMatch(AttendanceLogController $controller, string $pin): array
+    {
+        $method = new ReflectionMethod($controller, 'pinCandidatesForMatch');
+        $method->setAccessible(true);
+
+        return $method->invoke($controller, $pin);
     }
 
     private function makeScans(array $scanDates): Collection
