@@ -1,3 +1,56 @@
+@php
+    $photoPaths = is_array($form['area_photo_paths'] ?? null) ? $form['area_photo_paths'] : [];
+    $photoUrls = is_array($form['area_photo_urls'] ?? null) ? $form['area_photo_urls'] : [];
+    $photoNames = is_array($form['area_photo_names'] ?? null) ? $form['area_photo_names'] : [];
+    $activeAreaKey = ($form['visit_type'] ?? '') === 'maintenance_mingguan' ? 'lantai_1_area_belakang' : ($form['selected_area'] ?? '');
+
+    $bucket = function ($value) {
+        if (is_array($value)) {
+            return array_values(array_filter($value, fn ($item) => trim((string) $item) !== ''));
+        }
+        $single = trim((string) $value);
+        return $single !== '' ? [$single] : [];
+    };
+
+    $photoSrc = function ($path, $url) {
+        $candidate = trim((string) ($path ?: $url));
+        if ($candidate === '') {
+            return null;
+        }
+        $candidate = preg_replace('/\?.*$/', '', $candidate);
+        $candidate = preg_replace('#^https?://[^/]+/#', '/', $candidate);
+        $candidate = ltrim($candidate, '/');
+        $candidate = preg_replace('#^storage/#', '', $candidate);
+        $possiblePaths = [
+            public_path($candidate),
+            public_path('storage/' . $candidate),
+            storage_path('app/public/' . $candidate),
+        ];
+        foreach ($possiblePaths as $filePath) {
+            if (is_file($filePath)) {
+                $mime = mime_content_type($filePath) ?: 'image/jpeg';
+                return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($filePath));
+            }
+        }
+        return null;
+    };
+
+    $paths = $bucket($photoPaths[$activeAreaKey] ?? []);
+    $urls = $bucket($photoUrls[$activeAreaKey] ?? []);
+    $names = $bucket($photoNames[$activeAreaKey] ?? []);
+    $photoCount = max(count($paths), count($urls), count($names));
+    $photos = [];
+    for ($i = 0; $i < $photoCount; $i++) {
+        $src = $photoSrc($paths[$i] ?? '', $urls[$i] ?? '');
+        if ($src) {
+            $photos[] = [
+                'src' => $src,
+                'name' => $names[$i] ?? ('Foto ' . ($i + 1)),
+            ];
+        }
+    }
+@endphp
+
 <table>
     <tr>
         <td colspan="2" class="text-center font-bold" style="font-size:12px;">SITE VISIT MAINTENANCE</td>
@@ -40,9 +93,9 @@
                         <td>{{ $item['name'] ?? $item['label'] ?? '' }}</td>
                         <td class="text-center">
                             @if($status === 'yes')
-                                <span class="check-yes">✓</span>
+                                <span class="check-yes">&#10003;</span>
                             @elseif($status === 'no')
-                                <span class="check-no">✕</span>
+                                <span class="check-no">&#10005;</span>
                             @else
                                 -
                             @endif
@@ -54,9 +107,35 @@
     @endforeach
 @endif
 
-@if(!empty($form['note']))
+@php
+    $note = trim((string) ($form['area_notes'][$activeAreaKey] ?? $form['note'] ?? ''));
+@endphp
+@if($note !== '')
     <div class="note-box">
         <div class="note-label">Catatan</div>
-        <div>{{ $form['note'] }}</div>
+        <div>{{ $note }}</div>
+    </div>
+@endif
+
+@if(count($photos))
+    <div class="form-panel">
+        <div class="form-panel-title">Foto Area <span style="float:right; font-weight:400;">{{ count($photos) }} foto</span></div>
+        <table class="photo-grid">
+            <tbody>
+                @foreach(array_chunk($photos, 2) as $row)
+                    <tr>
+                        @foreach($row as $photo)
+                            <td class="photo-card">
+                                <img src="{{ $photo['src'] }}" alt="{{ $photo['name'] }}">
+                                <div class="photo-name">{{ $photo['name'] }}</div>
+                            </td>
+                        @endforeach
+                        @if(count($row) === 1)
+                            <td class="photo-card">&nbsp;</td>
+                        @endif
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
     </div>
 @endif
