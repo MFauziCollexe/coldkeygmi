@@ -187,7 +187,7 @@
 <script setup>
 import axios from 'axios';
 import { computed, ref, watch } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 import Pagination from '@/Components/Pagination.vue';
@@ -195,11 +195,10 @@ import { swalConfirm } from '@/Utils/swalConfirm';
 import { checklistOptions, getChecklistEntryAreaLabel } from './checklistConfig';
 
 const page = usePage();
-const selectedChecklist = ref('');
-const selectedDate = ref(toDateInputValue(new Date()));
-const currentPage = ref(1);
+const selectedChecklist = ref(page.props.selectedChecklist || '');
+const selectedDate = ref(page.props.selectedDate || toDateInputValue(new Date()));
 const perPage = 15;
-const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : []);
+const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : [...(page.props.entries?.data || [])]);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'jadwal_cleaning_ob'];
 const dailyApprovedTemplates = ['kompresor_harian', 'charger_baterai', 'checklist_baterai'];
@@ -226,44 +225,32 @@ const createChecklistHref = computed(() => {
   return '/gmiic/checklist/create';
 });
 
-const filteredChecklistEntries = computed(() => {
-  return checklistEntries.value.filter((entry) => {
-    if (selectedChecklist.value && entry?.template_id !== selectedChecklist.value) {
-      return false;
-    }
-
-    if (!selectedDate.value) {
-      return true;
-    }
-
-    return getChecklistEntryDateValue(entry) === selectedDate.value;
-  });
-});
-
-const paginatedChecklistEntries = computed(() => {
-  const start = (currentPage.value - 1) * perPage;
-  return filteredChecklistEntries.value.slice(start, start + perPage);
-});
+const filteredChecklistEntries = computed(() => checklistEntries.value);
 
 const checklistPaginator = computed(() => {
-  const lastPage = Math.max(1, Math.ceil(filteredChecklistEntries.value.length / perPage));
+  if (page.props.entries && typeof page.props.entries === 'object' && Array.isArray(page.props.entries.data)) {
+    return page.props.entries;
+  }
 
   return {
-    current_page: Math.min(Math.max(1, Number(currentPage.value || 1)), lastPage),
-    last_page: lastPage,
+    current_page: 1,
+    last_page: 1,
+    per_page: perPage,
   };
 });
+
+const currentPage = computed(() => Number(checklistPaginator.value.current_page || 1));
 
 const showingEntryStart = computed(() => {
   if (!filteredChecklistEntries.value.length) {
     return 0;
   }
 
-  return (currentPage.value - 1) * perPage + 1;
+  return (currentPage.value - 1) * Number(checklistPaginator.value.per_page || perPage) + 1;
 });
 
 const showingEntryEnd = computed(() => {
-  return Math.min(filteredChecklistEntries.value.length, currentPage.value * perPage);
+  return Math.min(filteredChecklistEntries.value.length, currentPage.value * Number(checklistPaginator.value.per_page || perPage));
 });
 
 const hasSelectedEntries = computed(() => selectedEntryIds.value.length > 0);

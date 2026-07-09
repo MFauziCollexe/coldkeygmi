@@ -31,12 +31,20 @@ class ChecklistEntryController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        $selectedTemplate = $request->string('template')->toString();
+        $selectedDate = $request->string('date')->toString();
+
+        if ($selectedDate === '') {
+            $selectedDate = now()->format('Y-m-d');
+        }
 
         return Inertia::render('GMIIC/Checklist/Index', [
             'checklistAbilities' => $this->resolveChecklistAbilities($request),
             'checklistSettings' => $this->resolveChecklistSettings(),
-            'entries' => $this->getChecklistEntries($user),
+            'entries' => $this->getChecklistEntries($user, 15, $selectedTemplate, $selectedDate),
             'checklistTemplatePermissions' => $this->getChecklistTemplatePermissions($user),
+            'selectedChecklist' => $selectedTemplate,
+            'selectedDate' => $selectedDate,
         ]);
     }
 
@@ -320,24 +328,78 @@ class ChecklistEntryController extends Controller
         ];
     }
 
-    private function getChecklistEntries($user = null): array
+    private function getChecklistEntries($user = null, ?int $perPage = null, string $templateId = '', string $selectedDate = '')
     {
         $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
 
-        return ChecklistHeader::query()
+        $query = ChecklistHeader::query()
             ->with('template:id,code,module')
             ->whereHas('template', fn ($query) => $query->where('module', self::CHECKLIST_MODULE))
-            ->when(!empty($allowedTemplateIds), function ($query) use ($allowedTemplateIds) {
-                $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds));
-            }, function ($query) {
-                $query->whereRaw('1 = 0');
+            ->when(!empty($allowedTemplateIds), fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds)), fn ($query) => $query->whereRaw('1 = 0'))
+            ->when($templateId !== '', fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->where('code', $templateId)))
+            ->when($selectedDate !== '', function ($query) use ($selectedDate) {
+                $formattedDisplayDate = $this->formatChecklistDisplayDateForQuery($selectedDate);
+                $periodValue = substr($selectedDate, 0, 7);
+
+                $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate, $periodValue) {
+                    $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$$.form.date_value')) = ?", [$selectedDate])
+                        ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$$.form.period')) = ?", [$periodValue]);
+
+                    if ($formattedDisplayDate !== null) {
+                        $subQuery->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$$.form.date')) = ?", [$formattedDisplayDate]);
+                    }
+                });
             })
-            ->orderByDesc('updated_at')
-            ->get()
+            ->orderByDesc('updated_at');
+
+        if ($perPage !== null) {
+            $paginator = $query->paginate($perPage)->withQueryString();
+
+            $paginator->setCollection(
+                $paginator->getCollection()
+                    ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
+                    ->filter(fn ($entry) => is_array($entry) && !empty($entry))
+                    ->values()
+            );
+
+            return $paginator;
+        }
+
+        return $query->get()
             ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
             ->filter(fn ($entry) => is_array($entry) && !empty($entry))
             ->values()
             ->all();
+    }
+
+    private function formatChecklistDisplayDateForQuery(string $date): ?string
+    {
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $matches)) {
+            return null;
+        }
+
+        [$year, $month, $day] = [$matches[1], $matches[2], $matches[3]];
+        $monthNames = [
+            '01' => 'Januari',
+            '02' => 'Februari',
+            '03' => 'Maret',
+            '04' => 'April',
+            '05' => 'Mei',
+            '06' => 'Juni',
+            '07' => 'Juli',
+            '08' => 'Agustus',
+            '09' => 'September',
+            '10' => 'Oktober',
+            '11' => 'November',
+            '12' => 'Desember',
+        ];
+
+        $monthName = $monthNames[$month] ?? null;
+        if (!$monthName) {
+            return null;
+        }
+
+        return ltrim($day, '0') . ' ' . $monthName . ' ' . $year;
     }
 
     private function findChecklistEntry(string $entryCode, $user = null, bool $enforceScope = false): ?array
