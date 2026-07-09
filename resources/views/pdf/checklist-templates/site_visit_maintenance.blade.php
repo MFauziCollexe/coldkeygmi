@@ -51,19 +51,23 @@
     }
 @endphp
 
-<table>
-    <tr>
-        <td colspan="2" class="text-center font-bold" style="font-size:12px;">SITE VISIT MAINTENANCE</td>
-    </tr>
-    <tr>
-        <td style="width:50%"><strong>Tipe:</strong> {{ $form['visit_type'] ?? '-' }}</td>
-        <td style="width:50%"><strong>Area:</strong> {{ $form['selected_area'] ?? '-' }}</td>
-    </tr>
-    <tr>
-        <td><strong>Tanggal:</strong> {{ $form['date_value'] ?? $form['period_value'] ?? '-' }}</td>
-        <td><strong>PIC:</strong> {{ $form['pic'] ?? '-' }}</td>
-    </tr>
-</table>
+<div class="form-page">
+    @include('pdf.checklist-templates.partials.form_header', [
+        'form' => $form,
+        'title' => 'SITE VISIT MAINTENANCE',
+        'pageText' => '1 dari 1',
+    ])
+
+    <div class="control-row">
+        <span class="control-label">Tipe:</span>
+        <span class="fake-input">{{ $form['visit_type'] ?? '-' }}</span>
+        <span style="display:inline-block; width:18px;"></span>
+        <span class="control-label">Area:</span>
+        <span class="fake-select">{{ $form['selected_area'] ?? '-' }}</span>
+        <span style="display:inline-block; width:18px;"></span>
+        <span class="control-label">PIC:</span>
+        <span class="fake-input">{{ $form['pic'] ?? '-' }}</span>
+    </div>
 
 @php
     $sections = $form['sections'] ?? [];
@@ -139,3 +143,5 @@
         </table>
     </div>
 @endif
+
+</div>

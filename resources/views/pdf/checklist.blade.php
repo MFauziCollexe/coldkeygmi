@@ -91,6 +91,10 @@
         'site_visit_hse',
         'sarana_dan_prasarana',
         'jadwal_cleaning_ob',
+        'site_visit_maintenance',
+        'genset_running',
+        'running_genset',
+        'generic',
     ];
     $usesFormLayout = in_array($tid, $formLayoutTemplates, true);
 @endphp
@@ -134,7 +138,7 @@
 @elseif($tid === 'jadwal_cleaning_ob')
     @include('pdf.checklist-templates.cleaning_ob', ['entry' => $entry, 'form' => $form])
 @else
-    @include('pdf.checklist-templates.generic', ['entry' => $entry, 'form' => $form])
+    @include('pdf.checklist-templates.generic', ['entry' => $entry, 'form' => $form, 'title' => $label])
 @endif
 
 @unless($usesFormLayout)

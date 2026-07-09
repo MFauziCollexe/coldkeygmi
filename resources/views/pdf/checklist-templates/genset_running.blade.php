@@ -1,12 +1,17 @@
-<table>
-    <tr>
-        <td colspan="2" class="text-center font-bold" style="font-size:12px;">PEMANASAN (RUNNING) GENSET</td>
-    </tr>
-    <tr>
-        <td style="width:50%"><strong>Periode:</strong> {{ $form['period'] ?? '-' }}</td>
-        <td style="width:50%"><strong>PIC:</strong> {{ $form['pic'] ?? '-' }}</td>
-    </tr>
-</table>
+<div class="form-page">
+    @include('pdf.checklist-templates.partials.form_header', [
+        'form' => $form,
+        'title' => 'PEMANASAN (RUNNING) GENSET',
+        'pageText' => '1 dari 1',
+    ])
+
+    <div class="control-row">
+        <span class="control-label">Periode:</span>
+        <span class="fake-input">{{ $form['period'] ?? '-' }}</span>
+        <span style="display:inline-block; width:18px;"></span>
+        <span class="control-label">PIC:</span>
+        <span class="fake-input">{{ $form['pic'] ?? '-' }}</span>
+    </div>
 
 @php
     $rows = $form['rows'] ?? [];
@@ -58,3 +63,5 @@
         <div>{{ $form['note'] }}</div>
     </div>
 @endif
+
+</div>

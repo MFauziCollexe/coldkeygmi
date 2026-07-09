@@ -1,13 +1,9 @@
-<table class="info-table">
-    @foreach($form as $key => $value)
-        @if(is_scalar($value) && !empty($value) && !in_array($key, ['id', 'template_id', 'name', 'created_at', 'approved_at']))
-            <tr>
-                <td class="label" style="width:30%">{{ strtoupper(str_replace('_', ' ', $key)) }}</td>
-                <td class="value" style="width:70%">{{ $value }}</td>
-            </tr>
-        @endif
-    @endforeach
-</table>
+<div class="form-page">
+    @include('pdf.checklist-templates.partials.form_header', [
+        'form' => $form,
+        'title' => $title ?? 'CHECKLIST',
+        'pageText' => '1 dari 1',
+    ])
 
 @php
     $rows = $form['rows'] ?? [];
@@ -61,3 +57,5 @@
         <div>{{ $form['note'] }}</div>
     </div>
 @endif
+
+</div>
