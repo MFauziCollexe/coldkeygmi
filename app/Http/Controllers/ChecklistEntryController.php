@@ -339,11 +339,9 @@ class ChecklistEntryController extends Controller
             ->when($templateId !== '', fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->where('code', $templateId)))
             ->when($selectedDate !== '', function ($query) use ($selectedDate) {
                 $formattedDisplayDate = $this->formatChecklistDisplayDateForQuery($selectedDate);
-                $periodValue = substr($selectedDate, 0, 7);
 
-                $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate, $periodValue) {
-                    $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate])
-                        ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.period')) = ?", [$periodValue]);
+                $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate) {
+                    $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate]);
 
                     if ($formattedDisplayDate !== null) {
                         $subQuery->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date')) = ?", [$formattedDisplayDate]);
