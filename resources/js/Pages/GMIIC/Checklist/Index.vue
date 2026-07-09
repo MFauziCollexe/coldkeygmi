@@ -145,7 +145,7 @@
         </div>
 
         <div class="mt-4 text-sm text-slate-400">
-          Showing {{ showingEntryStart }} to {{ showingEntryEnd }} of {{ filteredChecklistEntries.length }} checklist
+          Showing {{ showingEntryStart }} to {{ showingEntryEnd }} of {{ totalItems }} checklist
         </div>
         <div v-if="checklistPaginator.last_page > 1" class="mt-4 flex justify-end">
           <Pagination :paginator="checklistPaginator" :onPageChange="goToPage" />
@@ -197,7 +197,6 @@ import { checklistOptions, getChecklistEntryAreaLabel } from './checklistConfig'
 const page = usePage();
 const selectedChecklist = ref(page.props.selectedChecklist || '');
 const selectedDate = ref(page.props.selectedDate || toDateInputValue(new Date()));
-const perPage = 15;
 const checklistEntries = computed(() => page.props.entries?.data || []);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'jadwal_cleaning_ob'];
@@ -237,22 +236,25 @@ const checklistPaginator = computed(() => {
   return {
     current_page: 1,
     last_page: 1,
-    per_page: perPage,
+    per_page: 15,
+    total: filteredChecklistEntries.value.length,
   };
 });
 
 const currentPage = computed(() => Number(checklistPaginator.value.current_page || 1));
+const perPage = computed(() => Number(checklistPaginator.value.per_page || 15));
+const totalItems = computed(() => Number(checklistPaginator.value.total ?? filteredChecklistEntries.value.length));
 
 const showingEntryStart = computed(() => {
   if (!filteredChecklistEntries.value.length) {
     return 0;
   }
 
-  return (currentPage.value - 1) * Number(checklistPaginator.value.per_page || perPage) + 1;
+  return (currentPage.value - 1) * perPage.value + 1;
 });
 
 const showingEntryEnd = computed(() => {
-  return Math.min(filteredChecklistEntries.value.length, currentPage.value * Number(checklistPaginator.value.per_page || perPage));
+  return Math.min(totalItems.value, currentPage.value * perPage.value);
 });
 
 const hasSelectedEntries = computed(() => selectedEntryIds.value.length > 0);
@@ -264,22 +266,26 @@ const areAllEntriesSelected = computed(() => {
   return paginatedChecklistEntries.value.every((entry) => selectedEntryIds.value.includes(entry.id));
 });
 
-watch(filteredChecklistEntries, (entries) => {
-  const visibleIds = new Set(entries.map((entry) => entry.id));
-  selectedEntryIds.value = selectedEntryIds.value.filter((entryId) => visibleIds.has(entryId));
 
-  const last = Math.max(1, Math.ceil(entries.length / perPage));
-  if (currentPage.value > last) {
-    currentPage.value = last;
-  }
-});
+function navigateChecklist(params = {}) {
+  const query = {
+    ...(selectedChecklist.value ? { template: selectedChecklist.value } : {}),
+    ...(selectedDate.value ? { date: selectedDate.value } : {}),
+    ...params,
+  };
+
+  router.get('/gmiic/checklist', query, {
+    preserveState: false,
+    preserveScroll: true,
+  });
+}
 
 watch([selectedChecklist, selectedDate], () => {
-  currentPage.value = 1;
+  navigateChecklist({ page: 1 });
 });
 
 function goToPage(page) {
-  currentPage.value = Number(page || 1);
+  navigateChecklist({ page: Number(page || 1) });
 }
 
 function toggleEntrySelection(id, checked) {
@@ -341,8 +347,16 @@ async function removeSelectedChecklists() {
         entry_ids: selectedEntryIds.value,
       },
     });
-    checklistEntries.value = checklistEntries.value.filter((entry) => !selectedEntryIds.value.includes(entry.id));
+
     selectedEntryIds.value = [];
+    await router.get('/gmiic/checklist', {
+      ...(selectedChecklist.value ? { template: selectedChecklist.value } : {}),
+      ...(selectedDate.value ? { date: selectedDate.value } : {}),
+      page: currentPage.value,
+    }, {
+      preserveState: false,
+      preserveScroll: true,
+    });
   } catch (error) {
     window.alert(error?.response?.data?.message || 'Checklist gagal dihapus.');
   }
