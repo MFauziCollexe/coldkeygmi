@@ -342,11 +342,11 @@ class ChecklistEntryController extends Controller
                 $periodValue = substr($selectedDate, 0, 7);
 
                 $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate, $periodValue) {
-                    $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$$.form.date_value')) = ?", [$selectedDate])
-                        ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$$.form.period')) = ?", [$periodValue]);
+                    $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate])
+                        ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.period')) = ?", [$periodValue]);
 
                     if ($formattedDisplayDate !== null) {
-                        $subQuery->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$$.form.date')) = ?", [$formattedDisplayDate]);
+                        $subQuery->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date')) = ?", [$formattedDisplayDate]);
                     }
                 });
             })
