@@ -191,6 +191,7 @@ class DatabaseBackupService
     private function createMysqlBackup(string $connectionName): string
     {
         $config = config('database.connections.' . $connectionName);
+
         $database = (string) ($config['database'] ?? '');
         $username = (string) ($config['username'] ?? '');
         $password = (string) ($config['password'] ?? '');
@@ -203,6 +204,8 @@ class DatabaseBackupService
 
         $dumpBinary = $this->resolveMysqlDumpBinary();
         $backupPath = $this->makeBackupFilePath($database, 'sql');
+
+        File::ensureDirectoryExists(dirname($backupPath));
 
         $command = [
             $dumpBinary,
@@ -217,21 +220,53 @@ class DatabaseBackupService
             $database,
         ];
 
-        $process = new Process($command, base_path(), [
-            'MYSQL_PWD' => $password,
-        ]);
-        $process->setTimeout(300);
-        $process->run();
+        $process = new Process(
+            $command,
+            base_path(),
+            [
+                'MYSQL_PWD' => $password,
+            ]
+        );
 
-        if (!$process->isSuccessful()) {
-            throw new \RuntimeException('Gagal menjalankan mysqldump: ' . trim($process->getErrorOutput() ?: $process->getOutput()));
+        // Tidak dibatasi timeout
+        $process->setTimeout(null);
+
+        // Buka file tujuan
+        $handle = fopen($backupPath, 'wb');
+
+        if ($handle === false) {
+            throw new \RuntimeException("Tidak dapat membuat file backup: {$backupPath}");
         }
 
-        File::ensureDirectoryExists(dirname($backupPath));
-        File::put($backupPath, $process->getOutput());
+        try {
+
+            $process->run(function ($type, $buffer) use ($handle) {
+                fwrite($handle, $buffer);
+            });
+
+        } finally {
+
+            fclose($handle);
+
+        }
+
+        if (!$process->isSuccessful()) {
+
+            @unlink($backupPath);
+
+            throw new \RuntimeException(
+                'Gagal menjalankan mysqldump: '
+                . trim($process->getErrorOutput() ?: $process->getOutput())
+            );
+        }
+
+        clearstatcache(true, $backupPath);
 
         if (!is_file($backupPath) || filesize($backupPath) === 0) {
-            throw new \RuntimeException('File backup berhasil dibuat, tetapi hasilnya kosong.');
+
+            @unlink($backupPath);
+
+            throw new \RuntimeException('File backup kosong.');
         }
 
         return $backupPath;
