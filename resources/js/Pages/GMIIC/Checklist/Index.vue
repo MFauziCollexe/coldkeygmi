@@ -198,7 +198,7 @@ const page = usePage();
 const selectedChecklist = ref(page.props.selectedChecklist || '');
 const selectedDate = ref(page.props.selectedDate || toDateInputValue(new Date()));
 const perPage = 15;
-const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : [...(page.props.entries?.data || [])]);
+const checklistEntries = computed(() => page.props.entries?.data || []);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'jadwal_cleaning_ob'];
 const dailyApprovedTemplates = ['kompresor_harian', 'charger_baterai', 'checklist_baterai'];
@@ -226,6 +226,8 @@ const createChecklistHref = computed(() => {
 });
 
 const filteredChecklistEntries = computed(() => checklistEntries.value);
+
+const paginatedChecklistEntries = computed(() => checklistEntries.value);
 
 const checklistPaginator = computed(() => {
   if (page.props.entries && typeof page.props.entries === 'object' && Array.isArray(page.props.entries.data)) {
