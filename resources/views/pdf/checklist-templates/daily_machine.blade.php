@@ -78,7 +78,7 @@
     $sections = $sectionMap[$tid] ?? $sections_kompresor;
 @endphp
 
-@if(in_array($tid, ['kompresor_harian', 'charger_baterai'], true))
+@if(in_array($tid, ['kompresor_harian', 'charger_baterai', 'checklist_baterai'], true))
     @include('pdf.checklist-templates.partials.form_header', [
         'form' => $form,
         'title' => $title,
