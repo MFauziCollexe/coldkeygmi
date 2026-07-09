@@ -363,7 +363,7 @@ class ChecklistEntryController extends Controller
             return $paginator;
         }
 
-        return $query->get()
+        return $query->limit(200)->get()
             ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
             ->filter(fn ($entry) => is_array($entry) && !empty($entry))
             ->values()
