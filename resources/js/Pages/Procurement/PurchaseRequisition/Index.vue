@@ -34,7 +34,22 @@
               <h3 class="text-lg font-semibold text-slate-100">PR List</h3>
               <p class="text-sm text-slate-400">Nomor PR, tanggal, requester, department, dan item summary.</p>
             </div>
-            <div class="text-sm text-slate-400">{{ purchaseRequisitions.length }} data</div>
+            <div class="flex items-center gap-4">
+              <form action="/gmisl/procurement/purchase-requisition" method="get" class="flex items-center gap-2">
+                <label class="text-sm text-slate-400 mr-2">Filter:</label>
+                <select name="department_id" class="rounded bg-slate-700 px-3 py-1 text-sm text-slate-200">
+                  <option value="">Semua Department</option>
+                  <option v-for="d in departments" :key="d.id" :value="d.id" :selected="String(filters.department_id || '') === String(d.id)">{{ d.name }}</option>
+                </select>
+                <select name="requester_id" class="rounded bg-slate-700 px-3 py-1 text-sm text-slate-200">
+                  <option value="">Semua Requestor</option>
+                  <option v-for="r in requesters" :key="r.id" :value="r.id" :selected="String(filters.requester_id || '') === String(r.id)">{{ r.name }}</option>
+                </select>
+                <button type="submit" class="rounded bg-amber-600 px-3 py-1 text-sm font-semibold text-white">Apply</button>
+                <a href="/gmisl/procurement/purchase-requisition" class="rounded bg-slate-700 px-3 py-1 text-sm text-slate-200">Clear</a>
+              </form>
+              <div class="text-sm text-slate-400">{{ purchaseRequisitions.length }} data</div>
+            </div>
           </div>
 
           <div v-if="!purchaseRequisitions.length" class="rounded border border-dashed border-slate-700 bg-slate-900/40 px-4 py-8 text-center text-sm text-slate-400">
@@ -138,6 +153,9 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 defineProps({
   currentUser: { type: Object, default: () => ({}) },
   purchaseRequisitions: { type: Array, default: () => [] },
+  departments: { type: Array, default: () => [] },
+  requesters: { type: Array, default: () => [] },
+  filters: { type: Object, default: () => ({}) },
 });
 
 function formatStatus(status) {

@@ -10,6 +10,15 @@
     $noField = $tid === 'kompresor_harian' ? 'compressor_no' : ($tid === 'charger_baterai' ? 'serial_no' : 'battery_no');
     $rows = $form['rows'] ?? [];
     $approvedDays = $form['approved_days'] ?? [];
+    $activeDay = isset($form['active_day']) ? (int) $form['active_day'] : null;
+    $activeRow = null;
+    if (is_array($rows) && count($rows)) {
+        if ($activeDay && isset($rows[$activeDay - 1])) {
+            $activeRow = $rows[$activeDay - 1];
+        } else {
+            $activeRow = $rows[0];
+        }
+    }
 
     $sections_kompresor = [
         ['title' => 'A. STATUS MESIN', 'items' => [
@@ -69,56 +78,112 @@
     $sections = $sectionMap[$tid] ?? $sections_kompresor;
 @endphp
 
-<table>
-    <tr>
-        <td colspan="2" class="text-center font-bold" style="font-size:12px;">{{ $title }}</td>
-    </tr>
-    <tr>
-        <td style="width:50%"><strong>{{ $noLabel }}:</strong> {{ $form[$noField] ?? '-' }}</td>
-        <td style="width:50%"><strong>Doc:</strong> {{ $form['document_no'] ?? '-' }}</td>
-    </tr>
-    <tr>
-        <td><strong>Periode:</strong> {{ $form['period'] ?? '-' }}</td>
-        <td><strong>PIC:</strong> {{ $form['pic'] ?? '-' }}</td>
-    </tr>
-</table>
+@if(in_array($tid, ['kompresor_harian', 'charger_baterai'], true))
+    @include('pdf.checklist-templates.partials.form_header', [
+        'form' => $form,
+        'title' => $title,
+        'pageText' => $form['page'] ?? '1',
+    ])
 
-<table>
-    <thead>
-        <tr>
-            <th style="width:8%">No</th>
-            <th style="width:52%">ITEM</th>
-            @foreach($rows as $row)
-                <th style="width:3%; font-size:7px;">{{ \Carbon\Carbon::parse($row['date'] ?? '')->format('d') }}</th>
-            @endforeach
-        </tr>
-    </thead>
-    <tbody>
-        @foreach($sections as $section)
+    <div class="control-row">
+        <span class="control-label">{{ $noLabel }}:</span>
+        <span class="fake-input">{{ $form[$noField] ?? '-' }}</span>
+        <span style="display:inline-block; width:18px;"></span>
+        <span class="control-label">Tanggal:</span>
+        <span class="fake-input">{{ $activeRow['date'] ?? ($form['date_value'] ?? '-') }}</span>
+        <span style="display:inline-block; width:18px;"></span>
+        <span class="control-label">PIC:</span>
+        <span class="fake-select">{{ $form['pic'] ?? '-' }}</span>
+    </div>
+
+    <table class="form-table">
+        <thead>
             <tr>
-                <td colspan="{{ 2 + count($rows) }}" class="font-bold" style="background:#f3f4f6;">{{ $section['title'] }}</td>
+                <th style="width:9%;">No</th>
+                <th>ITEM</th>
+                <th style="width:24%;">Kondisi</th>
             </tr>
-            @foreach($section['items'] as $item)
-                <tr>
-                    <td class="text-center">{{ $item['no'] ?? $loop->iteration }}</td>
-                    <td>{{ $item['label'] }}</td>
-                    @foreach($rows as $row)
-                        <td class="text-center">
-                            @php $val = $row[$item['key']] ?? null; @endphp
+        </thead>
+        <tbody>
+            @foreach($sections as $section)
+                <tr class="section-row">
+                    <td colspan="3">{{ $section['title'] }}</td>
+                </tr>
+                @foreach($section['items'] as $idx => $item)
+                    @php $status = $activeRow[$item['key']] ?? null; @endphp
+                    <tr>
+                        <td class="text-center">{{ $item['no'] ?? ($idx + 1) }}</td>
+                        <td>{{ $item['label'] }}</td>
+                        <td class="condition-cell">
                             @if($item['type'] === 'symbol')
-                                @if($val === 'yes') <span class="check-yes">✓</span>
-                                @elseif($val === 'no') <span class="check-no">✕</span>
+                                @if($status === 'yes')
+                                    <span class="check-yes">&#10003;</span>
+                                @elseif($status === 'no')
+                                    <span class="check-no">&#10005;</span>
+                                @else
+                                    &nbsp;
                                 @endif
                             @else
-                                {{ $val }}
+                                {{ $status ?? '&nbsp;' }}
                             @endif
                         </td>
-                    @endforeach
-                </tr>
+                    </tr>
+                @endforeach
             @endforeach
-        @endforeach
-    </tbody>
-</table>
+        </tbody>
+    </table>
+@else
+    <table>
+        <tr>
+            <td colspan="2" class="text-center font-bold" style="font-size:12px;">{{ $title }}</td>
+        </tr>
+        <tr>
+            <td style="width:50%"><strong>{{ $noLabel }}:</strong> {{ $form[$noField] ?? '-' }}</td>
+            <td style="width:50%"><strong>Doc:</strong> {{ $form['document_no'] ?? '-' }}</td>
+        </tr>
+        <tr>
+            <td><strong>Periode:</strong> {{ $form['period'] ?? '-' }}</td>
+            <td><strong>PIC:</strong> {{ $form['pic'] ?? '-' }}</td>
+        </tr>
+    </table>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:8%">No</th>
+                <th style="width:52%">ITEM</th>
+                @foreach($rows as $row)
+                    <th style="width:3%; font-size:7px;">{{ \Carbon\Carbon::parse($row['date'] ?? '')->format('d') }}</th>
+                @endforeach
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($sections as $section)
+                <tr>
+                    <td colspan="{{ 2 + count($rows) }}" class="font-bold" style="background:#f3f4f6;">{{ $section['title'] }}</td>
+                </tr>
+                @foreach($section['items'] as $item)
+                    <tr>
+                        <td class="text-center">{{ $item['no'] ?? $loop->iteration }}</td>
+                        <td>{{ $item['label'] }}</td>
+                        @foreach($rows as $row)
+                            <td class="text-center">
+                                @php $val = $row[$item['key']] ?? null; @endphp
+                                @if($item['type'] === 'symbol')
+                                    @if($val === 'yes') <span class="check-yes">✓</span>
+                                    @elseif($val === 'no') <span class="check-no">✕</span>
+                                    @endif
+                                @else
+                                    {{ $val }}
+                                @endif
+                            </td>
+                        @endforeach
+                    </tr>
+                @endforeach
+            @endforeach
+        </tbody>
+    </table>
+@endif
 
 @if(!empty($form['note']))
     <div class="note-box">

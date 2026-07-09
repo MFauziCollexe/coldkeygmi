@@ -55,7 +55,19 @@ class PurchaseRequisitionController extends Controller
         $user = $request->user();
         $user?->loadMissing(['department']);
         $canViewAll = $this->accessRules()->canViewAllDepartments($user, self::ACCESS_MODULE, 'view_list');
-        $purchaseRequisitions = $this->visiblePurchaseRequisitionsQuery($user)
+
+        // Read filters from query string
+        $filterDepartmentId = $request->integer('department_id') ?: null;
+        $filterRequesterId = $request->integer('requester_id') ?: null;
+
+        $baseQuery = $this->visiblePurchaseRequisitionsQuery($user);
+
+        // Apply filters
+        $baseQuery = $baseQuery
+            ->when($filterDepartmentId, fn ($q) => $q->where('department_id', $filterDepartmentId))
+            ->when($filterRequesterId, fn ($q) => $q->where('requested_by', $filterRequesterId));
+
+        $purchaseRequisitions = $baseQuery
             ->with([
                 'requester:id,name,department_id',
                 'department:id,name,code',
@@ -113,6 +125,15 @@ class PurchaseRequisitionController extends Controller
                 'department_code' => $user?->department?->code,
             ],
             'purchaseRequisitions' => $purchaseRequisitions,
+            'departments' => \App\Models\Department::active()->orderBy('name')->get(['id', 'name']),
+            'requesters' => \App\Models\User::query()
+                ->whereIn('id', PurchaseRequisition::query()->select('requested_by')->distinct()->pluck('requested_by')->filter())
+                ->orderBy('name')
+                ->get(['id', 'name']),
+            'filters' => [
+                'department_id' => $filterDepartmentId,
+                'requester_id' => $filterRequesterId,
+            ],
         ]);
     }
 
