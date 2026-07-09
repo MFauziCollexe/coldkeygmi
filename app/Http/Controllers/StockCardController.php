@@ -267,6 +267,27 @@ class StockCardController extends Controller
             ->with('success', 'Master barang berhasil diperbarui.');
     }
 
+    public function destroyItems(Request $request): RedirectResponse
+    {
+        abort_unless(
+            $this->accessRules()->allows($request->user(), self::ACCESS_MODULE, 'manage_master'),
+            403
+        );
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'distinct', 'exists:stock_card_items,id'],
+        ]);
+
+        StockCardItem::query()
+            ->whereIn('id', $data['ids'])
+            ->delete();
+
+        return redirect()
+            ->route('stock-card.master.index')
+            ->with('success', 'Master barang terpilih berhasil dihapus.');
+    }
+
     public function storeStockIn(Request $request): RedirectResponse
     {
         abort_unless(

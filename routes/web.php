@@ -417,6 +417,9 @@ Route::post('master-data/stock-card', [App\Http\Controllers\StockCardController:
 Route::put('master-data/stock-card/{stockCardItem}', [App\Http\Controllers\StockCardController::class, 'updateItem'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card'])
     ->name('stock-card.master.update');
+Route::delete('master-data/stock-card', [App\Http\Controllers\StockCardController::class, 'destroyItems'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card'])
+    ->name('stock-card.master.destroy');
 Route::resource('master-data/stock-card-item-type', \App\Http\Controllers\StockCardItemTypeController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.stock_card_item_type'])
     ->names('stock-card-item-types');

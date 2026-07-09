@@ -26,6 +26,22 @@
         </div>
       </div>
 
+      <div v-if="canManageMaster && hasSelectedItems" class="flex flex-col gap-3 rounded border border-rose-700 bg-rose-950/20 px-4 py-3 text-sm text-rose-100">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <span class="font-semibold">{{ selectedCount }} item terpilih</span>
+            <span> - centang baris yang ingin dihapus, lalu klik Delete.</span>
+          </div>
+          <button
+            type="button"
+            class="inline-flex items-center justify-center rounded bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-500"
+            @click="deleteSelected"
+          >
+            Delete Selected
+          </button>
+        </div>
+      </div>
+
       <div
         v-if="flashSuccess"
         class="rounded border border-emerald-700 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200"
@@ -50,6 +66,16 @@
         <table class="w-full table-auto text-sm">
           <thead>
             <tr class="text-left text-slate-400">
+              <th class="py-2">
+                <label class="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500"
+                    :checked="allSelected"
+                    @change="toggleSelectAll($event)"
+                  />
+                </label>
+              </th>
               <th class="py-2">Code</th>
               <th>Nama Barang</th>
               <th>Jenis / Tipe</th>
@@ -66,6 +92,16 @@
               :key="item.id"
               class="border-t border-slate-700"
             >
+              <td class="py-3">
+                <label class="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500"
+                    :checked="selectedItems.includes(item.id)"
+                    @change="toggleItemSelection(item.id, $event.target.checked)"
+                  />
+                </label>
+              </td>
               <td class="py-3 font-medium text-slate-200">{{ item.item_code }}</td>
               <td>{{ item.name }}</td>
               <td>{{ item.item_type }}</td>
@@ -88,7 +124,7 @@
               </td>
             </tr>
             <tr v-if="!items.length" class="border-t border-slate-700">
-              <td :colspan="canManageMaster ? 8 : 7" class="py-8 text-center text-slate-400">Belum ada master barang.</td>
+              <td :colspan="canManageMaster ? 9 : 8" class="py-8 text-center text-slate-400">Belum ada master barang.</td>
             </tr>
           </tbody>
         </table>
@@ -101,9 +137,19 @@
             class="border-b border-slate-700 bg-slate-900/30 p-4 last:border-b-0"
           >
             <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <div class="truncate font-semibold text-white">{{ item.name }}</div>
-                <div class="text-sm text-slate-400">{{ item.item_code }}</div>
+              <div class="flex items-center gap-3">
+                <div v-if="canManageMaster" class="flex items-center">
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500"
+                    :checked="selectedItems.includes(item.id)"
+                    @change="toggleItemSelection(item.id, $event.target.checked)"
+                  />
+                </div>
+                <div class="min-w-0">
+                  <div class="truncate font-semibold text-white">{{ item.name }}</div>
+                  <div class="text-sm text-slate-400">{{ item.item_code }}</div>
+                </div>
               </div>
               <span :class="item.is_active ? 'text-green-400' : 'text-rose-400'">
                 {{ item.is_active ? 'Active' : 'Inactive' }}
@@ -254,6 +300,7 @@
 import { computed, reactive, ref } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
 const props = defineProps({
   items: {
@@ -307,6 +354,13 @@ const masterForm = useForm({
   is_active: true,
 });
 
+const selectedItems = ref([]);
+const allSelected = computed(() => {
+  return items.value.length > 0 && selectedItems.value.length === items.value.length;
+});
+const hasSelectedItems = computed(() => selectedItems.value.length > 0);
+const selectedCount = computed(() => selectedItems.value.length);
+
 const isEditing = computed(() => editingItemId.value !== null);
 
 let searchTimer = null;
@@ -315,9 +369,54 @@ function fetchList() {
   const query = {};
   if (filters.q) query.q = filters.q;
 
+  selectedItems.value = [];
+
   router.get('/master-data/stock-card', query, {
     preserveState: true,
     preserveScroll: true,
+  });
+}
+
+function toggleSelectAll(event) {
+  if (!event.target.checked) {
+    selectedItems.value = [];
+    return;
+  }
+
+  selectedItems.value = items.value.map((item) => item.id);
+}
+
+function toggleItemSelection(itemId, checked) {
+  if (checked) {
+    if (!selectedItems.value.includes(itemId)) {
+      selectedItems.value.push(itemId);
+    }
+    return;
+  }
+
+  selectedItems.value = selectedItems.value.filter((id) => id !== itemId);
+}
+
+async function deleteSelected() {
+  if (!hasSelectedItems.value) {
+    return;
+  }
+
+  const ok = await swalConfirm({
+    title: 'Delete Selected Items',
+    text: `Delete ${selectedCount.value} selected master item(s)?`,
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
+
+  router.delete('/master-data/stock-card', {
+    ids: selectedItems.value,
+  }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      selectedItems.value = [];
+    },
   });
 }
 
