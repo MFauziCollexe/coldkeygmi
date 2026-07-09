@@ -84,7 +84,6 @@
                     @change="toggleSelectAll($event.target.checked)"
                   />
                 </th>
-                <th class="py-2">#</th>
                 <th>Checklist</th>
                 <th>Lokasi / Area</th>
                 <th>Date</th>
@@ -96,7 +95,7 @@
             </thead>
             <tbody>
               <tr
-                v-for="(entry, index) in filteredChecklistEntries"
+                v-for="(entry, index) in paginatedChecklistEntries"
                 :key="entry.id"
                 class="border-t border-slate-700"
               >
@@ -108,7 +107,6 @@
                     @change="toggleEntrySelection(entry.id, $event.target.checked)"
                   />
                 </td>
-                <td class="py-3">{{ index + 1 }}</td>
                 <td>{{ entry.name }}</td>
                 <td>{{ getChecklistEntryAreaLabel(entry) }}</td>
                 <td>{{ getChecklistEntryDateLabel(entry) }}</td>
@@ -147,7 +145,10 @@
         </div>
 
         <div class="mt-4 text-sm text-slate-400">
-          Showing {{ filteredChecklistEntries.length ? 1 : 0 }} to {{ filteredChecklistEntries.length }} of {{ checklistEntries.length }} checklist
+          Showing {{ showingEntryStart }} to {{ showingEntryEnd }} of {{ filteredChecklistEntries.length }} checklist
+        </div>
+        <div v-if="checklistPaginator.last_page > 1" class="mt-4 flex justify-end">
+          <Pagination :paginator="checklistPaginator" :onPageChange="goToPage" />
         </div>
       </div>
 
@@ -189,12 +190,15 @@ import { computed, ref, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { swalConfirm } from '@/Utils/swalConfirm';
 import { checklistOptions, getChecklistEntryAreaLabel } from './checklistConfig';
 
 const page = usePage();
 const selectedChecklist = ref('');
 const selectedDate = ref(toDateInputValue(new Date()));
+const currentPage = ref(1);
+const perPage = 15;
 const checklistEntries = ref(Array.isArray(page.props.entries) ? [...page.props.entries] : []);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'jadwal_cleaning_ob'];
@@ -236,19 +240,58 @@ const filteredChecklistEntries = computed(() => {
   });
 });
 
+const paginatedChecklistEntries = computed(() => {
+  const start = (currentPage.value - 1) * perPage;
+  return filteredChecklistEntries.value.slice(start, start + perPage);
+});
+
+const checklistPaginator = computed(() => {
+  const lastPage = Math.max(1, Math.ceil(filteredChecklistEntries.value.length / perPage));
+
+  return {
+    current_page: Math.min(Math.max(1, Number(currentPage.value || 1)), lastPage),
+    last_page: lastPage,
+  };
+});
+
+const showingEntryStart = computed(() => {
+  if (!filteredChecklistEntries.value.length) {
+    return 0;
+  }
+
+  return (currentPage.value - 1) * perPage + 1;
+});
+
+const showingEntryEnd = computed(() => {
+  return Math.min(filteredChecklistEntries.value.length, currentPage.value * perPage);
+});
+
 const hasSelectedEntries = computed(() => selectedEntryIds.value.length > 0);
 const areAllEntriesSelected = computed(() => {
-  if (!filteredChecklistEntries.value.length) {
+  if (!paginatedChecklistEntries.value.length) {
     return false;
   }
 
-  return filteredChecklistEntries.value.every((entry) => selectedEntryIds.value.includes(entry.id));
+  return paginatedChecklistEntries.value.every((entry) => selectedEntryIds.value.includes(entry.id));
 });
 
 watch(filteredChecklistEntries, (entries) => {
   const visibleIds = new Set(entries.map((entry) => entry.id));
   selectedEntryIds.value = selectedEntryIds.value.filter((entryId) => visibleIds.has(entryId));
+
+  const last = Math.max(1, Math.ceil(entries.length / perPage));
+  if (currentPage.value > last) {
+    currentPage.value = last;
+  }
 });
+
+watch([selectedChecklist, selectedDate], () => {
+  currentPage.value = 1;
+});
+
+function goToPage(page) {
+  currentPage.value = Number(page || 1);
+}
 
 function toggleEntrySelection(id, checked) {
   if (checked) {
@@ -260,7 +303,7 @@ function toggleEntrySelection(id, checked) {
 }
 
 function toggleSelectAll(checked) {
-  const visibleIds = filteredChecklistEntries.value.map((entry) => entry.id);
+  const visibleIds = paginatedChecklistEntries.value.map((entry) => entry.id);
 
   if (checked) {
     selectedEntryIds.value = Array.from(new Set([...selectedEntryIds.value, ...visibleIds]));
