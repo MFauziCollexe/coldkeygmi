@@ -39,6 +39,7 @@
               <th>Alias</th>
               <th>Department</th>
               <th>Position</th>
+              <th>Reporting To</th>
               <th>Work Group</th>
               <th>Join Date</th>
               <th>Status</th>
@@ -53,6 +54,7 @@
               <td>{{ emp.alias_name || '-' }}</td>
               <td>{{ emp.user?.department?.name || emp.department?.name || '-' }}</td>
               <td>{{ emp.user?.position?.name || emp.position?.name || '-' }}</td>
+              <td>{{ emp.supervisor?.alias_name || emp.supervisor?.name || '-' }}</td>
               <td>{{ formatWorkGroup(emp.work_group) }}</td>
               <td>{{ formatDate(emp.join_date) || '-' }}</td>
               <td>
@@ -92,7 +94,7 @@
               </td>
             </tr>
             <tr v-if="employees.data.length === 0">
-              <td colspan="10" class="py-4 text-center text-slate-400">No employees found</td>
+              <td colspan="11" class="py-4 text-center text-slate-400">No employees found</td>
             </tr>
           </tbody>
         </table>
@@ -125,6 +127,10 @@
               <div class="flex items-start justify-between gap-3">
                 <div class="text-slate-400">Position</div>
                 <div class="text-right">{{ emp.user?.position?.name || emp.position?.name || '-' }}</div>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-slate-400">Reporting To</div>
+                <div class="text-right">{{ emp.supervisor?.alias_name || emp.supervisor?.name || '-' }}</div>
               </div>
               <div class="flex items-start justify-between gap-3">
                 <div class="text-slate-400">Work Group</div>

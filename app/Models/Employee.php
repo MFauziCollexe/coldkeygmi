@@ -13,6 +13,7 @@ class Employee extends Model
         'user_id',
         'department_id',
         'position_id',
+        'reports_to',
         'nik',
         'name',
         'alias_name',
@@ -56,5 +57,10 @@ class Employee extends Model
     public function position()
     {
         return $this->belongsTo(Position::class);
+    }
+
+    public function supervisor()
+    {
+        return $this->belongsTo(Employee::class, 'reports_to');
     }
 }

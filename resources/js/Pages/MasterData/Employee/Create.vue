@@ -50,6 +50,20 @@
             <p v-if="errors.position_id" class="text-red-500 text-sm mt-1">{{ errors.position_id }}</p>
           </div>
 
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Reporting To</label>
+            <SearchableSelect
+              v-model="form.reports_to"
+              :options="employeeList"
+              option-value="id"
+              option-label="display_name"
+              placeholder="Select Reporting To"
+              empty-label="Select Reporting To"
+              input-class="bg-white dark:bg-gray-700"
+            />
+            <p v-if="errors.reports_to" class="text-red-500 text-sm mt-1">{{ errors.reports_to }}</p>
+          </div>
+
           <h3 class="text-lg font-semibold mb-4 mt-8 text-indigo-400">Employee Information</h3>
 
           <!-- NIK -->
@@ -228,7 +242,8 @@ import { compressFaceReferenceFile, extractFaceDescriptorFromImage } from '@/Uti
 const props = defineProps({
   availableUsers: Object,
   departments: Object,
-  positions: Object
+  positions: Object,
+  employeeList: Array
 });
 
 const errors = ref({});
@@ -237,6 +252,11 @@ const faceProcessing = ref(false);
 const faceError = ref('');
 const facePreview = ref('');
 const faceReferenceFile = ref(null);
+const employeeList = computed(() => (props.employeeList || []).map((emp) => ({
+  ...emp,
+  display_name: `${emp.alias_name || emp.name || 'Unknown'}${emp.nik ? ` (${emp.nik})` : ''}`,
+})));
+
 const normalizedUsers = computed(() => (props.availableUsers || []).map((user) => ({
   ...user,
   display_name: `${user.first_name || user.name || ''} ${user.last_name || ''}`.trim() + ` (${user.email || '-'})`,
@@ -259,6 +279,7 @@ const form = reactive({
   user_id: '',
   department_id: '',
   position_id: '',
+  reports_to: '',
   nik: '',
   alias_name: '',
   work_group: '',

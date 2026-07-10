@@ -29,7 +29,7 @@ class EmployeeController extends Controller
         $status = $request->input('status');
         
         // Query from employees table with user relation
-        $employees = Employee::with(['user.department', 'user.position', 'department', 'position'])
+        $employees = Employee::with(['user.department', 'user.position', 'department', 'position', 'supervisor'])
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nik', 'like', "%{$search}%")
@@ -86,6 +86,7 @@ class EmployeeController extends Controller
             'departments' => $departments,
             'positions' => $positions,
             'availableUsers' => $availableUsers,
+            'employeeList' => Employee::orderBy('name')->get(['id', 'name', 'nik', 'alias_name']),
         ]);
     }
 
@@ -101,6 +102,7 @@ class EmployeeController extends Controller
             'user_id' => $request->input('user_id') ?: null,
             'department_id' => $request->input('department_id') ?: null,
             'position_id' => $request->input('position_id') ?: null,
+            'reports_to' => $request->input('reports_to') ?: null,
             'face_reference_photo_data' => $request->input('face_reference_photo_data') ?: null,
             'face_reference_descriptor' => ($request->hasFile('face_reference_photo') || $request->filled('face_reference_photo_data'))
                 ? $request->input('face_reference_descriptor')
@@ -111,6 +113,7 @@ class EmployeeController extends Controller
             'user_id' => 'nullable|exists:users,id',
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
+            'reports_to' => 'nullable|exists:employees,id',
             'nik' => 'nullable|string|max:255|unique:employees,nik',
             'alias_name' => 'nullable|string|max:255',
             'work_group' => 'nullable|in:office,operational',
@@ -175,7 +178,7 @@ class EmployeeController extends Controller
             ->get(['id', 'name', 'code', 'department_id']);
 
         // Load user relation
-        $employee->load(['user', 'user.department', 'user.position']);
+        $employee->load(['user', 'user.department', 'user.position', 'supervisor']);
 
         // Get available users (current user + users without employee records)
         $availableUsers = User::whereDoesntHave('employee')
@@ -195,6 +198,8 @@ class EmployeeController extends Controller
             'departments' => $departments,
             'positions' => $positions,
             'availableUsers' => $availableUsers,
+            'employeeList' => Employee::where('id', '!=', $employee->id)
+                ->orderBy('name')->get(['id', 'name', 'nik', 'alias_name']),
         ]);
     }
 
@@ -221,6 +226,7 @@ class EmployeeController extends Controller
             'user_id' => $request->input('user_id') ?: null,
             'department_id' => $request->input('department_id') ?: null,
             'position_id' => $request->input('position_id') ?: null,
+            'reports_to' => $request->input('reports_to') ?: null,
             'face_reference_photo_data' => $request->input('face_reference_photo_data') ?: null,
             'face_reference_descriptor' => ($request->hasFile('face_reference_photo')
                 || $request->filled('face_reference_photo_data')
@@ -233,6 +239,7 @@ class EmployeeController extends Controller
             'user_id' => 'nullable|exists:users,id',
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
+            'reports_to' => 'nullable|exists:employees,id',
             'nik' => 'nullable|string|max:255|unique:employees,nik,' . $employee->id,
             'alias_name' => 'nullable|string|max:255',
             'work_group' => 'nullable|in:office,operational',
