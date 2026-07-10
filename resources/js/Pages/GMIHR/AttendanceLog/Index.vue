@@ -135,7 +135,6 @@
           <table class="w-full text-sm">
             <thead class="border-b border-slate-700 text-slate-400">
               <tr>
-                <th class="text-left py-2 pr-3">No</th>
                 <th class="text-left py-2 pr-3">
                   <div class="inline-flex items-center gap-2">
                     <span>PIN</span>
@@ -169,20 +168,12 @@
                 <th class="text-left py-2 pr-3">Reporting To</th>
                 <th class="text-left py-2 pr-3">Absensi</th>
                 <th class="text-left py-2 pr-3">Terlambat</th>
-                <th class="text-left py-2 pr-3">Absen</th>
-                <th class="text-left py-2 pr-3">Lain-lain</th>
                 <th v-if="canViewCorrectionTotals" class="text-left py-2">Koreksi</th>
               </tr>
             </thead>
             <tbody>
               <template v-for="(group, idx) in employeeGroups" :key="group.key">
                 <tr class="border-b border-slate-700/50 cursor-pointer hover:bg-slate-700/30" @click="toggleGroup(group.key)">
-                  <td class="py-2 pr-3">
-                    <span class="inline-flex items-center gap-2">
-                      <span class="text-slate-300">{{ isGroupExpanded(group.key) ? '▾' : '▸' }}</span>
-                      <span>{{ idx + 1 }}</span>
-                    </span>
-                  </td>
                   <td class="py-2 pr-3">{{ group.pin }}</td>
                   <td class="py-2 pr-3">{{ group.name }}</td>
                   <td class="py-2 pr-3">{{ group.departmentName || '-' }}</td>
@@ -193,16 +184,6 @@
                       {{ group.totalTerlambat }}
                     </span>
                   </td>
-                  <td class="py-2 pr-3">
-                    <span class="inline-flex min-w-[2rem] justify-center px-2 py-0.5 rounded-md text-xs font-semibold border bg-rose-600/20 text-rose-200 border-rose-500/40">
-                      {{ group.totalAbsen }}
-                    </span>
-                  </td>
-                  <td class="py-2">
-                    <span class="inline-flex min-w-[2rem] justify-center px-2 py-0.5 rounded-md text-xs font-semibold border bg-orange-500/20 text-orange-200 border-orange-400/40">
-                      {{ group.totalLain }}
-                    </span>
-                  </td>
                   <td v-if="canViewCorrectionTotals" class="py-2">
                     <span class="inline-flex min-w-[2rem] justify-center px-2 py-0.5 rounded-md text-xs font-semibold border bg-indigo-500/20 text-indigo-200 border-indigo-400/40">
                       {{ group.totalKoreksi }}
@@ -211,7 +192,7 @@
                 </tr>
 
                 <tr v-if="isGroupExpanded(group.key)" class="border-b border-slate-700/50 bg-slate-900/30">
-                  <td :colspan="canViewCorrectionTotals ? 10 : 9" class="py-3">
+                  <td :colspan="canViewCorrectionTotals ? 8 : 7" class="py-3">
                     <div class="overflow-auto">
                       <table class="w-full text-sm">
                         <thead class="border-b border-slate-700 text-slate-400">
@@ -357,7 +338,7 @@
               </div>
             </button>
 
-            <div :class="canViewCorrectionTotals ? 'mt-4 grid grid-cols-4 gap-2 text-center text-sm' : 'mt-4 grid grid-cols-3 gap-2 text-center text-sm'">
+            <div :class="canViewCorrectionTotals ? 'mt-4 grid grid-cols-3 gap-2 text-center text-sm' : 'mt-4 grid grid-cols-2 gap-2 text-center text-sm'">
               <div class="rounded-lg border border-slate-700 bg-slate-800/80 p-2">
                 <div class="text-[11px] text-slate-400">Absensi</div>
                 <div class="font-semibold text-white">{{ group.totalAbsensi }}</div>
@@ -365,10 +346,6 @@
               <div class="rounded-lg border border-amber-400/30 bg-amber-500/10 p-2">
                 <div class="text-[11px] text-amber-200">Terlambat</div>
                 <div class="font-semibold text-amber-100">{{ group.totalTerlambat }}</div>
-              </div>
-              <div class="rounded-lg border border-rose-400/30 bg-rose-500/10 p-2">
-                <div class="text-[11px] text-rose-200">Absen/Lain</div>
-                <div class="font-semibold text-rose-100">{{ group.totalAbsen + group.totalLain }}</div>
               </div>
               <div v-if="canViewCorrectionTotals" class="rounded-lg border border-indigo-400/30 bg-indigo-500/10 p-2">
                 <div class="text-[11px] text-indigo-200">Koreksi</div>
