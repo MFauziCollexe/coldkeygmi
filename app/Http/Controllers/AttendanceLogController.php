@@ -98,9 +98,14 @@ class AttendanceLogController extends Controller
         if (Schema::hasColumn('employees', 'alias_name')) {
             $employeeColumns[] = 'e.alias_name';
         }
+        if (Schema::hasColumn('employees', 'reports_to')) {
+            $employeeColumns[] = 'sup.alias_name as supervisor_name';
+            $employeeColumns[] = 'sup.name as supervisor_fallback_name';
+        }
 
         $employeeInfoByPin = DB::table('employees as e')
             ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
+            ->leftJoin('employees as sup', 'sup.id', '=', 'e.reports_to')
             ->whereNotNull('e.nik')
             ->where('e.nik', '<>', '')
             ->get($employeeColumns)
@@ -117,6 +122,7 @@ class AttendanceLogController extends Controller
                         'name' => trim((string) ($row->name ?? '')),
                         'alias_name' => trim((string) ($row->alias_name ?? '')),
                         'department_name' => trim((string) ($row->department_name ?? '')),
+                        'supervisor_name' => trim((string) (($row->supervisor_name ?? '') ?: ($row->supervisor_fallback_name ?? ''))),
                     ],
                 ];
             });
@@ -433,6 +439,7 @@ class AttendanceLogController extends Controller
                     (string) ($scans->last()->name ?? ''),
                 ),
                 'department_name' => (string) (($employeeInfoByPin->get($pin)['department_name'] ?? '')),
+                'supervisor_name' => (string) (($employeeInfoByPin->get($pin)['supervisor_name'] ?? '')),
                 'roster_name' => $row->roster_name,
                 'fingerprint_name' => $scans->last()->name ?? null,
                 'shift_code' => $row->shift_code,
@@ -646,6 +653,7 @@ class AttendanceLogController extends Controller
                         'pin' => $this->resolveAttendanceDisplayPin(null, $employeeInfo, $scans, $displayPin),
                         'name' => $displayName,
                         'department_name' => $departmentName,
+                        'supervisor_name' => (string) (($employeeInfo['supervisor_name'] ?? '')),
                         'roster_name' => null,
                         'fingerprint_name' => $fingerprintName ?: null,
                         'shift_code' => $this->usesT2PNoRosterSchedule($displayPin)
