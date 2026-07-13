@@ -134,6 +134,11 @@ class LeavePermissionController extends Controller
         return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'edit_request_data');
     }
 
+    protected function canDeleteAnyLeavePermission($userId): bool
+    {
+        return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'delete_request');
+    }
+
     protected function canEditCurrentStatus(LeavePermission $leavePermission): bool
     {
         return in_array((string) $leavePermission->status, ['pending', 'approved'], true);
@@ -333,6 +338,7 @@ class LeavePermissionController extends Controller
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
             'canEditLeavePermission' => $this->canEditAnyLeavePermission($userId),
+            'canDeleteLeavePermission' => $this->canDeleteAnyLeavePermission($userId),
         ]);
     }
 
@@ -697,6 +703,52 @@ class LeavePermissionController extends Controller
 
         return $this->redirectToRememberedIndex($request, 'leave-permission', 'leave-permission.index')
             ->with('success', 'Data berhasil dihapus.');
+    }
+
+    /**
+     * Bulk delete leave permission requests.
+     */
+    public function destroyMany(Request $request)
+    {
+        $userId = Auth::id();
+
+        if (!$this->canDeleteAnyLeavePermission($userId)) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki hak untuk menghapus data ini.',
+            ], 403);
+        }
+
+        $payload = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'exists:leave_permissions,id'],
+        ]);
+
+        $leavePermissions = LeavePermission::whereIn('id', $payload['ids'])->get();
+        $deletedCount = 0;
+
+        foreach ($leavePermissions as $leavePermission) {
+            $this->deleteStoredAttachments($this->getAttachmentPaths($leavePermission));
+
+            $oldData = $leavePermission->toArray();
+            $id = $leavePermission->id;
+            $leavePermission->delete();
+
+            $this->logActivity(
+                'leave_permissions',
+                $id,
+                'deleted',
+                $oldData,
+                null,
+                'Deleted leave permission request'
+            );
+
+            $deletedCount++;
+        }
+
+        return response()->json([
+            'message' => "{$deletedCount} data berhasil dihapus.",
+            'deleted_count' => $deletedCount,
+        ]);
     }
 
     /**

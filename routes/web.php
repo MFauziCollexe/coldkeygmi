@@ -591,6 +591,9 @@ Route::put('leave-permission/{leavePermission}', [App\Http\Controllers\LeavePerm
 Route::delete('leave-permission/{leavePermission}', [App\Http\Controllers\LeavePermissionController::class, 'destroy'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission'])
     ->name('leave-permission.destroy');
+Route::delete('leave-permission-batch', [App\Http\Controllers\LeavePermissionController::class, 'destroyMany'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission'])
+    ->name('leave-permission.destroyMany');
 Route::get('leave-permission/{leavePermission}', [App\Http\Controllers\LeavePermissionController::class, 'show'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.leave_permission'])
     ->name('leave-permission.show');
