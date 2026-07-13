@@ -887,7 +887,7 @@ class AttendanceLogController extends Controller
             ->groupBy(function (array $row) {
                 return trim((string) ($row['department_name'] ?? ''));
             })
-            ->map(function (Collection $group, $departmentName) use ($statusDateFrom, $statusDateTo) {
+            ->map(function (Collection $group, $departmentName) use ($departmentEmployeeCounts, $statusDateFrom, $statusDateTo) {
                 $departmentName = trim((string) $departmentName);
                 if ($departmentName === '') {
                     return null;
@@ -932,6 +932,7 @@ class AttendanceLogController extends Controller
             ->filter()
             ->values()
             ->sortByDesc(fn(array $summary) => $summary['masuk_percent'])
+            ->values()
             ->all();
     }
 

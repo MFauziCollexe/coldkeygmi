@@ -913,9 +913,12 @@ const summaryBars = computed(() => {
 });
 
 const departmentSummaries = computed(() => {
-  const backendSummaries = Array.isArray(props.summary?.department_attendance_by_department)
-    ? props.summary.department_attendance_by_department
-    : [];
+  const backendSummaryData = props.summary?.department_attendance_by_department;
+  const backendSummaries = Array.isArray(backendSummaryData)
+    ? backendSummaryData
+    : backendSummaryData && typeof backendSummaryData === 'object'
+      ? Object.values(backendSummaryData)
+      : [];
 
   if (backendSummaries.length) {
     return backendSummaries.map((row) => ({
