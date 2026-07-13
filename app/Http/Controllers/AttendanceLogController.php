@@ -816,6 +816,61 @@ class AttendanceLogController extends Controller
             ->map(fn(Collection $group) => $group->count())
             ->all();
 
+        $today = Carbon::now();
+        $statusDateFrom = $today->copy()->startOfMonth()->toDateString();
+        $statusDateTo = $today->copy()->subDay()->toDateString();
+
+        $departmentEmployeeCounts = collect($employeeInfoByPin)
+            ->filter(fn(array $info, string $pin) => $pin !== ''
+                && (!isset($employeeStatusByPin[$pin]) || $employeeStatusByPin[$pin] === 'active'))
+            ->groupBy(fn(array $info) => trim((string) ($info['department_name'] ?? '')))
+            ->map(fn(Collection $employees) => $employees->count())
+            ->all();
+
+        $departmentAttendanceSummaries = $summaryRows
+            ->groupBy(function (array $row) {
+                return trim((string) ($row['department_name'] ?? ''));
+            })
+            ->map(function (Collection $group, $departmentName) use ($statusDateFrom, $statusDateTo, $departmentEmployeeCounts) {
+                $departmentName = trim((string) $departmentName);
+                if ($departmentName === '') {
+                    return null;
+                }
+
+                $total = $departmentEmployeeCounts[$departmentName] ?? 0;
+
+                $statusRows = $group
+                    ->filter(fn(array $row) => ($logDate = $this->toDateString($row['log_date'] ?? null)) !== null
+                        && $logDate >= $statusDateFrom
+                        && $logDate <= $statusDateTo);
+
+                $yesterdayRows = $group
+                    ->filter(fn(array $row) => $this->toDateString($row['log_date'] ?? null) === $statusDateTo);
+
+                $masukCount = $statusRows
+                    ->groupBy(fn(array $row) => $this->normalizePin((string) ($row['pin'] ?? '')))
+                    ->filter(fn(Collection $employeeRows) => $employeeRows
+                        ->contains(fn(array $row) => in_array(mb_strtolower(trim((string) ($row['expected'] ?? ''))), ['on time', 'terlambat'], true)))
+                    ->count();
+
+                $absentCount = $statusRows
+                    ->filter(fn(array $row) => mb_strtolower(trim((string) ($row['expected'] ?? ''))) === 'tidak masuk')
+                    ->count();
+
+                return [
+                    'department_name' => $departmentName,
+                    'total' => $total,
+                    'masuk' => $masukCount,
+                    'tidak_masuk' => $absentCount,
+                    'masuk_percent' => $total > 0 ? round(($masukCount / $total) * 100, 1) : 0,
+                    'tidak_masuk_percent' => $total > 0 ? round(($absentCount / $total) * 100, 1) : 0,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->sortByDesc(fn(array $summary) => $summary['masuk_percent'])
+            ->all();
+
         $summary = [
             'total' => $summaryRows->count(),
             'on_time' => (int) ($expectedCounts['On Time'] ?? 0),
@@ -826,6 +881,7 @@ class AttendanceLogController extends Controller
             'off' => (int) ($expectedCounts['OFF'] ?? 0),
             'cek_lagi' => (int) ($expectedCounts['Cek Lagi'] ?? 0),
             'expected_counts' => $expectedCounts,
+            'department_attendance_by_department' => $departmentAttendanceSummaries,
         ];
 
         $monthlyInsights = $this->buildMonthlyLateAbsentInsights($dateFrom, $dateTo, $forcedDepartmentName);

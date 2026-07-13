@@ -20,59 +20,34 @@
           </div>
         </div>
 
-        <div v-if="!summaryBars.length" class="mt-4 text-sm text-slate-400">
+        <div v-if="!departmentSummaries.length" class="mt-4 text-sm text-slate-400">
           Tidak ada ringkasan untuk filter ini.
         </div>
 
-        <div v-else class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div class="lg:col-span-8">
-            <div class="flex min-h-56 flex-wrap items-end gap-2 overflow-x-auto pb-2">
-              <div
-                v-for="bar in summaryBars"
-                :key="bar.key"
-                class="flex w-14 shrink-0 flex-col items-center justify-end"
-                :title="`${bar.label}: ${bar.value}`"
-              >
-                <div class="text-[11px] text-slate-200 mb-1 tabular-nums">{{ bar.value }}</div>
-                <div
-                  class="w-full rounded-t border border-slate-700 shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
-                  :class="bar.colorClass"
-                  :style="{ height: `${barHeightPx(bar.value)}px` }"
-                ></div>
-                <div class="w-full text-[11px] text-slate-300 mt-1 text-center leading-tight truncate">
-                  {{ bar.shortLabel }}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="rounded-lg border border-slate-700 bg-slate-900/30 p-3 lg:col-span-4">
-            <p class="text-sm font-semibold text-slate-200">Keterangan (Periode)</p>
-            <p class="text-[11px] text-slate-400 mt-0.5">
-              Minimal {{ Number(props.monthlyInsights?.min_count || 5) }}x. Terlambat dan Tidak Masuk per bulan (top nama).
-            </p>
-
-            <div class="mt-3 space-y-3">
-              <div v-for="m in monthlyInsightsMonths" :key="m.month_key" class="border-t border-slate-700/60 pt-2 first:border-t-0 first:pt-0">
-                <p class="text-xs font-semibold text-slate-200">{{ m.month_label }}</p>
-
-                <div class="mt-1 text-[12px] text-slate-300">
-                  <span class="font-semibold text-amber-200">Terlambat:&nbsp;</span>
-                  <span class="text-slate-400">{{ Number(m?.late?.people || 0) }} orang</span>
-                </div>
-                <div class="text-[11px] text-slate-400 leading-snug">
-                  {{ formatPeopleList(m?.late?.top, m?.late?.others) }}
-                </div>
-
-                <div class="mt-2 text-[12px] text-slate-300">
-                  <span class="font-semibold text-rose-200">Tidak Masuk:&nbsp;</span>
-                  <span class="text-slate-400">{{ Number(m?.absent?.people || 0) }} orang</span>
-                </div>
-                <div class="text-[11px] text-slate-400 leading-snug">
-                  {{ formatPeopleList(m?.absent?.top, m?.absent?.others) }}
-                </div>
-              </div>
-            </div>
+        <div v-else class="mt-4 space-y-4">
+          <div class="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900/40">
+            <table class="min-w-full text-sm text-left">
+              <thead class="border-b border-slate-700 bg-slate-950 text-slate-300">
+                <tr>
+                  <th class="px-3 py-3">Departemen</th>
+                  <th class="px-3 py-3 text-right">Total</th>
+                  <th class="px-3 py-3 text-right">Masuk</th>
+                  <th class="px-3 py-3 text-right">%</th>
+                  <th class="px-3 py-3 text-right">Tidak Masuk</th>
+                  <th class="px-3 py-3 text-right">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="summary in departmentSummaries" :key="summary.department_name" class="border-b border-slate-700 last:border-b-0">
+                  <td class="px-3 py-3 text-slate-100 font-semibold">{{ summary.department_name }}</td>
+                  <td class="px-3 py-3 text-right text-slate-200">{{ summary.total }}</td>
+                  <td class="px-3 py-3 text-right text-emerald-300">{{ summary.masuk }}</td>
+                  <td class="px-3 py-3 text-right text-emerald-300">{{ summary.masuk_percent }}%</td>
+                  <td class="px-3 py-3 text-right text-rose-300">{{ summary.tidak_masuk }}</td>
+                  <td class="px-3 py-3 text-right text-rose-300">{{ summary.tidak_masuk_percent }}%</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -856,6 +831,24 @@ function summaryColorClass(label) {
   return 'bg-indigo-400 border-indigo-200';
 }
 
+function summaryColorHex(label) {
+  const value = String(label || '').toLowerCase().trim();
+  if (value === 'on time') return '#34d399';
+  if (value === 'terlambat') return '#f59e0b';
+  if (value === 'tidak masuk') return '#f43f5e';
+  if (value === 'tidak scan masuk') return '#fb923c';
+  if (value === 'tidak scan pulang') return '#fb923c';
+  if (value === 'off') return '#94a3b8';
+  if (value === 'off tapi scan') return '#f59e0b';
+  if (value === 'cek lagi') return '#ec4899';
+  if (value === 'libur nasional') return '#cbd5e1';
+  if (value === 'izin') return '#a78bfa';
+  if (value === 'sakit') return '#ef4444';
+  if (value === 'cuti') return '#38bdf8';
+  if (value === 'dinas luar') return '#14b8a6';
+  return '#818cf8';
+}
+
 function shortLabel(label) {
   const raw = String(label || '').trim();
   if (raw.toLowerCase() === 'tidak scan masuk') return 'No In';
@@ -915,7 +908,93 @@ const summaryBars = computed(() => {
     shortLabel: shortLabel(item.label),
     value: item.value,
     colorClass: summaryColorClass(item.label),
+    colorHex: summaryColorHex(item.label),
   }));
+});
+
+const departmentSummaries = computed(() => {
+  const backendSummaries = Array.isArray(props.summary?.department_attendance_by_department)
+    ? props.summary.department_attendance_by_department
+    : [];
+
+  if (backendSummaries.length) {
+    return backendSummaries.map((row) => ({
+      department_name: String(row?.department_name || ''),
+      total: Number(row?.total || 0),
+      masuk: Number(row?.masuk || 0),
+      tidak_masuk: Number(row?.tidak_masuk || 0),
+      tidak_masuk_percent: Number(row?.tidak_masuk_percent || 0),
+    }));
+  }
+
+  const rows = Array.isArray(attendanceRows.value) ? attendanceRows.value : [];
+  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const statusDateTo = yesterday;
+  const hasStatusRange = statusDateTo.getTime() >= currentMonthStart.getTime();
+  const departmentEmployeeMap = new Map();
+
+  for (const row of rows) {
+    const departmentName = String(row?.department_name || '').trim();
+    const pin = String(row?.pin || '').trim();
+    const logDate = new Date(String(row?.log_date || ''));
+    if (!departmentName || !pin || Number.isNaN(logDate.getTime()) || !hasStatusRange) {
+      continue;
+    }
+
+    const dateOnly = new Date(logDate.getFullYear(), logDate.getMonth(), logDate.getDate());
+    if (dateOnly < currentMonthStart || dateOnly > statusDateTo) {
+      continue;
+    }
+
+    const lowerExpected = String(row?.expected || '').toLowerCase().trim();
+    const isPresent = lowerExpected === 'on time' || lowerExpected === 'terlambat';
+    const isAbsent = lowerExpected === 'tidak masuk';
+
+    if (!departmentEmployeeMap.has(departmentName)) {
+      departmentEmployeeMap.set(departmentName, {
+        department_name: departmentName,
+        employeePins: new Set(),
+        masukPins: new Set(),
+        tidakMasukCount: 0,
+      });
+    }
+
+    const summary = departmentEmployeeMap.get(departmentName);
+    if (!summary) {
+      continue;
+    }
+
+    summary.employeePins.add(pin);
+    if (isPresent) {
+      summary.masukPins.add(pin);
+    }
+    if (isAbsent) {
+      summary.tidakMasukCount += 1;
+    }
+  }
+
+  return Array.from(departmentEmployeeMap.values())
+    .map((summary) => {
+      const total = summary.employeePins.size;
+      const masuk = summary.masukPins.size;
+      const tidak_masuk = summary.tidakMasukCount;
+
+      return {
+        department_name: summary.department_name,
+        total,
+        masuk,
+        tidak_masuk,
+        masuk_percent: total > 0 ? Number(((masuk / total) * 100).toFixed(1)) : 0,
+        tidak_masuk_percent: total > 0 ? Number(((tidak_masuk / total) * 100).toFixed(1)) : 0,
+      };
+    })
+    .sort((a, b) => b.masuk_percent - a.masuk_percent);
+});
+
+const inventoryDepartmentSummary = computed(() => {
+  return departmentSummaries.value.find((summary) => summary.department_name.toLowerCase().includes('inventory')) || null;
 });
 
 const summaryMaxValue = computed(() => {
