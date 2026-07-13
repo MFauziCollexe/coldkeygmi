@@ -32,9 +32,7 @@
                   <th class="px-3 py-3">Departemen</th>
                   <th class="px-3 py-3 text-right">Total</th>
                   <th class="px-3 py-3 text-right">Masuk</th>
-                  <th class="px-3 py-3 text-right">%</th>
                   <th class="px-3 py-3 text-right">Tidak Masuk</th>
-                  <th class="px-3 py-3 text-right">%</th>
                 </tr>
               </thead>
               <tbody>
@@ -42,9 +40,7 @@
                   <td class="px-3 py-3 text-slate-100 font-semibold">{{ summary.department_name }}</td>
                   <td class="px-3 py-3 text-right text-slate-200">{{ summary.total }}</td>
                   <td class="px-3 py-3 text-right text-emerald-300">{{ summary.masuk }}</td>
-                  <td class="px-3 py-3 text-right text-emerald-300">{{ summary.masuk_percent }}%</td>
                   <td class="px-3 py-3 text-right text-rose-300">{{ summary.tidak_masuk }}</td>
-                  <td class="px-3 py-3 text-right text-rose-300">{{ summary.tidak_masuk_percent }}%</td>
                 </tr>
               </tbody>
             </table>
