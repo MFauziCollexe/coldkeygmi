@@ -129,13 +129,13 @@ class RosterController extends Controller
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
             'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
-            'template_type' => 'nullable|string|in:inventory,risk_control,admin_loket,maintanance,maintenance,security',
+            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,admin_loket,maintanance,maintenance,security',
         ]);
 
         $month = (int) $request->input('month');
         $year = (int) $request->input('year');
         $file = $request->file('file');
-        $templateType = $this->normalizeTemplateType((string) $request->input('template_type', 'inventory'));
+        $templateType = $this->normalizeTemplateType((string) $request->input('template_type', 'inventory_said'));
         $detectedTemplateType = $this->detectTemplateTypeFromFilename((string) $file->getClientOriginalName());
         if ($detectedTemplateType !== null) {
             $templateType = $detectedTemplateType;
@@ -226,7 +226,7 @@ class RosterController extends Controller
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
             'preview_key' => 'required|string',
-            'template_type' => 'nullable|string|in:inventory,risk_control,admin_loket,maintanance,maintenance,security',
+            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,admin_loket,maintanance,maintenance,security',
             'change_reason' => 'nullable|string|max:1000',
             'edited_rows' => 'nullable|array',
             'edited_rows.*.employee_key' => 'required_with:edited_rows|string|max:120',
@@ -255,7 +255,7 @@ class RosterController extends Controller
             ], 422);
         }
 
-        $templateType = $this->normalizeTemplateType((string) $request->input('template_type', (string) ($previewData['template_type'] ?? 'inventory')));
+        $templateType = $this->normalizeTemplateType((string) $request->input('template_type', (string) ($previewData['template_type'] ?? 'inventory_said')));
 
         $sourceRows = $request->input('edited_rows');
         if (empty($sourceRows)) {
@@ -632,12 +632,12 @@ class RosterController extends Controller
         $request->validate([
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
-            'type' => 'nullable|string|in:inventory,risk_control,admin_loket,maintanance,maintenance,security',
+            'type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,admin_loket,maintanance,maintenance,security',
         ]);
 
         $month = (int) $request->input('month');
         $year = (int) $request->input('year');
-        $type = strtolower((string) $request->input('type', 'inventory'));
+        $type = strtolower((string) $request->input('type', 'inventory_said'));
         if ($type === 'maintenance') {
             $type = 'maintanance';
         }
@@ -1025,8 +1025,8 @@ class RosterController extends Controller
         if ($type === 'maintenance') {
             $type = 'maintanance';
         }
-        if (!in_array($type, ['inventory', 'risk_control', 'admin_loket', 'maintanance', 'security'], true)) {
-            return 'inventory';
+        if (!in_array($type, ['inventory_said', 'inventory_imanda', 'risk_control', 'admin_loket', 'maintanance', 'security'], true)) {
+            return 'inventory_said';
         }
         return $type;
     }
@@ -1035,7 +1035,8 @@ class RosterController extends Controller
     {
         $normalized = $this->normalizeTemplateType($type);
         $codeMap = [
-            'inventory' => 'INV',
+            'inventory_said' => 'INV_SAID',
+            'inventory_imanda' => 'INV_IMANDA',
             'risk_control' => 'RSC',
             'admin_loket' => 'ADL',
             'maintanance' => 'MNT',
@@ -1068,35 +1069,44 @@ class RosterController extends Controller
         if (str_contains($name, 'security') || str_contains($name, 'satpam')) {
             return 'security';
         }
-        if (str_contains($name, 'inventory') || str_contains($name, 'inv')) {
-            return 'inventory';
+        if (str_contains($name, 'inventory_said') || str_contains($name, 'inventory-said') || str_contains($name, 'inv_said')) {
+            return 'inventory_said';
+        }
+        if (str_contains($name, 'inventory_imanda') || str_contains($name, 'inventory-imanda') || str_contains($name, 'inv_imanda')) {
+            return 'inventory_imanda';
         }
 
         return null;
     }
 
-    private function getFixedTemplateEmployees(string $type = 'inventory'): array
+    private function getFixedTemplateEmployees(string $type = 'inventory_said'): array
     {
-        if ($type === 'inventory') {
+        if ($type === 'inventory_said') {
             return [
-                ['nrp' => '25081507', 'name' => 'IMANDA ARIESANDY'],
                 ['nrp' => '25091508', 'name' => 'ISNINDAR UMAR SAID'],
-                ['nrp' => '26010536', 'name' => 'JOJOK SETIYADI'],
-                ['nrp' => '25111724', 'name' => 'EKO PURNIAWAN'],
                 ['nrp' => '25111725', 'name' => 'RAFI EKA PRASTIAWAN'],
                 ['nrp' => '25111727', 'name' => 'FEBRIHAN BAGUS PERMANA'],
-                ['nrp' => '25111728', 'name' => 'DIMAS SEPTIAN D'],
                 ['nrp' => '26011538', 'name' => 'RANGGA SURYADIPTA LINTANG KUSUMA'],
+                ['nrp' => '25120126', 'name' => 'ADI PUJI P'],
+                ['nrp' => '25100110', 'name' => 'CHOIRUL ANWAR'],
+                ['nrp' => '25101312', 'name' => 'FIRMAN EFENDI'],
+                ['nrp' => '25100109', 'name' => 'YOGA ADITYA PRADANA'],
+                ['nrp' => '26020240', 'name' => 'YUDISTIRA ALDI KURNIAWAN'],
+            ];
+        }
+
+        if ($type === 'inventory_imanda') {
+            return [
+                ['nrp' => '25081507', 'name' => 'IMANDA ARIESANDY'],
+                ['nrp' => '26010536', 'name' => 'JOJOK SETIYADI'],
+                ['nrp' => '25111724', 'name' => 'EKO PURNIAWAN'],
+                ['nrp' => '25111728', 'name' => 'DIMAS SEPTIAN D'],
                 ['nrp' => '26010535', 'name' => 'ADITYA RAINDY ANSHAR'],
                 ['nrp' => '26011539', 'name' => 'RIO SEPTIANTO FANDY PRATAMA'],
                 ['nrp' => '26011537', 'name' => 'EDI ATMADJA'],
-                ['nrp' => '25120126', 'name' => 'ADI PUJI P'],
                 ['nrp' => '25111723', 'name' => 'HUSNI ANSORY'],
-                ['nrp' => '25100110', 'name' => 'CHOIRUL ANWAR'],
-                ['nrp' => '25101312', 'name' => 'FIRMAN EFENDI'],
                 ['nrp' => '25101313', 'name' => 'ELRIES ARIF AFIFUDIN'],
-                ['nrp' => '25100109', 'name' => 'YOGA ADITYA PRADANA'],
-                ['nrp' => '26020240', 'name' => 'YUDISTIRA ALDI KURNIAWAN'],
+                ['nrp' => '26071343', 'name' => 'DJULIANTO'],
             ];
         }
 

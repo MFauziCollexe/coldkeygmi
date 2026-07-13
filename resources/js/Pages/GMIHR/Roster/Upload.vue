@@ -213,7 +213,7 @@ async function previewFile() {
   const payload = new FormData();
   payload.append('month', String(form.month));
   payload.append('year', String(form.year));
-  payload.append('template_type', String(form.templateType || 'inventory'));
+  payload.append('template_type', String(form.templateType));
   payload.append('file', form.file);
 
   try {
@@ -407,7 +407,8 @@ function detectTemplateTypeFromFilename(filename) {
   if (name.includes('risk_control') || name.includes('risk-control') || name.includes('risk')) return 'risk_control';
   if (name.includes('maintanance') || name.includes('maintenance') || name.includes('mnt')) return 'maintanance';
   if (name.includes('security') || name.includes('satpam')) return 'security';
-  if (name.includes('inventory') || name.includes('inv')) return 'inventory';
+  if (name.includes('inventory_said') || name.includes('inv_said')) return 'inventory_said';
+  if (name.includes('inventory_imanda') || name.includes('inv_imanda')) return 'inventory_imanda';
   return null;
 }
 </script>
