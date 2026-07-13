@@ -854,9 +854,7 @@ class AttendanceLogController extends Controller
                     ->filter(fn(array $row) => $this->toDateString($row['log_date'] ?? null) === $statusDateTo);
 
                 $masukCount = $statusRows
-                    ->groupBy(fn(array $row) => $this->normalizePin((string) ($row['pin'] ?? '')))
-                    ->filter(fn(Collection $employeeRows) => $employeeRows
-                        ->contains(fn(array $row) => in_array(mb_strtolower(trim((string) ($row['expected'] ?? ''))), ['on time', 'terlambat'], true)))
+                    ->filter(fn(array $row) => in_array(mb_strtolower(trim((string) ($row['expected'] ?? ''))), ['on time', 'terlambat'], true))
                     ->count();
 
                 $absentCount = $statusRows
