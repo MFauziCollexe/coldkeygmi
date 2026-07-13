@@ -933,13 +933,12 @@ const departmentSummaries = computed(() => {
   yesterday.setDate(yesterday.getDate() - 1);
   const statusDateTo = yesterday;
   const hasStatusRange = statusDateTo.getTime() >= currentMonthStart.getTime();
-  const departmentEmployeeMap = new Map();
+  const departmentSummaryMap = new Map();
 
   for (const row of rows) {
     const departmentName = String(row?.department_name || '').trim();
-    const pin = String(row?.pin || '').trim();
     const logDate = new Date(String(row?.log_date || ''));
-    if (!departmentName || !pin || Number.isNaN(logDate.getTime()) || !hasStatusRange) {
+    if (!departmentName || Number.isNaN(logDate.getTime()) || !hasStatusRange) {
       continue;
     }
 
@@ -949,47 +948,42 @@ const departmentSummaries = computed(() => {
     }
 
     const lowerExpected = String(row?.expected || '').toLowerCase().trim();
-    const isPresent = lowerExpected === 'on time' || lowerExpected === 'terlambat';
-    const isAbsent = lowerExpected === 'tidak masuk';
+    if (['off', 'libur nasional'].includes(lowerExpected)) {
+      continue;
+    }
 
-    if (!departmentEmployeeMap.has(departmentName)) {
-      departmentEmployeeMap.set(departmentName, {
+    if (!departmentSummaryMap.has(departmentName)) {
+      departmentSummaryMap.set(departmentName, {
         department_name: departmentName,
-        employeePins: new Set(),
-        masukPins: new Set(),
-        tidakMasukCount: 0,
+        total: 0,
+        masuk: 0,
+        tidak_masuk: 0,
       });
     }
 
-    const summary = departmentEmployeeMap.get(departmentName);
+    const summary = departmentSummaryMap.get(departmentName);
     if (!summary) {
       continue;
     }
 
-    summary.employeePins.add(pin);
-    if (isPresent) {
-      summary.masukPins.add(pin);
+    summary.total += 1;
+    if (['on time', 'terlambat'].includes(lowerExpected)) {
+      summary.masuk += 1;
     }
-    if (isAbsent) {
-      summary.tidakMasukCount += 1;
+    if (lowerExpected === 'tidak masuk') {
+      summary.tidak_masuk += 1;
     }
   }
 
-  return Array.from(departmentEmployeeMap.values())
-    .map((summary) => {
-      const total = summary.employeePins.size;
-      const masuk = summary.masukPins.size;
-      const tidak_masuk = summary.tidakMasukCount;
-
-      return {
-        department_name: summary.department_name,
-        total,
-        masuk,
-        tidak_masuk,
-        masuk_percent: total > 0 ? Number(((masuk / total) * 100).toFixed(1)) : 0,
-        tidak_masuk_percent: total > 0 ? Number(((tidak_masuk / total) * 100).toFixed(1)) : 0,
-      };
-    })
+  return Array.from(departmentSummaryMap.values())
+    .map((summary) => ({
+      department_name: summary.department_name,
+      total: summary.total,
+      masuk: summary.masuk,
+      tidak_masuk: summary.tidak_masuk,
+      masuk_percent: summary.total > 0 ? Number(((summary.masuk / summary.total) * 100).toFixed(1)) : 0,
+      tidak_masuk_percent: summary.total > 0 ? Number(((summary.tidak_masuk / summary.total) * 100).toFixed(1)) : 0,
+    }))
     .sort((a, b) => b.masuk_percent - a.masuk_percent);
 });
 

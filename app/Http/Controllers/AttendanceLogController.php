@@ -826,54 +826,11 @@ class AttendanceLogController extends Controller
         $statusDateFrom = $today->copy()->startOfMonth()->toDateString();
         $statusDateTo = $today->copy()->subDay()->toDateString();
 
-        $departmentEmployeeCounts = collect($employeeInfoByPin)
-            ->filter(fn(array $info, string $pin) => $pin !== ''
-                && (!isset($employeeStatusByPin[$pin]) || $employeeStatusByPin[$pin] === 'active'))
-            ->groupBy(fn(array $info) => trim((string) ($info['department_name'] ?? '')))
-            ->map(fn(Collection $employees) => $employees->count())
-            ->all();
-
-        $departmentAttendanceSummaries = $summaryRows
-            ->groupBy(function (array $row) {
-                return trim((string) ($row['department_name'] ?? ''));
-            })
-            ->map(function (Collection $group, $departmentName) use ($statusDateFrom, $statusDateTo, $departmentEmployeeCounts) {
-                $departmentName = trim((string) $departmentName);
-                if ($departmentName === '') {
-                    return null;
-                }
-
-                $total = $departmentEmployeeCounts[$departmentName] ?? 0;
-
-                $statusRows = $group
-                    ->filter(fn(array $row) => ($logDate = $this->toDateString($row['log_date'] ?? null)) !== null
-                        && $logDate >= $statusDateFrom
-                        && $logDate <= $statusDateTo);
-
-                $yesterdayRows = $group
-                    ->filter(fn(array $row) => $this->toDateString($row['log_date'] ?? null) === $statusDateTo);
-
-                $masukCount = $statusRows
-                    ->filter(fn(array $row) => in_array(mb_strtolower(trim((string) ($row['expected'] ?? ''))), ['on time', 'terlambat'], true))
-                    ->count();
-
-                $absentCount = $statusRows
-                    ->filter(fn(array $row) => mb_strtolower(trim((string) ($row['expected'] ?? ''))) === 'tidak masuk')
-                    ->count();
-
-                return [
-                    'department_name' => $departmentName,
-                    'total' => $total,
-                    'masuk' => $masukCount,
-                    'tidak_masuk' => $absentCount,
-                    'masuk_percent' => $total > 0 ? round(($masukCount / $total) * 100, 1) : 0,
-                    'tidak_masuk_percent' => $total > 0 ? round(($absentCount / $total) * 100, 1) : 0,
-                ];
-            })
-            ->filter()
-            ->values()
-            ->sortByDesc(fn(array $summary) => $summary['masuk_percent'])
-            ->all();
+        $departmentAttendanceSummaries = $this->buildDepartmentAttendanceSummaries(
+            $summaryRows,
+            $statusDateFrom,
+            $statusDateTo
+        );
 
         $summary = [
             'total' => $summaryRows->count(),
@@ -910,6 +867,62 @@ class AttendanceLogController extends Controller
                 'departments' => $selectedDepartments,
             ],
         ]);
+    }
+
+    private function buildDepartmentAttendanceSummaries(
+        Collection $summaryRows,
+        string $statusDateFrom,
+        string $statusDateTo
+    ): array {
+        return $summaryRows
+            ->groupBy(function (array $row) {
+                return trim((string) ($row['department_name'] ?? ''));
+            })
+            ->map(function (Collection $group, $departmentName) use ($statusDateFrom, $statusDateTo) {
+                $departmentName = trim((string) $departmentName);
+                if ($departmentName === '') {
+                    return null;
+                }
+
+                $statusRows = $group
+                    ->filter(fn(array $row) => ($logDate = $this->toDateString($row['log_date'] ?? null)) !== null
+                        && $logDate >= $statusDateFrom
+                        && $logDate <= $statusDateTo);
+
+                $workingRows = $statusRows
+                    ->filter(fn(array $row) => !in_array(
+                        mb_strtolower(trim((string) ($row['expected'] ?? ''))),
+                        ['off', 'libur nasional'],
+                        true
+                    ));
+
+                $masukCount = $workingRows
+                    ->filter(fn(array $row) => in_array(
+                        mb_strtolower(trim((string) ($row['expected'] ?? ''))),
+                        ['on time', 'terlambat'],
+                        true
+                    ))
+                    ->count();
+
+                $absentCount = $workingRows
+                    ->filter(fn(array $row) => mb_strtolower(trim((string) ($row['expected'] ?? ''))) === 'tidak masuk')
+                    ->count();
+
+                $total = $workingRows->count();
+
+                return [
+                    'department_name' => $departmentName,
+                    'total' => $total,
+                    'masuk' => $masukCount,
+                    'tidak_masuk' => $absentCount,
+                    'masuk_percent' => $total > 0 ? round(($masukCount / $total) * 100, 1) : 0,
+                    'tidak_masuk_percent' => $total > 0 ? round(($absentCount / $total) * 100, 1) : 0,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->sortByDesc(fn(array $summary) => $summary['masuk_percent'])
+            ->all();
     }
 
     private function normalizeAttendanceHeaderFilterInput($value): array
