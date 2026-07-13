@@ -826,8 +826,16 @@ class AttendanceLogController extends Controller
         $statusDateFrom = $today->copy()->startOfMonth()->toDateString();
         $statusDateTo = $today->copy()->subDay()->toDateString();
 
+        $departmentEmployeeCounts = collect($employeeInfoByPin)
+            ->filter(fn(array $info, string $pin) => $pin !== ''
+                && (!isset($employeeStatusByPin[$pin]) || $employeeStatusByPin[$pin] === 'active'))
+            ->groupBy(fn(array $info) => trim((string) ($info['department_name'] ?? '')))
+            ->map(fn(Collection $employees) => $employees->count())
+            ->all();
+
         $departmentAttendanceSummaries = $this->buildDepartmentAttendanceSummaries(
             $summaryRows,
+            $departmentEmployeeCounts,
             $statusDateFrom,
             $statusDateTo
         );
@@ -871,6 +879,7 @@ class AttendanceLogController extends Controller
 
     private function buildDepartmentAttendanceSummaries(
         Collection $summaryRows,
+        array $departmentEmployeeCounts,
         string $statusDateFrom,
         string $statusDateTo
     ): array {
@@ -908,15 +917,16 @@ class AttendanceLogController extends Controller
                     ->filter(fn(array $row) => mb_strtolower(trim((string) ($row['expected'] ?? ''))) === 'tidak masuk')
                     ->count();
 
-                $total = $workingRows->count();
+                $workdayCount = $workingRows->count();
+                $employeeCount = $departmentEmployeeCounts[$departmentName] ?? 0;
 
                 return [
                     'department_name' => $departmentName,
-                    'total' => $total,
+                    'total' => $employeeCount,
                     'masuk' => $masukCount,
                     'tidak_masuk' => $absentCount,
-                    'masuk_percent' => $total > 0 ? round(($masukCount / $total) * 100, 1) : 0,
-                    'tidak_masuk_percent' => $total > 0 ? round(($absentCount / $total) * 100, 1) : 0,
+                    'masuk_percent' => $workdayCount > 0 ? round(($masukCount / $workdayCount) * 100, 1) : 0,
+                    'tidak_masuk_percent' => $workdayCount > 0 ? round(($absentCount / $workdayCount) * 100, 1) : 0,
                 ];
             })
             ->filter()
