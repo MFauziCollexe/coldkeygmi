@@ -694,6 +694,8 @@ class AttendanceLogController extends Controller
             })->values();
         }
 
+        $summaryRows = $rows;
+
         if ($dateFrom !== null || $dateTo !== null) {
             $rows = $rows->filter(function (array $row) use ($dateFrom, $dateTo) {
                 $logDate = $this->toDateString($row['log_date'] ?? null);
@@ -748,9 +750,12 @@ class AttendanceLogController extends Controller
             $rows = $rows->filter(function (array $row) use ($forcedDepartmentName) {
                 return $this->departmentMatches((string) ($row['department_name'] ?? ''), $forcedDepartmentName);
             })->values();
+            $summaryRows = $summaryRows->filter(function (array $row) use ($forcedDepartmentName) {
+                return $this->departmentMatches((string) ($row['department_name'] ?? ''), $forcedDepartmentName);
+            })->values();
         }
 
-        $rows = $rows->map(function (array $row) {
+        $normaliseAttendanceRow = function (array $row) {
             $row = $this->normalizeSaturdayAttendanceRow($row);
 
             $displayPin = trim((string) ($row['pin'] ?? ''));
@@ -768,9 +773,10 @@ class AttendanceLogController extends Controller
             $row['reason'] = 'PIN T2P tanpa scan ditampilkan sebagai OFF.';
 
             return $row;
-        })->values();
+        };
 
-        $summaryRows = $rows;
+        $rows = $rows->map($normaliseAttendanceRow)->values();
+        $summaryRows = $summaryRows->map($normaliseAttendanceRow)->values();
 
         if ($status !== 'all') {
             $rows = $rows->filter(function (array $row) use ($status) {
