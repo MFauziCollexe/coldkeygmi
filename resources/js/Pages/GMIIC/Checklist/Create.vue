@@ -8,7 +8,7 @@
           <div v-if="selectedChecklist" class="mt-1 text-xs" :class="saveStateClass">{{ saveStateLabel }}</div>
         </div>
         <div class="w-full sm:w-[360px]">
-          <SearchableSelect v-model="selectedChecklist" :options="availableChecklistOptions" option-value="id" option-label="name" placeholder="Pilih Checklist..." empty-label="Pilih Checklist" input-class="w-full bg-slate-800 text-sm border-slate-700 rounded" button-class="border-0 border-l !border-slate-700 rounded-r !bg-slate-800 text-slate-100" />
+          <SearchableSelect v-model="selectedChecklist" :options="availableChecklistOptions" option-value="id" option-label="name" placeholder="Pilih Checklist..." empty-label="Pilih Checklist" disabled input-class="w-full bg-slate-800 text-sm border-slate-700 rounded" button-class="border-0 border-l !border-slate-700 rounded-r !bg-slate-800 text-slate-100" />
         </div>
       </div>
 
@@ -979,10 +979,31 @@ function handleOutsideLocationMenu(event) {
 }
 
 // ─── Lifecycle ──────────────────────────────────────────────
-onMounted(() => document.addEventListener('click', handleOutsideLocationMenu))
-onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideLocationMenu); scanner.stopBarcodeScanner(); photo.stopPhotoCamera() })
+let refreshEntryTimer = null
 
-watch(selectedChecklist, () => { locationMenuOpen.value = false; saveError.value = ''; saveState.value = 'idle'; refreshEntry() })
+onMounted(() => document.addEventListener('click', handleOutsideLocationMenu))
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleOutsideLocationMenu)
+  scanner.stopBarcodeScanner()
+  photo.stopPhotoCamera()
+  if (refreshEntryTimer) {
+    clearTimeout(refreshEntryTimer)
+    refreshEntryTimer = null
+  }
+})
+
+watch(selectedChecklist, () => {
+  locationMenuOpen.value = false
+  saveError.value = ''
+  saveState.value = 'idle'
+  if (refreshEntryTimer) {
+    clearTimeout(refreshEntryTimer)
+  }
+  refreshEntryTimer = setTimeout(() => {
+    refreshEntry()
+    refreshEntryTimer = null
+  }, 120)
+})
 
 watch(() => [entry.value?.form?.area, entry.value?.form?.period, selectedChecklist.value], () => {
   sanitation.rebuildSanitationEntryRows()

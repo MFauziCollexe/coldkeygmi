@@ -26,13 +26,17 @@
             />
           </div>
 
-          <Link
-            :href="createChecklistHref"
-            class="rounded bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-indigo-500"
-            :class="!canOpenCreatePage ? 'pointer-events-none bg-slate-700 text-slate-400' : ''"
+          <button
+            type="button"
+            class="rounded px-4 py-2 text-sm font-semibold transition"
+            :class="canOpenCreatePage
+              ? 'bg-indigo-600 text-white hover:bg-indigo-500'
+              : 'bg-slate-700 text-slate-400'
+            "
+            @click="handleCreateChecklist"
           >
             New Checklist
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -212,16 +216,17 @@ const availableChecklistOptions = computed(() => {
 const canDeleteChecklistEntries = computed(() => Boolean(checklistAbilities.value.delete_entries));
 
 const canOpenCreatePage = computed(() => {
-  return !selectedChecklist.value
-    || (supportedTemplates.includes(selectedChecklist.value) && Boolean(checklistTemplatePermissions.value?.[selectedChecklist.value]?.view));
+  return selectedChecklist.value
+    && supportedTemplates.includes(selectedChecklist.value)
+    && Boolean(checklistTemplatePermissions.value?.[selectedChecklist.value]?.view);
 });
 
 const createChecklistHref = computed(() => {
-  if (selectedChecklist.value) {
-    return `/gmiic/checklist/create?template=${encodeURIComponent(selectedChecklist.value)}`;
+  if (!selectedChecklist.value) {
+    return '/gmiic/checklist/create';
   }
 
-  return '/gmiic/checklist/create';
+  return `/gmiic/checklist/create?template=${encodeURIComponent(selectedChecklist.value)}`;
 });
 
 const filteredChecklistEntries = computed(() => checklistEntries.value);
@@ -280,7 +285,7 @@ function navigateChecklist(params = {}) {
   });
 }
 
-watch([selectedChecklist, selectedDate], () => {
+watch(selectedDate, () => {
   navigateChecklist({ page: 1 });
 });
 
@@ -321,6 +326,28 @@ async function toggleQrBypass() {
   } catch (error) {
     window.alert(error?.response?.data?.message || 'Status QR bypass gagal diperbarui.');
   }
+}
+
+async function handleCreateChecklist() {
+  if (!selectedChecklist.value) {
+    await swalConfirm({
+      title: 'Pilih Checklist Dulu',
+      text: 'Silahkan pilih checklist terlebih dahulu sebelum membuat checklist baru.',
+      confirmButtonText: 'OK',
+      showCancelButton: false,
+    });
+    return;
+  }
+
+  if (!canOpenCreatePage.value) {
+    window.alert('Checklist yang dipilih tidak tersedia untuk akses Anda.');
+    return;
+  }
+
+  router.get(createChecklistHref.value, {
+    preserveState: false,
+    preserveScroll: true,
+  });
 }
 
 async function removeSelectedChecklists() {
