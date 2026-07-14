@@ -70,7 +70,7 @@ import {
   createSaranaPrasaranaEntry, createPatroliSecurityEntry, createSiteVisitHseEntry,
   createSiteVisitMaintenanceEntry, createGensetRunningEntry, createRunningGensetEntry,
   createKompresorHarianEntry, createChargerBateraiEntry, createChecklistBateraiEntry,
-  createCleaningOBEntry, formatMonthYearDisplay, formatDateTimeDisplay, formatDateDisplay,
+  createInspeksiLokerEntry, createCleaningOBEntry, formatMonthYearDisplay, formatDateTimeDisplay, formatDateDisplay,
   formatShortDateDisplay, getKotakP3KMonthLabel, getLocationBarcodeAliases,
   getPatroliSecurityBarcodeAliases, getSanitationAreaBarcodeAliases, kotakP3KMonths,
 } from './checklistConfig'
@@ -363,6 +363,7 @@ const currentTemplateProps = computed(() => {
     currentSections: cleaningOB.currentCleaningOBSections.value,
     approvedAreas: cleaningOB.cleaningOBApprovedAreas.value,
     isAreaApproved: cleaningOB.cleaningOBApprovedAreas.value.includes(entry.value.form.selected_shift),
+    isEditable: cleaningOB.isCleaningOBEditable.value,
     note: cleaningOB.cleaningOBNote.value,
     noteLabel: cleaningOB.cleaningOBNoteLabel.value,
     currentBarcode: cleaningOB.currentCleaningOBBarcode.value,
@@ -500,6 +501,29 @@ const currentTemplateProps = computed(() => {
     onCycleRowSymbol: checklistBaterai.cycleChecklistBateraiRowSymbol,
     onUpdateNote: checklistBaterai.updateChecklistBateraiNote,
     onSetActiveDay: checklistBaterai.setActiveChecklistBateraiDay,
+  }
+
+  if (tid === 'inspeksi_loker') return {
+    entry: entry.value,
+    canApproveEntry: canApproveEntry.value,
+    onApprove: approveChecklist,
+    onUpdateDate: (value) => { if (entry.value) entry.value.form.date_value = value },
+    onUpdatePic: (value) => { if (entry.value) entry.value.form.pic = value },
+    onCycleLockerStatus: (rowNo, lockerNo) => {
+      if (!entry.value || !Array.isArray(entry.value.form.rows)) return
+      entry.value.form.rows = entry.value.form.rows.map((row) => {
+        if (Number(row.no) !== Number(rowNo)) return row
+        const currentValue = String(row.lockers?.[String(lockerNo)] || '')
+        const nextValue = currentValue === 'yes' ? 'no' : currentValue === 'no' ? '' : 'yes'
+        return {
+          ...row,
+          lockers: {
+            ...row.lockers,
+            [String(lockerNo)]: nextValue,
+          },
+        }
+      })
+    },
   }
 
   return {}
@@ -917,6 +941,7 @@ function createEntryByTemplate(templateId, options = {}) {
     kompresor_harian: () => createKompresorHarianEntry(userName),
     charger_baterai: () => createChargerBateraiEntry(userName),
     checklist_baterai: () => createChecklistBateraiEntry(userName),
+    inspeksi_loker: () => createInspeksiLokerEntry(userName),
   }
   return (handlers[templateId] || (() => null))()
 }

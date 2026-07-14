@@ -1,5 +1,18 @@
-import { getDaysInPeriod, toPeriodValue, toDateInputValue, formatDateTimeDisplay, formatDateDisplay } from './date-utils';
-import { sanitationAreaOptions, warehouseAreaOptions, warehouseCleanlinessRowsByFrequency, warehouseIceControlRows, warehouseCleaningMaterialRows, personalHygieneRows } from './location-data';
+import {
+    getDaysInPeriod,
+    toPeriodValue,
+    toDateInputValue,
+    formatDateTimeDisplay,
+    formatDateDisplay,
+} from "./date-utils";
+import {
+    sanitationAreaOptions,
+    warehouseAreaOptions,
+    warehouseCleanlinessRowsByFrequency,
+    warehouseIceControlRows,
+    warehouseCleaningMaterialRows,
+    personalHygieneRows,
+} from "./location-data";
 
 export function createWasteTransportRows(periodValue) {
     return getDaysInPeriod(periodValue).map((dayInfo) => ({
@@ -297,6 +310,81 @@ export function createNonWarehouseSanitationEntry(userName) {
             verifier: "HSE",
             verifier_title: "Diperiksa oleh,",
             rows_by_area: rowsByArea,
+        },
+    };
+}
+
+const INSPEKSI_LOKER_LOCKER_COUNT = 32;
+const INSPEKSI_LOKER_PARAMETERS = [
+    "Loker dalam kondisi bersih",
+    "Loker dalam kondisi rapi dan teratur",
+    "Tidak terdapat sampah di dalam loker",
+    "Tidak terdapat makanan terbuka di dalam loker",
+    "Tidak terdapat bahan kimia tanpa izin",
+    "Tidak terdapat obat-obatan yang tidak diperbolehkan",
+    "Tidak terdapat minuman beralkohol",
+    "Tidak terdapat narkotika",
+    "Tidak terdapat senjata api dan senjata tajam",
+    "Tidak terdapat aset perusahaan yang disimpan tanpa izin",
+    "Tidak terdapat aktivitas hama",
+    "Loker dalam kondisi layak",
+];
+
+function createInspeksiLokerRow(index) {
+    const lockers = {};
+    for (let i = 1; i <= INSPEKSI_LOKER_LOCKER_COUNT; i += 1) {
+        lockers[String(i)] = "";
+    }
+
+    return {
+        no: index + 1,
+        key: `parameter_${index + 1}`,
+        label: INSPEKSI_LOKER_PARAMETERS[index],
+        lockers,
+    };
+}
+
+export function createInspeksiLokerRows() {
+    return INSPEKSI_LOKER_PARAMETERS.map((_, index) =>
+        createInspeksiLokerRow(index),
+    );
+}
+
+export function rebuildInspeksiLokerRows(existingRows = []) {
+    return INSPEKSI_LOKER_PARAMETERS.map((_, index) => {
+        const matchedRow =
+            existingRows.find((row) => Number(row.no) === index + 1) || {};
+        const lockers = {};
+        for (let i = 1; i <= INSPEKSI_LOKER_LOCKER_COUNT; i += 1) {
+            lockers[String(i)] = String(matchedRow.lockers?.[String(i)] || "");
+        }
+
+        return {
+            no: index + 1,
+            key: `parameter_${index + 1}`,
+            label: INSPEKSI_LOKER_PARAMETERS[index],
+            lockers,
+        };
+    });
+}
+
+export function createInspeksiLokerEntry(userName) {
+    const now = new Date();
+
+    return {
+        id: `inspeksi_loker-${Date.now()}`,
+        template_id: "inspeksi_loker",
+        name: "Inspeksi Loker",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            date_value: toDateInputValue(now),
+            pic: userName || "User Login",
+            document_no: "FRM.HSE.XX.01",
+            rev: "00",
+            effective_date: formatDateDisplay(now),
+            page: "1 dari 1",
+            approved: false,
+            rows: createInspeksiLokerRows(),
         },
     };
 }

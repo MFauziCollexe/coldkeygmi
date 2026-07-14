@@ -19,6 +19,7 @@ export const checklistOptions = [
     { id: "kompresor_harian", name: "Kompresor" },
     { id: "charger_baterai", name: "Charger Baterai" },
     { id: "checklist_baterai", name: "Checklist Baterai" },
+    { id: "inspeksi_loker", name: "Inspeksi Loker" },
     { id: "sarana_dan_prasarana", name: "Sarana dan Prasarana" },
     {
         id: "warehouse_sanitation_1",

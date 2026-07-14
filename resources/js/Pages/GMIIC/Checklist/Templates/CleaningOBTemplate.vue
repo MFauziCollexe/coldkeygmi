@@ -54,7 +54,7 @@
             :value="entry.form.date_value"
             type="date"
             class="w-full max-w-[220px] rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 sm:max-w-none"
-            @input="$emit('update-date', $event.target.value)"
+            disabled
           />
         </div>
 
@@ -82,8 +82,8 @@
             v-if="showQrScanner"
             type="button"
             class="w-[132px] rounded px-4 py-2 text-sm font-semibold transition"
-            :disabled="!canScanBarcode"
-            :class="!canScanBarcode
+            :disabled="!isEditable || !canScanBarcode"
+            :class="!isEditable || !canScanBarcode
               ? 'cursor-not-allowed bg-slate-300 text-slate-500 hover:bg-slate-300'
               : 'bg-sky-600 text-white hover:bg-sky-500'"
             @click="$emit('scan-barcode')"
@@ -96,9 +96,9 @@
 
           <button
             type="button"
-            :disabled="!canApproveEntry"
+            :disabled="!isEditable || !canApproveEntry"
             class="w-[96px] rounded px-4 py-2 text-sm font-semibold transition"
-            :class="canApproveEntry
+            :class="isEditable && canApproveEntry
               ? 'bg-amber-500 text-white hover:bg-amber-400'
               : 'cursor-not-allowed bg-slate-300 text-slate-500'"
             @click="$emit('approve')"
@@ -145,7 +145,7 @@
                 <button
                   type="button"
                   class="flex h-10 w-full items-center justify-center text-lg font-semibold leading-none sm:h-11 sm:text-xl"
-                  :disabled="approvedAreas.includes(entry.form.selected_shift)"
+                  :disabled="!isEditable || approvedAreas.includes(entry.form.selected_shift)"
                   @click="$emit('cycle-row-status', section.id, item.id)"
                 >
                   <span v-if="item.status === 'yes'">✓</span>
@@ -170,7 +170,7 @@
         :value="note"
         rows="4"
         class="w-full rounded border border-slate-400 bg-slate-100 px-3 py-2 text-sm text-slate-900"
-        :disabled="isAreaApproved"
+        :disabled="!isEditable || isAreaApproved"
         placeholder="Isi catatan / temuan untuk shift aktif..."
         @input="$emit('update-note', $event.target.value)"
       ></textarea>
@@ -189,8 +189,8 @@
         <button
           type="button"
           class="inline-flex w-fit items-center rounded px-4 py-2 text-sm font-semibold transition"
-          :disabled="photoUploading"
-          :class="photoUploading
+          :disabled="!isEditable || photoUploading"
+          :class="!isEditable || photoUploading
             ? 'cursor-not-allowed bg-slate-300 text-slate-500'
             : 'bg-sky-600 text-white hover:bg-sky-500'"
           @click="$emit('open-camera')"
@@ -314,6 +314,10 @@ defineProps({
     default: '',
   },
   showQrScanner: {
+    type: Boolean,
+    default: true,
+  },
+  isEditable: {
     type: Boolean,
     default: true,
   },
