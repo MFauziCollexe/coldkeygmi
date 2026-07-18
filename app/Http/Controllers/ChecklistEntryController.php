@@ -332,21 +332,28 @@ class ChecklistEntryController extends Controller
     {
         $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
 
+        $monthlyTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
+
         $query = ChecklistHeader::query()
             ->with('template:id,code,module')
             ->whereHas('template', fn ($query) => $query->where('module', self::CHECKLIST_MODULE))
             ->when(!empty($allowedTemplateIds), fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds)), fn ($query) => $query->whereRaw('1 = 0'))
             ->when($templateId !== '', fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->where('code', $templateId)))
-            ->when($selectedDate !== '', function ($query) use ($selectedDate) {
+            ->when($selectedDate !== '', function ($query) use ($selectedDate, $templateId, $monthlyTemplates) {
+                $year = date('Y', strtotime($selectedDate));
                 $formattedDisplayDate = $this->formatChecklistDisplayDateForQuery($selectedDate);
 
-                $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate) {
-                    $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate]);
+                if (in_array($templateId, $monthlyTemplates, true)) {
+                    $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.year')) = ?", [$year]);
+                } else {
+                    $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate) {
+                        $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate]);
 
-                    if ($formattedDisplayDate !== null) {
-                        $subQuery->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date')) = ?", [$formattedDisplayDate]);
-                    }
-                });
+                        if ($formattedDisplayDate !== null) {
+                            $subQuery->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date')) = ?", [$formattedDisplayDate]);
+                        }
+                    });
+                }
             })
             ->orderByDesc('updated_at');
 
