@@ -83,9 +83,11 @@ export {
     createFireSafetyEntry,
 } from "./fire-safety";
 export {
+    KOTAK_P3K_LOCATIONS,
     getCurrentKotakP3KMonthKey,
     getKotakP3KMonthLabel,
     createKotakP3KMonthValue,
+    createKotakP3KLocationState,
     createKotakP3KEntry,
 } from "./kotak-p3k";
 export {

@@ -1,9 +1,9 @@
 import { groupedLocationLabels, groupedChecklistAreaLabels } from './shared-data';
 
 export const locationOptions = [
-    { id: "ruang_admin", name: groupedLocationLabels.ruang_admin },
-    { id: "ruang_kontrol", name: groupedLocationLabels.ruang_kontrol },
-    { id: "pos_security", name: groupedLocationLabels.pos_security },
+    { id: "ruang_admin", name: "Lantai 1 Depan (R.Admin)" },
+    { id: "ruang_kontrol", name: "Lantai 1 Belakang (R.Kontrol)" },
+    { id: "pos_security", name: "Lantai 1 Depan Luar (Pos Security)" },
 ];
 
 export const sanitationAreaOptions = [

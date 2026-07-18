@@ -169,7 +169,7 @@
         </thead>
         <tbody>
           <tr
-            v-for="(item, index) in entry.form.items"
+            v-for="(item, index) in currentLocationItems"
             :key="item.id"
           >
             <td class="border border-black px-2 py-1 text-center">{{ index + 1 }}</td>
@@ -200,7 +200,7 @@
               class="border border-black px-2 py-1 text-center text-xs"
               :class="month.key === activeMonth ? 'bg-amber-50' : ''"
             >
-              {{ entry.form.monthly_check_dates?.[month.key] || '' }}
+              {{ currentLocationMonthlyCheckDates?.[month.key] || '' }}
             </td>
           </tr>
         </tbody>
@@ -265,6 +265,14 @@ defineProps({
   },
   currentBarcode: {
     type: String,
+    required: true,
+  },
+  currentLocationItems: {
+    type: Array,
+    required: true,
+  },
+  currentLocationMonthlyCheckDates: {
+    type: Object,
     required: true,
   },
   monthNote: {

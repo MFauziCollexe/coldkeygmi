@@ -233,6 +233,8 @@ const currentTemplateProps = computed(() => {
     activeMonthStatusLabel: kotakP3K.kotakP3KActiveMonthStatusLabel.value,
     approvalButtonLabel: kotakP3K.kotakP3KApprovalButtonLabel.value,
     showQrScanner: showQrScanner.value,
+    currentLocationItems: kotakP3K.currentLocationItems.value,
+    currentLocationMonthlyCheckDates: kotakP3K.currentLocationMonthlyCheckDates.value,
     onApprove: approveChecklist, onScanBarcode: scanner.scanBarcode,
     onToggleLocationMenu: () => { locationMenuOpen.value = !locationMenuOpen.value },
     onSelectLocation: (id) => { if (entry.value) entry.value.form.location = id; locationMenuOpen.value = false },
