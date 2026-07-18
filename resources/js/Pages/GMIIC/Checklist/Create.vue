@@ -509,6 +509,7 @@ const currentTemplateProps = computed(() => {
     onApprove: approveChecklist,
     onUpdateDate: (value) => { if (entry.value) entry.value.form.date_value = value },
     onUpdatePic: (value) => { if (entry.value) entry.value.form.pic = value },
+    onUpdateNote: (value) => { if (entry.value) entry.value.form.note = value },
     onCycleLockerStatus: (rowNo, lockerNo) => {
       if (!entry.value || !Array.isArray(entry.value.form.rows)) return
       entry.value.form.rows = entry.value.form.rows.map((row) => {

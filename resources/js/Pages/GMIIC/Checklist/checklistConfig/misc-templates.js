@@ -377,9 +377,9 @@ export function createInspeksiLokerEntry(userName) {
         name: "Inspeksi Loker",
         created_at: formatDateTimeDisplay(now),
         form: {
-            date_value: toDateInputValue(now),
+            date_value: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`,
             pic: userName || "User Login",
-            document_no: "FRM.HSE.XX.01",
+            document_no: "FRM.HSE.16.01",
             rev: "00",
             effective_date: formatDateDisplay(now),
             page: "1 dari 1",

@@ -92,6 +92,7 @@ return [
             ['key' => 'control.logs', 'label' => 'Logs'],
             ['key' => 'control.access_rules', 'label' => 'Access Rules'],
             ['key' => 'control.database_backup', 'label' => 'Database Backup'],
+            ['key' => 'control.tools', 'label' => 'Tools'],
         ],
     ],
 ];

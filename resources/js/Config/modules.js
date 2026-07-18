@@ -9,9 +9,15 @@ export default [
             { key: "gmisl.master_data.position", label: "Position" },
             { key: "gmisl.master_data.vehicle_type", label: "Jenis Kendaraan" },
             { key: "gmisl.master_data.stock_card", label: "Stock Card" },
-            { key: "gmisl.master_data.stock_card_item_type", label: "Jenis/Tipe Barang" },
+            {
+                key: "gmisl.master_data.stock_card_item_type",
+                label: "Jenis/Tipe Barang",
+            },
             { key: "gmisl.master_data.stock_card_unit", label: "Master UoM" },
-            { key: "gmisl.master_data.attendance_lock_area", label: "Area Absensi" },
+            {
+                key: "gmisl.master_data.attendance_lock_area",
+                label: "Area Absensi",
+            },
         ],
     },
     {
@@ -29,9 +35,7 @@ export default [
     {
         key: "gmiic",
         label: "GMIIC",
-        children: [
-            { key: "gmiic.checklist", label: "Checklist" },
-        ],
+        children: [{ key: "gmiic.checklist", label: "Checklist" }],
     },
     {
         key: "gmi_visitor_permit",
@@ -54,7 +58,10 @@ export default [
                 children: [
                     { key: "gmihr.attendance.log", label: "Attendance Log" },
                     { key: "gmihr.attendance.absensi", label: "Absensi" },
-                    { key: "gmihr.attendance.approval", label: "Attendance Approval" },
+                    {
+                        key: "gmihr.attendance.approval",
+                        label: "Attendance Approval",
+                    },
                     {
                         key: "gmihr.attendance.leave_permission",
                         label: "Leave & Permission",
@@ -64,7 +71,10 @@ export default [
                         key: "gmihr.attendance.roster",
                         label: "Roster",
                         children: [
-                            { key: "gmihr.payroll.roster.upload", label: "Upload" },
+                            {
+                                key: "gmihr.payroll.roster.upload",
+                                label: "Upload",
+                            },
                             { key: "gmihr.payroll.roster.list", label: "List" },
                         ],
                     },
@@ -97,7 +107,7 @@ export default [
             { key: "control.logs", label: "Logs" },
             { key: "control.access_rules", label: "Access Rules" },
             { key: "control.database_backup", label: "Database Backup" },
+            { key: "control.tools", label: "Tools" },
         ],
     },
 ];
-

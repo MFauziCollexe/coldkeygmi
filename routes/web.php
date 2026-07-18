@@ -514,7 +514,14 @@ Route::get('control-panel/database-backup/{fileName}/download', [App\Http\Contro
 Route::delete('control-panel/database-backup/{fileName}', [App\Http\Controllers\DatabaseBackupController::class, 'destroy'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.database_backup'])
     ->name('control.database-backup.destroy');
-
+Route::get('control-panel/tools', function () {
+    return Inertia::render('ControlPanel/Tools');
+})
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.tools'])
+    ->name('control.tools');
+Route::post('control-panel/tools/send-whatsapp-test', [App\Http\Controllers\ControlPanelToolsController::class, 'sendWhatsAppTest'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.tools'])
+    ->name('control.tools.send-whatsapp-test');
 // GMIHR - Device Integration - Fingerprint
 Route::get('fingerprint', [App\Http\Controllers\FingerprintController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.device.fingerprint'])

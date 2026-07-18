@@ -399,6 +399,13 @@ export const sidebarMenuConfig = [
                 route: "/control-panel/database-backup",
                 module_key: "control.database_backup",
             },
+            {
+                id: "tools",
+                label: "Tools",
+                icon: "Wrench",
+                route: "/control-panel/tools",
+                module_key: "control.tools",
+            },
         ],
     },
 ];

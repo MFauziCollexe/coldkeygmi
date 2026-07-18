@@ -46,41 +46,39 @@
       </table>
     </div>
 
-    <div class="mb-4 overflow-x-auto border border-black">
-      <table class="min-w-full border-collapse text-sm">
-        <tbody>
-          <tr>
-            <td class="w-40 border border-black px-3 py-2 font-semibold">Tanggal</td>
-            <td class="border border-black px-3 py-2">
-              <input
-                :value="entry.form.date_value"
-                type="date"
-                class="w-full border-0 bg-transparent px-0 py-0 text-sm text-slate-900 focus:outline-none focus:ring-0"
-                @input="$emit('update-date', $event.target.value)"
-              />
-            </td>
-          </tr>
-          <tr>
-            <td class="border border-black px-3 py-2 font-semibold">PIC</td>
-            <td class="border border-black px-3 py-2">
-              <input
-                :value="entry.form.pic"
-                type="text"
-                class="w-full border-0 bg-transparent px-0 py-0 text-sm text-slate-900 focus:outline-none focus:ring-0"
-                @input="$emit('update-pic', $event.target.value)"
-              />
-            </td>
-          </tr>
-          <tr>
-            <td class="border border-black px-3 py-2 font-semibold">Effective Date</td>
-            <td class="border border-black px-3 py-2">{{ entry.form.effective_date || '-' }}</td>
-          </tr>
-          <tr>
-            <td class="border border-black px-3 py-2 font-semibold">Page</td>
-            <td class="border border-black px-3 py-2">{{ entry.form.page || '1 dari 1' }}</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="mb-4 rounded border border-black bg-slate-50 p-4">
+      <div class="grid gap-4 lg:grid-cols-[1.2fr_1fr_auto] lg:items-end">
+        <div class="grid items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Bulan</div>
+          <input
+            :value="entry.form.date_value"
+            type="month"
+            class="w-full border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none"
+            @input="$emit('update-date', $event.target.value)"
+          />
+        </div>
+
+        <div class="grid items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">PIC</div>
+          <input
+            :value="entry.form.pic"
+            type="text"
+            readonly
+            class="w-full border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-600 focus:outline-none"
+          />
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="button"
+            :disabled="!canApproveEntry"
+            class="h-9 rounded bg-amber-500 px-5 text-sm font-semibold text-white transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+            @click="$emit('approve')"
+          >
+            Approval
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="overflow-x-auto border border-black">
@@ -99,20 +97,18 @@
             <td
               v-for="locker in lockerNumbers"
               :key="`${row.key}-${locker}`"
-              class="border border-black px-1 py-1 text-center"
+              class="border border-black px-0 py-0 text-center"
             >
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-xs font-semibold text-slate-800 transition hover:bg-slate-200"
+                class="inline-flex h-8 w-8 items-center justify-center rounded bg-white text-xs font-semibold leading-none text-slate-800 transition hover:bg-slate-200 focus:outline-none focus-visible:outline-none"
                 :class="{
-                  'bg-emerald-500 text-white': row.lockers?.[String(locker)] === 'yes',
-                  'bg-rose-500 text-white': row.lockers?.[String(locker)] === 'no',
+                  'text-rose-600': row.lockers?.[String(locker)] === 'no',
                 }"
                 @click="$emit('cycle-locker-status', row.no, locker)"
               >
                 <span v-if="row.lockers?.[String(locker)] === 'yes'">✓</span>
                 <span v-else-if="row.lockers?.[String(locker)] === 'no'">✕</span>
-                <span v-else class="text-slate-400">-</span>
               </button>
             </td>
           </tr>
@@ -120,22 +116,18 @@
       </table>
     </div>
 
-    <div class="mt-4 flex justify-end">
-      <button
-        type="button"
-        :disabled="!canApproveEntry"
-        class="rounded px-4 py-2 text-sm font-semibold transition"
-        :class="canApproveEntry
-          ? 'bg-amber-500 text-white hover:bg-amber-400'
-          : 'cursor-not-allowed bg-slate-300 text-slate-500'"
-        @click="$emit('approve')"
-      >
-        Approval
-      </button>
-    </div>
-
     <div class="mt-3 text-xs text-slate-600">
       Klik setiap kotak untuk mengubah status loker: <span class="font-semibold">Ya / Tidak / Kosong</span>.
+    </div>
+    <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
+      <div class="mb-2 text-sm font-semibold">Keterangan</div>
+      <textarea
+        :value="entry.form.note || ''"
+        rows="3"
+        class="w-full rounded border border-slate-400 bg-slate-100 px-3 py-2 text-sm text-slate-900"
+        placeholder="Isi keterangan jika ada temuan atau catatan..."
+        @input="$emit('update-note', $event.target.value)"
+      ></textarea>
     </div>
   </div>
 </template>
@@ -154,5 +146,5 @@ defineProps({
   },
 })
 
-defineEmits(['approve', 'update-date', 'update-pic', 'cycle-locker-status'])
+defineEmits(['approve', 'update-date', 'update-pic', 'update-note', 'cycle-locker-status'])
 </script>
