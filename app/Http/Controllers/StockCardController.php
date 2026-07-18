@@ -391,6 +391,31 @@ class StockCardController extends Controller
             ->with('success', 'Permintaan stock berhasil di-approve.');
     }
 
+    public function updateNotes(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'source_type' => ['required', 'string', 'in:stock_in,request'],
+            'source_id' => ['required', 'integer'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        if ($data['source_type'] === 'stock_in') {
+            $entry = StockCardStockIn::findOrFail($data['source_id']);
+            $entry->update([
+                'notes' => $data['notes'],
+            ]);
+        } elseif ($data['source_type'] === 'request') {
+            $entry = StockCardRequest::findOrFail($data['source_id']);
+            $entry->update([
+                'notes' => $data['notes'],
+            ]);
+        }
+
+        return redirect()
+            ->route('stock-card.index', $this->stockCardRedirectParams($request))
+            ->with('success', 'Keterangan berhasil diperbarui.');
+    }
+
     private function baseItemsQuery(string $search = '', bool $activeOnly = true)
     {
         return StockCardItem::query()
@@ -426,6 +451,7 @@ class StockCardController extends Controller
 
         foreach ($item->stockIns()->with('creator:id,name')->orderBy('transaction_date')->orderBy('id')->get() as $entry) {
             $rows->push([
+                'id' => (int) $entry->id,
                 'date' => optional($entry->transaction_date)->format('d/m/Y'),
                 'sort_date' => optional($entry->transaction_date)->format('Y-m-d') ?? '',
                 'sort_stamp' => optional($entry->created_at)->format('Y-m-d H:i:s') ?? '',
@@ -433,7 +459,9 @@ class StockCardController extends Controller
                 'incoming' => (float) $entry->quantity,
                 'outgoing' => 0,
                 'note' => $entry->notes ?: optional($entry->creator)->name ?: '-',
-                'type' => 'stock_in',
+                'raw_note' => $entry->notes ?? '',
+                'source_type' => 'stock_in',
+                'source_id' => (int) $entry->id,
             ]);
         }
 
@@ -441,6 +469,7 @@ class StockCardController extends Controller
             $note = trim(($entry->requested_by_name ?: '') . ($entry->notes ? ' - ' . $entry->notes : ''));
 
             $rows->push([
+                'id' => (int) $entry->id,
                 'date' => optional($entry->request_date)->format('d/m/Y'),
                 'sort_date' => optional($entry->request_date)->format('Y-m-d') ?? '',
                 'sort_stamp' => optional($entry->approved_at)->format('Y-m-d H:i:s')
@@ -450,7 +479,9 @@ class StockCardController extends Controller
                 'incoming' => 0,
                 'outgoing' => (float) $entry->quantity,
                 'note' => $note ?: optional($entry->creator)->name ?: '-',
-                'type' => 'request',
+                'raw_note' => $entry->notes ?? '',
+                'source_type' => 'request',
+                'source_id' => (int) $entry->id,
             ]);
         }
 
@@ -466,17 +497,20 @@ class StockCardController extends Controller
                 $currentBalance = $previousBalance + $row['incoming'] - $row['outgoing'];
 
                 $carry->push([
+                    'id' => $row['id'],
                     'date' => $row['date'],
                     'item_name' => $item->name,
                     'sort_date' => $row['sort_date'],
                     'sort_stamp' => $row['sort_stamp'],
                     'sort_id' => $row['sort_id'],
-                    'type' => $row['type'],
+                    'source_type' => $row['source_type'],
+                    'source_id' => $row['source_id'],
                     'incoming' => $row['incoming'] > 0 ? $this->formatQuantity($row['incoming']) . ' ' . $item->unit : '-',
                     'outgoing' => $row['outgoing'] > 0 ? $this->formatQuantity($row['outgoing']) . ' ' . $item->unit : '-',
                     'balance' => $this->formatQuantity($currentBalance) . ' ' . $item->unit,
                     'balance_raw' => $currentBalance,
                     'note' => $row['note'],
+                    'raw_note' => $row['raw_note'],
                     'is_latest_balance' => false,
                 ]);
 
@@ -502,6 +536,7 @@ class StockCardController extends Controller
                 return collect($this->buildCardRows($item))
                     ->map(function (array $row) use ($item) {
                         return [
+                            'id' => $row['id'],
                             'date' => $row['date'],
                             'item_name' => $row['item_name'] ?? $item->name,
                             'sort_date' => $this->sortDateValue($row['date']),
@@ -509,11 +544,13 @@ class StockCardController extends Controller
                             'sort_id' => $row['sort_id'] ?? 0,
                             'sort_item_type' => strtolower((string) $item->item_type),
                             'sort_item_name' => strtolower((string) $item->name),
-                            'type' => $row['type'],
+                            'source_type' => $row['source_type'],
+                            'source_id' => $row['source_id'],
                             'incoming' => $row['incoming'],
                             'outgoing' => $row['outgoing'],
                             'balance' => $row['balance'],
                             'note' => $row['note'],
+                            'raw_note' => $row['raw_note'] ?? '',
                             'is_latest_balance' => $row['is_latest_balance'] ?? false,
                         ];
                     });

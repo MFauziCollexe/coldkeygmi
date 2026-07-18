@@ -128,6 +128,9 @@ Route::post('gmisl/utility/stock-card/requests', [App\Http\Controllers\StockCard
 Route::post('gmisl/utility/stock-card/requests/{stockCardRequest}/approve', [App\Http\Controllers\StockCardController::class, 'approveRequest'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
     ->name('stock-card.requests.approve');
+Route::put('gmisl/utility/stock-card/notes', [App\Http\Controllers\StockCardController::class, 'updateNotes'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
+    ->name('stock-card.notes.update');
 
 // Check Inline (GMISL > Utility > Check Inline)
 Route::get('check-inline', [App\Http\Controllers\CheckInlineController::class, 'index'])

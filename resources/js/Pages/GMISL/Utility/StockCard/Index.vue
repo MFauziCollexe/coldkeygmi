@@ -291,6 +291,15 @@
                   <div class="text-xs text-slate-600">Keterangan</div>
                   <div>{{ row.note }}</div>
                 </div>
+                <div class="mt-2">
+                  <button
+                    type="button"
+                    class="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-500"
+                    @click="openEditModal(row)"
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -306,6 +315,7 @@
                 <th class="border border-black px-3 py-2 text-center">Dipakai</th>
                 <th class="border border-black px-3 py-2 text-center">Sisa Stock</th>
                 <th class="border border-black px-3 py-2 text-center">Keterangan</th>
+                <th class="border border-black px-3 py-2 text-center">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -322,9 +332,18 @@
                   {{ row.balance }}
                 </td>
                 <td class="border border-black px-3 py-2">{{ row.note }}</td>
+                <td class="border border-black px-3 py-2 text-center">
+                  <button
+                    type="button"
+                    class="text-indigo-600 hover:text-indigo-500 font-semibold"
+                    @click="openEditModal(row)"
+                  >
+                    Edit
+                  </button>
+                </td>
               </tr>
               <tr v-if="!cardRows.length">
-                <td colspan="6" class="border border-black px-3 py-6 text-center text-slate-500">
+                <td colspan="7" class="border border-black px-3 py-6 text-center text-slate-500">
                   <span v-if="selectedItem">Belum ada histori penambahan atau permintaan untuk barang ini.</span>
                   <span v-else>Belum ada histori penambahan atau permintaan untuk semua barang.</span>
                 </td>
@@ -478,6 +497,97 @@
         </form>
       </div>
     </div>
+
+    <div
+      v-if="showEditModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+    >
+      <div class="w-full max-w-lg rounded border border-slate-700 bg-slate-900 p-4 shadow-xl md:p-6">
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div class="text-lg font-semibold text-slate-100">Edit Keterangan</div>
+            <div class="text-sm text-slate-400">Ubah keterangan transaksi kartu stock.</div>
+          </div>
+          <button type="button" class="text-slate-400 hover:text-slate-200" @click="closeEditModal">Tutup</button>
+        </div>
+
+        <form class="space-y-4" @submit.prevent="submitEdit">
+          <div>
+            <label class="mb-1 block text-sm text-slate-400">Tanggal</label>
+            <input
+              :value="editForm.date"
+              type="text"
+              readonly
+              class="w-full cursor-not-allowed rounded border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm text-slate-400"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-slate-400">Nama Barang</label>
+            <input
+              :value="editForm.item_name"
+              type="text"
+              readonly
+              class="w-full cursor-not-allowed rounded border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm text-slate-400"
+            />
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-sm text-slate-400">Masuk</label>
+              <input
+                :value="editForm.incoming"
+                type="text"
+                readonly
+                class="w-full cursor-not-allowed rounded border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm text-slate-400"
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm text-slate-400">Dipakai</label>
+              <input
+                :value="editForm.outgoing"
+                type="text"
+                readonly
+                class="w-full cursor-not-allowed rounded border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm text-slate-400"
+              />
+            </div>
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-slate-400">Sisa Stock</label>
+            <input
+              :value="editForm.balance"
+              type="text"
+              readonly
+              class="w-full cursor-not-allowed rounded border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm text-slate-400"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-slate-400">Keterangan</label>
+            <textarea
+              v-model="editForm.notes"
+              rows="3"
+              placeholder="Keterangan"
+              class="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+            ></textarea>
+          </div>
+
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              class="rounded border border-slate-700 px-4 py-2 text-sm text-slate-200"
+              @click="closeEditModal"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              :disabled="editForm.processing"
+            >
+              Simpan
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -542,6 +652,20 @@ const today = new Date().toISOString().slice(0, 10);
 const currentUserName = computed(() => page.props.auth?.user?.name || '');
 const showStockInModal = ref(false);
 const showRequestModal = ref(false);
+const showEditModal = ref(false);
+
+const editForm = useForm({
+  source_type: '',
+  source_id: '',
+  date: '',
+  item_name: '',
+  incoming: '',
+  outgoing: '',
+  balance: '',
+  notes: '',
+  return_item_id: '',
+  return_q: '',
+});
 
 const filters = reactive({
   q: props.filters?.q || '',
@@ -657,6 +781,33 @@ function approveRequest(requestId) {
     return_q: filters.q || '',
   }, {
     preserveScroll: true,
+  });
+}
+
+function openEditModal(row) {
+  editForm.source_type = row.source_type;
+  editForm.source_id = row.source_id;
+  editForm.date = row.date;
+  editForm.item_name = row.item_name;
+  editForm.incoming = row.incoming;
+  editForm.outgoing = row.outgoing;
+  editForm.balance = row.balance;
+  editForm.notes = row.raw_note || '';
+  editForm.return_item_id = filters.item_id || 'all';
+  editForm.return_q = filters.q || '';
+  showEditModal.value = true;
+}
+
+function closeEditModal() {
+  showEditModal.value = false;
+}
+
+function submitEdit() {
+  editForm.put('/gmisl/utility/stock-card/notes', {
+    preserveScroll: true,
+    onSuccess: () => {
+      closeEditModal();
+    },
   });
 }
 </script>
