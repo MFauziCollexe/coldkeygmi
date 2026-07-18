@@ -788,6 +788,15 @@ async function approveChecklist() {
 
   if (tid === 'kotak_p3k') {
     const activeMonth = kotakP3K.activeKotakP3KMonth.value
+    const locationId = kotakP3K.currentLocationId.value
+    entry.value.form.location_entries = entry.value.form.location_entries || {}
+    const locationState = { ...(entry.value.form.location_entries[locationId] || {}) }
+    locationState.monthly_check_dates = {
+      ...(locationState.monthly_check_dates || {}),
+      [activeMonth]: formatDateDisplay(now),
+    }
+    entry.value.form.location_entries[locationId] = locationState
+
     if (kotakP3K.isActiveKotakP3KMonthSubmitted.value) {
       entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
       entry.value.form.submitted_months = (entry.value.form.submitted_months || []).filter((m) => m !== activeMonth)
@@ -924,11 +933,20 @@ async function approveChecklist() {
 }
 
 // ─── Entry Creation & Hydration ─────────────────────────────
+function findSameYearKotakP3KEntry(entries = []) {
+  const currentYear = String(new Date().getFullYear())
+  return (Array.isArray(entries) ? entries : []).find(
+    (savedEntry) =>
+      savedEntry?.template_id === 'kotak_p3k' &&
+      String(savedEntry?.form?.year || '').trim() === currentYear,
+  ) || null
+}
+
 function createEntryByTemplate(templateId, options = {}) {
   const userName = page.props.auth?.user?.name || 'User Login'
   const continuableEntry = options.continuableEntry || null
   const handlers = {
-    kotak_p3k: () => createKotakP3KEntry(userName),
+    kotak_p3k: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createKotakP3KEntry(userName),
     non_warehouse_sanitation: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createNonWarehouseSanitationEntry(userName),
     apar_smoke_detector_fire_alarm: () => createFireSafetyEntry(userName),
     pengangkutan_sampah_pt_sier: () => createWasteTransportEntry(userName),
@@ -958,7 +976,8 @@ function createInitialEntry() {
   const continuableSanitationEntry = selectedChecklist.value === 'non_warehouse_sanitation' ? sanitation.findOpenSanitationDraft(props.existingEntries) : null
   const continuablePatroliEntry = selectedChecklist.value === 'patroli_security' ? patroliSecurity.findOpenPatroliSecurityDraft(props.existingEntries) : null
   const continuableCleaningOBEntry = selectedChecklist.value === 'jadwal_cleaning_ob' ? cleaningOB.findOpenCleaningOBDraft(props.existingEntries) : null
-  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry })
+  const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(props.existingEntries) : null
+  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableKotakP3KEntry })
 }
 
 function refreshEntry() {
@@ -966,8 +985,9 @@ function refreshEntry() {
   const continuableSanitationEntry = selectedChecklist.value === 'non_warehouse_sanitation' ? sanitation.findOpenSanitationDraft(knownChecklistEntries.value) : null
   const continuablePatroliEntry = selectedChecklist.value === 'patroli_security' ? patroliSecurity.findOpenPatroliSecurityDraft(knownChecklistEntries.value) : null
   const continuableCleaningOBEntry = selectedChecklist.value === 'jadwal_cleaning_ob' ? cleaningOB.findOpenCleaningOBDraft(knownChecklistEntries.value) : null
-  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry })
-  if ((continuableSanitationEntry && entry.value?.id === continuableSanitationEntry.id) || (continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id)) syncCurrentEntryUrl(entry.value)
+  const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(knownChecklistEntries.value) : null
+  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableKotakP3KEntry })
+  if ((continuableSanitationEntry && entry.value?.id === continuableSanitationEntry.id) || (continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id) || (continuableKotakP3KEntry && entry.value?.id === continuableKotakP3KEntry.id)) syncCurrentEntryUrl(entry.value)
 }
 
 // ─── Initial Save State ──────────────────────────────────────
