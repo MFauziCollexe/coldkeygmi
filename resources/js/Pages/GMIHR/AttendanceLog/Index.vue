@@ -136,7 +136,16 @@
                     </button>
                   </div>
                 </th>
-                <th class="text-left py-2 pr-3">Reporting To</th>
+                <th class="text-left py-2 pr-3">
+                  <div class="inline-flex items-center gap-2">
+                    <span>Reporting To</span>
+                    <button type="button" :class="headerFilterButtonClass(hasReportingToFilterActive)" @click.stop="toggleHeaderFilter('reportingTo', $event)">
+                      <svg viewBox="0 0 20 20" class="h-3.5 w-3.5 fill-current" aria-hidden="true">
+                        <path d="M3 5h14l-5.5 6.2V16l-3-1v-3.8L3 5z" />
+                      </svg>
+                    </button>
+                  </div>
+                </th>
                 <th class="text-left py-2 pr-3">Absensi</th>
                 <th class="text-left py-2 pr-3">Terlambat</th>
                 <th v-if="canViewCorrectionTotals" class="text-left py-2">Koreksi</th>
@@ -793,6 +802,9 @@ const draftSelectedNames = ref([]);
 const departmentSearch = ref('');
 const selectedDepartments = ref([]);
 const draftSelectedDepartments = ref([]);
+const reportingToSearch = ref('');
+const selectedReportingTos = ref([]);
+const draftSelectedReportingTos = ref([]);
 
 const summaryTotal = computed(() => Number(props.summary?.total || 0));
 
@@ -1069,15 +1081,18 @@ function filterGroupsBySelections(groups, {
   includeDepartments = true,
   includePins = true,
   includeNames = true,
+  includeReportingTos = true,
 } = {}) {
   const selectedDepartmentSet = new Set(selectedDepartments.value);
   const selectedPinSet = new Set(selectedPins.value);
   const selectedNameSet = new Set(selectedNames.value);
+  const selectedReportingToSet = new Set(selectedReportingTos.value);
 
   return groups.filter((group) => {
     const departmentName = String(group?.departmentName || '');
     const pin = String(group?.pin || '');
     const name = String(group?.name || '');
+    const supervisorName = String(group?.supervisorName || '');
 
     if (includeDepartments && selectedDepartmentSet.size > 0 && !selectedDepartmentSet.has(departmentName)) {
       return false;
@@ -1088,6 +1103,10 @@ function filterGroupsBySelections(groups, {
     }
 
     if (includeNames && selectedNameSet.size > 0 && !selectedNameSet.has(name)) {
+      return false;
+    }
+
+    if (includeReportingTos && selectedReportingToSet.size > 0 && !selectedReportingToSet.has(supervisorName)) {
       return false;
     }
 
@@ -1103,6 +1122,12 @@ const filterGroupsByDepartmentOnly = computed(() => filterGroupsBySelections(all
 
 const departmentOptions = computed(() => allEmployeeGroups.value
   .map((group) => String(group?.departmentName || '').trim())
+  .filter((name) => name !== '' && name !== '-')
+  .sort((a, b) => a.localeCompare(b))
+  .filter((name, index, array) => array.indexOf(name) === index));
+
+const reportingToOptions = computed(() => allEmployeeGroups.value
+  .map((group) => String(group?.supervisorName || '').trim())
   .filter((name) => name !== '' && name !== '-')
   .sort((a, b) => a.localeCompare(b))
   .filter((name, index, array) => array.indexOf(name) === index));
@@ -1178,10 +1203,24 @@ watch(
   { immediate: true }
 );
 
+watch(
+  reportingToOptions,
+  (options, previousOptions = []) => {
+    syncHeaderFilterSelection(options, previousOptions, selectedReportingTos, draftSelectedReportingTos);
+  },
+  { immediate: true }
+);
+
 const filteredDepartmentOptions = computed(() => {
   const needle = String(departmentSearch.value || '').trim().toLowerCase();
   if (!needle) return departmentOptions.value;
   return departmentOptions.value.filter((department) => department.toLowerCase().includes(needle));
+});
+
+const filteredReportingToOptions = computed(() => {
+  const needle = String(reportingToSearch.value || '').trim().toLowerCase();
+  if (!needle) return reportingToOptions.value;
+  return reportingToOptions.value.filter((name) => name.toLowerCase().includes(needle));
 });
 
 const filteredPinOptions = computed(() => {
@@ -1200,6 +1239,12 @@ const allVisibleDepartmentsSelected = computed(() => {
   const visible = filteredDepartmentOptions.value;
   if (!visible.length) return false;
   return visible.every((department) => draftSelectedDepartments.value.includes(department));
+});
+
+const allVisibleReportingTosSelected = computed(() => {
+  const visible = filteredReportingToOptions.value;
+  if (!visible.length) return false;
+  return visible.every((name) => draftSelectedReportingTos.value.includes(name));
 });
 
 const allVisiblePinsSelected = computed(() => {
@@ -1223,6 +1268,15 @@ const selectedDepartmentSummary = computed(() => {
   return `${selected} department dipilih`;
 });
 
+const selectedReportingToSummary = computed(() => {
+  const total = reportingToOptions.value.length;
+  const selected = selectedReportingTos.value.length;
+  if (!total || selected === total) return 'Semua Reporting To';
+  if (selected === 0) return 'Pilih Reporting To';
+  if (selected === 1) return selectedReportingTos.value[0];
+  return `${selected} reporting to dipilih`;
+});
+
 const selectedPinSummary = computed(() => {
   const total = pinOptions.value.length;
   const selected = selectedPins.value.length;
@@ -1244,41 +1298,48 @@ const selectedNameSummary = computed(() => {
 const hasPinFilterActive = computed(() => pinOptions.value.length > 0 && selectedPins.value.length !== pinOptions.value.length);
 const hasNameFilterActive = computed(() => nameOptions.value.length > 0 && selectedNames.value.length !== nameOptions.value.length);
 const hasDepartmentFilterActive = computed(() => departmentOptions.value.length > 0 && selectedDepartments.value.length !== departmentOptions.value.length);
+const hasReportingToFilterActive = computed(() => reportingToOptions.value.length > 0 && selectedReportingTos.value.length !== reportingToOptions.value.length);
 const activeHeaderSearchModel = computed({
   get() {
     if (activeHeaderFilter.value === 'pin') return pinSearch.value;
     if (activeHeaderFilter.value === 'name') return nameSearch.value;
     if (activeHeaderFilter.value === 'department') return departmentSearch.value;
+    if (activeHeaderFilter.value === 'reportingTo') return reportingToSearch.value;
     return '';
   },
   set(value) {
     if (activeHeaderFilter.value === 'pin') pinSearch.value = value;
     if (activeHeaderFilter.value === 'name') nameSearch.value = value;
     if (activeHeaderFilter.value === 'department') departmentSearch.value = value;
+    if (activeHeaderFilter.value === 'reportingTo') reportingToSearch.value = value;
   },
 });
 const activeHeaderOptions = computed(() => {
   if (activeHeaderFilter.value === 'pin') return filteredPinOptions.value;
   if (activeHeaderFilter.value === 'name') return filteredNameOptions.value;
   if (activeHeaderFilter.value === 'department') return filteredDepartmentOptions.value;
+  if (activeHeaderFilter.value === 'reportingTo') return filteredReportingToOptions.value;
   return [];
 });
 const activeHeaderDraft = computed(() => {
   if (activeHeaderFilter.value === 'pin') return draftSelectedPins.value;
   if (activeHeaderFilter.value === 'name') return draftSelectedNames.value;
   if (activeHeaderFilter.value === 'department') return draftSelectedDepartments.value;
+  if (activeHeaderFilter.value === 'reportingTo') return draftSelectedReportingTos.value;
   return [];
 });
 const activeHeaderAllSelected = computed(() => {
   if (activeHeaderFilter.value === 'pin') return allVisiblePinsSelected.value;
   if (activeHeaderFilter.value === 'name') return allVisibleNamesSelected.value;
   if (activeHeaderFilter.value === 'department') return allVisibleDepartmentsSelected.value;
+  if (activeHeaderFilter.value === 'reportingTo') return allVisibleReportingTosSelected.value;
   return false;
 });
 const activeHeaderEmptyLabel = computed(() => {
   if (activeHeaderFilter.value === 'pin') return 'PIN tidak ditemukan.';
   if (activeHeaderFilter.value === 'name') return 'Nama tidak ditemukan.';
   if (activeHeaderFilter.value === 'department') return 'Department tidak ditemukan.';
+  if (activeHeaderFilter.value === 'reportingTo') return 'Reporting To tidak ditemukan.';
   return 'Data tidak ditemukan.';
 });
 
@@ -1286,6 +1347,7 @@ const employeeGroups = computed(() => {
   const selectedDepartmentSet = new Set(selectedDepartments.value);
   const selectedPinSet = new Set(selectedPins.value);
   const selectedNameSet = new Set(selectedNames.value);
+  const selectedReportingToSet = new Set(selectedReportingTos.value);
 
   if (!selectedDepartments.value.length || !selectedPins.value.length || !selectedNames.value.length) {
     return [];
@@ -1295,9 +1357,11 @@ const employeeGroups = computed(() => {
     const departmentName = String(group?.departmentName || '');
     const pin = String(group?.pin || '');
     const name = String(group?.name || '');
+    const supervisorName = String(group?.supervisorName || '');
     return selectedDepartmentSet.has(departmentName)
       && selectedPinSet.has(pin)
-      && selectedNameSet.has(name);
+      && selectedNameSet.has(name)
+      && (selectedReportingToSet.size === 0 || selectedReportingToSet.has(supervisorName));
   });
 });
 
@@ -1365,6 +1429,8 @@ function toggleHeaderFilter(type, event) {
     draftSelectedNames.value = [...selectedNames.value];
   } else if (type === 'department') {
     draftSelectedDepartments.value = [...selectedDepartments.value];
+  } else if (type === 'reportingTo') {
+    draftSelectedReportingTos.value = [...selectedReportingTos.value];
   }
 
   const rect = event?.currentTarget?.getBoundingClientRect?.();
@@ -1442,6 +1508,34 @@ function applyDepartmentFilter() {
   selectedDepartments.value = [...draftSelectedDepartments.value];
 }
 
+function toggleReportingToSelection(name) {
+  if (draftSelectedReportingTos.value.includes(name)) {
+    draftSelectedReportingTos.value = draftSelectedReportingTos.value.filter((item) => item !== name);
+    return;
+  }
+
+  draftSelectedReportingTos.value = [...draftSelectedReportingTos.value, name];
+}
+
+function toggleAllVisibleReportingTos() {
+  const visible = filteredReportingToOptions.value;
+  if (!visible.length) return;
+
+  if (allVisibleReportingTosSelected.value) {
+    draftSelectedReportingTos.value = draftSelectedReportingTos.value.filter((name) => !visible.includes(name));
+    return;
+  }
+
+  draftSelectedReportingTos.value = Array.from(new Set([
+    ...draftSelectedReportingTos.value,
+    ...visible,
+  ])).sort((a, b) => a.localeCompare(b));
+}
+
+function applyReportingToFilter() {
+  selectedReportingTos.value = [...draftSelectedReportingTos.value];
+}
+
 function toggleNameSelection(name) {
   if (draftSelectedNames.value.includes(name)) {
     draftSelectedNames.value = draftSelectedNames.value.filter((item) => item !== name);
@@ -1474,18 +1568,21 @@ function toggleActiveHeaderAll() {
   if (activeHeaderFilter.value === 'pin') return toggleAllVisiblePins();
   if (activeHeaderFilter.value === 'name') return toggleAllVisibleNames();
   if (activeHeaderFilter.value === 'department') return toggleAllVisibleDepartments();
+  if (activeHeaderFilter.value === 'reportingTo') return toggleAllVisibleReportingTos();
 }
 
 function toggleActiveHeaderOption(option) {
   if (activeHeaderFilter.value === 'pin') return togglePinSelection(option);
   if (activeHeaderFilter.value === 'name') return toggleNameSelection(option);
   if (activeHeaderFilter.value === 'department') return toggleDepartmentSelection(option);
+  if (activeHeaderFilter.value === 'reportingTo') return toggleReportingToSelection(option);
 }
 
 function applyActiveHeaderFilter() {
   if (activeHeaderFilter.value === 'pin') applyPinFilter();
   if (activeHeaderFilter.value === 'name') applyNameFilter();
   if (activeHeaderFilter.value === 'department') applyDepartmentFilter();
+  if (activeHeaderFilter.value === 'reportingTo') applyReportingToFilter();
   activeHeaderFilter.value = '';
 }
 
