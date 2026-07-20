@@ -1128,7 +1128,6 @@ class RosterController extends Controller
                 ['nrp' => '25111729', 'name' => 'Saka Anggara Putra'],
                 ['nrp' => '26010533', 'name' => 'M. Hadiri'],
                 ['nrp' => '26010534', 'name' => 'Tio Isman Prayogi'],
-                ['nrp' => '25110317', 'name' => 'M. Dhani Rahardian'],
             ];
         }
 
