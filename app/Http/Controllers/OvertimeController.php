@@ -91,6 +91,11 @@ class OvertimeController extends Controller
         return $this->accessRules()->canAccessDepartment($userId, self::ACCESS_MODULE, 'approve', $departmentId);
     }
 
+    protected function canDeleteOvertime($userId): bool
+    {
+        return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'delete_request');
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -240,6 +245,7 @@ class OvertimeController extends Controller
             'departments' => $departments,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
+            'canDeleteOvertime' => $this->canDeleteOvertime($userId),
         ]);
     }
 
@@ -718,6 +724,88 @@ class OvertimeController extends Controller
             : 'Permintaan overtime telah ditolak.';
 
         return redirect()->back()->with('success', $message);
+    }
+
+    /**
+     * Remove the specified resource from storage (single delete).
+     */
+    public function destroy(Overtime $overtime)
+    {
+        $userId = Auth::id();
+        if (!$userId || !$this->canDeleteOvertime($userId)) {
+            abort(403, 'Anda tidak memiliki hak untuk menghapus data ini.');
+        }
+
+        $oldData = $overtime->toArray();
+        $id = $overtime->id;
+
+        $attachmentPath = trim((string) ($overtime->attachment_path ?? ''));
+        if ($attachmentPath !== '') {
+            Storage::disk('public')->delete($attachmentPath);
+        }
+
+        $overtime->delete();
+
+        $this->logActivity(
+            'overtimes',
+            $id,
+            'deleted',
+            $oldData,
+            null,
+            'Deleted overtime request'
+        );
+
+        return $this->redirectToRememberedIndex(request(), 'overtime', 'overtime.index')
+            ->with('success', 'Data overtime berhasil dihapus.');
+    }
+
+    /**
+     * Bulk delete overtime requests.
+     */
+    public function destroyMany(Request $request)
+    {
+        $userId = Auth::id();
+
+        if (!$this->canDeleteOvertime($userId)) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki hak untuk menghapus data ini.',
+            ], 403);
+        }
+
+        $payload = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'exists:overtimes,id'],
+        ]);
+
+        $overtimes = Overtime::whereIn('id', $payload['ids'])->get();
+        $deletedCount = 0;
+
+        foreach ($overtimes as $overtime) {
+            $attachmentPath = trim((string) ($overtime->attachment_path ?? ''));
+            if ($attachmentPath !== '') {
+                Storage::disk('public')->delete($attachmentPath);
+            }
+
+            $oldData = $overtime->toArray();
+            $id = $overtime->id;
+            $overtime->delete();
+
+            $this->logActivity(
+                'overtimes',
+                $id,
+                'deleted',
+                $oldData,
+                null,
+                'Deleted overtime request'
+            );
+
+            $deletedCount++;
+        }
+
+        return response()->json([
+            'message' => "{$deletedCount} data berhasil dihapus.",
+            'deleted_count' => $deletedCount,
+        ]);
     }
 
     /**

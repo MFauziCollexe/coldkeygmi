@@ -105,6 +105,22 @@
         </div>
       </div>
 
+      <!-- Bulk Delete Bar -->
+      <div v-if="canDeleteOvertime && overtimes.data && overtimes.data.length" class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="text-sm text-slate-400">
+          {{ selectedIds.length ? `${selectedIds.length} data dipilih.` : 'Centang data yang ingin dihapus.' }}
+        </div>
+        <button
+          type="button"
+          class="rounded px-4 py-2 text-sm font-semibold transition"
+          :class="hasSelected ? 'bg-rose-600 text-white hover:bg-rose-500' : 'cursor-not-allowed bg-slate-700 text-slate-400'"
+          :disabled="!hasSelected"
+          @click="removeSelected"
+        >
+          Hapus Terpilih
+        </button>
+      </div>
+
       <!-- Table -->
       <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div v-if="!overtimes.data || overtimes.data.length === 0" class="text-slate-400 text-sm">
@@ -114,6 +130,14 @@
           <table class="w-full min-w-[1220px] text-sm table-fixed">
             <thead class="text-slate-400 border-b border-slate-700">
               <tr>
+                <th v-if="canDeleteOvertime" class="w-10 py-2">
+                  <input
+                    type="checkbox"
+                    :checked="areAllSelected"
+                    @change="toggleSelectAll($event.target.checked)"
+                    class="cursor-pointer"
+                  />
+                </th>
                 <th class="text-left py-2 pr-3 w-[56px]">No</th>
                 <th class="text-left py-2 pr-3 w-[132px]">Tanggal Pengajuan</th>
                 <th class="text-left py-2 pr-3 w-[160px]">Karyawan</th>
@@ -129,6 +153,14 @@
             </thead>
             <tbody>
               <tr v-for="(item, index) in overtimes.data" :key="item.id" class="border-b border-slate-700/60">
+                <td v-if="canDeleteOvertime" class="py-2 align-top">
+                  <input
+                    type="checkbox"
+                    :checked="selectedIds.includes(item.id)"
+                    @change="toggleSelection(item.id, $event.target.checked)"
+                    class="cursor-pointer"
+                  />
+                </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ index + 1 }}</td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ formatDate(item.created_at) }}</td>
                 <td class="py-2 pr-3 align-top break-words" :title="item.employee?.name || item.user?.name || '-'">
@@ -347,6 +379,7 @@
 import { computed, ref, reactive, nextTick, onMounted, onBeforeUnmount, onUpdated } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
+import axios from 'axios';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import OvertimeForm from '@/Components/OvertimeForm.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
@@ -359,6 +392,7 @@ const props = defineProps({
   departments: Array,
   isAdmin: Boolean,
   isManager: Boolean,
+  canDeleteOvertime: Boolean,
 });
 
 const filters = reactive({
@@ -386,6 +420,55 @@ const statusOptions = [
   { value: 'rejected', label: 'Rejected' },
 ];
 const canExport = computed(() => Boolean(filters.start_date && filters.end_date));
+
+const selectedIds = ref([]);
+const hasSelected = computed(() => selectedIds.value.length > 0);
+const areAllSelected = computed(() => {
+  const data = props.overtimes?.data || [];
+  if (!data.length) return false;
+  return data.every((item) => selectedIds.value.includes(item.id));
+});
+
+function toggleSelection(id, checked) {
+  if (checked) {
+    selectedIds.value = Array.from(new Set([...selectedIds.value, id]));
+    return;
+  }
+  selectedIds.value = selectedIds.value.filter((itemId) => itemId !== id);
+}
+
+function toggleSelectAll(checked) {
+  const data = props.overtimes?.data || [];
+  const visibleIds = data.map((item) => item.id);
+  if (checked) {
+    selectedIds.value = Array.from(new Set([...selectedIds.value, ...visibleIds]));
+    return;
+  }
+  selectedIds.value = selectedIds.value.filter((id) => !visibleIds.includes(id));
+}
+
+async function removeSelected() {
+  const total = selectedIds.value.length;
+  if (!total) return;
+
+  const ok = await swalConfirm({
+    title: 'Hapus Data',
+    text: `Hapus ${total} data terpilih?`,
+    confirmButtonText: 'Hapus',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok) return;
+
+  try {
+    await axios.delete('/overtime-batch', {
+      data: { ids: selectedIds.value },
+    });
+    selectedIds.value = [];
+    fetchData();
+  } catch (error) {
+    window.alert(error?.response?.data?.message || 'Gagal menghapus data.');
+  }
+}
 
 function fetchData() {
   const params = {};

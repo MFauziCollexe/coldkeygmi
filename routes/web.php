@@ -636,6 +636,12 @@ Route::post('overtime', [App\Http\Controllers\OvertimeController::class, 'store'
 Route::put('overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'update'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
     ->name('overtime.update');
+Route::delete('overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'destroy'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
+    ->name('overtime.destroy');
+Route::delete('overtime-batch', [App\Http\Controllers\OvertimeController::class, 'destroyMany'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
+    ->name('overtime.destroyMany');
 
 // GMIHR - Time & Attendance - Overtime Show
 Route::get('overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'show'])
@@ -649,6 +655,10 @@ Route::get('gmihr/attendance/overtime/create', [App\Http\Controllers\OvertimeCon
 Route::post('gmihr/attendance/overtime', [App\Http\Controllers\OvertimeController::class, 'store'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
 Route::put('gmihr/attendance/overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'update'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
+Route::delete('gmihr/attendance/overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'destroy'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
+Route::delete('gmihr/attendance/overtime-batch', [App\Http\Controllers\OvertimeController::class, 'destroyMany'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
 Route::get('gmihr/attendance/overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'show'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);

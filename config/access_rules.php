@@ -120,6 +120,9 @@ return [
                     ['type' => 'manager'],
                     ['type' => 'supervisor'],
                 ],
+                'delete_request' => [
+                    ['type' => 'admin'],
+                ],
             ],
         ],
         'leave_permission' => [
