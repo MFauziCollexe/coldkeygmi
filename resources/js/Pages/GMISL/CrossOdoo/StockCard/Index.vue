@@ -1,7 +1,8 @@
 <template>
   <AppLayout>
     <div class="p-4 md:p-6">
-      <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <!-- Header -->
+      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 class="text-2xl font-bold">Cross Odoo - Stock Card</h2>
           <p class="text-sm text-slate-400">
@@ -11,60 +12,151 @@
             <span class="font-semibold text-slate-200">{{ productLabel }}</span>.
           </p>
         </div>
+        <div class="text-sm text-slate-400">
+          Total: <span class="font-semibold text-slate-200">{{ allRows.length }}</span> data
+        </div>
       </div>
 
-      <div class="overflow-x-auto rounded border border-slate-700 bg-slate-900 p-4">
-        <table class="min-w-full table-auto text-sm text-left text-slate-100">
+      <!-- Excel-like Table -->
+      <div class="overflow-x-auto rounded border border-slate-600 bg-white">
+        <table class="w-full border-collapse text-xs" style="table-layout: auto;">
           <thead>
-            <tr class="bg-slate-800 text-slate-300">
-              <th class="border border-slate-700 px-3 py-2">Tanggal</th>
-              <th class="border border-slate-700 px-3 py-2">Owner</th>
-              <th class="border border-slate-700 px-3 py-2">Product</th>
-              <th class="border border-slate-700 px-3 py-2">Code</th>
-              <th class="border border-slate-700 px-3 py-2">Lot</th>
-              <th class="border border-slate-700 px-3 py-2">Exp</th>
-              <th class="border border-slate-700 px-3 py-2">Movement</th>
-              <th class="border border-slate-700 px-3 py-2">From</th>
-              <th class="border border-slate-700 px-3 py-2">To</th>
-              <th class="border border-slate-700 px-3 py-2">Qty In</th>
-              <th class="border border-slate-700 px-3 py-2">Qty Out</th>
-              <th class="border border-slate-700 px-3 py-2">Balance</th>
-              <th class="border border-slate-700 px-3 py-2">Sack</th>
-              <th class="border border-slate-700 px-3 py-2">Pallet</th>
-              <th class="border border-slate-700 px-3 py-2">Vehicle No</th>
+            <tr class="bg-slate-100 text-slate-700">
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-center font-semibold">No</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Tanggal</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Owner</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Product</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Code</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Lot</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Exp</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Movement</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">From</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">To</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Qty In</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Qty Out</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Balance</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Sack</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Pallet</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Vehicle No</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!rows.length" class="bg-slate-950 text-slate-400">
-              <td class="border border-slate-700 px-3 py-4 text-center" colspan="12">
+            <tr v-if="!paginatedRows.length">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="16">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
-            <tr v-for="(row, index) in rows" :key="index" class="odd:bg-slate-950 even:bg-slate-900">
-              <td class="border border-slate-700 px-3 py-2">{{ formatDate(row.transaction_date) }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.owner_name || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.product_name || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.product_code || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.lot_number || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.expiration_date || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.movement_type || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.source_location || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.destination_location || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.qty_in) }}</td>
-              <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.qty_out) }}</td>
-              <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.running_balance) }}</td>
-              <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.x_studio_total_in_sack) }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.gmi_pallet_assigned || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.x_studio_no_kendaraan || '-' }}</td>
+            <tr
+              v-for="(row, index) in paginatedRows"
+              :key="index"
+              :class="index % 2 === 0 ? 'bg-white' : 'bg-slate-50'"
+              class="hover:bg-blue-50"
+            >
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-500">{{ (currentPage - 1) * perPage + index + 1 }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ formatDate(row.transaction_date) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.owner_name || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.product_name || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px]">{{ row.product_code || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px]">{{ row.lot_number || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ formatDateShort(row.expiration_date) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">
+                <span :class="movementClass(row.movement_type)" class="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight">
+                  {{ row.movement_type || '-' }}
+                </span>
+              </td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.source_location || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.destination_location || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono">{{ formatNumber(row.qty_in) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono">{{ formatNumber(row.qty_out) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold">{{ formatNumber(row.running_balance) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono">{{ formatNumber(row.x_studio_total_in_sack) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px]">{{ row.gmi_pallet_assigned || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.x_studio_no_kendaraan || '-' }}</td>
             </tr>
           </tbody>
+          <tfoot v-if="allRows.length">
+            <tr class="bg-slate-100 font-semibold text-slate-700">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="10">Total Halaman</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalIn) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOut) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">-</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalSack) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="2"></td>
+            </tr>
+            <tr class="bg-slate-200 font-bold text-slate-800">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="10">Grand Total</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalIn) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalOut) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">-</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalSack) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="2"></td>
+            </tr>
+          </tfoot>
         </table>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="text-sm text-slate-400">
+          Menampilkan {{ (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, allRows.length) }} dari {{ allRows.length }} data
+        </div>
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="currentPage === 1"
+            @click="currentPage = 1"
+          >
+            &laquo;
+          </button>
+          <button
+            type="button"
+            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="currentPage === 1"
+            @click="currentPage--"
+          >
+            &lsaquo;
+          </button>
+
+          <template v-for="page in visiblePages" :key="page">
+            <span v-if="page === '...'" class="px-1.5 py-1 text-xs text-slate-500">...</span>
+            <button
+              v-else
+              type="button"
+              class="min-w-[2rem] rounded border px-2.5 py-1 text-xs font-semibold transition"
+              :class="page === currentPage
+                ? 'border-indigo-500 bg-indigo-600 text-white'
+                : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'"
+              @click="currentPage = page"
+            >
+              {{ page }}
+            </button>
+          </template>
+
+          <button
+            type="button"
+            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="currentPage === totalPages"
+            @click="currentPage++"
+          >
+            &rsaquo;
+          </button>
+          <button
+            type="button"
+            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="currentPage === totalPages"
+            @click="currentPage = totalPages"
+          >
+            &raquo;
+          </button>
+        </div>
       </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -82,21 +174,65 @@ const props = defineProps({
   },
 });
 
-const rows = props.rows || [];
-const customerLabel = props.customerName || 'Customer';
-const productLabel = props.productName || 'Product';
+const allRows = computed(() => props.rows || []);
+const customerLabel = computed(() => props.customerName || 'Customer');
+const productLabel = computed(() => props.productName || 'Product');
+
+const perPage = 10;
+const currentPage = ref(1);
+
+const totalPages = computed(() => Math.max(1, Math.ceil(allRows.value.length / perPage)));
+
+const paginatedRows = computed(() => {
+  const start = (currentPage.value - 1) * perPage;
+  return allRows.value.slice(start, start + perPage);
+});
+
+const visiblePages = computed(() => {
+  const total = totalPages.value;
+  const current = currentPage.value;
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages = [];
+  pages.push(1);
+  if (current > 3) pages.push('...');
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+    pages.push(i);
+  }
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
+});
+
+function sumField(rows, field) {
+  return rows.reduce((acc, row) => acc + (Number(row[field]) || 0), 0);
+}
+
+const pageTotalIn = computed(() => sumField(paginatedRows.value, 'qty_in'));
+const pageTotalOut = computed(() => sumField(paginatedRows.value, 'qty_out'));
+const pageTotalSack = computed(() => sumField(paginatedRows.value, 'x_studio_total_in_sack'));
+const grandTotalIn = computed(() => sumField(allRows.value, 'qty_in'));
+const grandTotalOut = computed(() => sumField(allRows.value, 'qty_out'));
+const grandTotalSack = computed(() => sumField(allRows.value, 'x_studio_total_in_sack'));
+
+const movementColors = {
+  'RECEIPT': 'bg-emerald-100 text-emerald-700',
+  'DELIVERY': 'bg-sky-100 text-sky-700',
+  'CUSTOMER RETURN': 'bg-amber-100 text-amber-700',
+  'VENDOR RETURN': 'bg-orange-100 text-orange-700',
+  'TRANSFER': 'bg-violet-100 text-violet-700',
+  'ADJUSTMENT IN': 'bg-teal-100 text-teal-700',
+  'ADJUSTMENT OUT': 'bg-rose-100 text-rose-700',
+};
+
+function movementClass(type) {
+  return movementColors[String(type || '').toUpperCase()] || 'bg-slate-100 text-slate-600';
+}
 
 function formatDate(value) {
-  if (!value) {
-    return '-';
-  }
-
+  if (!value) return '-';
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString('id-ID', {
     year: 'numeric',
     month: '2-digit',
@@ -106,11 +242,19 @@ function formatDate(value) {
   });
 }
 
-function formatNumber(value) {
-  if (value === null || value === undefined) {
-    return '-';
-  }
+function formatDateShort(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('id-ID', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+}
 
+function formatNumber(value) {
+  if (value === null || value === undefined) return '-';
   return Number(value).toLocaleString('id-ID', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
