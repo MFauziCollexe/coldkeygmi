@@ -12,8 +12,24 @@ class StockCardController extends Controller
 {
     public function index(Request $request): Response
     {
-        $targetPartnerId = (int) $request->input('partner_id', 29);
+        $ownerQuery = <<<'SQL'
+SELECT DISTINCT
+    rp.id AS owner_id,
+    rp.name AS owner_name
+FROM stock_quant sq
+JOIN res_partner rp
+    ON rp.id = sq.owner_id
+WHERE sq.owner_id IS NOT NULL
+ORDER BY rp.name;
+SQL;
+
+        $owners = DB::connection('pgsql')->select($ownerQuery);
+        $owners = array_map(fn ($owner) => (array) $owner, $owners);
+
+        $selectedOwnerId = (int) $request->input('owner_id', $owners[0]['owner_id'] ?? 29);
         $targetProductId = $request->input('product_id');
+        $startDate = $request->input('start_date', '2026-01-01');
+        $endDate = $request->input('end_date', '2026-12-31');
 
         if ($targetProductId !== null && $targetProductId !== '') {
             $targetProductId = (int) $targetProductId;
@@ -34,9 +50,9 @@ WITH params AS (
 
         ?::INTEGER      AS p_product_id,
 
-        DATE '2026-01-01' AS p_date_from,
+        ?::date         AS p_date_from,
 
-        DATE '2026-12-31' AS p_date_to
+        ?::date         AS p_date_to
 
 ),
 
@@ -666,7 +682,7 @@ ORDER BY
     fr.move_line_id;
 SQL;
 
-        $rows = DB::connection('pgsql')->select($query, [$targetPartnerId, $targetProductId]);
+        $rows = DB::connection('pgsql')->select($query, [$selectedOwnerId, $targetProductId, $startDate, $endDate]);
 
         $formattedRows = array_map(function ($row) {
             return [
@@ -695,12 +711,15 @@ SQL;
             ];
         }, $rows);
 
-        $ownerName = $formattedRows[0]['owner_name'] ?? null;
+        $ownerName = $formattedRows[0]['owner_name'] ?? ($owners[0]['owner_name'] ?? null);
         $productName = $formattedRows[0]['product_name'] ?? null;
 
         return Inertia::render('GMISL/CrossOdoo/StockCard/Index', [
             'rows' => $formattedRows,
-            'targetPartnerId' => $targetPartnerId,
+            'owners' => $owners,
+            'selectedOwnerId' => $selectedOwnerId,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
             'targetProductId' => $targetProductId,
             'customerName' => $ownerName,
             'productName' => $productName,

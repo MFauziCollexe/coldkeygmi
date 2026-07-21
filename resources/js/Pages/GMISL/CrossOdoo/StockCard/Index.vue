@@ -17,6 +17,58 @@
         </div>
       </div>
 
+      <!-- Filters -->
+      <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
+        <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4" @change="submitFilters">
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Owner</label>
+            <select
+              id="owner_id"
+              name="owner_id"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              :value="selectedOwnerId"
+              @change="submitFilters"
+            >
+              <option v-for="owner in owners" :key="owner.owner_id" :value="owner.owner_id">
+                {{ owner.owner_name }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="start_date">Start Date</label>
+            <input
+              id="start_date"
+              name="start_date"
+              type="date"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              :value="startDate"
+            />
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="end_date">End Date</label>
+            <input
+              id="end_date"
+              name="end_date"
+              type="date"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              :value="endDate"
+            />
+          </div>
+
+          <div class="flex items-end">
+            <input type="hidden" name="product_id" :value="targetProductId || ''" />
+            <button
+              type="submit"
+              class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+            >
+              Apply filters
+            </button>
+          </div>
+        </form>
+      </div>
+
       <!-- Excel-like Table -->
       <div class="overflow-x-auto rounded border border-slate-600 bg-white">
         <table class="w-full border-collapse text-xs text-slate-900" style="table-layout: auto;">
@@ -139,7 +191,7 @@
             <button
               v-else
               type="button"
-              class="min-w-[2rem] rounded border px-2.5 py-1 text-xs font-semibold transition"
+              class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition"
               :class="page === currentPage
                 ? 'border-indigo-500 bg-indigo-600 text-white'
                 : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'"
@@ -180,6 +232,26 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  owners: {
+    type: Array,
+    default: () => [],
+  },
+  selectedOwnerId: {
+    type: [String, Number],
+    default: null,
+  },
+  startDate: {
+    type: String,
+    default: '2026-01-01',
+  },
+  endDate: {
+    type: String,
+    default: '2026-12-31',
+  },
+  targetProductId: {
+    type: [String, Number],
+    default: null,
+  },
   customerName: {
     type: String,
     default: 'Customer',
@@ -191,6 +263,11 @@ const props = defineProps({
 });
 
 const allRows = computed(() => props.rows || []);
+const owners = computed(() => props.owners || []);
+const selectedOwnerId = computed(() => props.selectedOwnerId);
+const startDate = computed(() => props.startDate);
+const endDate = computed(() => props.endDate);
+const targetProductId = computed(() => props.targetProductId);
 const customerLabel = computed(() => props.customerName || 'Customer');
 const productLabel = computed(() => props.productName || 'Product');
 
@@ -226,10 +303,10 @@ function sumField(rows, field) {
 
 const pageTotalIn = computed(() => sumField(paginatedRows.value, 'qty_in'));
 const pageTotalOut = computed(() => sumField(paginatedRows.value, 'qty_out'));
-const pageTotalSack = computed(() => sumField(paginatedRows.value, 'x_studio_total_in_sack'));
+const pageTotalSack = computed(() => sumField(paginatedRows.value, 'sack'));
 const grandTotalIn = computed(() => sumField(allRows.value, 'qty_in'));
 const grandTotalOut = computed(() => sumField(allRows.value, 'qty_out'));
-const grandTotalSack = computed(() => sumField(allRows.value, 'x_studio_total_in_sack'));
+const grandTotalSack = computed(() => sumField(allRows.value, 'sack'));
 
 const movementColors = {
   'RECEIPT': 'bg-emerald-100 text-emerald-700',
@@ -268,6 +345,14 @@ function formatDateShort(value) {
     day: '2-digit',
   });
 }
+
+function submitFilters() {
+  if (filterForm.value) {
+    filterForm.value.submit();
+  }
+}
+
+const filterForm = ref(null);
 
 function formatNumber(value) {
   if (value === null || value === undefined) return '-';
