@@ -525,6 +525,9 @@ Route::get('control-panel/tools', function () {
 Route::post('control-panel/tools/send-whatsapp-test', [App\Http\Controllers\ControlPanelToolsController::class, 'sendWhatsAppTest'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.tools'])
     ->name('control.tools.send-whatsapp-test');
+Route::post('control-panel/tools/test-postgres', [App\Http\Controllers\ControlPanelToolsController::class, 'testPostgresConnection'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.tools'])
+    ->name('control.tools.test-postgres');
 // GMIHR - Device Integration - Fingerprint
 Route::get('fingerprint', [App\Http\Controllers\FingerprintController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.device.fingerprint'])
