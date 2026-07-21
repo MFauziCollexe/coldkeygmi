@@ -13,13 +13,14 @@
           </p>
         </div>
         <div class="text-sm text-slate-400">
-          Total: <span class="font-semibold text-slate-200">{{ allRows.length }}</span> data
+          Total: <span class="font-semibold text-slate-200">{{ totalRows }}</span> data
         </div>
       </div>
 
       <!-- Filters -->
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
         <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4" @change="submitFilters">
+          <input type="hidden" name="page" :value="currentPage" />
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Owner</label>
             <select
@@ -140,21 +141,12 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.vehicle || '-' }}</td>
             </tr>
           </tbody>
-          <tfoot v-if="allRows.length">
+          <tfoot v-if="paginatedRows.length">
             <tr class="bg-sky-50 font-semibold text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="16">Total Halaman</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalSack) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOut) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
-            </tr>
-            <tr class="bg-sky-200 font-bold text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="16">Grand Total</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalSack) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalIn) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalOut) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
@@ -166,14 +158,14 @@
       <!-- Pagination -->
       <div v-if="totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="text-sm text-slate-400">
-          Menampilkan {{ (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, allRows.length) }} dari {{ allRows.length }} data
+          Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
         </div>
         <div class="flex items-center gap-1">
           <button
             type="button"
             class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="currentPage === 1"
-            @click="currentPage = 1"
+            @click="changePage(1)"
           >
             &laquo;
           </button>
@@ -181,7 +173,7 @@
             type="button"
             class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="currentPage === 1"
-            @click="currentPage--"
+            @click="changePage(currentPage - 1)"
           >
             &lsaquo;
           </button>
@@ -195,7 +187,7 @@
               :class="page === currentPage
                 ? 'border-indigo-500 bg-indigo-600 text-white'
                 : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'"
-              @click="currentPage = page"
+              @click="changePage(page)"
             >
               {{ page }}
             </button>
@@ -205,7 +197,7 @@
             type="button"
             class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="currentPage === totalPages"
-            @click="currentPage++"
+            @click="changePage(currentPage + 1)"
           >
             &rsaquo;
           </button>
@@ -213,7 +205,7 @@
             type="button"
             class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="currentPage === totalPages"
-            @click="currentPage = totalPages"
+            @click="changePage(totalPages)"
           >
             &raquo;
           </button>
@@ -260,6 +252,18 @@ const props = defineProps({
     type: String,
     default: 'Product',
   },
+  currentPage: {
+    type: Number,
+    default: 1,
+  },
+  perPage: {
+    type: Number,
+    default: 25,
+  },
+  totalRows: {
+    type: Number,
+    default: 0,
+  },
 });
 
 const allRows = computed(() => props.rows || []);
@@ -270,16 +274,13 @@ const endDate = computed(() => props.endDate);
 const targetProductId = computed(() => props.targetProductId);
 const customerLabel = computed(() => props.customerName || 'Customer');
 const productLabel = computed(() => props.productName || 'Product');
+const totalRows = computed(() => Number(props.totalRows || 0));
 
-const perPage = 10;
-const currentPage = ref(1);
+const perPage = ref(props.perPage ?? 25);
+const currentPage = ref(props.currentPage ?? 1);
 
-const totalPages = computed(() => Math.max(1, Math.ceil(allRows.value.length / perPage)));
-
-const paginatedRows = computed(() => {
-  const start = (currentPage.value - 1) * perPage;
-  return allRows.value.slice(start, start + perPage);
-});
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / perPage.value)));
+const paginatedRows = computed(() => allRows.value);
 
 const visiblePages = computed(() => {
   const total = totalPages.value;
@@ -347,6 +348,20 @@ function formatDateShort(value) {
 }
 
 function submitFilters() {
+  currentPage.value = 1;
+  submitForm();
+}
+
+function changePage(page) {
+  const safePage = Math.max(1, Math.min(page, totalPages.value));
+  if (safePage === currentPage.value) {
+    return;
+  }
+  currentPage.value = safePage;
+  submitForm();
+}
+
+function submitForm() {
   if (filterForm.value) {
     filterForm.value.submit();
   }

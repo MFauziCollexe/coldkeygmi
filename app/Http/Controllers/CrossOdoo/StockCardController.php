@@ -30,12 +30,36 @@ SQL;
         $targetProductId = $request->input('product_id');
         $startDate = $request->input('start_date', '2026-01-01');
         $endDate = $request->input('end_date', '2026-12-31');
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 25;
 
         if ($targetProductId !== null && $targetProductId !== '') {
             $targetProductId = (int) $targetProductId;
         } else {
             $targetProductId = null;
         }
+
+        try {
+            $start = new \DateTime($startDate);
+            $end = new \DateTime($endDate);
+        } catch (\Exception $exception) {
+            $start = new \DateTime('2026-01-01');
+            $end = new \DateTime('2026-01-31');
+        }
+
+        if ($end < $start) {
+            $end = clone $start;
+        }
+
+        $maxEnd = (clone $start)->modify('+1 month');
+        if ($end > $maxEnd) {
+            $end = $maxEnd;
+        }
+
+        $startDate = $start->format('Y-m-d');
+        $endDate = $end->format('Y-m-d');
+
+        $offset = ($page - 1) * $perPage;
 
         $query = <<<'SQL'
 WITH params AS (
@@ -679,10 +703,16 @@ ORDER BY
 
     fr.seq,
 
-    fr.move_line_id;
+    fr.move_line_id
 SQL;
 
-        $rows = DB::connection('pgsql')->select($query, [$selectedOwnerId, $targetProductId, $startDate, $endDate]);
+        $countQuery = "SELECT COUNT(*) AS total_count FROM ({$query}) AS total_count_wrapper";
+        $rowsQuery = "{$query} LIMIT ? OFFSET ?";
+
+        $countResult = DB::connection('pgsql')->selectOne($countQuery, [$selectedOwnerId, $targetProductId, $startDate, $endDate]);
+        $totalRows = $countResult->total_count ?? 0;
+
+        $rows = DB::connection('pgsql')->select($rowsQuery, [$selectedOwnerId, $targetProductId, $startDate, $endDate, $perPage, $offset]);
 
         $formattedRows = array_map(function ($row) {
             return [
@@ -723,6 +753,9 @@ SQL;
             'targetProductId' => $targetProductId,
             'customerName' => $ownerName,
             'productName' => $productName,
+            'currentPage' => $page,
+            'perPage' => $perPage,
+            'totalRows' => $totalRows,
         ]);
     }
 }
