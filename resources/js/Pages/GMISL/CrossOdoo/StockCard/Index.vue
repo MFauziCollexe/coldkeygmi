@@ -19,7 +19,7 @@
 
       <!-- Excel-like Table -->
       <div class="overflow-x-auto rounded border border-slate-600 bg-white">
-        <table class="w-full border-collapse text-xs" style="table-layout: auto;">
+        <table class="w-full border-collapse text-xs text-slate-900" style="table-layout: auto;">
           <thead>
             <tr class="bg-sky-100 text-slate-900">
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-center font-semibold">No</th>
@@ -49,29 +49,29 @@
             <tr
               v-for="(row, index) in paginatedRows"
               :key="index"
-              :class="index % 2 === 0 ? 'bg-white' : 'bg-slate-50'"
+              :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
               class="hover:bg-blue-50"
             >
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-600">{{ (currentPage - 1) * perPage + index + 1 }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ formatDate(row.transaction_date) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.owner_name || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.product_name || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px]">{{ row.product_code || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px]">{{ row.lot_number || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ formatDateShort(row.expiration_date) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ (currentPage - 1) * perPage + index + 1 }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDate(row.transaction_date) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.owner_name || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.product_name || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.product_code || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.lot_number || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expiration_date) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">
                 <span :class="movementClass(row.movement_type)" class="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight">
                   {{ row.movement_type || '-' }}
                 </span>
               </td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.source_location || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.destination_location || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono">{{ formatNumber(row.qty_in) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono">{{ formatNumber(row.qty_out) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold">{{ formatNumber(row.running_balance) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono">{{ formatNumber(row.x_studio_total_in_sack) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px]">{{ row.gmi_pallet_assigned || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.x_studio_no_kendaraan || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.source_location || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.destination_location || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_out) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold text-slate-900">{{ formatNumber(row.running_balance) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.x_studio_total_in_sack) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.gmi_pallet_assigned || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.x_studio_no_kendaraan || '-' }}</td>
             </tr>
           </tbody>
           <tfoot v-if="allRows.length">
