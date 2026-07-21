@@ -19,8 +19,8 @@
 
       <!-- Filters -->
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4" @change="submitFilters">
-          <input type="hidden" name="page" :value="currentPage" />
+        <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4">
+          <input type="hidden" name="page" v-model.number="currentPage" />
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Owner</label>
             <select
@@ -44,6 +44,7 @@
               type="date"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="startDate"
+              @change="submitFilters"
             />
           </div>
 
@@ -55,6 +56,7 @@
               type="date"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="endDate"
+              @change="submitFilters"
             />
           </div>
 
@@ -216,7 +218,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -352,12 +354,13 @@ function submitFilters() {
   submitForm();
 }
 
-function changePage(page) {
+async function changePage(page) {
   const safePage = Math.max(1, Math.min(page, totalPages.value));
   if (safePage === currentPage.value) {
     return;
   }
   currentPage.value = safePage;
+  await nextTick();
   submitForm();
 }
 
