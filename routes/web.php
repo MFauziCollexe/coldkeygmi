@@ -116,6 +116,9 @@ Route::delete('gmisl/utility/berita-acara/{beritaAcara}', [App\Http\Controllers\
 Route::get('gmisl/utility/stock-card', [App\Http\Controllers\StockCardController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
     ->name('stock-card.index');
+Route::get('gmisl/cross-odoo/stock-card', [App\Http\Controllers\CrossOdoo\StockCardController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
+    ->name('stock-card.cross-odoo.index');
 Route::get('gmisl/utility/stock-card/export', [App\Http\Controllers\StockCardController::class, 'export'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
     ->name('stock-card.export');

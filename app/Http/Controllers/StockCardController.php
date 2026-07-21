@@ -115,6 +115,8 @@ class StockCardController extends Controller
         ]);
     }
 
+    
+
     public function export(Request $request)
     {
         abort_unless(
