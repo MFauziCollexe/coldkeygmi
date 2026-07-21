@@ -18,17 +18,20 @@
           <thead>
             <tr class="bg-slate-800 text-slate-300">
               <th class="border border-slate-700 px-3 py-2">Tanggal</th>
-              <th class="border border-slate-700 px-3 py-2">Reference</th>
-              <th class="border border-slate-700 px-3 py-2">Picking</th>
-              <th class="border border-slate-700 px-3 py-2">Customer</th>
-              <th class="border border-slate-700 px-3 py-2">Product Code</th>
-              <th class="border border-slate-700 px-3 py-2">Product Name</th>
+              <th class="border border-slate-700 px-3 py-2">Owner</th>
+              <th class="border border-slate-700 px-3 py-2">Product</th>
+              <th class="border border-slate-700 px-3 py-2">Code</th>
               <th class="border border-slate-700 px-3 py-2">Lot</th>
+              <th class="border border-slate-700 px-3 py-2">Exp</th>
+              <th class="border border-slate-700 px-3 py-2">Movement</th>
               <th class="border border-slate-700 px-3 py-2">From</th>
               <th class="border border-slate-700 px-3 py-2">To</th>
-              <th class="border border-slate-700 px-3 py-2">Qty Delivered</th>
-              <th class="border border-slate-700 px-3 py-2">Qty Returned</th>
-              <th class="border border-slate-700 px-3 py-2">Running Balance</th>
+              <th class="border border-slate-700 px-3 py-2">Qty In</th>
+              <th class="border border-slate-700 px-3 py-2">Qty Out</th>
+              <th class="border border-slate-700 px-3 py-2">Balance</th>
+              <th class="border border-slate-700 px-3 py-2">Sack</th>
+              <th class="border border-slate-700 px-3 py-2">Pallet</th>
+              <th class="border border-slate-700 px-3 py-2">Vehicle No</th>
             </tr>
           </thead>
           <tbody>
@@ -39,17 +42,20 @@
             </tr>
             <tr v-for="(row, index) in rows" :key="index" class="odd:bg-slate-950 even:bg-slate-900">
               <td class="border border-slate-700 px-3 py-2">{{ formatDate(row.transaction_date) }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.reference || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.picking_number || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.nama_customer || row.customer || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.kode_produk || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.nama_product || '-' }}</td>
+              <td class="border border-slate-700 px-3 py-2">{{ row.owner_name || '-' }}</td>
+              <td class="border border-slate-700 px-3 py-2">{{ row.product_name || '-' }}</td>
+              <td class="border border-slate-700 px-3 py-2">{{ row.product_code || '-' }}</td>
               <td class="border border-slate-700 px-3 py-2">{{ row.lot_number || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.from_location || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2">{{ row.to_location || '-' }}</td>
-              <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.qty_delivered) }}</td>
-              <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.qty_returned) }}</td>
+              <td class="border border-slate-700 px-3 py-2">{{ row.expiration_date || '-' }}</td>
+              <td class="border border-slate-700 px-3 py-2">{{ row.movement_type || '-' }}</td>
+              <td class="border border-slate-700 px-3 py-2">{{ row.source_location || '-' }}</td>
+              <td class="border border-slate-700 px-3 py-2">{{ row.destination_location || '-' }}</td>
+              <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.qty_in) }}</td>
+              <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.qty_out) }}</td>
               <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.running_balance) }}</td>
+              <td class="border border-slate-700 px-3 py-2 text-right">{{ formatNumber(row.x_studio_total_in_sack) }}</td>
+              <td class="border border-slate-700 px-3 py-2">{{ row.gmi_pallet_assigned || '-' }}</td>
+              <td class="border border-slate-700 px-3 py-2">{{ row.x_studio_no_kendaraan || '-' }}</td>
             </tr>
           </tbody>
         </table>

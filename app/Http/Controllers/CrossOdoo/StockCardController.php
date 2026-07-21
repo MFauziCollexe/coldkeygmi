@@ -22,90 +22,229 @@ class StockCardController extends Controller
         }
 
         $query = <<<'SQL'
-WITH params AS (
+WITH
+params AS (
     SELECT
-        ?::integer AS target_partner_id,
-        ?::integer AS target_product_id
+        ?::INTEGER AS p_owner_id,
+        ?::INTEGER AS p_product_id,
+        DATE '2026-01-01' AS p_date_from,
+        DATE '2026-12-31' AS p_date_to
 ),
-customer_stock AS (
+
+opening_balance AS (
+
     SELECT
-        COALESCE(sm.partner_id, sp.partner_id) AS id_customer,
-        rp.name AS nama_customer,
-        p.id AS id_product,
-        p.default_code AS kode_produk,
-        pt.name->>'en_US' AS nama_product,
-        sml.id AS move_line_id,
-        sml.date AS tanggal,
-        sml.reference AS no_referensi,
-        sp.name AS no_picking,
-        sm.origin AS no_so_origin,
+        sml.owner_id,
+        sml.product_id,
+        SUM(
+            CASE
+                WHEN dst.usage='internal' THEN sml.quantity
+                WHEN src.usage='internal' THEN -sml.quantity
+                ELSE 0
+            END
+        ) opening_qty
+
+    FROM stock_move_line sml
+    JOIN stock_location src ON src.id=sml.location_id
+    JOIN stock_location dst ON dst.id=sml.location_dest_id
+    CROSS JOIN params p
+
+    WHERE sml.state='done'
+      AND sml.owner_id=p.p_owner_id
+      AND sml.product_id=p.p_product_id
+      AND sml.date < p.p_date_from
+
+    GROUP BY
+        sml.owner_id,
+        sml.product_id
+),
+
+movement AS (
+
+    SELECT
+
+        sml.id,
+        sml.date,
+
+        sml.owner_id,
+        rp.name AS owner_name,
+
+        sml.product_id,
+        pp.default_code,
+        pt.name->>'en_US' AS product_name,
+
         lot.name AS lot_number,
-        sl_src.complete_name AS dari_lokasi,
-        sl_dest.complete_name AS ke_lokasi,
-        CASE WHEN sl_dest.usage = 'customer' THEN sml.quantity ELSE 0 END AS qty_dikirim,
-        CASE WHEN sl_src.usage = 'customer' THEN sml.quantity ELSE 0 END AS qty_diretur,
+
+        sml.expiration_date,
+
+        src.complete_name AS source_location,
+        dst.complete_name AS destination_location,
+
+        sp.name AS picking_no,
+        sm.origin,
+
+        sp.x_studio_no_kendaraan,
+
+        sml.gmi_pallet_assigned,
+
+        sml.x_studio_total_in_sack,
+
         CASE
-            WHEN sl_dest.usage = 'customer' THEN sml.quantity
-            WHEN sl_src.usage = 'customer' THEN -sml.quantity
+
+            WHEN src.usage='supplier'
+             AND dst.usage='internal'
+            THEN 'RECEIPT'
+
+            WHEN src.usage='internal'
+             AND dst.usage='customer'
+            THEN 'DELIVERY'
+
+            WHEN src.usage='customer'
+             AND dst.usage='internal'
+            THEN 'CUSTOMER RETURN'
+
+            WHEN src.usage='internal'
+             AND dst.usage='supplier'
+            THEN 'VENDOR RETURN'
+
+            WHEN src.usage='internal'
+             AND dst.usage='internal'
+            THEN 'TRANSFER'
+
+            WHEN src.usage='inventory'
+            THEN 'ADJUSTMENT IN'
+
+            WHEN dst.usage='inventory'
+            THEN 'ADJUSTMENT OUT'
+
+            ELSE 'OTHER'
+
+        END AS movement_type,
+
+        CASE
+            WHEN dst.usage='internal'
+            THEN sml.quantity
             ELSE 0
-        END AS net_qty
-    FROM public.stock_move_line sml
-    CROSS JOIN params pr
-    JOIN public.product_product p ON sml.product_id = p.id
-    JOIN public.product_template pt ON p.product_tmpl_id = pt.id
-    JOIN public.stock_location sl_src ON sml.location_id = sl_src.id
-    JOIN public.stock_location sl_dest ON sml.location_dest_id = sl_dest.id
-    LEFT JOIN public.stock_move sm ON sml.move_id = sm.id
-    LEFT JOIN public.stock_picking sp ON sml.picking_id = sp.id
-    LEFT JOIN public.res_partner rp ON COALESCE(sm.partner_id, sp.partner_id) = rp.id
-    LEFT JOIN public.stock_lot lot ON sml.lot_id = lot.id
-    WHERE sml.state = 'done'
-      AND COALESCE(sm.partner_id, sp.partner_id) = pr.target_partner_id
-      AND (pr.target_product_id IS NULL OR sml.product_id = pr.target_product_id)
-      AND (sl_src.usage = 'customer' OR sl_dest.usage = 'customer')
+        END qty_in,
+
+        CASE
+            WHEN src.usage='internal'
+            THEN sml.quantity
+            ELSE 0
+        END qty_out,
+
+        CASE
+            WHEN dst.usage='internal'
+            THEN sml.quantity
+
+            WHEN src.usage='internal'
+            THEN -sml.quantity
+
+            ELSE 0
+        END net_qty
+
+    FROM stock_move_line sml
+
+    JOIN stock_move sm
+      ON sm.id=sml.move_id
+
+    LEFT JOIN stock_picking sp
+      ON sp.id=sml.picking_id
+
+    JOIN stock_location src
+      ON src.id=sml.location_id
+
+    JOIN stock_location dst
+      ON dst.id=sml.location_dest_id
+
+    JOIN res_partner rp
+      ON rp.id=sml.owner_id
+
+    JOIN product_product pp
+      ON pp.id=sml.product_id
+
+    JOIN product_template pt
+      ON pt.id=pp.product_tmpl_id
+
+    LEFT JOIN stock_lot lot
+      ON lot.id=sml.lot_id
+
+    CROSS JOIN params p
+
+    WHERE sml.state='done'
+      AND sml.owner_id=p.p_owner_id
+      AND sml.product_id=p.p_product_id
+      AND sml.date BETWEEN p.p_date_from AND p.p_date_to
+
 )
+
 SELECT
-    id_customer,
-    nama_customer,
-    id_product,
-    kode_produk,
-    nama_product,
-    tanggal,
-    no_referensi,
-    no_picking,
-    no_so_origin,
-    lot_number,
-    dari_lokasi,
-    ke_lokasi,
-    qty_dikirim,
-    qty_diretur,
-    SUM(net_qty) OVER (
-        PARTITION BY id_customer, id_product
-        ORDER BY tanggal ASC, move_line_id ASC
-    ) AS saldo_stok_customer
-FROM customer_stock
-ORDER BY tanggal ASC, move_line_id ASC;
+
+    m.date,
+
+    m.owner_name,
+
+    m.product_name,
+
+    m.default_code,
+
+    m.lot_number,
+
+    m.expiration_date,
+
+    m.movement_type,
+
+    m.source_location,
+
+    m.destination_location,
+
+    m.qty_in,
+
+    m.qty_out,
+
+    COALESCE(o.opening_qty,0)
+    +
+    SUM(m.net_qty)
+    OVER(
+        ORDER BY m.date,m.id
+    ) AS balance,
+
+    m.x_studio_total_in_sack,
+
+    m.gmi_pallet_assigned,
+
+    m.x_studio_no_kendaraan
+
+FROM movement m
+
+LEFT JOIN opening_balance o
+ON o.owner_id=m.owner_id
+AND o.product_id=m.product_id
+
+ORDER BY
+m.date,
+m.id;
 SQL;
 
         $rows = DB::connection('pgsql')->select($query, [$targetPartnerId, $targetProductId]);
 
         $formattedRows = array_map(function ($row) {
             return [
-                'id_customer' => $row->id_customer,
-                'nama_customer' => $row->nama_customer,
-                'id_product' => $row->id_product,
-                'kode_produk' => $row->kode_produk,
-                'nama_product' => $row->nama_product,
-                'transaction_date' => $row->tanggal,
-                'reference' => $row->no_referensi,
-                'picking_number' => $row->no_picking,
-                'so_origin' => $row->no_so_origin,
+                'transaction_date' => $row->date,
+                'owner_name' => $row->owner_name,
+                'product_name' => $row->product_name,
+                'product_code' => $row->default_code,
                 'lot_number' => $row->lot_number,
-                'from_location' => $row->dari_lokasi,
-                'to_location' => $row->ke_lokasi,
-                'qty_delivered' => (float) ($row->qty_dikirim ?? 0),
-                'qty_returned' => (float) ($row->qty_diretur ?? 0),
-                'running_balance' => (float) ($row->saldo_stok_customer ?? 0),
+                'expiration_date' => $row->expiration_date,
+                'movement_type' => $row->movement_type,
+                'source_location' => $row->source_location,
+                'destination_location' => $row->destination_location,
+                'qty_in' => (float) ($row->qty_in ?? 0),
+                'qty_out' => (float) ($row->qty_out ?? 0),
+                'running_balance' => (float) ($row->balance ?? 0),
+                'x_studio_total_in_sack' => $row->x_studio_total_in_sack,
+                'gmi_pallet_assigned' => $row->gmi_pallet_assigned,
+                'x_studio_no_kendaraan' => $row->x_studio_no_kendaraan,
             ];
         }, $rows);
 
