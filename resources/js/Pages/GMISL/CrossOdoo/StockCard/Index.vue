@@ -27,16 +27,23 @@
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Owner</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Product</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Code</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Lot</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Exp</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Movement</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Document</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Reference</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Origin</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Movement Type</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Direction</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">From</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">To</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Lot</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Exp</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Package</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Pallet</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Sack</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Qty In</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Qty Out</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Net Change</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Balance</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Sack</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Pallet</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Closing</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Vehicle No</th>
             </tr>
           </thead>
@@ -57,39 +64,48 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.owner_name || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.product_name || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.product_code || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.lot_number || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expiration_date) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.document_number || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.reference || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.origin || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">
                 <span :class="movementClass(row.movement_type)" class="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight">
                   {{ row.movement_type || '-' }}
                 </span>
               </td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.movement_direction || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.source_location || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.destination_location || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.lot_number || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expiration_date) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.package_name || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.pallet || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.sack) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_out) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.net_change) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold text-slate-900">{{ formatNumber(row.running_balance) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.x_studio_total_in_sack) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.gmi_pallet_assigned || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.x_studio_no_kendaraan || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.closing_balance) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.vehicle || '-' }}</td>
             </tr>
           </tbody>
           <tfoot v-if="allRows.length">
             <tr class="bg-sky-50 font-semibold text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="10">Total Halaman</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="16">Total Halaman</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalSack) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOut) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">-</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalSack) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="2"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
             </tr>
             <tr class="bg-sky-200 font-bold text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="10">Grand Total</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="16">Grand Total</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalSack) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalOut) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">-</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalSack) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="2"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5"></td>
             </tr>
           </tfoot>
         </table>
