@@ -21,7 +21,7 @@
       <div class="overflow-x-auto rounded border border-slate-600 bg-white">
         <table class="w-full border-collapse text-xs" style="table-layout: auto;">
           <thead>
-            <tr class="bg-slate-100 text-slate-700">
+            <tr class="bg-sky-100 text-slate-900">
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-center font-semibold">No</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Tanggal</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Owner</th>
@@ -52,7 +52,7 @@
               :class="index % 2 === 0 ? 'bg-white' : 'bg-slate-50'"
               class="hover:bg-blue-50"
             >
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-500">{{ (currentPage - 1) * perPage + index + 1 }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-600">{{ (currentPage - 1) * perPage + index + 1 }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ formatDate(row.transaction_date) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.owner_name || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1">{{ row.product_name || '-' }}</td>
@@ -75,7 +75,7 @@
             </tr>
           </tbody>
           <tfoot v-if="allRows.length">
-            <tr class="bg-slate-100 font-semibold text-slate-700">
+            <tr class="bg-sky-50 font-semibold text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="10">Total Halaman</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOut) }}</td>
@@ -83,7 +83,7 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalSack) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="2"></td>
             </tr>
-            <tr class="bg-slate-200 font-bold text-slate-800">
+            <tr class="bg-sky-200 font-bold text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="10">Grand Total</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(grandTotalOut) }}</td>
