@@ -1038,7 +1038,7 @@ const allEmployeeGroups = computed(() => {
         name,
         nrp: String(row?.nrp || row?.employee_nrp || row?.pin || '-'),
         departmentName: String(row?.department_name || '-'),
-        supervisorName: String(row?.supervisor_name || '-'),
+        supervisorName: normalizeReportingToName(row?.supervisor_name),
         totalAbsensi: 0,
         totalTerlambat: 0,
         totalAbsen: 0,
@@ -1107,9 +1107,8 @@ function filterGroupsBySelections(groups, {
     }
 
     if (includeReportingTos && selectedReportingToSet.size > 0) {
-      const hasNoReportingTo = selectedReportingToSet.has(NO_REPORTING_TO_LABEL);
-      const isMissingSupervisor = supervisorName === '' || supervisorName === '-';
-      if (!selectedReportingToSet.has(supervisorName) && !(hasNoReportingTo && isMissingSupervisor)) {
+      const normalizedSupervisor = normalizeReportingToName(supervisorName);
+      if (!selectedReportingToSet.has(normalizedSupervisor)) {
         return false;
       }
     }
@@ -1126,6 +1125,11 @@ const filterGroupsByDepartmentOnly = computed(() => filterGroupsBySelections(all
 
 const NO_REPORTING_TO_LABEL = '(Belum Ada Reporting To)';
 
+function normalizeReportingToName(value) {
+  const name = String(value || '').trim();
+  return name === '' || name === '-' ? NO_REPORTING_TO_LABEL : name;
+}
+
 const departmentOptions = computed(() => allEmployeeGroups.value
   .map((group) => String(group?.departmentName || '').trim())
   .filter((name) => name !== '' && name !== '-')
@@ -1134,17 +1138,11 @@ const departmentOptions = computed(() => allEmployeeGroups.value
 
 const reportingToOptions = computed(() => {
   const names = allEmployeeGroups.value
-    .map((group) => String(group?.supervisorName || '').trim())
-    .filter((name) => name !== '' && name !== '-')
+    .map((group) => normalizeReportingToName(group?.supervisorName))
+    .filter((name) => name !== '')
     .sort((a, b) => a.localeCompare(b));
 
-  const uniqueNames = names.filter((name, index, array) => array.indexOf(name) === index);
-  const hasMissing = allEmployeeGroups.value.some((group) => {
-    const name = String(group?.supervisorName || '').trim();
-    return name === '' || name === '-';
-  });
-
-  return hasMissing ? [NO_REPORTING_TO_LABEL, ...uniqueNames] : uniqueNames;
+  return names.filter((name, index, array) => array.indexOf(name) === index);
 });
 
 const pinOptions = computed(() => filterGroupsByDepartmentOnly.value
@@ -1372,7 +1370,7 @@ const employeeGroups = computed(() => {
     const departmentName = String(group?.departmentName || '');
     const pin = String(group?.pin || '');
     const name = String(group?.name || '');
-    const supervisorName = String(group?.supervisorName || '');
+    const supervisorName = normalizeReportingToName(String(group?.supervisorName || ''));
     return selectedDepartmentSet.has(departmentName)
       && selectedPinSet.has(pin)
       && selectedNameSet.has(name)
