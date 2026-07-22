@@ -40,7 +40,14 @@ export function useFireSafety(entry, { showQrScanner }) {
     return Array.isArray(entry.value.form.approved_months) ? entry.value.form.approved_months : []
   })
 
+  const fireSafetySubmittedMonths = computed(() => {
+    if (!isFireSafety.value || !entry.value) return []
+    return Array.isArray(entry.value.form.submitted_months) ? entry.value.form.submitted_months : []
+  })
+
   const isActiveFireSafetyMonthApproved = computed(() => fireSafetyApprovedMonths.value.includes(activeFireSafetyMonth.value))
+
+  const isActiveFireSafetyMonthSubmitted = computed(() => fireSafetySubmittedMonths.value.includes(activeFireSafetyMonth.value))
 
   const fireSafetyMonthValidation = computed(() => {
     if (!isFireSafety.value || !entry.value) return { allAnswersFilled: false, hasNoAnswer: false, hasRequiredNote: false }
@@ -67,7 +74,9 @@ export function useFireSafety(entry, { showQrScanner }) {
     entry.value.form.location_records = {
       ...(entry.value.form.location_records || {}),
       [recordKey]: createFireSafetyLocationState(cardType, {
+        submitted_months: entry.value.form.submitted_months || [],
         approved_months: entry.value.form.approved_months || [],
+        monthly_hse_approved_by: entry.value.form.monthly_hse_approved_by || {},
         monthly_notes: entry.value.form.monthly_notes || {},
         monthly_barcodes: entry.value.form.monthly_barcodes || {},
         monthly_check_dates: entry.value.form.monthly_check_dates || {},
@@ -80,7 +89,9 @@ export function useFireSafety(entry, { showQrScanner }) {
     if (!entry.value || !isFireSafety.value) return
     const recordKey = getFireSafetyRecordKey(cardType, locationId)
     const currentState = entry.value.form.location_records?.[recordKey] || createFireSafetyLocationState(cardType)
+    entry.value.form.submitted_months = [...(currentState.submitted_months || [])]
     entry.value.form.approved_months = [...(currentState.approved_months || [])]
+    entry.value.form.monthly_hse_approved_by = { ...(currentState.monthly_hse_approved_by || {}) }
     entry.value.form.monthly_notes = { ...(currentState.monthly_notes || {}) }
     entry.value.form.monthly_barcodes = { ...(currentState.monthly_barcodes || {}) }
     entry.value.form.monthly_check_dates = { ...(currentState.monthly_check_dates || {}) }
@@ -104,7 +115,7 @@ export function useFireSafety(entry, { showQrScanner }) {
   }
 
   function cycleFireSafetyMonthAnswer(row, monthKey) {
-    if (!row?.months || !isFireSafety.value || isActiveFireSafetyMonthApproved.value || monthKey !== activeFireSafetyMonth.value) return
+    if (!row?.months || !isFireSafety.value || isActiveFireSafetyMonthApproved.value || isActiveFireSafetyMonthSubmitted.value || monthKey !== activeFireSafetyMonth.value) return
     const currentValue = row.months?.[monthKey] || ''
     const nextValue = currentValue === '' ? 'yes' : currentValue === 'yes' ? 'no' : ''
     row.months = { ...row.months, [monthKey]: nextValue }
@@ -118,8 +129,8 @@ export function useFireSafety(entry, { showQrScanner }) {
 
   return {
     isFireSafety, activeFireSafetyMonth, fireSafetyCardTitle, fireSafetyLocationOptions,
-    fireSafetyMonthNote, currentFireSafetyBarcode, fireSafetyApprovedMonths,
-    isActiveFireSafetyMonthApproved, fireSafetyMonthValidation, canScanFireSafety,
+    fireSafetyMonthNote, currentFireSafetyBarcode, fireSafetyApprovedMonths, fireSafetySubmittedMonths,
+    isActiveFireSafetyMonthApproved, isActiveFireSafetyMonthSubmitted, fireSafetyMonthValidation, canScanFireSafety,
     fireSafetyCardOptions,
     persistCurrentFireSafetyState, updateFireSafetyCardType, updateFireSafetyLocation,
     cycleFireSafetyMonthAnswer, updateFireSafetyMonthNote, setFireSafetyActiveMonth,

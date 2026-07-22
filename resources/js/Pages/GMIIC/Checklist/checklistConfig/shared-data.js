@@ -121,20 +121,23 @@ export const fireSafetyLocationOptionsByType = {
 
 export const fireSafetyItemsByType = {
     apar: [
-        { id: "tabung_apar", name: "Tabung APAR" },
-        { id: "segel_tabung", name: "Segel Tabung" },
-        { id: "jarum", name: "Jarum" },
+        { id: "indikator_tekanan", name: "Indikator Tekanan" },
+        { id: "pin_segel", name: "Pin/Segel" },
         { id: "selang", name: "Selang" },
-        { id: "peniti", name: "Peniti" },
-        { id: "tekanan", name: "Tekanan" },
+        { id: "klem_selang", name: "Klem Selang" },
+        { id: "handle", name: "Handle" },
+        { id: "kondisi_fisik_tabung", name: "Kondisi Fisik Tabung" },
     ],
     smoke_detector: [
-        { id: "kondisi_fisik", name: "Kondisi Fisik" },
-        { id: "lampu_indikator", name: "Lampu Indikator" },
+        { id: "alaram_menyala", name: "Alaram Menyala ketika ada asap di smoke detector" },
     ],
     fire_alarm: [
-        { id: "kondisi_fisik", name: "Kondisi Fisik" },
-        { id: "sirine", name: "Sirine" },
-        { id: "tombol", name: "Tombol" },
+        { id: "terlihat_jelas", name: "Terlihat Jelas" },
+        { id: "mudah_dijangkau", name: "Mudah Dijangkau" },
+        { id: "tidak_terhalang_barang", name: "Tidak Terhalang Barang" },
+        { id: "label_push_here", name: "Label Push Here Terbaca Jelas" },
+        { id: "tombol_dapat_ditekan", name: "Tombol Dapat Ditekan saat Uji Fungsi" },
+        { id: "dapat_direset", name: "Dapat direset Kembali setelah pengujian" },
+        { id: "kondisi_bersih", name: "Kondisi Bersih dan Tidak Berdebu" },
     ],
 };

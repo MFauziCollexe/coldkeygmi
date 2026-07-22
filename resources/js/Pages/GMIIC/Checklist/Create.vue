@@ -255,6 +255,7 @@ const currentTemplateProps = computed(() => {
     canScanBarcode: fireSafety.canScanFireSafety.value,
     canApproveEntry: canApproveEntry.value,
     isActiveMonthApproved: fireSafety.isActiveFireSafetyMonthApproved.value,
+    isActiveMonthSubmitted: fireSafety.isActiveFireSafetyMonthSubmitted.value,
     showQrScanner: showQrScanner.value,
     onApprove: approveChecklist, onScanBarcode: scanner.scanFireSafetyBarcode,
     onUpdateCardType: fireSafety.updateFireSafetyCardType,
@@ -675,6 +676,7 @@ const canApproveEntry = computed(() => {
 
   if (tid === 'apar_smoke_detector_fire_alarm') {
     if (!canApproveCurrentTemplate.value || fireSafety.isActiveFireSafetyMonthApproved.value) return false
+    if (fireSafety.isActiveFireSafetyMonthSubmitted.value) return true
     return Boolean(String(entry.value.form.card_type || '').trim() && String(entry.value.form.location || '').trim())
       && fireSafety.fireSafetyMonthValidation.value.allAnswersFilled
       && (showQrScanner.value ? String(fireSafety.currentFireSafetyBarcode.value || '').trim() !== '' : true)
@@ -811,10 +813,19 @@ async function approveChecklist() {
   }
 
   if (tid === 'apar_smoke_detector_fire_alarm') {
+    const activeMonth = fireSafety.activeFireSafetyMonth.value
     fireSafety.persistCurrentFireSafetyState()
-    entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), fireSafety.activeFireSafetyMonth.value])]
-    entry.value.form.monthly_check_dates = { ...(entry.value.form.monthly_check_dates || {}), [fireSafety.activeFireSafetyMonth.value]: formatDateDisplay(now) }
-    entry.value.form.approved = true
+    entry.value.form.monthly_check_dates = { ...(entry.value.form.monthly_check_dates || {}), [activeMonth]: formatDateDisplay(now) }
+
+    if (fireSafety.isActiveFireSafetyMonthSubmitted.value) {
+      entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
+      entry.value.form.submitted_months = (entry.value.form.submitted_months || []).filter((m) => m !== activeMonth)
+      entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
+      entry.value.form.approved = fireSafety.fireSafetyApprovedMonths.value.length + 1 >= 12
+    } else {
+      entry.value.form.submitted_months = [...new Set([...(entry.value.form.submitted_months || []), activeMonth])]
+      entry.value.form.approved = false
+    }
     fireSafety.persistCurrentFireSafetyState()
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
     return
@@ -942,13 +953,22 @@ function findSameYearKotakP3KEntry(entries = []) {
   ) || null
 }
 
+function findSameYearFireSafetyEntry(entries = []) {
+  const currentYear = String(new Date().getFullYear())
+  return (Array.isArray(entries) ? entries : []).find(
+    (savedEntry) =>
+      savedEntry?.template_id === 'apar_smoke_detector_fire_alarm' &&
+      String(savedEntry?.form?.year || '').trim() === currentYear,
+  ) || null
+}
+
 function createEntryByTemplate(templateId, options = {}) {
   const userName = page.props.auth?.user?.name || 'User Login'
   const continuableEntry = options.continuableEntry || null
   const handlers = {
     kotak_p3k: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createKotakP3KEntry(userName),
     non_warehouse_sanitation: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createNonWarehouseSanitationEntry(userName),
-    apar_smoke_detector_fire_alarm: () => createFireSafetyEntry(userName),
+    apar_smoke_detector_fire_alarm: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createFireSafetyEntry(userName),
     pengangkutan_sampah_pt_sier: () => createWasteTransportEntry(userName),
     warehouse_sanitation_1: () => createWarehouseSanitationEntry(userName),
     personal_hygiene_karyawan: () => createPersonalHygieneEntry(userName),
@@ -977,7 +997,8 @@ function createInitialEntry() {
   const continuablePatroliEntry = selectedChecklist.value === 'patroli_security' ? patroliSecurity.findOpenPatroliSecurityDraft(props.existingEntries) : null
   const continuableCleaningOBEntry = selectedChecklist.value === 'jadwal_cleaning_ob' ? cleaningOB.findOpenCleaningOBDraft(props.existingEntries) : null
   const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(props.existingEntries) : null
-  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableKotakP3KEntry })
+  const continuableFireSafetyEntry = selectedChecklist.value === 'apar_smoke_detector_fire_alarm' ? findSameYearFireSafetyEntry(props.existingEntries) : null
+  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableKotakP3KEntry || continuableFireSafetyEntry })
 }
 
 function refreshEntry() {
@@ -986,8 +1007,9 @@ function refreshEntry() {
   const continuablePatroliEntry = selectedChecklist.value === 'patroli_security' ? patroliSecurity.findOpenPatroliSecurityDraft(knownChecklistEntries.value) : null
   const continuableCleaningOBEntry = selectedChecklist.value === 'jadwal_cleaning_ob' ? cleaningOB.findOpenCleaningOBDraft(knownChecklistEntries.value) : null
   const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(knownChecklistEntries.value) : null
-  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableKotakP3KEntry })
-  if ((continuableSanitationEntry && entry.value?.id === continuableSanitationEntry.id) || (continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id) || (continuableKotakP3KEntry && entry.value?.id === continuableKotakP3KEntry.id)) syncCurrentEntryUrl(entry.value)
+  const continuableFireSafetyEntry = selectedChecklist.value === 'apar_smoke_detector_fire_alarm' ? findSameYearFireSafetyEntry(knownChecklistEntries.value) : null
+  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableKotakP3KEntry || continuableFireSafetyEntry })
+  if ((continuableSanitationEntry && entry.value?.id === continuableSanitationEntry.id) || (continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id) || (continuableKotakP3KEntry && entry.value?.id === continuableKotakP3KEntry.id) || (continuableFireSafetyEntry && entry.value?.id === continuableFireSafetyEntry.id)) syncCurrentEntryUrl(entry.value)
 }
 
 // ─── Initial Save State ──────────────────────────────────────

@@ -398,6 +398,10 @@ function getChecklistStatusLabel(entry) {
     return 'Waiting HSE';
   }
 
+  if (entry?.template_id === 'apar_smoke_detector_fire_alarm' && Array.isArray(entry?.form?.submitted_months) && entry.form.submitted_months.length) {
+    return 'Waiting HSE';
+  }
+
   if (entry?.template_id === 'personal_hygiene_karyawan' && entry?.form?.generated_at && !entry?.form?.approved) {
     return 'Generated';
   }

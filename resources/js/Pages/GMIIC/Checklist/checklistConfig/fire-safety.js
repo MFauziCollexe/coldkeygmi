@@ -50,9 +50,16 @@ export function createFireSafetyLocationState(
     existingState = {},
 ) {
     return {
+        submitted_months: Array.isArray(existingState?.submitted_months)
+            ? [...existingState.submitted_months]
+            : [],
         approved_months: Array.isArray(existingState?.approved_months)
             ? [...existingState.approved_months]
             : [],
+        monthly_hse_approved_by: {
+            ...createFireSafetyMonthValue(""),
+            ...(existingState?.monthly_hse_approved_by || {}),
+        },
         monthly_notes: {
             ...createFireSafetyMonthValue(""),
             ...(existingState?.monthly_notes || {}),
@@ -112,7 +119,9 @@ export function createFireSafetyEntry(userName) {
             year: String(now.getFullYear()),
             active_month: activeMonth,
             approved: false,
+            submitted_months: [],
             approved_months: [],
+            monthly_hse_approved_by: createFireSafetyMonthValue(""),
             monthly_notes: createFireSafetyMonthValue(""),
             monthly_barcodes: createFireSafetyMonthValue(""),
             monthly_check_dates: createFireSafetyMonthValue(""),

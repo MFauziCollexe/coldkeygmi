@@ -40,12 +40,16 @@
           type="button"
           :disabled="!canApproveEntry"
           class="rounded px-4 py-2 text-sm font-semibold transition"
-          :class="canApproveEntry
-            ? 'bg-amber-500 text-white hover:bg-amber-400'
-            : 'cursor-not-allowed bg-slate-300 text-slate-500'"
+          :class="isActiveMonthApproved
+            ? 'bg-emerald-500 text-white'
+            : isActiveMonthSubmitted
+              ? 'bg-amber-500 text-white'
+              : canApproveEntry
+                ? 'bg-amber-500 text-white hover:bg-amber-400'
+                : 'cursor-not-allowed bg-slate-300 text-slate-500'"
           @click="$emit('approve')"
         >
-          Approval
+          {{ isActiveMonthApproved ? 'Approved' : isActiveMonthSubmitted ? 'Waiting HSE' : 'Submit' }}
         </button>
       </div>
     </div>
@@ -172,7 +176,7 @@
               <button
                 type="button"
                 class="flex h-9 w-full items-center justify-center text-sm font-semibold"
-                :disabled="month.key !== activeMonth || isActiveMonthApproved"
+                :disabled="month.key !== activeMonth || isActiveMonthApproved || isActiveMonthSubmitted"
                 @click="$emit('cycle-month-answer', row, month.key)"
               >
                 <span v-if="row.months?.[month.key] === 'yes'">✓</span>
@@ -201,7 +205,7 @@
         :value="monthNote"
         rows="4"
         class="w-full rounded border border-slate-400 bg-slate-100 px-3 py-2 text-sm text-slate-900"
-        :disabled="isActiveMonthApproved"
+        :disabled="isActiveMonthApproved || isActiveMonthSubmitted"
         placeholder="Isi catatan / temuan untuk bulan aktif..."
         @input="$emit('update-month-note', $event.target.value)"
       ></textarea>
@@ -262,6 +266,10 @@ defineProps({
   isActiveMonthApproved: {
     type: Boolean,
     required: true,
+  },
+  isActiveMonthSubmitted: {
+    type: Boolean,
+    default: false,
   },
 });
 
