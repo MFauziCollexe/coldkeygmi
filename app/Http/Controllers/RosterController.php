@@ -420,11 +420,14 @@ class RosterController extends Controller
                 $saved++;
             }
 
+            // Only clear `is_current` for approved batches uploaded by the same uploader
+            // so different uploaders can each have their own "current" approved batch
             RosterUploadBatch::query()
                 ->where('department_id', $batch->department_id)
                 ->where('year', $batch->year)
                 ->where('month', $batch->month)
                 ->where('status', 'approved')
+                ->where('uploaded_by', $batch->uploaded_by)
                 ->update(['is_current' => false]);
 
             $batch->update([
@@ -1577,8 +1580,9 @@ class RosterController extends Controller
             ->when(!empty($departmentIds), function ($query) use ($departmentIds) {
                 $query->whereIn('department_id', array_map('intval', $departmentIds));
             })
-            ->selectRaw('department_id, year, month, MAX(id) as latest_id')
-            ->groupBy('department_id', 'year', 'month')
+            // Include uploaded_by so the effective current batch is determined per uploader
+            ->selectRaw('department_id, year, month, uploaded_by, MAX(id) as latest_id')
+            ->groupBy('department_id', 'year', 'month', 'uploaded_by')
             ->pluck('latest_id')
             ->map(fn ($id) => (int) $id)
             ->values()
