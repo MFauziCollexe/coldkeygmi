@@ -122,8 +122,9 @@ const canUseSelectedChecklist = computed(() => supportedTemplatesList.includes(s
 const canApproveCurrentTemplate = computed(() => Boolean(currentChecklistTemplatePermissions.value.approve))
 const showQrScanner = computed(() => !Boolean(checklistSettings.value.qr_bypass_enabled))
 const checklistAbilities = computed(() => props.checklistAbilities || page.props.checklistAbilities || {})
-const canApproveKotakP3KHse = computed(() => Boolean(checklistAbilities.value.kotak_p3k_hse_approve))
-const canApproveWarehouseFinal = computed(() => Boolean(checklistAbilities.value.warehouse_final_approve))
+  const canApproveKotakP3KHse = computed(() => Boolean(checklistAbilities.value.kotak_p3k_hse_approve))
+  const canApproveFireSafetyHse = computed(() => Boolean(checklistAbilities.value.fire_safety_hse_approve))
+  const canApproveWarehouseFinal = computed(() => Boolean(checklistAbilities.value.warehouse_final_approve))
 
 const supportedTemplates = supportedTemplatesList
 
@@ -131,7 +132,7 @@ const supportedTemplates = supportedTemplatesList
 const persistence = usePersistence({ props, selectedChecklist, entry, supportedTemplates })
 const { knownChecklistEntries, saveState, saveError, saveStateLabel, saveStateClass, cloneChecklistEntry, buildEntrySignature, upsertKnownChecklistEntry, upsertKnownChecklistEntries, syncCurrentEntryUrl, persistChecklistEntry, persistChecklistEntries, syncSaveStateWithEntry, buildDigitalSignature } = persistence
 
-const kotakP3K = useKotakP3K(entry, { showQrScanner })
+const kotakP3K = useKotakP3K(entry, { showQrScanner, canApproveHse: canApproveKotakP3KHse })
 const fireSafety = useFireSafety(entry, { showQrScanner })
 const sanitation = useSanitation(entry, { currentUser, canApproveCurrentTemplate, showQrScanner })
 const wasteTransport = useWasteTransport(entry)
@@ -254,6 +255,7 @@ const currentTemplateProps = computed(() => {
     currentBarcode: fireSafety.currentFireSafetyBarcode.value,
     canScanBarcode: fireSafety.canScanFireSafety.value,
     canApproveEntry: canApproveEntry.value,
+    canApproveHse: canApproveFireSafetyHse.value,
     isActiveMonthApproved: fireSafety.isActiveFireSafetyMonthApproved.value,
     isActiveMonthSubmitted: fireSafety.isActiveFireSafetyMonthSubmitted.value,
     showQrScanner: showQrScanner.value,
@@ -604,6 +606,7 @@ const canApproveEntry = computed(() => {
     if (!canApproveCurrentTemplate.value) return false
     if (kotakP3K.isActiveKotakP3KMonthApproved.value) return false
     if (kotakP3K.isActiveKotakP3KMonthSubmitted.value) return canApproveKotakP3KHse.value
+    if (canApproveKotakP3KHse.value) return true
     return kotakP3K.kotakP3KMonthValidation.value.allAnswersFilled
       && (!kotakP3K.kotakP3KMonthValidation.value.hasNoAnswer || kotakP3K.kotakP3KMonthValidation.value.hasRequiredNote)
       && (showQrScanner.value ? String(kotakP3K.currentKotakP3KBarcode.value || '').trim() !== '' : true)
@@ -676,7 +679,7 @@ const canApproveEntry = computed(() => {
 
   if (tid === 'apar_smoke_detector_fire_alarm') {
     if (!canApproveCurrentTemplate.value || fireSafety.isActiveFireSafetyMonthApproved.value) return false
-    if (fireSafety.isActiveFireSafetyMonthSubmitted.value) return true
+    if (fireSafety.isActiveFireSafetyMonthSubmitted.value) return canApproveFireSafetyHse.value
     return Boolean(String(entry.value.form.card_type || '').trim() && String(entry.value.form.location || '').trim())
       && fireSafety.fireSafetyMonthValidation.value.allAnswersFilled
       && (showQrScanner.value ? String(fireSafety.currentFireSafetyBarcode.value || '').trim() !== '' : true)
@@ -804,6 +807,10 @@ async function approveChecklist() {
       entry.value.form.submitted_months = (entry.value.form.submitted_months || []).filter((m) => m !== activeMonth)
       entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
       entry.value.form.approved = true
+    } else if (canApproveKotakP3KHse.value) {
+      entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
+      entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
+      entry.value.form.approved = true
     } else {
       entry.value.form.submitted_months = [...new Set([...(entry.value.form.submitted_months || []), activeMonth])]
       entry.value.form.approved = false
@@ -820,6 +827,10 @@ async function approveChecklist() {
     if (fireSafety.isActiveFireSafetyMonthSubmitted.value) {
       entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
       entry.value.form.submitted_months = (entry.value.form.submitted_months || []).filter((m) => m !== activeMonth)
+      entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
+      entry.value.form.approved = fireSafety.fireSafetyApprovedMonths.value.length + 1 >= 12
+    } else if (canApproveFireSafetyHse.value) {
+      entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
       entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
       entry.value.form.approved = fireSafety.fireSafetyApprovedMonths.value.length + 1 >= 12
     } else {

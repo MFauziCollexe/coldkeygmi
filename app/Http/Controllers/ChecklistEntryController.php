@@ -317,6 +317,7 @@ class ChecklistEntryController extends Controller
             'delete_entries' => $accessRules->allows($user, 'gmiic_checklist', 'delete_entries'),
             'qr_bypass_manage' => $accessRules->allows($user, 'gmiic_checklist', 'qr_bypass_manage'),
             'kotak_p3k_hse_approve' => $accessRules->allows($user, 'gmiic_checklist', 'kotak_p3k_hse_approve'),
+            'fire_safety_hse_approve' => $accessRules->allows($user, 'gmiic_checklist', 'fire_safety_hse_approve'),
             'warehouse_final_approve' => $accessRules->allows($user, 'gmiic_checklist', 'warehouse_final_approve'),
         ];
     }

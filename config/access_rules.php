@@ -348,6 +348,13 @@ return [
                     ['type' => 'position_code', 'value' => 'HSE'],
                     ['type' => 'position_name_contains', 'value' => 'HSE'],
                 ],
+                'fire_safety_hse_approve' => [
+                    ['type' => 'admin'],
+                    ['type' => 'department_code', 'value' => 'HSE'],
+                    ['type' => 'department_name_contains', 'value' => 'HSE'],
+                    ['type' => 'position_code', 'value' => 'HSE'],
+                    ['type' => 'position_name_contains', 'value' => 'HSE'],
+                ],
                 'warehouse_final_approve' => [
                     ['type' => 'admin'],
                     ['type' => 'manager'],

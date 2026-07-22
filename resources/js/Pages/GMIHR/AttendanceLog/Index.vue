@@ -1106,8 +1106,12 @@ function filterGroupsBySelections(groups, {
       return false;
     }
 
-    if (includeReportingTos && selectedReportingToSet.size > 0 && !selectedReportingToSet.has(supervisorName)) {
-      return false;
+    if (includeReportingTos && selectedReportingToSet.size > 0) {
+      const hasNoReportingTo = selectedReportingToSet.has(NO_REPORTING_TO_LABEL);
+      const isMissingSupervisor = supervisorName === '' || supervisorName === '-';
+      if (!selectedReportingToSet.has(supervisorName) && !(hasNoReportingTo && isMissingSupervisor)) {
+        return false;
+      }
     }
 
     return true;
@@ -1120,17 +1124,28 @@ const filterGroupsByDepartmentOnly = computed(() => filterGroupsBySelections(all
   includeNames: false,
 }));
 
+const NO_REPORTING_TO_LABEL = '(Belum Ada Reporting To)';
+
 const departmentOptions = computed(() => allEmployeeGroups.value
   .map((group) => String(group?.departmentName || '').trim())
   .filter((name) => name !== '' && name !== '-')
   .sort((a, b) => a.localeCompare(b))
   .filter((name, index, array) => array.indexOf(name) === index));
 
-const reportingToOptions = computed(() => allEmployeeGroups.value
-  .map((group) => String(group?.supervisorName || '').trim())
-  .filter((name) => name !== '' && name !== '-')
-  .sort((a, b) => a.localeCompare(b))
-  .filter((name, index, array) => array.indexOf(name) === index));
+const reportingToOptions = computed(() => {
+  const names = allEmployeeGroups.value
+    .map((group) => String(group?.supervisorName || '').trim())
+    .filter((name) => name !== '' && name !== '-')
+    .sort((a, b) => a.localeCompare(b));
+
+  const uniqueNames = names.filter((name, index, array) => array.indexOf(name) === index);
+  const hasMissing = allEmployeeGroups.value.some((group) => {
+    const name = String(group?.supervisorName || '').trim();
+    return name === '' || name === '-';
+  });
+
+  return hasMissing ? [NO_REPORTING_TO_LABEL, ...uniqueNames] : uniqueNames;
+});
 
 const pinOptions = computed(() => filterGroupsByDepartmentOnly.value
   .map((group) => String(group?.pin || '').trim())

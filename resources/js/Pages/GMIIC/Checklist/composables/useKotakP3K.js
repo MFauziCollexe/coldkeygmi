@@ -10,7 +10,7 @@ import {
     createKotakP3KLocationState,
 } from "../checklistConfig";
 
-export function useKotakP3K(entry, { showQrScanner }) {
+export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
     const isKotakP3K = computed(() => entry.value?.template_id === "kotak_p3k");
 
     const currentLocationId = computed(() => {
@@ -155,7 +155,7 @@ export function useKotakP3K(entry, { showQrScanner }) {
 
     const kotakP3KActiveMonthStatusLabel = computed(() => {
         if (isActiveKotakP3KMonthApproved.value) return "Approved";
-        if (isActiveKotakP3KMonthSubmitted.value) return "Waiting HSE";
+        if (isActiveKotakP3KMonthSubmitted.value) return canApproveHse?.value ? "Approval HSE" : "Waiting HSE";
         return "Pending";
     });
 
@@ -213,7 +213,8 @@ export function useKotakP3K(entry, { showQrScanner }) {
         if (!isKotakP3K.value || !entry.value) return "Approval";
         if (isActiveKotakP3KMonthApproved.value) return "Approved";
         if (isActiveKotakP3KMonthSubmitted.value) return "Approval HSE";
-        return "Approval";
+        if (canApproveHse?.value) return "Approve";
+        return "Submit";
     });
 
     function toggleLocationMenu(locationMenuOpen) {

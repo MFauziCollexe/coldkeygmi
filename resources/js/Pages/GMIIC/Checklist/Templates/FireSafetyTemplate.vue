@@ -49,7 +49,7 @@
                 : 'cursor-not-allowed bg-slate-300 text-slate-500'"
           @click="$emit('approve')"
         >
-          {{ isActiveMonthApproved ? 'Approved' : isActiveMonthSubmitted ? 'Waiting HSE' : 'Submit' }}
+          {{ isActiveMonthApproved ? 'Approved' : isActiveMonthSubmitted ? 'Approval HSE' : canApproveHse ? 'Approve' : 'Submit' }}
         </button>
       </div>
     </div>
@@ -268,6 +268,10 @@ defineProps({
     required: true,
   },
   isActiveMonthSubmitted: {
+    type: Boolean,
+    default: false,
+  },
+  canApproveHse: {
     type: Boolean,
     default: false,
   },
