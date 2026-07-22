@@ -1044,9 +1044,9 @@ class AttendanceLogController extends Controller
         }
 
         return $query
-            ->selectRaw('department_id, year, month, MAX(id) as latest_id')
-            ->groupBy('department_id', 'year', 'month')
-            ->pluck('latest_id')
+            ->where('is_current', true)
+            ->orderBy('id')
+            ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
