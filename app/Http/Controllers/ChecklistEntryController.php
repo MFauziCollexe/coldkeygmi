@@ -13,6 +13,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -359,16 +360,25 @@ class ChecklistEntryController extends Controller
             ->orderByDesc('updated_at');
 
         if ($perPage !== null) {
-            $paginator = $query->paginate($perPage)->withQueryString();
+            $allEntries = $query->get()
+                ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
+                ->filter(fn ($entry) => is_array($entry) && !empty($entry))
+                ->values();
 
-            $paginator->setCollection(
-                $paginator->getCollection()
-                    ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
-                    ->filter(fn ($entry) => is_array($entry) && !empty($entry))
-                    ->values()
+            $page = max(1, (int) request()->input('page', 1));
+            $paginatedItems = $allEntries->forPage($page, $perPage)->values();
+
+            return new LengthAwarePaginator(
+                $paginatedItems,
+                $allEntries->count(),
+                $perPage,
+                $page,
+                [
+                    'path' => request()->url(),
+                    'query' => request()->query(),
+                    'pageName' => 'page',
+                ]
             );
-
-            return $paginator;
         }
 
         return $query->limit(200)->get()
