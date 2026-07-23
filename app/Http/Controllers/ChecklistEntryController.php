@@ -692,6 +692,10 @@ class ChecklistEntryController extends Controller
             return 'waiting_hse';
         }
 
+        if ($entry['template_id'] === 'apar_smoke_detector_fire_alarm' && is_array(data_get($entry, 'form.submitted_months')) && count(data_get($entry, 'form.submitted_months')) > 0) {
+            return 'waiting_hse';
+        }
+
         if ($entry['template_id'] === 'warehouse_sanitation_1' && trim((string) data_get($entry, 'form.verification.prepared_date')) !== '') {
             return 'waiting_manager';
         }
