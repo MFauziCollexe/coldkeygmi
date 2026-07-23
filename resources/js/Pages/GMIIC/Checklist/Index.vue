@@ -205,6 +205,7 @@ const checklistEntries = computed(() => page.props.entries?.data || []);
 const selectedEntryIds = ref([]);
 const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'inspeksi_loker', 'jadwal_cleaning_ob'];
 const dailyApprovedTemplates = ['kompresor_harian', 'charger_baterai', 'checklist_baterai'];
+const monthlyChecklistTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});
 const checklistSettings = computed(() => page.props.checklistSettings || {});
 const checklistTemplatePermissions = computed(() => page.props.checklistTemplatePermissions || {});
@@ -491,6 +492,10 @@ function getChecklistEntryDateValue(entry) {
 }
 
 function getChecklistEntryDateLabel(entry) {
+  if (hasSelectedMonthlyChecklistDate(entry)) {
+    return formatIsoDateDisplay(selectedDate.value);
+  }
+
   const directDate = normalizeIsoDate(entry?.form?.date_value);
   if (directDate) {
     return formatIsoDateDisplay(directDate);
@@ -507,6 +512,55 @@ function getChecklistEntryDateLabel(entry) {
   }
 
   return entry?.form?.date || entry?.form?.period || '-';
+}
+
+function hasSelectedMonthlyChecklistDate(entry) {
+  if (!monthlyChecklistTemplates.includes(entry?.template_id)) {
+    return false;
+  }
+
+  const monthKey = getMonthKeyFromDate(selectedDate.value);
+  const selectedDateLabel = formatIsoDateDisplay(selectedDate.value);
+  if (!monthKey || selectedDateLabel === '-') {
+    return false;
+  }
+
+  const directValue = entry?.form?.monthly_check_dates?.[monthKey];
+  if (String(directValue || '').trim() === selectedDateLabel) {
+    return true;
+  }
+
+  const locationEntries = entry?.form?.location_entries || {};
+  if (Object.values(locationEntries).some((state) => String(state?.monthly_check_dates?.[monthKey] || '').trim() === selectedDateLabel)) {
+    return true;
+  }
+
+  const locationRecords = entry?.form?.location_records || {};
+  return Object.values(locationRecords).some((state) => String(state?.monthly_check_dates?.[monthKey] || '').trim() === selectedDateLabel);
+}
+
+function getMonthKeyFromDate(value) {
+  const normalized = normalizeIsoDate(value);
+  if (!normalized) {
+    return null;
+  }
+
+  const monthMap = {
+    '01': 'jan',
+    '02': 'feb',
+    '03': 'mar',
+    '04': 'apr',
+    '05': 'mei',
+    '06': 'jun',
+    '07': 'jul',
+    '08': 'agu',
+    '09': 'sep',
+    '10': 'okt',
+    '11': 'nov',
+    '12': 'des',
+  };
+
+  return monthMap[normalized.slice(5, 7)] || null;
 }
 
 function formatIsoDateDisplay(value) {

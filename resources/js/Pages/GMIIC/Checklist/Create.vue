@@ -540,6 +540,10 @@ function isFilled(value) {
   return String(value ?? '').trim() !== ''
 }
 
+function getCurrentMonthlyChecklistMonthKey(date = new Date()) {
+  return kotakP3KMonths[date.getMonth()]?.key || 'jan'
+}
+
 function isKompresorDailyRowComplete(row) {
   return Boolean(row?.status_mesin)
     && Boolean(row?.visual_bersih)
@@ -604,7 +608,7 @@ const canApproveEntry = computed(() => {
 
   if (tid === 'kotak_p3k') {
     if (!canApproveCurrentTemplate.value) return false
-    if (kotakP3K.isActiveKotakP3KMonthApproved.value) return false
+    if (kotakP3K.isActiveKotakP3KMonthApproved.value) return canApproveKotakP3KHse.value
     if (kotakP3K.isActiveKotakP3KMonthSubmitted.value) return canApproveKotakP3KHse.value
     if (canApproveKotakP3KHse.value) return true
     return kotakP3K.kotakP3KMonthValidation.value.allAnswersFilled
@@ -678,7 +682,8 @@ const canApproveEntry = computed(() => {
   }
 
   if (tid === 'apar_smoke_detector_fire_alarm') {
-    if (!canApproveCurrentTemplate.value || fireSafety.isActiveFireSafetyMonthApproved.value) return false
+    if (!canApproveCurrentTemplate.value) return false
+    if (fireSafety.isActiveFireSafetyMonthApproved.value) return canApproveFireSafetyHse.value
     if (fireSafety.isActiveFireSafetyMonthSubmitted.value) return canApproveFireSafetyHse.value
     return Boolean(String(entry.value.form.card_type || '').trim() && String(entry.value.form.location || '').trim())
       && fireSafety.fireSafetyMonthValidation.value.allAnswersFilled
@@ -800,21 +805,35 @@ async function approveChecklist() {
       ...(locationState.monthly_check_dates || {}),
       [activeMonth]: formatDateDisplay(now),
     }
-    entry.value.form.location_entries[locationId] = locationState
 
-    if (kotakP3K.isActiveKotakP3KMonthSubmitted.value) {
+    if (kotakP3K.isActiveKotakP3KMonthApproved.value) {
+      locationState.approved_months = [...new Set([...(locationState.approved_months || []), activeMonth])]
+      locationState.submitted_months = (locationState.submitted_months || []).filter((m) => m !== activeMonth)
+      locationState.monthly_hse_approved_by = { ...(locationState.monthly_hse_approved_by || {}), [activeMonth]: approverName }
+      entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
+      entry.value.form.submitted_months = (entry.value.form.submitted_months || []).filter((m) => m !== activeMonth)
+      entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
+      entry.value.form.approved = true
+    } else if (kotakP3K.isActiveKotakP3KMonthSubmitted.value) {
+      locationState.approved_months = [...new Set([...(locationState.approved_months || []), activeMonth])]
+      locationState.submitted_months = (locationState.submitted_months || []).filter((m) => m !== activeMonth)
+      locationState.monthly_hse_approved_by = { ...(locationState.monthly_hse_approved_by || {}), [activeMonth]: approverName }
       entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
       entry.value.form.submitted_months = (entry.value.form.submitted_months || []).filter((m) => m !== activeMonth)
       entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
       entry.value.form.approved = true
     } else if (canApproveKotakP3KHse.value) {
+      locationState.approved_months = [...new Set([...(locationState.approved_months || []), activeMonth])]
+      locationState.monthly_hse_approved_by = { ...(locationState.monthly_hse_approved_by || {}), [activeMonth]: approverName }
       entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
       entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
       entry.value.form.approved = true
     } else {
+      locationState.submitted_months = [...new Set([...(locationState.submitted_months || []), activeMonth])]
       entry.value.form.submitted_months = [...new Set([...(entry.value.form.submitted_months || []), activeMonth])]
       entry.value.form.approved = false
     }
+    entry.value.form.location_entries[locationId] = locationState
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
     return
   }
@@ -824,7 +843,12 @@ async function approveChecklist() {
     fireSafety.persistCurrentFireSafetyState()
     entry.value.form.monthly_check_dates = { ...(entry.value.form.monthly_check_dates || {}), [activeMonth]: formatDateDisplay(now) }
 
-    if (fireSafety.isActiveFireSafetyMonthSubmitted.value) {
+    if (fireSafety.isActiveFireSafetyMonthApproved.value) {
+      entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
+      entry.value.form.submitted_months = (entry.value.form.submitted_months || []).filter((m) => m !== activeMonth)
+      entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
+      entry.value.form.approved = fireSafety.fireSafetyApprovedMonths.value.length >= 12
+    } else if (fireSafety.isActiveFireSafetyMonthSubmitted.value) {
       entry.value.form.approved_months = [...new Set([...(entry.value.form.approved_months || []), activeMonth])]
       entry.value.form.submitted_months = (entry.value.form.submitted_months || []).filter((m) => m !== activeMonth)
       entry.value.form.monthly_hse_approved_by = { ...(entry.value.form.monthly_hse_approved_by || {}), [activeMonth]: approverName }
@@ -973,13 +997,26 @@ function findSameYearFireSafetyEntry(entries = []) {
   ) || null
 }
 
+function hydrateContinuableMonthlyEntry(savedEntry) {
+  const hydratedEntry = hydrateChecklistEntry(savedEntry)
+  if (!hydratedEntry?.form) return hydratedEntry
+  return {
+    ...hydratedEntry,
+    form: {
+      ...hydratedEntry.form,
+      active_month: getCurrentMonthlyChecklistMonthKey(new Date()),
+      year: String(new Date().getFullYear()),
+    },
+  }
+}
+
 function createEntryByTemplate(templateId, options = {}) {
   const userName = page.props.auth?.user?.name || 'User Login'
   const continuableEntry = options.continuableEntry || null
   const handlers = {
-    kotak_p3k: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createKotakP3KEntry(userName),
+    kotak_p3k: () => continuableEntry ? hydrateContinuableMonthlyEntry(continuableEntry) : createKotakP3KEntry(userName),
     non_warehouse_sanitation: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createNonWarehouseSanitationEntry(userName),
-    apar_smoke_detector_fire_alarm: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createFireSafetyEntry(userName),
+    apar_smoke_detector_fire_alarm: () => continuableEntry ? hydrateContinuableMonthlyEntry(continuableEntry) : createFireSafetyEntry(userName),
     pengangkutan_sampah_pt_sier: () => createWasteTransportEntry(userName),
     warehouse_sanitation_1: () => createWarehouseSanitationEntry(userName),
     personal_hygiene_karyawan: () => createPersonalHygieneEntry(userName),

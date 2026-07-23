@@ -346,13 +346,22 @@ class ChecklistEntryController extends Controller
                 $formattedDisplayDate = $this->formatChecklistDisplayDateForQuery($selectedDate);
 
                 if (in_array($templateId, $monthlyTemplates, true)) {
-                    $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.year')) = ?", [$year]);
+                    $this->applyMonthlyChecklistDateFilter($query, $selectedDate, $formattedDisplayDate, $year);
                 } else {
-                    $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate) {
+                    $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate, $templateId, $monthlyTemplates, $year) {
                         $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate]);
 
                         if ($formattedDisplayDate !== null) {
                             $subQuery->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date')) = ?", [$formattedDisplayDate]);
+                        }
+
+                        if ($templateId === '') {
+                            $subQuery->orWhere(function ($monthlyQuery) use ($monthlyTemplates, $selectedDate, $formattedDisplayDate, $year) {
+                                $monthlyQuery
+                                    ->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $monthlyTemplates));
+
+                                $this->applyMonthlyChecklistDateFilter($monthlyQuery, $selectedDate, $formattedDisplayDate, $year);
+                            });
                         }
                     });
                 }
@@ -386,6 +395,49 @@ class ChecklistEntryController extends Controller
             ->filter(fn ($entry) => is_array($entry) && !empty($entry))
             ->values()
             ->all();
+    }
+
+    private function applyMonthlyChecklistDateFilter($query, string $selectedDate, ?string $formattedDisplayDate, string $year): void
+    {
+        $monthKey = $this->resolveChecklistMonthKey($selectedDate);
+
+        $query->where(function ($dateQuery) use ($formattedDisplayDate, $monthKey, $year) {
+            $dateQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.year')) = ?", [$year]);
+
+            if ($formattedDisplayDate === null || $monthKey === null) {
+                $dateQuery->whereRaw('1 = 0');
+                return;
+            }
+
+            $dateQuery->where(function ($monthlyDateQuery) use ($formattedDisplayDate, $monthKey) {
+                $monthlyDateQuery
+                    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.monthly_check_dates.{$monthKey}')) = ?", [$formattedDisplayDate])
+                    ->orWhereRaw("JSON_SEARCH(JSON_EXTRACT(payload_summary_json, '$.form.location_entries'), 'one', ?, NULL, '$.*.monthly_check_dates.{$monthKey}') IS NOT NULL", [$formattedDisplayDate])
+                    ->orWhereRaw("JSON_SEARCH(JSON_EXTRACT(payload_summary_json, '$.form.location_records'), 'one', ?, NULL, '$.*.monthly_check_dates.{$monthKey}') IS NOT NULL", [$formattedDisplayDate]);
+            });
+        });
+    }
+
+    private function resolveChecklistMonthKey(string $date): ?string
+    {
+        if (!preg_match('/^\d{4}-(\d{2})-\d{2}$/', $date, $matches)) {
+            return null;
+        }
+
+        return [
+            '01' => 'jan',
+            '02' => 'feb',
+            '03' => 'mar',
+            '04' => 'apr',
+            '05' => 'mei',
+            '06' => 'jun',
+            '07' => 'jul',
+            '08' => 'agu',
+            '09' => 'sep',
+            '10' => 'okt',
+            '11' => 'nov',
+            '12' => 'des',
+        ][$matches[1]] ?? null;
     }
 
     private function formatChecklistDisplayDateForQuery(string $date): ?string
