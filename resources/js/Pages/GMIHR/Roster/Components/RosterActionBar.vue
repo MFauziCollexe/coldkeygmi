@@ -86,7 +86,7 @@ const templateOptions = [
   { value: 'inventory_said', label: 'Inventory SAID' },
   { value: 'inventory_imanda', label: 'Inventory Imanda' },
   { value: 'risk_control', label: 'Risk Control' },
-  { value: 'admin_loket', label: 'Admin Loket' },
+  // { value: 'admin_loket', label: 'Admin Loket' },
   { value: 'maintanance', label: 'Maintanance' },
   { value: 'security', label: 'Security' },
 ];
