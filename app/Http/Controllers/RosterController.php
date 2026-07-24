@@ -1131,16 +1131,19 @@ class RosterController extends Controller
                 ['nrp' => '25111729', 'name' => 'Saka Anggara Putra'],
                 ['nrp' => '26010533', 'name' => 'M. Hadiri'],
                 ['nrp' => '26010534', 'name' => 'Tio Isman Prayogi'],
-            ];
-        }
-
-        if ($type === 'admin_loket') {
-            return [
                 ['nrp' => '25111731', 'name' => 'RAHAYU ANJAS SARI'],
                 ['nrp' => '25110316', 'name' => 'AINUR RAFIQ SAIFULLAH'],
                 ['nrp' => '25111730', 'name' => 'SOFIA NOVA PRADANI'],
             ];
         }
+
+        // if ($type === 'admin_loket') {
+        //     return [
+        //         ['nrp' => '25111731', 'name' => 'RAHAYU ANJAS SARI'],
+        //         ['nrp' => '25110316', 'name' => 'AINUR RAFIQ SAIFULLAH'],
+        //         ['nrp' => '25111730', 'name' => 'SOFIA NOVA PRADANI'],
+        //     ];
+        // }
 
         if ($type === 'security') {
             return [
