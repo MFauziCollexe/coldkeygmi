@@ -277,16 +277,6 @@
                     <div class="font-semibold">{{ row.balance }}</div>
                   </div>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <div class="text-xs text-slate-600">Masuk</div>
-                    <div>{{ row.incoming }}</div>
-                  </div>
-                  <div>
-                    <div class="text-xs text-slate-600">Dipakai</div>
-                    <div>{{ row.outgoing }}</div>
-                  </div>
-                </div>
                 <div>
                   <div class="text-xs text-slate-600">Keterangan</div>
                   <div>{{ row.note }}</div>
@@ -311,8 +301,6 @@
               <tr class="bg-slate-100">
                 <th class="border border-black px-3 py-2 text-center">Tanggal</th>
                 <th class="border border-black px-3 py-2 text-center">Nama Barang</th>
-                <th class="border border-black px-3 py-2 text-center">Masuk</th>
-                <th class="border border-black px-3 py-2 text-center">Dipakai</th>
                 <th class="border border-black px-3 py-2 text-center">Sisa Stock</th>
                 <th class="border border-black px-3 py-2 text-center">Keterangan</th>
                 <th class="border border-black px-3 py-2 text-center">Action</th>
@@ -326,8 +314,6 @@
               >
                 <td class="border border-black px-3 py-2">{{ row.date }}</td>
                 <td class="border border-black px-3 py-2">{{ row.item_name }}</td>
-                <td class="border border-black px-3 py-2 text-center">{{ row.incoming }}</td>
-                <td class="border border-black px-3 py-2 text-center">{{ row.outgoing }}</td>
                 <td class="border border-black px-3 py-2 text-center font-semibold">
                   {{ row.balance }}
                 </td>
@@ -343,7 +329,7 @@
                 </td>
               </tr>
               <tr v-if="!cardRows.length">
-                <td colspan="7" class="border border-black px-3 py-6 text-center text-slate-500">
+                <td colspan="5" class="border border-black px-3 py-6 text-center text-slate-500">
                   <span v-if="selectedItem">Belum ada histori penambahan atau permintaan untuk barang ini.</span>
                   <span v-else>Belum ada histori penambahan atau permintaan untuk semua barang.</span>
                 </td>
@@ -639,7 +625,7 @@ const page = usePage();
 const flashSuccess = computed(() => page.props.flash?.success || '');
 const items = computed(() => props.items || []);
 const selectedItem = computed(() => props.selectedItem || null);
-const cardRows = computed(() => props.cardRows || []);
+const cardRows = computed(() => (props.cardRows || []).filter(r => r.is_latest_balance));
 const meta = computed(() => props.meta || {});
 const abilities = computed(() => props.abilities || {});
 const pendingRequests = computed(() => props.pendingRequests || []);

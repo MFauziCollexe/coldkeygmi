@@ -558,11 +558,9 @@ class StockCardController extends Controller
                     });
             })
             ->sortBy([
-                ['sort_item_type', 'asc'],
-                ['sort_stamp', 'desc'],
-                ['sort_date', 'desc'],
-                ['type', 'desc'],
                 ['sort_item_name', 'asc'],
+                ['sort_date', 'desc'],
+                ['sort_stamp', 'desc'],
                 ['sort_id', 'desc'],
             ])
             ->values();
