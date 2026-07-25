@@ -295,7 +295,7 @@ SELECT
 
     t.*,
 
-    COALESCE(ob.opening_qty,0) AS sd_aw,
+    COALESCE(ob.opening_qty,0) AS opening_qty,
 
     COALESCE(ob.opening_qty,0)
     +
@@ -308,6 +308,7 @@ SELECT
         ORDER BY
             t.tgl_tran,
             t.id
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS saldo_akhir
 
 FROM trx t
@@ -322,43 +323,30 @@ AND ob.product_id = t.product_id
 SELECT
 
     kd_gudang                              AS "KD_GUDANG",
-
     kd_customer                            AS "KD_CUST",
-
     nm_customer                            AS "NM_CUST",
-
     kd_barang                              AS "KD_BRG",
-
     nm_barang                              AS "NM_BRG",
-
     tgl_tran                               AS "TGL_TRAN",
-
     no_mobil                               AS "NO_MOBIL",
-
     no_reference_1                         AS "NO_REFERENCE_1",
-
     no_reference_2                         AS "NO_REFERENCE_2",
-
     no_po_so                               AS "NO_PO/SO",
-
     no_invoice                             AS "NO_INVOICE",
-
     keterangan                             AS "KETERANGAN",
-
-    sd_aw                                  AS "SD_AW",
-
+    COALESCE(
+        LAG(saldo_akhir) OVER (
+            PARTITION BY owner_id, product_id
+            ORDER BY tgl_tran, id
+        ),
+        opening_qty
+    ) AS "SD_AW",
     qty_in                                 AS "MUTASI_IN",
-
     qty_out                                AS "MUTASI_OUT",
-
     saldo_akhir                            AS "SALDO_AKHIR_QTY",
-
     NULL::numeric                          AS "SD_AW_KG",
-
     NULL::numeric                          AS "MUTASI_IN_KG",
-
     NULL::numeric                          AS "MUTASI_OUT_KG",
-
     NULL::numeric                          AS "SALDO_AKHIR_KG"
 
 FROM running_balance
