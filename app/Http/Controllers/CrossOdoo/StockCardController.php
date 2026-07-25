@@ -277,7 +277,7 @@ ORDER BY
     nm_customer,
     nm_barang,
     tgl_tran,
-    id;
+    id
 SQL;
 
         $countQuery = "SELECT COUNT(*) AS total_count FROM ({$query}) AS total_count_wrapper";
