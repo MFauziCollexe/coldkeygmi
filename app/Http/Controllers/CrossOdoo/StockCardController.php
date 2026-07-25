@@ -236,11 +236,15 @@ SELECT
     COALESCE(ob.opening_qty,0) sd_aw,
 
     SUM(
-        qty_in-qty_out
-    ) OVER(
-        PARTITION BY owner_id, product_id
-        ORDER BY tgl_tran, id
-    ) + COALESCE(ob.opening_qty,0) AS saldo_akhir
+            t.qty_in - t.qty_out
+        ) OVER (
+            PARTITION BY
+                t.owner_id,
+                t.product_id
+            ORDER BY
+                t.tgl_tran,
+                t.id
+        ) + COALESCE(ob.opening_qty,0) AS saldo_akhir
 
 FROM trx t
 
