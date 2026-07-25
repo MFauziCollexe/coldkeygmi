@@ -66,682 +66,254 @@ WITH params AS (
 
     SELECT
 
-        /*=========================================================
-          FILTER
-        =========================================================*/
+        DATE '2026-01-01' AS date_from,
+        DATE '2026-01-31' AS date_to,
 
-        ?::INTEGER      AS p_owner_id,
-
-        ?::INTEGER      AS p_product_id,
-
-        ?::date         AS p_date_from,
-
-        ?::date         AS p_date_to
+        NULL::INTEGER AS owner_id,
+        NULL::INTEGER AS product_id,
+        NULL::INTEGER AS warehouse_id
 
 ),
 
-/*=============================================================
-OPENING BALANCE
-=============================================================*/
+locations AS (
+
+    SELECT
+        sl.id,
+        sl.usage,
+        sl.warehouse_id
+    FROM stock_location sl
+
+),
 
 opening_balance AS (
 
-SELECT
+    SELECT
 
-    sml.owner_id,
+        sml.owner_id,
+        sml.product_id,
 
-    rp.name AS owner_name,
+        SUM(
 
-    sml.product_id,
+            CASE
+                WHEN dst.usage='internal' THEN sml.quantity
+                WHEN src.usage='internal' THEN -sml.quantity
+                ELSE 0
+            END
 
-    pp.default_code,
+        ) opening_qty
 
-    pt.name->>'en_US' AS product_name,
+    FROM stock_move_line sml
 
-    SUM(
+    JOIN locations src
+        ON src.id=sml.location_id
 
-        CASE
+    JOIN locations dst
+        ON dst.id=sml.location_dest_id
 
-            /* Barang Masuk Gudang */
+    CROSS JOIN params p
 
-            WHEN src.usage <> 'internal'
-             AND dst.usage = 'internal'
+    WHERE sml.state='done'
 
-            THEN sml.quantity
+      AND sml.date < p.date_from
 
-            /* Barang Keluar Gudang */
+      AND (p.owner_id IS NULL OR sml.owner_id=p.owner_id)
+      AND (p.product_id IS NULL OR sml.product_id=p.product_id)
 
-            WHEN src.usage = 'internal'
-             AND dst.usage <> 'internal'
+      AND (
+            p.warehouse_id IS NULL
+            OR src.warehouse_id=p.warehouse_id
+            OR dst.warehouse_id=p.warehouse_id
+      )
 
-            THEN -sml.quantity
+    GROUP BY
 
-            /* Transfer Internal */
-
-            ELSE 0
-
-        END
-
-    ) AS opening_balance
-
-FROM stock_move_line sml
-
-JOIN product_product pp
-ON pp.id=sml.product_id
-
-JOIN product_template pt
-ON pt.id=pp.product_tmpl_id
-
-LEFT JOIN res_partner rp
-ON rp.id=sml.owner_id
-
-JOIN stock_location src
-ON src.id=sml.location_id
-
-JOIN stock_location dst
-ON dst.id=sml.location_dest_id
-
-CROSS JOIN params p
-
-WHERE sml.state='done'
-
-AND sml.owner_id=p.p_owner_id
-
-AND (
-        p.p_product_id IS NULL
-        OR sml.product_id=p.p_product_id
-)
-
-AND DATE(sml.date) < p.p_date_from
-
-GROUP BY
-
-    sml.owner_id,
-
-    rp.name,
-
-    sml.product_id,
-
-    pp.default_code,
-
-    pt.name
-
+        sml.owner_id,
+        sml.product_id
 ),
 
-/*=============================================================
-TRANSACTION DETAIL
-PART 2 START HERE
-=============================================================*/
-
-transaction_detail AS (
+trx AS (
 
 SELECT
 
-    sml.id AS move_line_id,
-
-    sml.date,
+    sml.id,
 
     sml.owner_id,
 
-    rp.name AS owner_name,
+    rp.ref                                        AS kd_customer,
+    rp.name                                       AS nm_customer,
 
     sml.product_id,
 
-    pp.default_code,
+    pp.default_code                               AS kd_barang,
 
-    pt.name->>'en_US' AS product_name,
+    pt.name->>'en_US'                             AS nm_barang,
 
-    sml.quantity,
+    sml.date::date                                AS tgl_tran,
 
-    sml.location_id,
+    wh.code                                       AS kd_gudang,
+    wh.name                                       AS nm_gudang,
 
-    sml.location_dest_id,
+    sp.x_studio_no_kendaraan                      AS no_mobil,
 
-    src.complete_name AS source_location,
+    sp.name                                       AS no_reference_1,
 
-    dst.complete_name AS destination_location,
+    sp.origin                                     AS no_reference_2,
 
-    src.usage AS source_usage,
+    COALESCE(sm.origin,sp.origin)                 AS no_po_so,
 
-    dst.usage AS destination_usage,
+    am.name                                       AS no_invoice,
 
-    sml.move_id,
+    CONCAT_WS(' / ',
+        sm.name,
+        sm.description_picking,
+        sp.note
+    )                                             AS keterangan,
 
-    sml.picking_id,
+    CASE
+        WHEN dst.usage='internal' THEN sml.quantity
+        ELSE 0
+    END qty_in,
 
-    sml.reference,
-
-    sml.lot_id,
-
-    lot.name AS lot_number,
-
-    sml.expiration_date,
-
-    sml.package_id,
-
-    sml.result_package_id,
-
-    pkg.name AS package_name,
-
-    sml.x_studio_total_in_sack,
-
-    sml.gmi_pallet_assigned,
-
-    sp.name AS picking_number,
-
-    sm.origin,
-
-    sm.reference AS move_reference,
-
-    spt.code,
-
-    spt.name->>'en_US' AS operation_type,
-
-    sp.x_studio_no_kendaraan
+    CASE
+        WHEN src.usage='internal' THEN sml.quantity
+        ELSE 0
+    END qty_out
 
 FROM stock_move_line sml
 
-JOIN product_product pp
-ON pp.id=sml.product_id
-
-JOIN product_template pt
-ON pt.id=pp.product_tmpl_id
-
-LEFT JOIN res_partner rp
-ON rp.id=sml.owner_id
-
-LEFT JOIN stock_lot lot
-ON lot.id=sml.lot_id
-
-LEFT JOIN stock_quant_package pkg
-ON pkg.id=sml.package_id
-
-JOIN stock_location src
-ON src.id=sml.location_id
-
-JOIN stock_location dst
-ON dst.id=sml.location_dest_id
-
-LEFT JOIN stock_move sm
+JOIN stock_move sm
 ON sm.id=sml.move_id
 
 LEFT JOIN stock_picking sp
 ON sp.id=sml.picking_id
 
-LEFT JOIN stock_picking_type spt
-ON spt.id=sp.picking_type_id
+LEFT JOIN account_move am
+ON am.stock_move_id=sm.id
+
+LEFT JOIN product_product pp
+ON pp.id=sml.product_id
+
+LEFT JOIN product_template pt
+ON pt.id=pp.product_tmpl_id
+
+LEFT JOIN res_partner rp
+ON rp.id=COALESCE(sml.owner_id,sp.partner_id)
+
+JOIN locations src
+ON src.id=sml.location_id
+
+JOIN locations dst
+ON dst.id=sml.location_dest_id
+
+LEFT JOIN stock_warehouse wh
+ON wh.id=COALESCE(dst.warehouse_id,src.warehouse_id)
 
 CROSS JOIN params p
 
 WHERE sml.state='done'
 
-AND sml.owner_id=p.p_owner_id
+AND sml.date BETWEEN p.date_from
+                 AND p.date_to
+
+AND (p.owner_id IS NULL OR sml.owner_id=p.owner_id)
+
+AND (p.product_id IS NULL OR sml.product_id=p.product_id)
 
 AND (
-        p.p_product_id IS NULL
-        OR sml.product_id=p.p_product_id
+        p.warehouse_id IS NULL
+        OR src.warehouse_id=p.warehouse_id
+        OR dst.warehouse_id=p.warehouse_id
 )
 
-AND DATE(sml.date)
-BETWEEN p.p_date_from
-AND p.p_date_to
-
 ),
-
-/*=============================================================
-MOVEMENT CLASSIFICATION
-=============================================================*/
-
-movement AS (
-
-SELECT
-
-    td.*,
-
-    CASE
-
-        WHEN td.code='incoming'
-        THEN 'RECEIPT'
-
-        WHEN td.code='outgoing'
-        THEN 'DELIVERY'
-
-        WHEN td.code='internal'
-             AND td.source_usage='internal'
-             AND td.destination_usage='internal'
-        THEN 'TRANSFER'
-
-        WHEN td.code='incoming'
-             AND td.source_usage='customer'
-        THEN 'CUSTOMER RETURN'
-
-        WHEN td.code='outgoing'
-             AND td.destination_usage='supplier'
-        THEN 'VENDOR RETURN'
-
-        WHEN td.source_usage='inventory'
-          OR td.destination_usage='inventory'
-        THEN 'ADJUSTMENT'
-
-        ELSE td.operation_type
-
-    END AS movement_type,
-
-    CASE
-
-        WHEN td.source_usage='supplier'
-         AND td.destination_usage='internal'
-        THEN td.quantity
-
-        WHEN td.source_usage='customer'
-         AND td.destination_usage='internal'
-        THEN td.quantity
-
-        WHEN td.source_usage='inventory'
-         AND td.destination_usage='internal'
-        THEN td.quantity
-
-        ELSE 0
-
-    END AS qty_in,
-
-    CASE
-
-        WHEN td.source_usage='internal'
-         AND td.destination_usage='customer'
-        THEN td.quantity
-
-        WHEN td.source_usage='internal'
-         AND td.destination_usage='supplier'
-        THEN td.quantity
-
-        WHEN td.source_usage='internal'
-         AND td.destination_usage='inventory'
-        THEN td.quantity
-
-        ELSE 0
-
-    END AS qty_out,
-
-    CASE
-
-        WHEN td.source_usage='supplier'
-         AND td.destination_usage='internal'
-        THEN td.quantity
-
-        WHEN td.source_usage='customer'
-         AND td.destination_usage='internal'
-        THEN td.quantity
-
-        WHEN td.source_usage='inventory'
-         AND td.destination_usage='internal'
-        THEN td.quantity
-
-        WHEN td.source_usage='internal'
-         AND td.destination_usage='customer'
-        THEN -td.quantity
-
-        WHEN td.source_usage='internal'
-         AND td.destination_usage='supplier'
-        THEN -td.quantity
-
-        WHEN td.source_usage='internal'
-         AND td.destination_usage='inventory'
-        THEN -td.quantity
-
-        ELSE 0
-
-    END AS net_change,
-
-    CASE
-
-        WHEN td.source_usage='supplier'
-        THEN 'IN'
-
-        WHEN td.destination_usage='customer'
-        THEN 'OUT'
-
-        WHEN td.source_usage='customer'
-        THEN 'RETURN'
-
-        WHEN td.source_usage='internal'
-         AND td.destination_usage='internal'
-        THEN 'TRANSFER'
-
-        WHEN td.source_usage='inventory'
-             OR td.destination_usage='inventory'
-        THEN 'ADJUSTMENT'
-
-        ELSE '-'
-
-    END AS movement_direction,
-
-    COALESCE(
-
-        td.picking_number,
-
-        td.move_reference,
-
-        td.reference,
-
-        td.origin
-
-    ) AS document_number
-
-FROM transaction_detail td
-
-),
-
-/*=============================================================
-RUNNING BALANCE
-PART 3 START HERE
-=============================================================*/
 
 running_balance AS (
 
 SELECT
 
-    m.*,
+    t.*,
 
-    COALESCE(ob.opening_balance,0) AS opening_balance,
+    COALESCE(ob.opening_qty,0) sd_aw,
 
-    COALESCE(ob.opening_balance,0)
+    SUM(
+        qty_in-qty_out
+    ) OVER(
+        PARTITION BY owner_id, product_id
+        ORDER BY tgl_tran, id
+    ) + COALESCE(ob.opening_qty,0) AS saldo_akhir
 
-    +
-
-    SUM(m.net_change)
-
-    OVER(
-
-        PARTITION BY
-
-            m.owner_id,
-            m.product_id
-
-        ORDER BY
-
-            m.date,
-            m.move_line_id
-
-    ) AS balance
-
-FROM movement m
+FROM trx t
 
 LEFT JOIN opening_balance ob
-
-ON ob.owner_id=m.owner_id
-
-AND ob.product_id=m.product_id
-
-),
-
-/*=============================================================
-FINAL REPORT
-=============================================================*/
-
-final_report AS (
-
-SELECT
-
-    0 AS seq,
-
-    NULL::INTEGER AS move_line_id,
-
-    p.p_date_from::timestamp AS transaction_date,
-
-    rb.owner_id,
-
-    rb.owner_name,
-
-    rb.product_id,
-
-    rb.default_code,
-
-    rb.product_name,
-
-    NULL::TEXT AS document_number,
-
-    'OPENING BALANCE' AS movement_type,
-
-    NULL::TEXT AS movement_direction,
-
-    NULL::TEXT AS source_location,
-
-    NULL::TEXT AS destination_location,
-
-    NULL::TEXT AS lot_number,
-
-    NULL::DATE AS expiration_date,
-
-    NULL::TEXT AS package_name,
-
-    NULL::TEXT AS pallet,
-
-    0::NUMERIC AS sack,
-
-    0::NUMERIC AS qty_in,
-
-    0::NUMERIC AS qty_out,
-
-    0::NUMERIC AS net_change,
-
-    MAX(rb.opening_balance) AS balance,
-
-    NULL::TEXT AS vehicle,
-
-    NULL::TEXT AS reference,
-
-    NULL::TEXT AS origin
-
-FROM running_balance rb
-
-CROSS JOIN params p
-
-GROUP BY
-
-    p.p_date_from,
-
-    rb.owner_id,
-
-    rb.owner_name,
-
-    rb.product_id,
-
-    rb.default_code,
-
-    rb.product_name
-
-UNION ALL
-
-SELECT
-
-    1,
-
-    rb.move_line_id,
-
-    rb.date,
-
-    rb.owner_id,
-
-    rb.owner_name,
-
-    rb.product_id,
-
-    rb.default_code,
-
-    rb.product_name,
-
-    rb.document_number,
-
-    rb.movement_type,
-
-    rb.movement_direction,
-
-    rb.source_location,
-
-    rb.destination_location,
-
-    rb.lot_number,
-
-    rb.expiration_date,
-
-    rb.package_name,
-
-    CASE
-        WHEN rb.gmi_pallet_assigned THEN 'YES'
-        ELSE 'NO'
-    END AS pallet,
-
-    COALESCE(rb.x_studio_total_in_sack,0),
-
-    rb.qty_in,
-
-    rb.qty_out,
-
-    rb.net_change,
-
-    rb.balance,
-
-    rb.x_studio_no_kendaraan,
-
-    rb.reference,
-
-    rb.origin
-
-FROM running_balance rb
-
-),
-
-/*=============================================================
-CLOSING BALANCE
-=============================================================*/
-
-closing_balance AS (
-
-SELECT
-
-    owner_id,
-
-    product_id,
-
-    MAX(balance) AS closing_balance
-
-FROM running_balance
-
-GROUP BY
-
-    owner_id,
-
-    product_id
+ON ob.owner_id IS NOT DISTINCT FROM t.owner_id
+AND ob.product_id=t.product_id
 
 )
 
 SELECT
-
-    fr.transaction_date              AS transaction_date,
-
-    fr.owner_id,
-
-    fr.owner_name,
-
-    fr.product_id,
-
-    fr.default_code                  AS product_code,
-
-    fr.product_name,
-
-    fr.document_number,
-
-    fr.reference,
-
-    fr.origin,
-
-    fr.movement_type,
-
-    fr.movement_direction,
-
-    fr.source_location,
-
-    fr.destination_location,
-
-    fr.lot_number,
-
-    fr.expiration_date,
-
-    fr.package_name,
-
-    fr.pallet,
-
-    fr.sack,
-
-    fr.qty_in,
-
-    fr.qty_out,
-
-    fr.net_change,
-
-    fr.balance,
-
-    cb.closing_balance,
-
-    fr.vehicle
-
-FROM final_report fr
-
-LEFT JOIN closing_balance cb
-
-ON cb.owner_id=fr.owner_id
-AND cb.product_id=fr.product_id
+    kd_gudang,
+    kd_customer,
+    nm_customer,
+    kd_barang,
+    nm_barang,
+    tgl_tran,
+    no_mobil,
+    no_reference_1,
+    no_reference_2,
+    no_po_so,
+    no_invoice,
+    keterangan,
+    sd_aw,
+    qty_in,
+    qty_out,
+    saldo_akhir AS saldo_akhir_qty,
+    NULL::numeric AS sd_aw_kg,
+    NULL::numeric AS mutasi_in_kg,
+    NULL::numeric AS mutasi_out_kg,
+    NULL::numeric AS saldo_akhir_kg
+FROM running_balance
 
 ORDER BY
-
-    fr.owner_name,
-
-    fr.product_name,
-
-    fr.transaction_date,
-
-    fr.seq,
-
-    fr.move_line_id
+    nm_customer,
+    nm_barang,
+    tgl_tran,
+    id;
 SQL;
 
         $countQuery = "SELECT COUNT(*) AS total_count FROM ({$query}) AS total_count_wrapper";
         $rowsQuery = "{$query} LIMIT ? OFFSET ?";
 
-        $countResult = DB::connection('pgsql')->selectOne($countQuery, [$selectedOwnerId, $targetProductId, $startDate, $endDate]);
+        $countResult = DB::connection('pgsql')->selectOne($countQuery);
         $totalRows = $countResult->total_count ?? 0;
 
-        $rows = DB::connection('pgsql')->select($rowsQuery, [$selectedOwnerId, $targetProductId, $startDate, $endDate, $perPage, $offset]);
+        $rows = DB::connection('pgsql')->select($rowsQuery, [$perPage, $offset]);
 
         $formattedRows = array_map(function ($row) {
             return [
-                'transaction_date' => $row->transaction_date,
-                'owner_name' => $row->owner_name,
-                'product_code' => $row->product_code,
-                'product_name' => $row->product_name,
-                'document_number' => $row->document_number,
-                'reference' => $row->reference,
-                'origin' => $row->origin,
-                'movement_type' => $row->movement_type,
-                'movement_direction' => $row->movement_direction,
-                'source_location' => $row->source_location,
-                'destination_location' => $row->destination_location,
-                'lot_number' => $row->lot_number,
-                'expiration_date' => $row->expiration_date,
-                'package_name' => $row->package_name,
-                'pallet' => $row->pallet,
-                'sack' => (float) ($row->sack ?? 0),
+                'transaction_date' => $row->tgl_tran,
+                'warehouse_code' => $row->kd_gudang,
+                'customer_code' => $row->kd_customer,
+                'customer_name' => $row->nm_customer,
+                'product_code' => $row->kd_barang,
+                'product_name' => $row->nm_barang,
+                'mobile_no' => $row->no_mobil,
+                'reference_1' => $row->no_reference_1,
+                'reference_2' => $row->no_reference_2,
+                'po_so' => $row->no_po_so,
+                'invoice_no' => $row->no_invoice,
+                'description' => $row->keterangan,
+                'opening_qty' => (float) ($row->sd_aw ?? 0),
                 'qty_in' => (float) ($row->qty_in ?? 0),
                 'qty_out' => (float) ($row->qty_out ?? 0),
-                'net_change' => (float) ($row->net_change ?? 0),
-                'running_balance' => (float) ($row->balance ?? 0),
-                'closing_balance' => (float) ($row->closing_balance ?? 0),
-                'vehicle' => $row->vehicle,
+                'balance_qty' => (float) ($row->saldo_akhir_qty ?? $row->saldo_akhir ?? 0),
+                'sd_aw_kg' => (float) ($row->sd_aw_kg ?? 0),
+                'mutasi_in_kg' => (float) ($row->mutasi_in_kg ?? 0),
+                'mutasi_out_kg' => (float) ($row->mutasi_out_kg ?? 0),
+                'saldo_akhir_kg' => (float) ($row->saldo_akhir_kg ?? 0),
             ];
         }, $rows);
 
-        $ownerName = $formattedRows[0]['owner_name'] ?? ($owners[0]['owner_name'] ?? null);
+        $ownerName = $formattedRows[0]['customer_name'] ?? ($owners[0]['owner_name'] ?? null);
         $productName = $formattedRows[0]['product_name'] ?? null;
 
         return Inertia::render('GMISL/CrossOdoo/StockCard/Index', [
