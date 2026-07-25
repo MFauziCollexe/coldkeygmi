@@ -139,6 +139,7 @@ export {
     rebuildSanitationRows,
     rebuildAllSanitationRowsByArea,
     createNonWarehouseSanitationEntry,
+    createChecklistITEntry,
     createInspeksiLokerEntry,
 } from "./misc-templates";
 export { getChecklistLabel, getChecklistEntryAreaLabel } from "./label-utils";

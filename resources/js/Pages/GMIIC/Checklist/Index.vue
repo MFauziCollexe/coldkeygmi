@@ -51,7 +51,7 @@
         v-if="selectedChecklist && !canOpenCreatePage"
         class="mb-4 text-sm text-amber-300"
       >
-        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, `Sarana dan Prasarana`, `Patroli Security`, `Site Visit HSE`, `Site Visit Maintenance`, `Pemanasan (Running) Genset`, `Running Genset`, `Kompresor`, `Charger Baterai`, `Checklist Baterai`, dan `Jadwal Cleaning OB`.
+        Template detail saat ini baru tersedia untuk checklist `Kotak P3K`, `Kebersihan dan Sanitasi (Non-Warehouse Area)`, `APAR / Smoke Detector / Fire Alarm`, `Pengangkutan Sampah PT SIER`, `Kebersihan dan Sanitasi (Warehouse Area)`, `Personal Hygiene Karyawan`, `Sarana dan Prasarana`, `Patroli Security`, `Site Visit HSE`, `Site Visit Maintenance`, `Pemanasan (Running) Genset`, `Running Genset`, `Kompresor`, `Charger Baterai`, `Checklist Baterai`, `Checklist IT`, dan `Jadwal Cleaning OB`.
       </div>
 
       <div class="rounded bg-slate-800 p-4">
@@ -203,7 +203,7 @@ const selectedChecklist = ref(page.props.selectedChecklist || '');
 const selectedDate = ref(page.props.selectedDate || toDateInputValue(new Date()));
 const checklistEntries = computed(() => page.props.entries?.data || []);
 const selectedEntryIds = ref([]);
-const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'inspeksi_loker', 'jadwal_cleaning_ob'];
+const supportedTemplates = ['kotak_p3k', 'non_warehouse_sanitation', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'checklist_it', 'inspeksi_loker', 'jadwal_cleaning_ob'];
 const dailyApprovedTemplates = ['kompresor_harian', 'charger_baterai', 'checklist_baterai'];
 const monthlyChecklistTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});

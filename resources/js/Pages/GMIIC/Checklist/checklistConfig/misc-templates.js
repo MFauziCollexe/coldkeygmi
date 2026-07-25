@@ -368,6 +368,170 @@ export function rebuildInspeksiLokerRows(existingRows = []) {
     });
 }
 
+export function createChecklistITEntry(userName) {
+    const now = new Date();
+
+    return {
+        id: `checklist_it-${Date.now()}`,
+        template_id: "checklist_it",
+        name: "Checklist IT",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            week_value: `${now.getFullYear()}-W${String(getWeekNumber(now)).padStart(2, "0")}`,
+            pic: userName || "User Login",
+            check_type: "hardware",
+            check_items: {
+                "LP-001": {
+                    no: 1,
+                    name: "LP-001 - Manager Finance - Yoga - Laptop - Ruang Staff",
+                    user: "Yoga",
+                    type: "Laptop",
+                    location: "Ruang Staff",
+                    status: "",
+                },
+                "LP-002": {
+                    no: 2,
+                    name: "LP-002 - Staff Finance - Ilham - Laptop - Ruang Staff",
+                    user: "Ilham",
+                    type: "Laptop",
+                    location: "Ruang Staff",
+                    status: "",
+                },
+                "LP-003": {
+                    no: 3,
+                    name: "LP-003 - Staff HSE - Nata - Laptop - Ruang Staff",
+                    user: "Nata",
+                    type: "Laptop",
+                    location: "Ruang Staff",
+                    status: "",
+                },
+                "LP-004": {
+                    no: 4,
+                    name: "LP-004 - SPV HRD - Diah - Laptop - Ruang Staff",
+                    user: "Diah",
+                    type: "Laptop",
+                    location: "Ruang Staff",
+                    status: "",
+                },
+                "LP-005": {
+                    no: 5,
+                    name: "LP-005 - Manager Commercial - Nazumah - Laptop - Ruang Staff",
+                    user: "Nazumah",
+                    type: "Laptop",
+                    location: "Ruang Staff",
+                    status: "",
+                },
+                "LP-006": {
+                    no: 6,
+                    name: "LP-006 - SPV Risk Control - Chandra - Laptop - Ruang Admin",
+                    user: "Chandra",
+                    type: "Laptop",
+                    location: "Ruang Admin",
+                    status: "",
+                },
+                "LP-007": {
+                    no: 7,
+                    name: "LP-007 - Staff IT - Fauzi - Laptop - Ruang IT",
+                    user: "Fauzi",
+                    type: "Laptop",
+                    location: "Ruang IT",
+                    status: "",
+                },
+                "PC-001": {
+                    no: 8,
+                    name: "PC-001 - Staff Leader Admin - Rahayu - PC - Ruang Admin",
+                    user: "Rahayu",
+                    type: "PC",
+                    location: "Ruang Admin",
+                    status: "",
+                },
+                "PC-002": {
+                    no: 9,
+                    name: "PC-002 - Staff Admin - Sofia/Rofiq - PC - Ruang Admin",
+                    user: "Sofia/Rofiq",
+                    type: "PC",
+                    location: "Ruang Admin",
+                    status: "",
+                },
+                "PC-003": {
+                    no: 10,
+                    name: "PC-003 - Staff Risk Control - Chandra - PC - Ruang Admin",
+                    user: "Chandra",
+                    type: "PC",
+                    location: "Ruang Admin",
+                    status: "",
+                },
+                "PC-004": {
+                    no: 11,
+                    name: "PC-004 - Staff Inventory - Said/Imanda - PC - Ruang Admin",
+                    user: "Said/Imanda",
+                    type: "PC",
+                    location: "Ruang Admin",
+                    status: "",
+                },
+                "PC-005": {
+                    no: 12,
+                    name: "PC-005 - Staff Risk Control - Tio - PC - Ruang Admin",
+                    user: "Tio",
+                    type: "PC",
+                    location: "Ruang Admin",
+                    status: "",
+                },
+                "PC-006": {
+                    no: 13,
+                    name: "PC-006 - Staff Maintenance - Sultan - PC - Ruang Maintanance",
+                    user: "Sultan",
+                    type: "PC",
+                    location: "Ruang Maintanance",
+                    status: "",
+                },
+                "PC-007": {
+                    no: 14,
+                    name: "PC-007 - Staff Security - SCR - PC - Ruang Security",
+                    user: "SCR",
+                    type: "PC",
+                    location: "Ruang Security",
+                    status: "",
+                },
+                "PRN-001": {
+                    no: 15,
+                    name: "PRN-001 - Epson LQ 590 - Admin - Printer - Ruang Admin",
+                    user: "Admin",
+                    type: "Printer",
+                    location: "Ruang Admin",
+                    status: "",
+                },
+                "PRN-002": {
+                    no: 16,
+                    name: "PRN-002 - Epson LQ 590 - Admin - Printer - Ruang Admin",
+                    user: "Admin",
+                    type: "Printer",
+                    location: "Ruang Admin",
+                    status: "",
+                },
+                "PRN-003": {
+                    no: 17,
+                    name: "PRN-003 - SATO Print Label - Admin - Printer - Ruang Admin",
+                    user: "Admin",
+                    type: "Printer",
+                    location: "Ruang Admin",
+                    status: "",
+                },
+                "PRN-004": {
+                    no: 18,
+                    name: "PRN-004 - Epson L120 - Staff - Printer - Ruang Staff",
+                    user: "Staff",
+                    type: "Printer",
+                    location: "Ruang Staff",
+                    status: "",
+                },
+            },
+            note: "",
+            approved: false,
+        },
+    };
+}
+
 export function createInspeksiLokerEntry(userName) {
     const now = new Date();
 
@@ -387,4 +551,10 @@ export function createInspeksiLokerEntry(userName) {
             rows: createInspeksiLokerRows(),
         },
     };
+}
+
+function getWeekNumber(date) {
+    const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const days = Math.floor((date - startOfYear) / (24 * 60 * 60 * 1000));
+    return Math.floor((days + startOfYear.getDay() + 6) / 7);
 }

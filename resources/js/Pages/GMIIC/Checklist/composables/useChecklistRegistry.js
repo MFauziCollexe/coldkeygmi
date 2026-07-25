@@ -13,6 +13,7 @@ import RunningGensetTemplate from "../Templates/RunningGensetTemplate.vue";
 import KompresorHarianTemplate from "../Templates/KompresorHarianTemplate.vue";
 import ChargerBateraiTemplate from "../Templates/ChargerBateraiTemplate.vue";
 import ChecklistBateraiTemplate from "../Templates/ChecklistBateraiTemplate.vue";
+import ChecklistITTemplate from "../Templates/ChecklistITTemplate.vue";
 import CleaningOBTemplate from "../Templates/CleaningOBTemplate.vue";
 import InspeksiLokerTemplate from "../Templates/InspeksiLokerTemplate.vue";
 
@@ -32,6 +33,7 @@ const supportedTemplates = [
     "kompresor_harian",
     "charger_baterai",
     "checklist_baterai",
+    "checklist_it",
     "inspeksi_loker",
     "jadwal_cleaning_ob",
 ];
@@ -52,6 +54,7 @@ export const templateRegistry = {
     kompresor_harian: { component: KompresorHarianTemplate },
     charger_baterai: { component: ChargerBateraiTemplate },
     checklist_baterai: { component: ChecklistBateraiTemplate },
+    checklist_it: { component: ChecklistITTemplate },
     inspeksi_loker: { component: InspeksiLokerTemplate },
     jadwal_cleaning_ob: { component: CleaningOBTemplate },
 };

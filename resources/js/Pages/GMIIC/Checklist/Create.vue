@@ -70,7 +70,7 @@ import {
   createSaranaPrasaranaEntry, createPatroliSecurityEntry, createSiteVisitHseEntry,
   createSiteVisitMaintenanceEntry, createGensetRunningEntry, createRunningGensetEntry,
   createKompresorHarianEntry, createChargerBateraiEntry, createChecklistBateraiEntry,
-  createInspeksiLokerEntry, createCleaningOBEntry, formatMonthYearDisplay, formatDateTimeDisplay, formatDateDisplay,
+  createChecklistITEntry, createInspeksiLokerEntry, createCleaningOBEntry, formatMonthYearDisplay, formatDateTimeDisplay, formatDateDisplay,
   formatShortDateDisplay, getKotakP3KMonthLabel, getLocationBarcodeAliases,
   getPatroliSecurityBarcodeAliases, getSanitationAreaBarcodeAliases, kotakP3KMonths,
 } from './checklistConfig'
@@ -198,6 +198,7 @@ const photo = usePhotoCapture({
   isPatroliSecurity: patroliSecurity.isPatroliSecurity,
   isSiteVisitMaintenance: siteVisitMaintenance.isSiteVisitMaintenance,
   isCleaningOB: cleaningOB.isCleaningOB,
+  isChecklistIT: computed(() => entry.value?.template_id === 'checklist_it'),
   patroliSecurityTargetKey: patroliSecurity.patroliSecurityTargetKey,
   maintenanceScanTargetKey: siteVisitMaintenance.maintenanceScanTargetKey,
   cleaningOBTargetKey: cleaningOB.cleaningOBTargetKey,
@@ -224,7 +225,7 @@ const currentTemplateProps = computed(() => {
 
   if (tid === 'kotak_p3k') return {
     entry: entry.value, canScanBarcode: kotakP3K.kotakP3KMonthValidation.value.canScan,
-    canApproveEntry: canApproveEntry.value, locationMenuOpen: locationMenuOpen.value,
+    canApproveEntry: canApproveEntry, locationMenuOpen: locationMenuOpen.value,
     locationOptions: kotakP3K.locationOptions, getLocationLabel: kotakP3K.getLocationLabel,
     months: kotakP3K.kotakP3KMonths, activeMonth: kotakP3K.activeKotakP3KMonth.value,
     activeMonthLabel: kotakP3K.getKotakP3KMonthLabel(kotakP3K.activeKotakP3KMonth.value),
@@ -254,7 +255,7 @@ const currentTemplateProps = computed(() => {
     monthNote: fireSafety.fireSafetyMonthNote.value,
     currentBarcode: fireSafety.currentFireSafetyBarcode.value,
     canScanBarcode: fireSafety.canScanFireSafety.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     canApproveHse: canApproveFireSafetyHse.value,
     isActiveMonthApproved: fireSafety.isActiveFireSafetyMonthApproved.value,
     isActiveMonthSubmitted: fireSafety.isActiveFireSafetyMonthSubmitted.value,
@@ -273,7 +274,7 @@ const currentTemplateProps = computed(() => {
     currentAreaScan: sanitation.currentSanitationScan.value,
     nextPendingDay: sanitation.nextPendingSanitationDay.value,
     canScanArea: sanitation.canScanSanitationArea.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     approvalButtonLabel: sanitation.sanitationApprovalButtonLabel.value,
     note: sanitation.sanitationNote.value, noteLabel: sanitation.sanitationNoteLabel.value,
     canEditNote: sanitation.canEditSanitationNote.value,
@@ -289,14 +290,14 @@ const currentTemplateProps = computed(() => {
     entry: entry.value, rows: wasteTransport.wasteTransportRows.value,
     periodLabel: formatMonthYearDisplay(entry.value.form.period),
     approvedDays: wasteTransport.wasteTransportApprovedDays.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     onApprove: approveChecklist, onUpdateRow: wasteTransport.updateWasteTransportRow,
     onOpenCamera: photo.openWasteTransportCamera,
   }
 
   if (tid === 'warehouse_sanitation_1') return {
     entry: entry.value, warehouseAreaOptions: warehouse.warehouseAreaOptions,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     currentBarcode: warehouse.currentWarehouseBarcode.value,
     scanDate: warehouse.currentWarehouseScanDate.value,
     canScanBarcode: warehouse.canScanWarehouseBarcode.value,
@@ -317,7 +318,7 @@ const currentTemplateProps = computed(() => {
     entry: entry.value, rows: personalHygiene.personalHygieneRows.value,
     days: personalHygiene.personalHygieneDays.value,
     generatedEmployees: personalHygiene.generatedPersonalHygieneEmployees.value,
-    employees: props.employees, canApproveEntry: canApproveEntry.value,
+    employees: props.employees, canApproveEntry: canApproveEntry,
     onApprove: approveChecklist, onUpdateGeneralField: personalHygiene.updatePersonalHygieneField,
     onToggleDay: personalHygiene.togglePersonalHygieneDay,
     onToggleGeneratedDay: personalHygiene.toggleGeneratedPersonalHygieneDay,
@@ -332,7 +333,7 @@ const currentTemplateProps = computed(() => {
     currentAreaScan: saranaPrasarana.currentSaranaPrasaranaScan.value,
     nextPendingDay: saranaPrasarana.nextPendingSaranaPrasaranaDay.value,
     canScanArea: saranaPrasarana.canScanSaranaPrasaranaArea.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     showQrScanner: showQrScanner.value,
     onApprove: approveChecklist, onScanArea: scanner.scanSaranaPrasaranaArea,
     onUpdatePeriod: saranaPrasarana.updateSaranaPrasaranaPeriod,
@@ -349,7 +350,7 @@ const currentTemplateProps = computed(() => {
     noteLabel: patroliSecurity.patroliSecurityNoteLabel.value,
     currentBarcode: patroliSecurity.currentPatroliSecurityBarcode.value,
     canScanBarcode: patroliSecurity.canScanPatroliSecurity.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     currentPhotos: patroliSecurity.currentPatroliSecurityPhotos.value,
     photoUploading: photo.patroliSecurityPhotoUploading.value,
     photoError: photo.patroliSecurityPhotoError.value,
@@ -363,6 +364,21 @@ const currentTemplateProps = computed(() => {
     onRemovePhoto: photo.removePatroliSecurityPhoto,
   }
 
+  if (tid === 'checklist_it') return {
+    entry: entry.value,
+    canApproveEntry: canApproveEntry,
+    currentPhotos: photo.currentChecklistITPhotos.value,
+    photoUploading: photo.checklistITPhotoUploading.value,
+    photoError: photo.checklistITPhotoError.value,
+    onApprove: approveChecklist,
+    onUpdateWeek: (value) => { if (entry.value) entry.value.form.week_value = value },
+    onUpdateCheckType: (value) => { if (entry.value) entry.value.form.check_type = value },
+    onUpdateCheckItem: (itemId, value) => { if (!entry.value) return; const existing = entry.value.form.check_items || {}; const prev = existing[itemId] || {}; existing[itemId] = { ...(typeof prev === 'string' ? { status: prev } : prev), status: value }; entry.value.form.check_items = { ...existing } },
+    onUpdateNote: (value) => { if (entry.value) entry.value.form.note = value },
+    onOpenCamera: photo.openChecklistITCamera,
+    onRemovePhoto: photo.removeChecklistITPhoto,
+  }
+
   if (tid === 'jadwal_cleaning_ob') return {
     entry: entry.value, shiftOptions: cleaningOB.cleaningOBShiftOptions,
     currentSections: cleaningOB.currentCleaningOBSections.value,
@@ -373,7 +389,7 @@ const currentTemplateProps = computed(() => {
     noteLabel: cleaningOB.cleaningOBNoteLabel.value,
     currentBarcode: cleaningOB.currentCleaningOBBarcode.value,
     canScanBarcode: cleaningOB.canScanCleaningOB.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     currentPhotos: cleaningOB.currentCleaningOBPhotos.value,
     photoUploading: photo.cleaningOBPhotoUploading.value,
     photoError: photo.cleaningOBPhotoError.value,
@@ -395,7 +411,7 @@ const currentTemplateProps = computed(() => {
     note: siteVisitHse.siteVisitHseNote.value, noteLabel: siteVisitHse.siteVisitHseNoteLabel.value,
     currentBarcode: siteVisitHse.currentSiteVisitHseBarcode.value,
     canScanBarcode: siteVisitHse.canScanSiteVisitHse.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     showQrScanner: showQrScanner.value,
     onApprove: approveChecklist, onScanBarcode: scanner.scanSiteVisitHseBarcode,
     onUpdateDate: siteVisitHse.updateSiteVisitHseDate,
@@ -414,7 +430,7 @@ const currentTemplateProps = computed(() => {
     noteLabel: siteVisitMaintenance.maintenanceNoteLabel.value,
     currentBarcode: siteVisitMaintenance.currentMaintenanceBarcode.value,
     canScanBarcode: siteVisitMaintenance.canScanMaintenance.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     approvalDisabledReason: maintenanceApprovalDisabledReason.value,
     currentPhotos: siteVisitMaintenance.currentMaintenancePhotos.value,
     photoUploading: photo.maintenancePhotoUploading.value,
@@ -437,7 +453,7 @@ const currentTemplateProps = computed(() => {
     currentBarcode: gensetRunning.currentGensetRunningBarcode.value,
     scanDate: gensetRunning.currentGensetRunningScanDate.value,
     canScanBarcode: gensetRunning.gensetRunningValidation.value.canScan,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     isApproved: gensetRunning.isGensetRunningApproved.value,
     statusLabel: gensetRunning.gensetRunningStatusLabel.value,
     showQrScanner: showQrScanner.value,
@@ -453,7 +469,7 @@ const currentTemplateProps = computed(() => {
     currentBarcode: runningGenset.currentRunningGensetBarcode.value,
     scanDate: runningGenset.currentRunningGensetScanDate.value,
     canScanBarcode: runningGenset.runningGensetValidation.value.canScan,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     isApproved: runningGenset.isRunningGensetApproved.value,
     showQrScanner: showQrScanner.value,
     onApprove: approveChecklist, onScanBarcode: scanner.scanRunningGensetBarcode,
@@ -468,7 +484,7 @@ const currentTemplateProps = computed(() => {
     activeRow: kompresorHarian.activeKompresorRow.value,
     activeDay: kompresorHarian.activeKompresorDay.value,
     isActiveDayApproved: kompresorHarian.isActiveKompresorDayApproved.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     note: kompresorHarian.kompresorHarianNote.value,
     approvedDays: kompresorHarian.kompresorApprovedDays.value,
     onApprove: approveChecklist, onUpdateField: kompresorHarian.updateKompresorHarianField,
@@ -484,7 +500,7 @@ const currentTemplateProps = computed(() => {
     activeRow: chargerBaterai.activeChargerBateraiRow.value,
     activeDay: chargerBaterai.activeChargerBateraiDay.value,
     isActiveDayApproved: chargerBaterai.isActiveChargerBateraiDayApproved.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     note: chargerBaterai.chargerBateraiNote.value,
     approvedDays: chargerBaterai.chargerBateraiApprovedDays.value,
     onApprove: approveChecklist, onUpdateField: chargerBaterai.updateChargerBateraiField,
@@ -499,7 +515,7 @@ const currentTemplateProps = computed(() => {
     activeRow: checklistBaterai.activeChecklistBateraiRow.value,
     activeDay: checklistBaterai.activeChecklistBateraiDay.value,
     isActiveDayApproved: checklistBaterai.isActiveChecklistBateraiDayApproved.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     note: checklistBaterai.checklistBateraiNote.value,
     approvedDays: checklistBaterai.checklistBateraiApprovedDays.value,
     onApprove: approveChecklist, onUpdateField: checklistBaterai.updateChecklistBateraiField,
@@ -508,9 +524,19 @@ const currentTemplateProps = computed(() => {
     onSetActiveDay: checklistBaterai.setActiveChecklistBateraiDay,
   }
 
+  if (tid === 'checklist_it') return {
+    entry: entry.value,
+    canApproveEntry: canApproveEntry,
+    onApprove: approveChecklist,
+    onUpdateWeek: (value) => { if (entry.value) entry.value.form.week_value = value },
+    onUpdateCheckType: (value) => { if (entry.value) entry.value.form.check_type = value },
+    onUpdateCheckItem: (itemId, value) => { if (!entry.value) return; const existing = entry.value.form.check_items || {}; const prev = existing[itemId] || {}; existing[itemId] = { ...(typeof prev === 'string' ? { status: prev } : prev), status: value }; entry.value.form.check_items = { ...existing } },
+    onUpdateNote: (value) => { if (entry.value) entry.value.form.note = value },
+  }
+
   if (tid === 'inspeksi_loker') return {
     entry: entry.value,
-    canApproveEntry: canApproveEntry.value,
+    canApproveEntry: canApproveEntry,
     onApprove: approveChecklist,
     onUpdateDate: (value) => { if (entry.value) entry.value.form.date_value = value },
     onUpdatePic: (value) => { if (entry.value) entry.value.form.pic = value },
@@ -602,6 +628,16 @@ function hasChecklistBateraiNoAnswer(row) {
     || row?.voltage_dc === 'no'
 }
 
+function isChecklistITRowCompleted(row) {
+  const status = typeof row === 'string' ? String(row).trim() : String(row?.status || '').trim()
+  return status === 'ok' || status === 'noted'
+}
+
+function hasChecklistITNoAnswer(row) {
+  const status = typeof row === 'string' ? String(row).trim() : String(row?.status || '').trim()
+  return status === 'noted'
+}
+
 const canApproveEntry = computed(() => {
   if (!entry.value) return false
   const tid = entry.value.template_id
@@ -666,6 +702,18 @@ const canApproveEntry = computed(() => {
     const activeRow = rows.find((row) => Number(row.day) === activeDay)
     if (!activeRow || approvedDays.includes(activeDay) || !isChecklistBateraiRowComplete(activeRow)) return false
     return !hasChecklistBateraiNoAnswer(activeRow) || isFilled(entry.value.form.note)
+  }
+
+  if (tid === 'checklist_it') {
+    if (!canApproveCurrentTemplate.value) return false
+    const hasHeader = Boolean(String(entry.value?.form?.week_value || '').trim())
+    if (!hasHeader) return false
+    const allItems = Object.values(entry.value.form.check_items || {})
+    if (!allItems.length) return false
+    const allCompleted = allItems.every(isChecklistITRowCompleted)
+    if (!allCompleted) return false
+    const hasNoAnswer = allItems.some(hasChecklistITNoAnswer)
+    return !hasNoAnswer || isFilled(entry.value.form.note)
   }
 
   if (tid === 'non_warehouse_sanitation') {
@@ -1030,6 +1078,7 @@ function createEntryByTemplate(templateId, options = {}) {
     kompresor_harian: () => createKompresorHarianEntry(userName),
     charger_baterai: () => createChargerBateraiEntry(userName),
     checklist_baterai: () => createChecklistBateraiEntry(userName),
+    checklist_it: () => createChecklistITEntry(userName),
     inspeksi_loker: () => createInspeksiLokerEntry(userName),
   }
   return (handlers[templateId] || (() => null))()
