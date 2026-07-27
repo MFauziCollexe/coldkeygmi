@@ -98,9 +98,10 @@
             type="button"
             :disabled="!canApproveEntry"
             class="w-[96px] rounded px-4 py-2 text-sm font-semibold transition"
-            :class="canApproveEntry
+            :class="localPatroliSecurityApprovalReady
               ? 'bg-amber-500 text-white hover:bg-amber-400'
               : 'cursor-not-allowed bg-slate-300 text-slate-500'"
+            :title="localPatroliSecurityApprovalReady ? 'Approval siap' : 'Lengkapi semua isian atau isi catatan jika ada silang.'"
             @click="$emit('approve')"
           >
             Approval
@@ -277,9 +278,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
-defineProps({
+const props = defineProps({
   entry: {
     type: Object,
     required: true,
@@ -337,6 +338,27 @@ defineProps({
     default: '',
   },
 });
+
+const localPatroliSecurityApprovalReady = computed(() => {
+  if (!props.entry || props.entry.template_id !== 'patroli_security') return false
+  const selectedArea = String(props.entry.form.selected_area || '').trim()
+  if (!selectedArea || !String(props.entry.form.date_value || '').trim()) return false
+  if (props.approvedAreas.includes(selectedArea)) return false
+
+  const items = props.currentSection?.items || []
+  if (!items.length) return false
+
+  const statuses = items.map((item) => String(item.status || '').trim())
+  const allAnswersFilled = statuses.every((status) => status === 'yes' || status === 'no')
+  if (!allAnswersFilled) return false
+
+  const hasNoAnswer = statuses.includes('no')
+  const hasRequiredNote = String(props.note || '').trim() !== ''
+  if (hasNoAnswer && !hasRequiredNote) return false
+
+  if (props.showQrScanner && !String(props.currentBarcode || '').trim()) return false
+  return true
+})
 
 const previewPhoto = ref(null);
 

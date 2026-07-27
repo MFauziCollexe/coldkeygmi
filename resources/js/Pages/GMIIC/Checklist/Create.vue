@@ -638,6 +638,20 @@ function hasChecklistITNoAnswer(row) {
   return status === 'noted'
 }
 
+const canApprovePatroliSecurityEntry = computed(() => {
+  if (!entry.value || entry.value.template_id !== 'patroli_security') return false
+  const selectedArea = String(entry.value.form.selected_area || '').trim()
+  if (!selectedArea || !String(entry.value.form.date_value || '').trim()) return false
+  if (patroliSecurity.patroliSecurityApprovedAreas.value.includes(selectedArea)) return false
+  const validation = patroliSecurity.patroliSecurityValidation.value
+  if (!validation.allAnswersFilled) return false
+  if (validation.hasNoAnswer && !validation.hasRequiredNote) return false
+  if (showQrScanner.value) {
+    return Boolean(String(patroliSecurity.currentPatroliSecurityBarcode.value || '').trim())
+  }
+  return true
+})
+
 const canApproveEntry = computed(() => {
   if (!entry.value) return false
   const tid = entry.value.template_id
@@ -797,12 +811,7 @@ const canApproveEntry = computed(() => {
 
   if (tid === 'patroli_security') {
     if (!canApproveCurrentTemplate.value) return false
-    const selectedArea = String(entry.value.form.selected_area || '').trim()
-    return Boolean(String(entry.value.form.date_value || '').trim()) && Boolean(selectedArea)
-      && !patroliSecurity.patroliSecurityApprovedAreas.value.includes(selectedArea)
-      && (showQrScanner.value ? Boolean(String(patroliSecurity.currentPatroliSecurityBarcode.value || '').trim()) : true)
-      && patroliSecurity.patroliSecurityValidation.value.allAnswersFilled
-      && (!patroliSecurity.patroliSecurityValidation.value.hasNoAnswer || patroliSecurity.patroliSecurityValidation.value.hasRequiredNote)
+    return canApprovePatroliSecurityEntry.value
   }
 
   if (tid === 'jadwal_cleaning_ob') {
