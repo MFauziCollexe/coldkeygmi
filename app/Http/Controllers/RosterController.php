@@ -1117,24 +1117,24 @@ class RosterController extends Controller
 
         if ($type === 'maintanance') {
             return [
-                ['nrp' => '25110419', 'name' => 'Reza Sahidul A'],
-                ['nrp' => '25111022', 'name' => 'Rizky Fadhlika W. D'],
-                ['nrp' => '25111021', 'name' => 'Sultan Rafliansyah'],
-                ['nrp' => '26033042', 'name' => 'Fajar Dariyanto'],
+                ['nrp' => '25111022', 'name' => 'RIZKY FADHLIKA W. D'],
+                ['nrp' => '25111021', 'name' => 'SULTAN RAFLIANSYAH'],
+                ['nrp' => '26033042', 'name' => 'FAJAR DARIYANTO'],
             ];
         }
 
         if ($type === 'risk_control') {
             return [
-                ['nrp' => '25091506', 'name' => 'Chandra Tirto Adi Ch'],
-                ['nrp' => '25101314', 'name' => 'Muhammad Solihin'],
-                ['nrp' => '25111732', 'name' => 'Memet Wibowo'],
-                ['nrp' => '25111729', 'name' => 'Saka Anggara Putra'],
-                ['nrp' => '26010533', 'name' => 'M. Hadiri'],
-                ['nrp' => '26010534', 'name' => 'Tio Isman Prayogi'],
+                ['nrp' => '25091506', 'name' => 'CHANDRA TIRTO ADI CH'],
+                ['nrp' => '25101314', 'name' => 'MUHAMMAD SOLIHIN'],
+                ['nrp' => '25111732', 'name' => 'MEMET WIBOWO'],
+                ['nrp' => '25111729', 'name' => 'SAKA ANGGARA PUTRA'],
+                ['nrp' => '26010533', 'name' => 'M. HADIRI'],
+                ['nrp' => '26010534', 'name' => 'TIO ISMAN PRAYOGI'],
                 ['nrp' => '25111731', 'name' => 'RAHAYU ANJAS SARI'],
                 ['nrp' => '25110316', 'name' => 'AINUR RAFIQ SAIFULLAH'],
                 ['nrp' => '25111730', 'name' => 'SOFIA NOVA PRADANI'],
+                ['nrp' => '26071346', 'name' => 'RENDRA ARI INDRIANTO'],
             ];
         }
 
