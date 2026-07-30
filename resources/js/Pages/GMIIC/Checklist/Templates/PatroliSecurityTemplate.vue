@@ -94,18 +94,14 @@
             Mode tanpa QRCode aktif.
           </div>
 
-          <button
-            type="button"
-            :disabled="!canApproveEntry"
-            class="w-[96px] rounded px-4 py-2 text-sm font-semibold transition"
-            :class="localPatroliSecurityApprovalReady
-              ? 'bg-amber-500 text-white hover:bg-amber-400'
-              : 'cursor-not-allowed bg-slate-300 text-slate-500'"
-            :title="localPatroliSecurityApprovalReady ? 'Approval siap' : 'Lengkapi semua isian atau isi catatan jika ada silang.'"
-            @click="$emit('approve')"
-          >
-            Approval
-          </button>
+          <ApprovalButton
+            :is-ready="localPatroliSecurityApprovalReady"
+            :disabled="!localPatroliSecurityApprovalReady"
+            label="Approval"
+            button-class="w-[96px]"
+            :tooltip="localPatroliSecurityApprovalReady ? 'Approval siap' : 'Lengkapi semua isian atau isi catatan jika ada silang.'"
+            @click="handleApproveClick"
+          />
         </div>
 
         <div class="max-w-[132px] text-xs text-slate-600">
@@ -279,6 +275,7 @@
 
 <script setup>
 import { computed, ref } from 'vue';
+import ApprovalButton from '../Components/ApprovalButton.vue';
 
 const props = defineProps({
   entry: {
@@ -362,6 +359,12 @@ const localPatroliSecurityApprovalReady = computed(() => {
 
 const previewPhoto = ref(null);
 
+function handleApproveClick() {
+  if (localPatroliSecurityApprovalReady.value) {
+    emit('approve')
+  }
+}
+
 function openPhotoPreview(photo, index) {
   if (!photo?.url) {
     return;
@@ -377,5 +380,5 @@ function closePhotoPreview() {
   previewPhoto.value = null;
 }
 
-defineEmits(['approve', 'scan-barcode', 'update-date', 'update-area', 'cycle-row-status', 'update-note', 'open-camera', 'remove-photo']);
+const emit = defineEmits(['approve', 'scan-barcode', 'update-date', 'update-area', 'cycle-row-status', 'update-note', 'open-camera', 'remove-photo']);
 </script>

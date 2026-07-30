@@ -36,21 +36,14 @@
           Mode tanpa QRCode aktif.
         </div>
 
-        <button
-          type="button"
+        <ApprovalButton
+          :is-ready="canApproveEntry"
           :disabled="!canApproveEntry"
-          class="rounded px-4 py-2 text-sm font-semibold transition"
-          :class="isActiveMonthApproved
-            ? 'bg-emerald-500 text-white'
-            : isActiveMonthSubmitted
-              ? 'bg-amber-500 text-white'
-              : canApproveEntry
-                ? 'bg-amber-500 text-white hover:bg-amber-400'
-                : 'cursor-not-allowed bg-slate-300 text-slate-500'"
+          :label="isActiveMonthApproved ? 'Approved' : isActiveMonthSubmitted ? 'Approval HSE' : canApproveHse ? 'Approve' : 'Submit'"
+          :button-class="`w-[96px] ${isActiveMonthApproved ? 'bg-emerald-500 text-white' : isActiveMonthSubmitted ? 'bg-amber-500 text-white' : ''}`"
+          tooltip="Approval siap jika semua kondisi terpenuhi"
           @click="$emit('approve')"
-        >
-          {{ isActiveMonthApproved ? 'Approved' : isActiveMonthSubmitted ? 'Approval HSE' : canApproveHse ? 'Approve' : 'Submit' }}
-        </button>
+        />
       </div>
     </div>
 
@@ -214,6 +207,8 @@
 </template>
 
 <script setup>
+import ApprovalButton from '../Components/ApprovalButton.vue';
+
 defineProps({
   entry: {
     type: Object,

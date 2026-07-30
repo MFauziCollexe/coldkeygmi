@@ -1,8 +1,15 @@
 import { computed } from 'vue'
-import { getDaysInPeriod, getSaranaPrasaranaAreaLabel, saranaPrasaranaAreaOptions, rebuildSaranaPrasaranaSections } from '../checklistConfig'
+import { getDaysInPeriod, toPeriodValue, getSaranaPrasaranaAreaLabel, saranaPrasaranaAreaOptions, rebuildSaranaPrasaranaSections } from '../checklistConfig'
 
 export function useSaranaPrasarana(entry, { showQrScanner }) {
   const isSaranaPrasarana = computed(() => entry.value?.template_id === 'sarana_dan_prasarana')
+
+  const saranaPrasaranaTargetKey = computed(() => {
+    if (!isSaranaPrasarana.value || !entry.value) return ''
+    const areaId = String(entry.value.form.selected_area || '').trim()
+    const areaLabel = getSaranaPrasaranaAreaLabel(areaId)
+    return areaLabel || areaId || ''
+  })
 
   const saranaPrasaranaDays = computed(() => {
     if (!isSaranaPrasarana.value || !entry.value) return []
@@ -14,6 +21,34 @@ export function useSaranaPrasarana(entry, { showQrScanner }) {
     const areaId = String(entry.value.form.selected_area || '').trim()
     const approvedDaysByArea = entry.value.form.approved_days_by_area || {}
     return Array.isArray(approvedDaysByArea?.[areaId]) ? approvedDaysByArea[areaId] : []
+  })
+
+  const isSaranaPrasaranaAreaApproved = computed(() => {
+    if (!isSaranaPrasarana.value || !entry.value) return false
+    const areaId = String(entry.value.form.selected_area || '').trim()
+    if (!areaId) return false
+    const nonSundayDays = saranaPrasaranaDays.value.filter((day) => !day.isSunday)
+    const approvedDays = saranaPrasaranaApprovedDays.value
+    return nonSundayDays.length > 0 && nonSundayDays.every((day) => approvedDays.includes(day.day))
+  })
+
+  const saranaPrasaranaNoteLabel = computed(() => {
+    if (!isSaranaPrasarana.value || !entry.value) return 'Keterangan'
+    return `Keterangan ${getSaranaPrasaranaAreaLabel(entry.value.form.selected_area)}`
+  })
+
+  const saranaPrasaranaNote = computed({
+    get() {
+      if (!isSaranaPrasarana.value || !entry.value) return ''
+      return entry.value.form.area_notes?.[saranaPrasaranaTargetKey.value] || ''
+    },
+    set(value) {
+      if (!isSaranaPrasarana.value || !entry.value) return
+      entry.value.form.area_notes = {
+        ...(entry.value.form.area_notes || {}),
+        [saranaPrasaranaTargetKey.value]: value
+      }
+    },
   })
 
   const currentSaranaPrasaranaSection = computed(() => {
@@ -41,6 +76,23 @@ export function useSaranaPrasarana(entry, { showQrScanner }) {
       && (currentSaranaPrasaranaSection.value?.items || []).every((item) => Boolean(item.days?.[nextPendingSaranaPrasaranaDay.value.day]))
   })
 
+  function findOpenSaranaPrasaranaDraft(entries = []) {
+    const currentPeriod = toPeriodValue(new Date())
+    const days = getDaysInPeriod(currentPeriod)
+    const nonSundayDayNumbers = days.filter((d) => !d.isSunday).map((d) => d.day)
+    if (!nonSundayDayNumbers.length) return null
+    return (Array.isArray(entries) ? entries : []).find((entry) => {
+      if (entry?.template_id !== 'sarana_dan_prasarana') return false
+      if (String(entry?.form?.period || '').trim() !== currentPeriod) return false
+      const approvedByArea = entry?.form?.approved_days_by_area || {}
+      const allFullyApproved = saranaPrasaranaAreaOptions.every((area) => {
+        const approvedDays = approvedByArea[area.id] || []
+        return nonSundayDayNumbers.every((day) => approvedDays.includes(day))
+      })
+      return !allFullyApproved
+    }) || null
+  }
+
   function updateSaranaPrasaranaPeriod(value) {
     if (!entry.value || !isSaranaPrasarana.value) return
     entry.value.form.period = value
@@ -67,11 +119,23 @@ export function useSaranaPrasarana(entry, { showQrScanner }) {
     })
   }
 
+  function updateSaranaPrasaranaNote(value) {
+    if (!entry.value || !isSaranaPrasarana.value || !saranaPrasaranaTargetKey.value) return
+    entry.value.form.area_notes = {
+      ...(entry.value.form.area_notes || {}),
+      [saranaPrasaranaTargetKey.value]: String(value || '')
+    }
+  }
+
   return {
     isSaranaPrasarana, saranaPrasaranaDays, saranaPrasaranaApprovedDays,
+    isSaranaPrasaranaAreaApproved, saranaPrasaranaNote, saranaPrasaranaNoteLabel,
+    saranaPrasaranaTargetKey,
     currentSaranaPrasaranaSection, currentSaranaPrasaranaScan,
     nextPendingSaranaPrasaranaDay, canScanSaranaPrasaranaArea,
     saranaPrasaranaAreaOptions, getSaranaPrasaranaAreaLabel,
+    findOpenSaranaPrasaranaDraft,
     updateSaranaPrasaranaPeriod, updateSaranaPrasaranaArea, cycleSaranaPrasaranaDay,
+    updateSaranaPrasaranaNote,
   }
 }

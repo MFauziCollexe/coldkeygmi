@@ -205,6 +205,10 @@ export function createWarehouseSanitationEntry(userName) {
                     ...createWarehouseBooleanMap(),
                 }),
             ),
+            area_notes: {},
+            area_photo_paths: {},
+            area_photo_urls: {},
+            area_photo_names: {},
             verification: {
                 prepared_name: "",
                 prepared_signature: "",

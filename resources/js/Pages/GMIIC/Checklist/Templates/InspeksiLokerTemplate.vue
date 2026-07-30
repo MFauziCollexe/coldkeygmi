@@ -69,14 +69,14 @@
         </div>
 
         <div class="flex justify-end">
-          <button
-            type="button"
+          <ApprovalButton
+            :is-ready="canApproveEntry"
             :disabled="!canApproveEntry"
-            class="h-9 rounded bg-amber-500 px-5 text-sm font-semibold text-white transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+            label="Approval"
+            button-class="w-[132px]"
+            tooltip="Approval siap jika semua kondisi terpenuhi"
             @click="$emit('approve')"
-          >
-            Approval
-          </button>
+          />
         </div>
       </div>
     </div>
@@ -129,13 +129,116 @@
         @input="$emit('update-note', $event.target.value)"
       ></textarea>
     </div>
+
+    <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
+      <div class="mb-2 flex items-center justify-between gap-3">
+        <div class="text-sm font-semibold">Foto Inspeksi Loker</div>
+        <div class="text-xs text-slate-600">{{ currentPhotos.length }} foto</div>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <button
+          type="button"
+          class="inline-flex w-fit items-center rounded px-4 py-2 text-sm font-semibold transition"
+          :disabled="photoUploading"
+          :class="photoUploading
+            ? 'cursor-not-allowed bg-slate-300 text-slate-500'
+            : 'bg-sky-600 text-white hover:bg-sky-500'"
+          @click="$emit('open-camera')"
+        >
+          {{ photoUploading ? 'Uploading...' : 'Ambil Foto' }}
+        </button>
+
+        <div v-if="currentPhotos.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            v-for="(photo, index) in currentPhotos"
+            :key="`${photo.path || photo.url || 'photo'}-${index}`"
+            class="overflow-hidden rounded border border-slate-300 bg-white p-2"
+          >
+            <button
+              type="button"
+              class="block w-full"
+              @click="openPhotoPreview(photo, index)"
+            >
+              <img
+                :src="photo.url"
+                :alt="photo.name || `Foto inspeksi loker ${index + 1}`"
+                class="h-40 w-full rounded object-cover"
+              />
+            </button>
+            <div class="mt-2 flex items-start justify-between gap-2">
+              <div class="min-w-0 text-xs text-slate-600">
+                <div class="truncate">{{ photo.name || `Foto ${index + 1}` }}</div>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 text-xs font-semibold text-rose-600 hover:text-rose-500"
+                @click="$emit('remove-photo', index)"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="photoError" class="rounded border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          {{ photoError }}
+        </div>
+
+        <div class="text-xs text-slate-600">
+          Foto akan langsung dibuka dari kamera lalu di-upload ke server.
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="previewPhoto"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      @click.self="closePhotoPreview"
+    >
+      <div class="w-full max-w-5xl rounded-xl bg-slate-900 p-4 shadow-2xl">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="truncate text-lg font-semibold text-white">{{ previewPhoto.name || 'Foto Inspeksi Loker' }}</h3>
+          </div>
+          <button
+            type="button"
+            class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
+            @click="closePhotoPreview"
+          >
+            Close
+          </button>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-slate-700 bg-black">
+          <img
+            :src="previewPhoto.url"
+            :alt="previewPhoto.name || 'Foto Inspeksi Loker'"
+            class="max-h-[72vh] w-full object-contain"
+          />
+        </div>
+
+        <div class="mt-4 flex justify-end">
+          <a
+            :href="previewPhoto.url"
+            :download="previewPhoto.name || 'foto-inspeksi-loker.jpg'"
+            class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500"
+          >
+            Download
+          </a>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue';
+import ApprovalButton from '../Components/ApprovalButton.vue';
+
 const lockerNumbers = Array.from({ length: 32 }, (_, index) => index + 1)
 
-defineProps({
+const props = defineProps({
   entry: {
     type: Object,
     required: true,
@@ -144,7 +247,33 @@ defineProps({
     type: Boolean,
     required: true,
   },
+  currentPhotos: {
+    type: Array,
+    default: () => [],
+  },
+  photoUploading: {
+    type: Boolean,
+    default: false,
+  },
+  photoError: {
+    type: String,
+    default: '',
+  },
 })
 
-defineEmits(['approve', 'update-date', 'update-pic', 'update-note', 'cycle-locker-status'])
+const previewPhoto = ref(null)
+
+function openPhotoPreview(photo, index) {
+  if (!photo?.url) return
+  previewPhoto.value = {
+    ...photo,
+    name: photo.name || `Foto inspeksi loker ${Number(index) + 1}`,
+  }
+}
+
+function closePhotoPreview() {
+  previewPhoto.value = null
+}
+
+defineEmits(['approve', 'update-date', 'update-pic', 'update-note', 'cycle-locker-status', 'open-camera', 'remove-photo'])
 </script>

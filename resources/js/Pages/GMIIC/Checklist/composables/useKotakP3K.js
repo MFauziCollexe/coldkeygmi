@@ -155,7 +155,8 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
 
     const kotakP3KActiveMonthStatusLabel = computed(() => {
         if (isActiveKotakP3KMonthApproved.value) return "Approved";
-        if (isActiveKotakP3KMonthSubmitted.value) return canApproveHse?.value ? "Approval HSE" : "Waiting HSE";
+        if (isActiveKotakP3KMonthSubmitted.value)
+            return canApproveHse?.value ? "Approval HSE" : "Waiting HSE";
         return "Pending";
     });
 
@@ -214,7 +215,7 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
         if (isActiveKotakP3KMonthApproved.value) return "Approved";
         if (isActiveKotakP3KMonthSubmitted.value) return "Approval HSE";
         if (canApproveHse?.value) return "Approve";
-        return "Submit";
+        return "Approve";
     });
 
     function toggleLocationMenu(locationMenuOpen) {

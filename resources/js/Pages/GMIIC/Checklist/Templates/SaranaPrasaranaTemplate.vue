@@ -94,17 +94,14 @@
           Mode tanpa QRCode aktif.
         </div>
 
-        <button
-          type="button"
-          :disabled="!canApproveEntry"
-          class="rounded px-4 py-2 text-sm font-semibold transition"
-          :class="canApproveEntry
-            ? 'bg-amber-500 text-white hover:bg-amber-400'
-            : 'cursor-not-allowed bg-slate-300 text-slate-500'"
-          @click="$emit('approve')"
-        >
-          Approval
-        </button>
+        <ApprovalButton
+          :is-ready="localSaranaPrasaranaApprovalReady"
+          :disabled="!localSaranaPrasaranaApprovalReady"
+          label="Approval"
+          button-class="w-[96px]"
+          :tooltip="localSaranaPrasaranaApprovalReady ? 'Approval siap' : 'Lengkapi semua isian atau isi catatan jika ada silang.'"
+          @click="handleApproveClick"
+        />
       </div>
     </div>
 
@@ -165,11 +162,129 @@
         </tbody>
       </table>
     </div>
+
+    <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
+      <div class="mb-2 text-sm font-semibold">{{ noteLabel }}</div>
+      <textarea
+        :value="note"
+        rows="4"
+        class="w-full rounded border border-slate-400 bg-slate-100 px-3 py-2 text-sm text-slate-900"
+        :disabled="isAreaApproved"
+        placeholder="Isi catatan / temuan untuk area aktif..."
+        @input="$emit('update-note', $event.target.value)"
+      ></textarea>
+      <div class="mt-2 text-xs text-slate-600">
+        Isi catatan ini jika ada item bertanda silang.
+      </div>
+    </div>
+
+    <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
+      <div class="mb-2 flex items-center justify-between gap-3">
+        <div class="text-sm font-semibold">Foto Area</div>
+        <div class="text-xs text-slate-600">{{ currentPhotos.length }} foto</div>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <button
+          type="button"
+          class="inline-flex w-fit items-center rounded px-4 py-2 text-sm font-semibold transition"
+          :disabled="photoUploading"
+          :class="photoUploading
+            ? 'cursor-not-allowed bg-slate-300 text-slate-500'
+            : 'bg-sky-600 text-white hover:bg-sky-500'"
+          @click="$emit('open-camera')"
+        >
+          {{ photoUploading ? 'Uploading...' : 'Ambil Foto' }}
+        </button>
+
+        <div v-if="currentPhotos.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            v-for="(photo, index) in currentPhotos"
+            :key="`${photo.path || photo.url || 'photo'}-${index}`"
+            class="overflow-hidden rounded border border-slate-300 bg-white p-2"
+          >
+            <button
+              type="button"
+              class="block w-full"
+              @click="openPhotoPreview(photo, index)"
+            >
+              <img
+                :src="photo.url"
+                :alt="photo.name || `Foto sarana prasarana ${index + 1}`"
+                class="h-40 w-full rounded object-cover"
+              />
+            </button>
+            <div class="mt-2 flex items-start justify-between gap-2">
+              <div class="min-w-0 text-xs text-slate-600">
+                <div class="truncate">{{ photo.name || `Foto ${index + 1}` }}</div>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 text-xs font-semibold text-rose-600 hover:text-rose-500"
+                @click="$emit('remove-photo', index)"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="photoError" class="rounded border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          {{ photoError }}
+        </div>
+
+        <div class="text-xs text-slate-600">
+          Foto akan langsung dibuka dari kamera lalu di-upload ke server.
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="previewPhoto"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      @click.self="closePhotoPreview"
+    >
+      <div class="w-full max-w-5xl rounded-xl bg-slate-900 p-4 shadow-2xl">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="truncate text-lg font-semibold text-white">{{ previewPhoto.name || 'Foto Sarana dan Prasarana' }}</h3>
+          </div>
+          <button
+            type="button"
+            class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
+            @click="closePhotoPreview"
+          >
+            Close
+          </button>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-slate-700 bg-black">
+          <img
+            :src="previewPhoto.url"
+            :alt="previewPhoto.name || 'Foto Sarana dan Prasarana'"
+            class="max-h-[72vh] w-full object-contain"
+          />
+        </div>
+
+        <div class="mt-4 flex justify-end">
+          <a
+            :href="previewPhoto.url"
+            :download="previewPhoto.name || 'foto-sarana-prasarana.jpg'"
+            class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500"
+          >
+            Download
+          </a>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-defineProps({
+import { computed, ref } from 'vue';
+import ApprovalButton from '../Components/ApprovalButton.vue';
+
+const props = defineProps({
   entry: {
     type: Object,
     required: true,
@@ -210,7 +325,73 @@ defineProps({
     type: Boolean,
     required: true,
   },
+  note: {
+    type: String,
+    default: '',
+  },
+  noteLabel: {
+    type: String,
+    default: 'Keterangan',
+  },
+  isAreaApproved: {
+    type: Boolean,
+    default: false,
+  },
+  currentPhotos: {
+    type: Array,
+    default: () => [],
+  },
+  photoUploading: {
+    type: Boolean,
+    default: false,
+  },
+  photoError: {
+    type: String,
+    default: '',
+  },
 });
 
-defineEmits(['approve', 'update-period', 'update-area', 'cycle-day', 'scan-area']);
+const localSaranaPrasaranaApprovalReady = computed(() => {
+  if (!props.entry || props.entry.template_id !== 'sarana_dan_prasarana') return false
+  const selectedArea = String(props.entry.form.selected_area || '').trim()
+  if (!selectedArea || !String(props.entry.form.period || '').trim()) return false
+  if (!props.nextPendingDay) return false
+
+  const items = props.currentSection?.items || []
+  if (!items.length) return false
+
+  const pendingDay = props.nextPendingDay.day
+  const statuses = items.map((item) => String(item.days?.[pendingDay] || '').trim())
+  const allAnswersFilled = statuses.every((status) => status === 'yes' || status === 'no')
+  if (!allAnswersFilled) return false
+
+  const hasNoAnswer = statuses.includes('no')
+  const hasRequiredNote = String(props.note || '').trim() !== ''
+  if (hasNoAnswer && !hasRequiredNote) return false
+
+  if (props.showQrScanner && !String(props.currentAreaScan?.barcode || '').trim()) return false
+  return true
+})
+
+const previewPhoto = ref(null);
+
+function handleApproveClick() {
+  if (localSaranaPrasaranaApprovalReady.value) {
+    emit('approve')
+  }
+}
+
+function openPhotoPreview(photo, index) {
+  if (!photo?.url) return;
+  previewPhoto.value = {
+    ...photo,
+    name: photo.name || `Foto sarana prasarana ${Number(index) + 1}`,
+  };
+}
+
+function closePhotoPreview() {
+  previewPhoto.value = null;
+}
+
+const emit = defineEmits(['approve', 'update-period', 'update-area', 'cycle-day', 'scan-area', 'update-note', 'open-camera', 'remove-photo']);
 </script>

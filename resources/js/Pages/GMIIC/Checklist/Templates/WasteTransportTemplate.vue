@@ -40,17 +40,14 @@
         />
       </div>
 
-      <button
-        type="button"
+      <ApprovalButton
+        :is-ready="canApproveEntry"
         :disabled="!canApproveEntry"
-        class="rounded px-4 py-2 text-sm font-semibold transition"
-        :class="canApproveEntry
-          ? 'bg-amber-500 text-white hover:bg-amber-400'
-          : 'cursor-not-allowed bg-slate-300 text-slate-500'"
+        label="Approval"
+        button-class="w-[96px]"
+        tooltip="Approval siap jika semua kondisi terpenuhi"
         @click="$emit('approve')"
-      >
-        Approval
-      </button>
+      />
     </div>
 
       <div class="overflow-x-auto border border-black">
@@ -153,6 +150,8 @@
 </template>
 
 <script setup>
+import ApprovalButton from '../Components/ApprovalButton.vue';
+
 defineProps({
   entry: {
     type: Object,

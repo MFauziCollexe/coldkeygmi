@@ -94,17 +94,14 @@
             Mode tanpa QRCode aktif.
           </div>
 
-          <button
-            type="button"
-            :disabled="!isEditable || !canApproveEntry"
-            class="w-[96px] rounded px-4 py-2 text-sm font-semibold transition"
-            :class="isEditable && canApproveEntry
-              ? 'bg-amber-500 text-white hover:bg-amber-400'
-              : 'cursor-not-allowed bg-slate-300 text-slate-500'"
-            @click="$emit('approve')"
-          >
-            Approval
-          </button>
+          <ApprovalButton
+            :is-ready="localCleaningOBApprovalReady"
+            :disabled="!localCleaningOBApprovalReady"
+            label="Approval"
+            button-class="w-[96px]"
+            tooltip="Approval siap jika semua kondisi terpenuhi"
+            @click="handleApproveClick"
+          />
         </div>
 
         <div class="max-w-[132px] text-xs text-slate-600">
@@ -264,7 +261,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import ApprovalButton from '../Components/ApprovalButton.vue';
+import { ref, computed } from 'vue'
 
 const previewPhoto = ref(null)
 
@@ -280,7 +278,7 @@ function closePhotoPreview() {
   previewPhoto.value = null
 }
 
-defineProps({
+const props = defineProps({
   entry: {
     type: Object,
     required: true,
@@ -343,5 +341,32 @@ defineProps({
   },
 })
 
-defineEmits(['approve', 'scan-barcode', 'update-date', 'update-shift', 'cycle-row-status', 'update-note', 'open-camera', 'remove-photo'])
+const localCleaningOBApprovalReady = computed(() => {
+  if (!props.entry || props.entry.template_id !== 'jadwal_cleaning_ob') return false
+  const selectedShift = String(props.entry.form.selected_shift || '').trim()
+  if (!selectedShift || !String(props.entry.form.date_value || '').trim()) return false
+  if (props.approvedAreas.includes(selectedShift)) return false
+
+  const items = (props.currentSections || []).flatMap((s) => s.items || [])
+  if (!items.length) return false
+
+  const statuses = items.map((item) => String(item.status || '').trim())
+  const allAnswersFilled = statuses.every((status) => status === 'yes' || status === 'no')
+  if (!allAnswersFilled) return false
+
+  const hasNoAnswer = statuses.includes('no')
+  const hasRequiredNote = String(props.note || '').trim() !== ''
+  if (hasNoAnswer && !hasRequiredNote) return false
+
+  if (props.showQrScanner && !String(props.currentBarcode || '').trim()) return false
+  return true
+})
+
+function handleApproveClick() {
+  if (localCleaningOBApprovalReady.value) {
+    emit('approve')
+  }
+}
+
+const emit = defineEmits(['approve', 'scan-barcode', 'update-date', 'update-shift', 'cycle-row-status', 'update-note', 'open-camera', 'remove-photo'])
 </script>

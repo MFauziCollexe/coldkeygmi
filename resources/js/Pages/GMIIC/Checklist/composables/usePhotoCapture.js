@@ -9,9 +9,22 @@ export function usePhotoCapture({
     isSiteVisitMaintenance,
     isCleaningOB,
     isChecklistIT,
+    isRunningGenset,
+    isKompresorHarian,
+    isChargerBaterai,
+    isChecklistBaterai,
+    isInspeksiLoker,
+    isSaranaPrasarana,
+    isWarehouseSanitation,
+    warehouseTargetKey,
     patroliSecurityTargetKey,
     maintenanceScanTargetKey,
     cleaningOBTargetKey,
+    runningGensetTargetKey,
+    kompresorHarianTargetKey,
+    chargerBateraiTargetKey,
+    checklistBateraiTargetKey,
+    saranaPrasaranaTargetKey,
     wasteTransportRows,
     currentPatroliSecurityPhotos,
     currentCleaningOBPhotos,
@@ -35,6 +48,20 @@ export function usePhotoCapture({
     const cleaningOBPhotoError = ref("");
     const checklistITPhotoUploading = ref(false);
     const checklistITPhotoError = ref("");
+    const runningGensetPhotoUploading = ref(false);
+    const runningGensetPhotoError = ref("");
+    const kompresorHarianPhotoUploading = ref(false);
+    const kompresorHarianPhotoError = ref("");
+    const chargerBateraiPhotoUploading = ref(false);
+    const chargerBateraiPhotoError = ref("");
+    const checklistBateraiPhotoUploading = ref(false);
+    const checklistBateraiPhotoError = ref("");
+    const inspeksiLokerPhotoUploading = ref(false);
+    const inspeksiLokerPhotoError = ref("");
+    const saranaPrasaranaPhotoUploading = ref(false);
+    const saranaPrasaranaPhotoError = ref("");
+    const warehousePhotoUploading = ref(false);
+    const warehousePhotoError = ref("");
     const photoCapturing = ref(false);
 
     let photoStream = null;
@@ -65,6 +92,41 @@ export function usePhotoCapture({
             photoModalTitle.value = "Ambil Foto Checklist IT";
             photoModalDescription.value =
                 "Gunakan kamera HP atau laptop, lalu ambil foto area IT secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "running_genset") {
+            photoModalTitle.value = "Ambil Foto Running Genset";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto genset secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "kompresor_harian") {
+            photoModalTitle.value = "Ambil Foto Kompresor Harian";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto area kompresor secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "charger_baterai") {
+            photoModalTitle.value = "Ambil Foto Charger Baterai";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto charger baterai secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "checklist_baterai") {
+            photoModalTitle.value = "Ambil Foto Checklist Baterai";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto checklist baterai secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "inspeksi_loker") {
+            photoModalTitle.value = "Ambil Foto Inspeksi Loker";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto inspeksi loker secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "sarana_prasarana") {
+            photoModalTitle.value = "Ambil Foto Sarana dan Prasarana";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto area sarana dan prasarana secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "warehouse_sanitation") {
+            photoModalTitle.value = "Ambil Foto Warehouse";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto area warehouse secara langsung.";
             photoCaptureButtonLabel.value = "Capture & Upload";
         } else {
             photoModalTitle.value = "Ambil Foto Petugas Pengangkut";
@@ -137,6 +199,120 @@ export function usePhotoCapture({
         if (!entry.value || !isChecklistIT.value) return;
         photoCaptureMode.value = "checklist_it";
         photoCaptureDay.value = null;
+        photoError.value = "";
+        photoLoading.value = true;
+        photoModalOpen.value = true;
+        await nextTick();
+        await startPhotoCamera();
+    }
+
+    async function openKompresorHarianCamera() {
+        if (
+            !entry.value ||
+            !isKompresorHarian.value ||
+            !kompresorHarianTargetKey.value
+        )
+            return;
+        photoCaptureMode.value = "kompresor_harian";
+        photoCaptureDay.value = null;
+        updatePhotoModalLabels("kompresor_harian");
+        photoError.value = "";
+        photoLoading.value = true;
+        photoModalOpen.value = true;
+        await nextTick();
+        await startPhotoCamera();
+    }
+
+    async function openRunningGensetCamera() {
+        if (
+            !entry.value ||
+            !isRunningGenset.value ||
+            !runningGensetTargetKey.value
+        )
+            return;
+        photoCaptureMode.value = "running_genset";
+        photoCaptureDay.value = null;
+        updatePhotoModalLabels("running_genset");
+        photoError.value = "";
+        photoLoading.value = true;
+        photoModalOpen.value = true;
+        await nextTick();
+        await startPhotoCamera();
+    }
+
+    async function openChargerBateraiCamera() {
+        if (
+            !entry.value ||
+            !isChargerBaterai.value ||
+            !chargerBateraiTargetKey.value
+        )
+            return;
+        photoCaptureMode.value = "charger_baterai";
+        photoCaptureDay.value = null;
+        updatePhotoModalLabels("charger_baterai");
+        photoError.value = "";
+        photoLoading.value = true;
+        photoModalOpen.value = true;
+        await nextTick();
+        await startPhotoCamera();
+    }
+
+    async function openChecklistBateraiCamera() {
+        if (
+            !entry.value ||
+            !isChecklistBaterai.value ||
+            !checklistBateraiTargetKey.value
+        )
+            return;
+        photoCaptureMode.value = "checklist_baterai";
+        photoCaptureDay.value = null;
+        updatePhotoModalLabels("checklist_baterai");
+        photoError.value = "";
+        photoLoading.value = true;
+        photoModalOpen.value = true;
+        await nextTick();
+        await startPhotoCamera();
+    }
+
+    async function openInspeksiLokerCamera() {
+        if (!entry.value || !isInspeksiLoker.value) return;
+        photoCaptureMode.value = "inspeksi_loker";
+        photoCaptureDay.value = null;
+        updatePhotoModalLabels("inspeksi_loker");
+        photoError.value = "";
+        photoLoading.value = true;
+        photoModalOpen.value = true;
+        await nextTick();
+        await startPhotoCamera();
+    }
+
+    async function openSaranaPrasaranaCamera() {
+        if (
+            !entry.value ||
+            !isSaranaPrasarana.value ||
+            !saranaPrasaranaTargetKey.value
+        )
+            return;
+        photoCaptureMode.value = "sarana_prasarana";
+        photoCaptureDay.value = null;
+        updatePhotoModalLabels("sarana_prasarana");
+        photoError.value = "";
+        photoLoading.value = true;
+        photoModalOpen.value = true;
+        await nextTick();
+        await startPhotoCamera();
+    }
+
+    async function openWarehouseCamera() {
+        if (
+            !entry.value ||
+            !isWarehouseSanitation.value ||
+            !warehouseTargetKey.value
+        )
+            return;
+        photoCaptureMode.value = "warehouse_sanitation";
+        photoCaptureDay.value = null;
+        updatePhotoModalLabels("warehouse_sanitation");
         photoError.value = "";
         photoLoading.value = true;
         photoModalOpen.value = true;
@@ -710,8 +886,81 @@ export function usePhotoCapture({
         return single ? [single] : [];
     }
 
+    function normalizeKompresorHarianPhotoBucket(bucket) {
+        if (Array.isArray(bucket))
+            return bucket.filter((item) => String(item || "").trim() !== "");
+        const single = String(bucket || "").trim();
+        return single ? [single] : [];
+    }
+
+    function normalizeRunningGensetPhotoBucket(bucket) {
+        if (Array.isArray(bucket))
+            return bucket.filter((item) => String(item || "").trim() !== "");
+        const single = String(bucket || "").trim();
+        return single ? [single] : [];
+    }
+
+    function normalizeChargerBateraiPhotoBucket(bucket) {
+        if (Array.isArray(bucket))
+            return bucket.filter((item) => String(item || "").trim() !== "");
+        const single = String(bucket || "").trim();
+        return single ? [single] : [];
+    }
+
+    function normalizeChecklistBateraiPhotoBucket(bucket) {
+        if (Array.isArray(bucket))
+            return bucket.filter((item) => String(item || "").trim() !== "");
+        const single = String(bucket || "").trim();
+        return single ? [single] : [];
+    }
+
+    function normalizeInspeksiLokerPhotoBucket(bucket) {
+        if (Array.isArray(bucket))
+            return bucket.filter((item) => String(item || "").trim() !== "");
+        const single = String(bucket || "").trim();
+        return single ? [single] : [];
+    }
+
+    function normalizeSaranaPrasaranaPhotoBucket(bucket) {
+        if (Array.isArray(bucket))
+            return bucket.filter((item) => String(item || "").trim() !== "");
+        const single = String(bucket || "").trim();
+        return single ? [single] : [];
+    }
+
+    function normalizeWarehousePhotoBucket(bucket) {
+        if (Array.isArray(bucket))
+            return bucket.filter((item) => String(item || "").trim() !== "");
+        const single = String(bucket || "").trim();
+        return single ? [single] : [];
+    }
+
     function getChecklistITPhotoBucketKey() {
         return "checklist_it";
+    }
+
+    function getKompresorHarianPhotoBucketKey() {
+        return kompresorHarianTargetKey.value || "kompresor_harian";
+    }
+
+    function getRunningGensetPhotoBucketKey() {
+        return runningGensetTargetKey.value || "genset";
+    }
+
+    function getChargerBateraiPhotoBucketKey() {
+        return chargerBateraiTargetKey.value || "charger_baterai";
+    }
+
+    function getChecklistBateraiPhotoBucketKey() {
+        return checklistBateraiTargetKey.value || "checklist_baterai";
+    }
+
+    function getInspeksiLokerPhotoBucketKey() {
+        return "inspeksi_loker";
+    }
+
+    function getSaranaPrasaranaPhotoBucketKey() {
+        return saranaPrasaranaTargetKey.value || "sarana_prasarana";
     }
 
     const currentChecklistITPhotos = computed(() => {
@@ -724,6 +973,175 @@ export function usePhotoCapture({
             entry.value.form.area_photo_urls?.[targetKey],
         );
         const names = normalizeChecklistITPhotoBucket(
+            entry.value.form.area_photo_names?.[targetKey],
+        );
+        const length = Math.max(paths.length, urls.length, names.length);
+        return Array.from({ length }, (_, index) => ({
+            path: paths[index] || "",
+            url: urls[index] || "",
+            name: names[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+    });
+
+    const currentRunningGensetPhotos = computed(() => {
+        if (
+            !entry.value ||
+            !isRunningGenset.value ||
+            !runningGensetTargetKey.value
+        )
+            return [];
+        const targetKey = getRunningGensetPhotoBucketKey();
+        const paths = normalizeRunningGensetPhotoBucket(
+            entry.value.form.area_photo_paths?.[targetKey],
+        );
+        const urls = normalizeRunningGensetPhotoBucket(
+            entry.value.form.area_photo_urls?.[targetKey],
+        );
+        const names = normalizeRunningGensetPhotoBucket(
+            entry.value.form.area_photo_names?.[targetKey],
+        );
+        const length = Math.max(paths.length, urls.length, names.length);
+        return Array.from({ length }, (_, index) => ({
+            path: paths[index] || "",
+            url: urls[index] || "",
+            name: names[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+    });
+
+    const currentKompresorHarianPhotos = computed(() => {
+        if (
+            !entry.value ||
+            !isKompresorHarian.value ||
+            !kompresorHarianTargetKey.value
+        )
+            return [];
+        const targetKey = getKompresorHarianPhotoBucketKey();
+        const paths = normalizeKompresorHarianPhotoBucket(
+            entry.value.form.area_photo_paths?.[targetKey],
+        );
+        const urls = normalizeKompresorHarianPhotoBucket(
+            entry.value.form.area_photo_urls?.[targetKey],
+        );
+        const names = normalizeKompresorHarianPhotoBucket(
+            entry.value.form.area_photo_names?.[targetKey],
+        );
+        const length = Math.max(paths.length, urls.length, names.length);
+        return Array.from({ length }, (_, index) => ({
+            path: paths[index] || "",
+            url: urls[index] || "",
+            name: names[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+    });
+
+    const currentChargerBateraiPhotos = computed(() => {
+        if (
+            !entry.value ||
+            !isChargerBaterai.value ||
+            !chargerBateraiTargetKey.value
+        )
+            return [];
+        const targetKey = getChargerBateraiPhotoBucketKey();
+        const paths = normalizeChargerBateraiPhotoBucket(
+            entry.value.form.area_photo_paths?.[targetKey],
+        );
+        const urls = normalizeChargerBateraiPhotoBucket(
+            entry.value.form.area_photo_urls?.[targetKey],
+        );
+        const names = normalizeChargerBateraiPhotoBucket(
+            entry.value.form.area_photo_names?.[targetKey],
+        );
+        const length = Math.max(paths.length, urls.length, names.length);
+        return Array.from({ length }, (_, index) => ({
+            path: paths[index] || "",
+            url: urls[index] || "",
+            name: names[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+    });
+
+    const currentChecklistBateraiPhotos = computed(() => {
+        if (
+            !entry.value ||
+            !isChecklistBaterai.value ||
+            !checklistBateraiTargetKey.value
+        )
+            return [];
+        const targetKey = getChecklistBateraiPhotoBucketKey();
+        const paths = normalizeChecklistBateraiPhotoBucket(
+            entry.value.form.area_photo_paths?.[targetKey],
+        );
+        const urls = normalizeChecklistBateraiPhotoBucket(
+            entry.value.form.area_photo_urls?.[targetKey],
+        );
+        const names = normalizeChecklistBateraiPhotoBucket(
+            entry.value.form.area_photo_names?.[targetKey],
+        );
+        const length = Math.max(paths.length, urls.length, names.length);
+        return Array.from({ length }, (_, index) => ({
+            path: paths[index] || "",
+            url: urls[index] || "",
+            name: names[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+    });
+
+    const currentInspeksiLokerPhotos = computed(() => {
+        if (!entry.value || !isInspeksiLoker.value) return [];
+        const targetKey = getInspeksiLokerPhotoBucketKey();
+        const paths = normalizeInspeksiLokerPhotoBucket(
+            entry.value.form.area_photo_paths?.[targetKey],
+        );
+        const urls = normalizeInspeksiLokerPhotoBucket(
+            entry.value.form.area_photo_urls?.[targetKey],
+        );
+        const names = normalizeInspeksiLokerPhotoBucket(
+            entry.value.form.area_photo_names?.[targetKey],
+        );
+        const length = Math.max(paths.length, urls.length, names.length);
+        return Array.from({ length }, (_, index) => ({
+            path: paths[index] || "",
+            url: urls[index] || "",
+            name: names[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+    });
+
+    const currentSaranaPrasaranaPhotos = computed(() => {
+        if (
+            !entry.value ||
+            !isSaranaPrasarana.value ||
+            !saranaPrasaranaTargetKey.value
+        )
+            return [];
+        const targetKey = getSaranaPrasaranaPhotoBucketKey();
+        const paths = normalizeSaranaPrasaranaPhotoBucket(
+            entry.value.form.area_photo_paths?.[targetKey],
+        );
+        const urls = normalizeSaranaPrasaranaPhotoBucket(
+            entry.value.form.area_photo_urls?.[targetKey],
+        );
+        const names = normalizeSaranaPrasaranaPhotoBucket(
             entry.value.form.area_photo_names?.[targetKey],
         );
         const length = Math.max(paths.length, urls.length, names.length);
@@ -976,6 +1394,1015 @@ export function usePhotoCapture({
             });
         } catch (error) {
             checklistITPhotoError.value =
+                error?.response?.data?.message || "Foto gagal dihapus.";
+        }
+    }
+
+    function updateRunningGensetPhotoState(payload = {}) {
+        if (
+            !entry.value ||
+            !isRunningGenset.value ||
+            !runningGensetTargetKey.value
+        )
+            return;
+        const targetKey = getRunningGensetPhotoBucketKey();
+        const nextPaths = { ...(entry.value.form.area_photo_paths || {}) };
+        const nextUrls = { ...(entry.value.form.area_photo_urls || {}) };
+        const nextNames = { ...(entry.value.form.area_photo_names || {}) };
+        const pathBucket = normalizeRunningGensetPhotoBucket(
+            nextPaths[targetKey],
+        );
+        const urlBucket = normalizeRunningGensetPhotoBucket(
+            nextUrls[targetKey],
+        );
+        const nameBucket = normalizeRunningGensetPhotoBucket(
+            nextNames[targetKey],
+        );
+        const length = Math.max(
+            pathBucket.length,
+            urlBucket.length,
+            nameBucket.length,
+        );
+        let photoEntries = Array.from({ length }, (_, index) => ({
+            path: pathBucket[index] || "",
+            url: urlBucket[index] || "",
+            name: nameBucket[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+
+        if (payload.clear) {
+            photoEntries = [];
+        } else if (payload.removePhoto) {
+            let removed = false;
+            photoEntries = photoEntries.filter((photo) => {
+                if (removed) return true;
+                const isMatch =
+                    (payload.removePhoto.path &&
+                        photo.path === payload.removePhoto.path) ||
+                    (payload.removePhoto.url &&
+                        photo.url === payload.removePhoto.url) ||
+                    (payload.removePhoto.name &&
+                        photo.name === payload.removePhoto.name);
+                if (isMatch) {
+                    removed = true;
+                    return false;
+                }
+                return true;
+            });
+        } else if (typeof payload.removeIndex === "number") {
+            photoEntries.splice(payload.removeIndex, 1);
+        } else {
+            photoEntries.push({
+                path: payload.path || "",
+                url: payload.url || "",
+                name: payload.name || "",
+            });
+        }
+
+        if (photoEntries.length === 0) {
+            delete nextPaths[targetKey];
+            delete nextUrls[targetKey];
+            delete nextNames[targetKey];
+        } else {
+            nextPaths[targetKey] = photoEntries.map(
+                (photo) => photo.path || "",
+            );
+            nextUrls[targetKey] = photoEntries.map((photo) => photo.url || "");
+            nextNames[targetKey] = photoEntries.map(
+                (photo) => photo.name || "",
+            );
+        }
+        entry.value.form.area_photo_paths = nextPaths;
+        entry.value.form.area_photo_urls = nextUrls;
+        entry.value.form.area_photo_names = nextNames;
+    }
+
+    function updateChargerBateraiPhotoState(payload = {}) {
+        if (
+            !entry.value ||
+            !isChargerBaterai.value ||
+            !chargerBateraiTargetKey.value
+        )
+            return;
+        const targetKey = getChargerBateraiPhotoBucketKey();
+        const nextPaths = { ...(entry.value.form.area_photo_paths || {}) };
+        const nextUrls = { ...(entry.value.form.area_photo_urls || {}) };
+        const nextNames = { ...(entry.value.form.area_photo_names || {}) };
+        const pathBucket = normalizeChargerBateraiPhotoBucket(
+            nextPaths[targetKey],
+        );
+        const urlBucket = normalizeChargerBateraiPhotoBucket(
+            nextUrls[targetKey],
+        );
+        const nameBucket = normalizeChargerBateraiPhotoBucket(
+            nextNames[targetKey],
+        );
+        const length = Math.max(
+            pathBucket.length,
+            urlBucket.length,
+            nameBucket.length,
+        );
+        let photoEntries = Array.from({ length }, (_, index) => ({
+            path: pathBucket[index] || "",
+            url: urlBucket[index] || "",
+            name: nameBucket[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+
+        if (payload.clear) {
+            photoEntries = [];
+        } else if (payload.removePhoto) {
+            let removed = false;
+            photoEntries = photoEntries.filter((photo) => {
+                if (removed) return true;
+                const isMatch =
+                    (payload.removePhoto.path &&
+                        photo.path === payload.removePhoto.path) ||
+                    (payload.removePhoto.url &&
+                        photo.url === payload.removePhoto.url) ||
+                    (payload.removePhoto.name &&
+                        photo.name === payload.removePhoto.name);
+                if (isMatch) {
+                    removed = true;
+                    return false;
+                }
+                return true;
+            });
+        } else if (typeof payload.removeIndex === "number") {
+            photoEntries.splice(payload.removeIndex, 1);
+        } else {
+            photoEntries.push({
+                path: payload.path || "",
+                url: payload.url || "",
+                name: payload.name || "",
+            });
+        }
+
+        if (photoEntries.length === 0) {
+            delete nextPaths[targetKey];
+            delete nextUrls[targetKey];
+            delete nextNames[targetKey];
+        } else {
+            nextPaths[targetKey] = photoEntries.map(
+                (photo) => photo.path || "",
+            );
+            nextUrls[targetKey] = photoEntries.map((photo) => photo.url || "");
+            nextNames[targetKey] = photoEntries.map(
+                (photo) => photo.name || "",
+            );
+        }
+        entry.value.form.area_photo_paths = nextPaths;
+        entry.value.form.area_photo_urls = nextUrls;
+        entry.value.form.area_photo_names = nextNames;
+    }
+
+    function updateChecklistBateraiPhotoState(payload = {}) {
+        if (
+            !entry.value ||
+            !isChecklistBaterai.value ||
+            !checklistBateraiTargetKey.value
+        )
+            return;
+        const targetKey = getChecklistBateraiPhotoBucketKey();
+        const nextPaths = { ...(entry.value.form.area_photo_paths || {}) };
+        const nextUrls = { ...(entry.value.form.area_photo_urls || {}) };
+        const nextNames = { ...(entry.value.form.area_photo_names || {}) };
+        const pathBucket = normalizeChecklistBateraiPhotoBucket(
+            nextPaths[targetKey],
+        );
+        const urlBucket = normalizeChecklistBateraiPhotoBucket(
+            nextUrls[targetKey],
+        );
+        const nameBucket = normalizeChecklistBateraiPhotoBucket(
+            nextNames[targetKey],
+        );
+        const length = Math.max(
+            pathBucket.length,
+            urlBucket.length,
+            nameBucket.length,
+        );
+        let photoEntries = Array.from({ length }, (_, index) => ({
+            path: pathBucket[index] || "",
+            url: urlBucket[index] || "",
+            name: nameBucket[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+
+        if (payload.clear) {
+            photoEntries = [];
+        } else if (payload.removePhoto) {
+            let removed = false;
+            photoEntries = photoEntries.filter((photo) => {
+                if (removed) return true;
+                const isMatch =
+                    (payload.removePhoto.path &&
+                        photo.path === payload.removePhoto.path) ||
+                    (payload.removePhoto.url &&
+                        photo.url === payload.removePhoto.url) ||
+                    (payload.removePhoto.name &&
+                        photo.name === payload.removePhoto.name);
+                if (isMatch) {
+                    removed = true;
+                    return false;
+                }
+                return true;
+            });
+        } else if (typeof payload.removeIndex === "number") {
+            photoEntries.splice(payload.removeIndex, 1);
+        } else {
+            photoEntries.push({
+                path: payload.path || "",
+                url: payload.url || "",
+                name: payload.name || "",
+            });
+        }
+
+        if (photoEntries.length === 0) {
+            delete nextPaths[targetKey];
+            delete nextUrls[targetKey];
+            delete nextNames[targetKey];
+        } else {
+            nextPaths[targetKey] = photoEntries.map(
+                (photo) => photo.path || "",
+            );
+            nextUrls[targetKey] = photoEntries.map((photo) => photo.url || "");
+            nextNames[targetKey] = photoEntries.map(
+                (photo) => photo.name || "",
+            );
+        }
+        entry.value.form.area_photo_paths = nextPaths;
+        entry.value.form.area_photo_urls = nextUrls;
+        entry.value.form.area_photo_names = nextNames;
+    }
+
+    async function uploadRunningGensetPhoto(file) {
+        if (
+            !entry.value ||
+            !isRunningGenset.value ||
+            !runningGensetTargetKey.value ||
+            !file
+        )
+            return;
+        runningGensetPhotoUploading.value = true;
+        runningGensetPhotoError.value = "";
+        try {
+            const formData = new FormData();
+            formData.append("photo", file);
+            const response = await axios.post(
+                "/gmiic/checklist/running-genset/photo",
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } },
+            );
+            updateRunningGensetPhotoState({
+                path: response.data?.path || "",
+                url: response.data?.url || "",
+                name: response.data?.original_name || file.name || "",
+            });
+        } catch (error) {
+            runningGensetPhotoError.value =
+                error?.response?.data?.message || "Foto gagal di-upload.";
+        } finally {
+            runningGensetPhotoUploading.value = false;
+        }
+    }
+
+    async function removeRunningGensetPhoto(index) {
+        if (
+            !entry.value ||
+            !isRunningGenset.value ||
+            !runningGensetTargetKey.value
+        )
+            return;
+        runningGensetPhotoError.value = "";
+        const photo = currentRunningGensetPhotos.value[Number(index)];
+        if (!photo) return;
+        const confirmed = await swalConfirm({
+            title: "Hapus Foto",
+            text: "Foto area ini akan dihapus. Lanjutkan?",
+            confirmButtonText: "Ya, Hapus",
+            cancelButtonText: "Tidak",
+            confirmButtonColor: "#dc2626",
+        });
+        if (!confirmed) return;
+        try {
+            if (String(photo.path || "").trim()) {
+                await axios.delete("/gmiic/checklist/running-genset/photo", {
+                    data: { path: photo.path },
+                });
+            }
+            updateRunningGensetPhotoState({
+                removeIndex: Number(index),
+                removePhoto: photo,
+            });
+        } catch (error) {
+            runningGensetPhotoError.value =
+                error?.response?.data?.message || "Foto gagal dihapus.";
+        }
+    }
+
+    function updateKompresorHarianPhotoState(payload = {}) {
+        if (
+            !entry.value ||
+            !isKompresorHarian.value ||
+            !kompresorHarianTargetKey.value
+        )
+            return;
+        const targetKey = getKompresorHarianPhotoBucketKey();
+        const nextPaths = { ...(entry.value.form.area_photo_paths || {}) };
+        const nextUrls = { ...(entry.value.form.area_photo_urls || {}) };
+        const nextNames = { ...(entry.value.form.area_photo_names || {}) };
+        const pathBucket = normalizeKompresorHarianPhotoBucket(
+            nextPaths[targetKey],
+        );
+        const urlBucket = normalizeKompresorHarianPhotoBucket(
+            nextUrls[targetKey],
+        );
+        const nameBucket = normalizeKompresorHarianPhotoBucket(
+            nextNames[targetKey],
+        );
+        const length = Math.max(
+            pathBucket.length,
+            urlBucket.length,
+            nameBucket.length,
+        );
+        let photoEntries = Array.from({ length }, (_, index) => ({
+            path: pathBucket[index] || "",
+            url: urlBucket[index] || "",
+            name: nameBucket[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+
+        if (payload.clear) {
+            photoEntries = [];
+        } else if (payload.removePhoto) {
+            let removed = false;
+            photoEntries = photoEntries.filter((photo) => {
+                if (removed) return true;
+                const isMatch =
+                    (payload.removePhoto.path &&
+                        photo.path === payload.removePhoto.path) ||
+                    (payload.removePhoto.url &&
+                        photo.url === payload.removePhoto.url) ||
+                    (payload.removePhoto.name &&
+                        photo.name === payload.removePhoto.name);
+                if (isMatch) {
+                    removed = true;
+                    return false;
+                }
+                return true;
+            });
+        } else if (typeof payload.removeIndex === "number") {
+            photoEntries.splice(payload.removeIndex, 1);
+        } else {
+            photoEntries.push({
+                path: payload.path || "",
+                url: payload.url || "",
+                name: payload.name || "",
+            });
+        }
+
+        if (photoEntries.length === 0) {
+            delete nextPaths[targetKey];
+            delete nextUrls[targetKey];
+            delete nextNames[targetKey];
+        } else {
+            nextPaths[targetKey] = photoEntries.map(
+                (photo) => photo.path || "",
+            );
+            nextUrls[targetKey] = photoEntries.map((photo) => photo.url || "");
+            nextNames[targetKey] = photoEntries.map(
+                (photo) => photo.name || "",
+            );
+        }
+        entry.value.form.area_photo_paths = nextPaths;
+        entry.value.form.area_photo_urls = nextUrls;
+        entry.value.form.area_photo_names = nextNames;
+    }
+
+    async function uploadKompresorHarianPhoto(file) {
+        if (
+            !entry.value ||
+            !isKompresorHarian.value ||
+            !kompresorHarianTargetKey.value ||
+            !file
+        )
+            return;
+        kompresorHarianPhotoUploading.value = true;
+        kompresorHarianPhotoError.value = "";
+        try {
+            const formData = new FormData();
+            formData.append("photo", file);
+            const response = await axios.post(
+                "/gmiic/checklist/kompresor-harian/photo",
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } },
+            );
+            updateKompresorHarianPhotoState({
+                path: response.data?.path || "",
+                url: response.data?.url || "",
+                name: response.data?.original_name || file.name || "",
+            });
+        } catch (error) {
+            kompresorHarianPhotoError.value =
+                error?.response?.data?.message || "Foto gagal di-upload.";
+        } finally {
+            kompresorHarianPhotoUploading.value = false;
+        }
+    }
+
+    async function removeKompresorHarianPhoto(index) {
+        if (
+            !entry.value ||
+            !isKompresorHarian.value ||
+            !kompresorHarianTargetKey.value
+        )
+            return;
+        kompresorHarianPhotoError.value = "";
+        const photo = currentKompresorHarianPhotos.value[Number(index)];
+        if (!photo) return;
+        const confirmed = await swalConfirm({
+            title: "Hapus Foto",
+            text: "Foto area ini akan dihapus. Lanjutkan?",
+            confirmButtonText: "Ya, Hapus",
+            cancelButtonText: "Tidak",
+            confirmButtonColor: "#dc2626",
+        });
+        if (!confirmed) return;
+        try {
+            if (String(photo.path || "").trim()) {
+                await axios.delete("/gmiic/checklist/kompresor-harian/photo", {
+                    data: { path: photo.path },
+                });
+            }
+            updateKompresorHarianPhotoState({
+                removeIndex: Number(index),
+                removePhoto: photo,
+            });
+        } catch (error) {
+            kompresorHarianPhotoError.value =
+                error?.response?.data?.message || "Foto gagal dihapus.";
+        }
+    }
+
+    async function uploadChargerBateraiPhoto(file) {
+        if (
+            !entry.value ||
+            !isChargerBaterai.value ||
+            !chargerBateraiTargetKey.value ||
+            !file
+        )
+            return;
+        chargerBateraiPhotoUploading.value = true;
+        chargerBateraiPhotoError.value = "";
+        try {
+            const formData = new FormData();
+            formData.append("photo", file);
+            const response = await axios.post(
+                "/gmiic/checklist/charger-baterai/photo",
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } },
+            );
+            updateChargerBateraiPhotoState({
+                path: response.data?.path || "",
+                url: response.data?.url || "",
+                name: response.data?.original_name || file.name || "",
+            });
+        } catch (error) {
+            chargerBateraiPhotoError.value =
+                error?.response?.data?.message || "Foto gagal di-upload.";
+        } finally {
+            chargerBateraiPhotoUploading.value = false;
+        }
+    }
+
+    async function removeChargerBateraiPhoto(index) {
+        if (
+            !entry.value ||
+            !isChargerBaterai.value ||
+            !chargerBateraiTargetKey.value
+        )
+            return;
+        chargerBateraiPhotoError.value = "";
+        const photo = currentChargerBateraiPhotos.value[Number(index)];
+        if (!photo) return;
+        const confirmed = await swalConfirm({
+            title: "Hapus Foto",
+            text: "Foto area ini akan dihapus. Lanjutkan?",
+            confirmButtonText: "Ya, Hapus",
+            cancelButtonText: "Tidak",
+            confirmButtonColor: "#dc2626",
+        });
+        if (!confirmed) return;
+        try {
+            if (String(photo.path || "").trim()) {
+                await axios.delete("/gmiic/checklist/charger-baterai/photo", {
+                    data: { path: photo.path },
+                });
+            }
+            updateChargerBateraiPhotoState({
+                removeIndex: Number(index),
+                removePhoto: photo,
+            });
+        } catch (error) {
+            chargerBateraiPhotoError.value =
+                error?.response?.data?.message || "Foto gagal dihapus.";
+        }
+    }
+
+    async function uploadChecklistBateraiPhoto(file) {
+        if (
+            !entry.value ||
+            !isChecklistBaterai.value ||
+            !checklistBateraiTargetKey.value ||
+            !file
+        )
+            return;
+        checklistBateraiPhotoUploading.value = true;
+        checklistBateraiPhotoError.value = "";
+        try {
+            const formData = new FormData();
+            formData.append("photo", file);
+            const response = await axios.post(
+                "/gmiic/checklist/checklist-baterai/photo",
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } },
+            );
+            updateChecklistBateraiPhotoState({
+                path: response.data?.path || "",
+                url: response.data?.url || "",
+                name: response.data?.original_name || file.name || "",
+            });
+        } catch (error) {
+            checklistBateraiPhotoError.value =
+                error?.response?.data?.message || "Foto gagal di-upload.";
+        } finally {
+            checklistBateraiPhotoUploading.value = false;
+        }
+    }
+
+    async function removeChecklistBateraiPhoto(index) {
+        if (
+            !entry.value ||
+            !isChecklistBaterai.value ||
+            !checklistBateraiTargetKey.value
+        )
+            return;
+        checklistBateraiPhotoError.value = "";
+        const photo = currentChecklistBateraiPhotos.value[Number(index)];
+        if (!photo) return;
+        const confirmed = await swalConfirm({
+            title: "Hapus Foto",
+            text: "Foto area ini akan dihapus. Lanjutkan?",
+            confirmButtonText: "Ya, Hapus",
+            cancelButtonText: "Tidak",
+            confirmButtonColor: "#dc2626",
+        });
+        if (!confirmed) return;
+        try {
+            if (String(photo.path || "").trim()) {
+                await axios.delete("/gmiic/checklist/checklist-baterai/photo", {
+                    data: { path: photo.path },
+                });
+            }
+            updateChecklistBateraiPhotoState({
+                removeIndex: Number(index),
+                removePhoto: photo,
+            });
+        } catch (error) {
+            checklistBateraiPhotoError.value =
+                error?.response?.data?.message || "Foto gagal dihapus.";
+        }
+    }
+
+    function updateInspeksiLokerPhotoState(payload = {}) {
+        if (!entry.value || !isInspeksiLoker.value) return;
+        const targetKey = getInspeksiLokerPhotoBucketKey();
+        const nextPaths = { ...(entry.value.form.area_photo_paths || {}) };
+        const nextUrls = { ...(entry.value.form.area_photo_urls || {}) };
+        const nextNames = { ...(entry.value.form.area_photo_names || {}) };
+        const pathBucket = normalizeInspeksiLokerPhotoBucket(
+            nextPaths[targetKey],
+        );
+        const urlBucket = normalizeInspeksiLokerPhotoBucket(
+            nextUrls[targetKey],
+        );
+        const nameBucket = normalizeInspeksiLokerPhotoBucket(
+            nextNames[targetKey],
+        );
+        const length = Math.max(
+            pathBucket.length,
+            urlBucket.length,
+            nameBucket.length,
+        );
+        let photoEntries = Array.from({ length }, (_, index) => ({
+            path: pathBucket[index] || "",
+            url: urlBucket[index] || "",
+            name: nameBucket[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+
+        if (payload.clear) {
+            photoEntries = [];
+        } else if (payload.removePhoto) {
+            let removed = false;
+            photoEntries = photoEntries.filter((photo) => {
+                if (removed) return true;
+                const isMatch =
+                    (payload.removePhoto.path &&
+                        photo.path === payload.removePhoto.path) ||
+                    (payload.removePhoto.url &&
+                        photo.url === payload.removePhoto.url) ||
+                    (payload.removePhoto.name &&
+                        photo.name === payload.removePhoto.name);
+                if (isMatch) {
+                    removed = true;
+                    return false;
+                }
+                return true;
+            });
+        } else if (typeof payload.removeIndex === "number") {
+            photoEntries.splice(payload.removeIndex, 1);
+        } else {
+            photoEntries.push({
+                path: payload.path || "",
+                url: payload.url || "",
+                name: payload.name || "",
+            });
+        }
+
+        if (photoEntries.length === 0) {
+            delete nextPaths[targetKey];
+            delete nextUrls[targetKey];
+            delete nextNames[targetKey];
+        } else {
+            nextPaths[targetKey] = photoEntries.map(
+                (photo) => photo.path || "",
+            );
+            nextUrls[targetKey] = photoEntries.map((photo) => photo.url || "");
+            nextNames[targetKey] = photoEntries.map(
+                (photo) => photo.name || "",
+            );
+        }
+        entry.value.form.area_photo_paths = nextPaths;
+        entry.value.form.area_photo_urls = nextUrls;
+        entry.value.form.area_photo_names = nextNames;
+    }
+
+    async function uploadInspeksiLokerPhoto(file) {
+        if (!entry.value || !isInspeksiLoker.value || !file) return;
+        inspeksiLokerPhotoUploading.value = true;
+        inspeksiLokerPhotoError.value = "";
+        try {
+            const formData = new FormData();
+            formData.append("photo", file);
+            const response = await axios.post(
+                "/gmiic/checklist/inspeksi-loker/photo",
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } },
+            );
+            updateInspeksiLokerPhotoState({
+                path: response.data?.path || "",
+                url: response.data?.url || "",
+                name: response.data?.original_name || file.name || "",
+            });
+        } catch (error) {
+            inspeksiLokerPhotoError.value =
+                error?.response?.data?.message || "Foto gagal di-upload.";
+        } finally {
+            inspeksiLokerPhotoUploading.value = false;
+        }
+    }
+
+    async function removeInspeksiLokerPhoto(index) {
+        if (!entry.value || !isInspeksiLoker.value) return;
+        inspeksiLokerPhotoError.value = "";
+        const photo = currentInspeksiLokerPhotos.value[Number(index)];
+        if (!photo) return;
+        const confirmed = await swalConfirm({
+            title: "Hapus Foto",
+            text: "Foto ini akan dihapus. Lanjutkan?",
+            confirmButtonText: "Ya, Hapus",
+            cancelButtonText: "Tidak",
+            confirmButtonColor: "#dc2626",
+        });
+        if (!confirmed) return;
+        try {
+            if (String(photo.path || "").trim()) {
+                await axios.delete("/gmiic/checklist/inspeksi-loker/photo", {
+                    data: { path: photo.path },
+                });
+            }
+            updateInspeksiLokerPhotoState({
+                removeIndex: Number(index),
+                removePhoto: photo,
+            });
+        } catch (error) {
+            inspeksiLokerPhotoError.value =
+                error?.response?.data?.message || "Foto gagal dihapus.";
+        }
+    }
+
+    function updateSaranaPrasaranaPhotoState(payload = {}) {
+        if (
+            !entry.value ||
+            !isSaranaPrasarana.value ||
+            !saranaPrasaranaTargetKey.value
+        )
+            return;
+        const targetKey = getSaranaPrasaranaPhotoBucketKey();
+        const nextPaths = { ...(entry.value.form.area_photo_paths || {}) };
+        const nextUrls = { ...(entry.value.form.area_photo_urls || {}) };
+        const nextNames = { ...(entry.value.form.area_photo_names || {}) };
+        const pathBucket = normalizeSaranaPrasaranaPhotoBucket(
+            nextPaths[targetKey],
+        );
+        const urlBucket = normalizeSaranaPrasaranaPhotoBucket(
+            nextUrls[targetKey],
+        );
+        const nameBucket = normalizeSaranaPrasaranaPhotoBucket(
+            nextNames[targetKey],
+        );
+        const length = Math.max(
+            pathBucket.length,
+            urlBucket.length,
+            nameBucket.length,
+        );
+        let photoEntries = Array.from({ length }, (_, index) => ({
+            path: pathBucket[index] || "",
+            url: urlBucket[index] || "",
+            name: nameBucket[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+
+        if (payload.clear) {
+            photoEntries = [];
+        } else if (payload.removePhoto) {
+            let removed = false;
+            photoEntries = photoEntries.filter((photo) => {
+                if (removed) return true;
+                const isMatch =
+                    (payload.removePhoto.path &&
+                        photo.path === payload.removePhoto.path) ||
+                    (payload.removePhoto.url &&
+                        photo.url === payload.removePhoto.url) ||
+                    (payload.removePhoto.name &&
+                        photo.name === payload.removePhoto.name);
+                if (isMatch) {
+                    removed = true;
+                    return false;
+                }
+                return true;
+            });
+        } else if (typeof payload.removeIndex === "number") {
+            photoEntries.splice(payload.removeIndex, 1);
+        } else {
+            photoEntries.push({
+                path: payload.path || "",
+                url: payload.url || "",
+                name: payload.name || "",
+            });
+        }
+
+        if (photoEntries.length === 0) {
+            delete nextPaths[targetKey];
+            delete nextUrls[targetKey];
+            delete nextNames[targetKey];
+        } else {
+            nextPaths[targetKey] = photoEntries.map(
+                (photo) => photo.path || "",
+            );
+            nextUrls[targetKey] = photoEntries.map((photo) => photo.url || "");
+            nextNames[targetKey] = photoEntries.map(
+                (photo) => photo.name || "",
+            );
+        }
+        entry.value.form.area_photo_paths = nextPaths;
+        entry.value.form.area_photo_urls = nextUrls;
+        entry.value.form.area_photo_names = nextNames;
+    }
+
+    async function uploadSaranaPrasaranaPhoto(file) {
+        if (
+            !entry.value ||
+            !isSaranaPrasarana.value ||
+            !saranaPrasaranaTargetKey.value ||
+            !file
+        )
+            return;
+        saranaPrasaranaPhotoUploading.value = true;
+        saranaPrasaranaPhotoError.value = "";
+        try {
+            const formData = new FormData();
+            formData.append("photo", file);
+            const response = await axios.post(
+                "/gmiic/checklist/sarana-prasarana/photo",
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } },
+            );
+            updateSaranaPrasaranaPhotoState({
+                path: response.data?.path || "",
+                url: response.data?.url || "",
+                name: response.data?.original_name || file.name || "",
+            });
+        } catch (error) {
+            saranaPrasaranaPhotoError.value =
+                error?.response?.data?.message || "Foto gagal di-upload.";
+        } finally {
+            saranaPrasaranaPhotoUploading.value = false;
+        }
+    }
+
+    async function removeSaranaPrasaranaPhoto(index) {
+        if (
+            !entry.value ||
+            !isSaranaPrasarana.value ||
+            !saranaPrasaranaTargetKey.value
+        )
+            return;
+        saranaPrasaranaPhotoError.value = "";
+        const photo = currentSaranaPrasaranaPhotos.value[Number(index)];
+        if (!photo) return;
+        const confirmed = await swalConfirm({
+            title: "Hapus Foto",
+            text: "Foto area ini akan dihapus. Lanjutkan?",
+            confirmButtonText: "Ya, Hapus",
+            cancelButtonText: "Tidak",
+            confirmButtonColor: "#dc2626",
+        });
+        if (!confirmed) return;
+        try {
+            if (String(photo.path || "").trim()) {
+                await axios.delete("/gmiic/checklist/sarana-prasarana/photo", {
+                    data: { path: photo.path },
+                });
+            }
+            updateSaranaPrasaranaPhotoState({
+                removeIndex: Number(index),
+                removePhoto: photo,
+            });
+        } catch (error) {
+            saranaPrasaranaPhotoError.value =
+                error?.response?.data?.message || "Foto gagal dihapus.";
+        }
+    }
+
+    function updateWarehousePhotoState(payload = {}) {
+        if (
+            !entry.value ||
+            !isWarehouseSanitation.value ||
+            !warehouseTargetKey.value
+        )
+            return;
+        const targetKey = warehouseTargetKey.value;
+        const nextPaths = { ...(entry.value.form.area_photo_paths || {}) };
+        const nextUrls = { ...(entry.value.form.area_photo_urls || {}) };
+        const nextNames = { ...(entry.value.form.area_photo_names || {}) };
+        const pathBucket = normalizeWarehousePhotoBucket(
+            nextPaths[targetKey],
+        );
+        const urlBucket = normalizeWarehousePhotoBucket(nextUrls[targetKey]);
+        const nameBucket = normalizeWarehousePhotoBucket(nextNames[targetKey]);
+        const length = Math.max(
+            pathBucket.length,
+            urlBucket.length,
+            nameBucket.length,
+        );
+        let photoEntries = Array.from({ length }, (_, index) => ({
+            path: pathBucket[index] || "",
+            url: urlBucket[index] || "",
+            name: nameBucket[index] || "",
+        })).filter(
+            (photo) =>
+                String(photo.path || photo.url || photo.name || "").trim() !==
+                "",
+        );
+
+        if (payload.clear) {
+            photoEntries = [];
+        } else if (payload.removePhoto) {
+            let removed = false;
+            photoEntries = photoEntries.filter((photo) => {
+                if (removed) return true;
+                const isMatch =
+                    (payload.removePhoto.path &&
+                        photo.path === payload.removePhoto.path) ||
+                    (payload.removePhoto.url &&
+                        photo.url === payload.removePhoto.url) ||
+                    (payload.removePhoto.name &&
+                        photo.name === payload.removePhoto.name);
+                if (isMatch) {
+                    removed = true;
+                    return false;
+                }
+                return true;
+            });
+        } else if (typeof payload.removeIndex === "number") {
+            photoEntries.splice(payload.removeIndex, 1);
+        } else {
+            photoEntries.push({
+                path: payload.path || "",
+                url: payload.url || "",
+                name: payload.name || "",
+            });
+        }
+
+        if (photoEntries.length === 0) {
+            delete nextPaths[targetKey];
+            delete nextUrls[targetKey];
+            delete nextNames[targetKey];
+        } else {
+            nextPaths[targetKey] = photoEntries.map(
+                (photo) => photo.path || "",
+            );
+            nextUrls[targetKey] = photoEntries.map((photo) => photo.url || "");
+            nextNames[targetKey] = photoEntries.map(
+                (photo) => photo.name || "",
+            );
+        }
+        entry.value.form.area_photo_paths = nextPaths;
+        entry.value.form.area_photo_urls = nextUrls;
+        entry.value.form.area_photo_names = nextNames;
+    }
+
+    async function uploadWarehousePhoto(file) {
+        if (
+            !entry.value ||
+            !isWarehouseSanitation.value ||
+            !warehouseTargetKey.value ||
+            !file
+        )
+            return;
+        warehousePhotoUploading.value = true;
+        warehousePhotoError.value = "";
+        try {
+            const formData = new FormData();
+            formData.append("photo", file);
+            const response = await axios.post(
+                "/gmiic/checklist/warehouse/photo",
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } },
+            );
+            updateWarehousePhotoState({
+                path: response.data?.path || "",
+                url: response.data?.url || "",
+                name: response.data?.original_name || file.name || "",
+            });
+        } catch (error) {
+            warehousePhotoError.value =
+                error?.response?.data?.message || "Foto gagal di-upload.";
+        } finally {
+            warehousePhotoUploading.value = false;
+        }
+    }
+
+    async function removeWarehousePhoto(index) {
+        if (
+            !entry.value ||
+            !isWarehouseSanitation.value ||
+            !warehouseTargetKey.value
+        )
+            return;
+        warehousePhotoError.value = "";
+        const photo = currentWarehousePhotos.value[Number(index)];
+        if (!photo) return;
+        const confirmed = await swalConfirm({
+            title: "Hapus Foto",
+            text: "Foto warehouse ini akan dihapus. Lanjutkan?",
+            confirmButtonText: "Ya, Hapus",
+            cancelButtonText: "Tidak",
+            confirmButtonColor: "#dc2626",
+        });
+        if (!confirmed) return;
+        try {
+            if (String(photo.path || "").trim()) {
+                await axios.delete("/gmiic/checklist/warehouse/photo", {
+                    data: { path: photo.path },
+                });
+            }
+            updateWarehousePhotoState({
+                removeIndex: Number(index),
+                removePhoto: photo,
+            });
+        } catch (error) {
+            warehousePhotoError.value =
                 error?.response?.data?.message || "Foto gagal dihapus.";
         }
     }
@@ -1390,6 +2817,82 @@ export function usePhotoCapture({
                 await closePhotoModal();
                 return;
             }
+            if (photoCaptureMode.value === "running_genset") {
+                if (!isRunningGenset.value || !runningGensetTargetKey.value)
+                    return;
+                const file = await canvasToJpegFile(
+                    canvas,
+                    `running-genset-${runningGensetTargetKey.value}-${Date.now()}.jpg`,
+                );
+                await uploadRunningGensetPhoto(file);
+                await closePhotoModal();
+                return;
+            }
+            if (photoCaptureMode.value === "kompresor_harian") {
+                if (!isKompresorHarian.value || !kompresorHarianTargetKey.value)
+                    return;
+                const file = await canvasToJpegFile(
+                    canvas,
+                    `kompresor-harian-${kompresorHarianTargetKey.value}-${Date.now()}.jpg`,
+                );
+                await uploadKompresorHarianPhoto(file);
+                await closePhotoModal();
+                return;
+            }
+            if (photoCaptureMode.value === "charger_baterai") {
+                if (!isChargerBaterai.value || !chargerBateraiTargetKey.value)
+                    return;
+                const file = await canvasToJpegFile(
+                    canvas,
+                    `charger-baterai-${chargerBateraiTargetKey.value}-${Date.now()}.jpg`,
+                );
+                await uploadChargerBateraiPhoto(file);
+                await closePhotoModal();
+                return;
+            }
+            if (photoCaptureMode.value === "checklist_baterai") {
+                if (!isChecklistBaterai.value || !checklistBateraiTargetKey.value)
+                    return;
+                const file = await canvasToJpegFile(
+                    canvas,
+                    `checklist-baterai-${checklistBateraiTargetKey.value}-${Date.now()}.jpg`,
+                );
+                await uploadChecklistBateraiPhoto(file);
+                await closePhotoModal();
+                return;
+            }
+            if (photoCaptureMode.value === "inspeksi_loker") {
+                if (!isInspeksiLoker.value) return;
+                const file = await canvasToJpegFile(
+                    canvas,
+                    `inspeksi-loker-${Date.now()}.jpg`,
+                );
+                await uploadInspeksiLokerPhoto(file);
+                await closePhotoModal();
+                return;
+            }
+            if (photoCaptureMode.value === "sarana_prasarana") {
+                if (!isSaranaPrasarana.value || !saranaPrasaranaTargetKey.value)
+                    return;
+                const file = await canvasToJpegFile(
+                    canvas,
+                    `sarana-prasarana-${saranaPrasaranaTargetKey.value}-${Date.now()}.jpg`,
+                );
+                await uploadSaranaPrasaranaPhoto(file);
+                await closePhotoModal();
+                return;
+            }
+            if (photoCaptureMode.value === "warehouse_sanitation") {
+                if (!isWarehouseSanitation.value || !warehouseTargetKey.value)
+                    return;
+                const file = await canvasToJpegFile(
+                    canvas,
+                    `warehouse-${warehouseTargetKey.value}-${Date.now()}.jpg`,
+                );
+                await uploadWarehousePhoto(file);
+                await closePhotoModal();
+                return;
+            }
         } catch (error) {
             photoError.value = error?.message || "Foto gagal diproses.";
         } finally {
@@ -1430,6 +2933,20 @@ export function usePhotoCapture({
         cleaningOBPhotoError,
         checklistITPhotoUploading,
         checklistITPhotoError,
+        runningGensetPhotoUploading,
+        runningGensetPhotoError,
+        kompresorHarianPhotoUploading,
+        kompresorHarianPhotoError,
+        chargerBateraiPhotoUploading,
+        chargerBateraiPhotoError,
+        checklistBateraiPhotoUploading,
+        checklistBateraiPhotoError,
+        inspeksiLokerPhotoUploading,
+        inspeksiLokerPhotoError,
+        saranaPrasaranaPhotoUploading,
+        saranaPrasaranaPhotoError,
+        warehousePhotoUploading,
+        warehousePhotoError,
         photoModalTitle,
         photoModalDescription,
         photoCaptureButtonLabel,
@@ -1438,6 +2955,13 @@ export function usePhotoCapture({
         openMaintenanceCamera,
         openCleaningOBCamera,
         openChecklistITCamera,
+        openKompresorHarianCamera,
+        openRunningGensetCamera,
+        openChargerBateraiCamera,
+        openChecklistBateraiCamera,
+        openInspeksiLokerCamera,
+        openSaranaPrasaranaCamera,
+        openWarehouseCamera,
         capturePhoto,
         closePhotoModal,
         stopPhotoCamera,
@@ -1445,18 +2969,52 @@ export function usePhotoCapture({
         removeMaintenancePhoto,
         removeCleaningOBPhoto,
         removeChecklistITPhoto,
+        removeKompresorHarianPhoto,
+        removeRunningGensetPhoto,
+        removeChargerBateraiPhoto,
+        removeChecklistBateraiPhoto,
+        removeInspeksiLokerPhoto,
+        removeSaranaPrasaranaPhoto,
+        removeWarehousePhoto,
         updatePatroliSecurityPhotoState,
         updateMaintenancePhotoState,
         updateCleaningOBPhotoState,
         updateChecklistITPhotoState,
+        updateKompresorHarianPhotoState,
+        updateRunningGensetPhotoState,
+        updateChargerBateraiPhotoState,
+        updateChecklistBateraiPhotoState,
+        updateInspeksiLokerPhotoState,
+        updateSaranaPrasaranaPhotoState,
+        updateWarehousePhotoState,
         uploadPatroliSecurityPhoto,
         uploadMaintenancePhoto,
         uploadCleaningOBPhoto,
         uploadChecklistITPhoto,
+        uploadKompresorHarianPhoto,
+        uploadRunningGensetPhoto,
+        uploadChargerBateraiPhoto,
+        uploadChecklistBateraiPhoto,
+        uploadInspeksiLokerPhoto,
+        uploadSaranaPrasaranaPhoto,
+        uploadWarehousePhoto,
         normalizePatroliSecurityPhotoBucket,
         normalizeMaintenancePhotoBucket,
         normalizeCleaningOBPhotoBucket,
         normalizeChecklistITPhotoBucket,
+        normalizeKompresorHarianPhotoBucket,
+        normalizeRunningGensetPhotoBucket,
+        normalizeChargerBateraiPhotoBucket,
+        normalizeChecklistBateraiPhotoBucket,
+        normalizeInspeksiLokerPhotoBucket,
+        normalizeSaranaPrasaranaPhotoBucket,
+        normalizeWarehousePhotoBucket,
         currentChecklistITPhotos,
+        currentKompresorHarianPhotos,
+        currentRunningGensetPhotos,
+        currentChargerBateraiPhotos,
+        currentChecklistBateraiPhotos,
+        currentInspeksiLokerPhotos,
+        currentSaranaPrasaranaPhotos,
     };
 }

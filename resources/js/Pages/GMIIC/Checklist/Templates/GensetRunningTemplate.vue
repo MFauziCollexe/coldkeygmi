@@ -1,6 +1,7 @@
 <template>
-  <div class="rounded border border-slate-300 bg-white p-4 text-black shadow-sm">
-    <div class="mb-5 overflow-x-auto border border-black">
+  <div class="relative">
+    <div :class="['rounded border border-slate-300 p-4 text-black shadow-sm transition duration-200', isApproved ? 'bg-slate-50' : 'bg-white']">
+      <div class="mb-5 overflow-x-auto border border-black">
       <table class="w-full table-fixed border-collapse text-xs sm:text-sm">
         <tbody>
           <tr>
@@ -53,7 +54,7 @@
           <input
             :value="entry.form.period_value"
             type="week"
-            class="w-full max-w-[220px] rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 sm:max-w-none"
+            class="w-full max-w-[220px] rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 sm:max-w-none disabled:bg-white disabled:text-slate-900 disabled:border-slate-400 disabled:cursor-not-allowed"
             :disabled="isApproved"
             @input="$emit('update-period', $event.target.value)"
           />
@@ -88,22 +89,20 @@
             Mode tanpa QRCode aktif.
           </div>
 
-          <button
-            type="button"
-            :disabled="!canApproveEntry"
-            class="w-[96px] rounded px-4 py-2 text-sm font-semibold transition"
-            :class="canApproveEntry
-              ? 'bg-amber-500 text-white hover:bg-amber-400'
-              : 'cursor-not-allowed bg-slate-300 text-slate-500'"
+          <ApprovalButton
+            :is-ready="approvalReady"
+            :disabled="isApproved || !approvalReady"
+            :label="isApproved ? 'Approved' : 'Approval'"
+            button-class="w-[96px]"
+            tooltip="Approval siap jika semua kondisi terpenuhi"
             @click="$emit('approve')"
-          >
-            Approval
-          </button>
+          />
         </div>
 
         <div class="max-w-[180px] text-xs text-slate-600">
           {{ showQrScanner ? (currentBarcode || 'QRCode genset belum discan.') : 'Approve dapat langsung dilakukan.' }}
         </div>
+        <!-- debug removed -->
         <div v-if="scanDate" class="text-xs text-slate-500">
           Scan: {{ scanDate }}
         </div>
@@ -156,7 +155,11 @@
                 <button
                   type="button"
                   :disabled="isApproved"
-                  class="flex h-10 w-full items-center justify-center text-lg font-semibold leading-none sm:h-11 sm:text-xl"
+                  :class="[
+                    'flex h-10 w-full items-center justify-center text-lg font-semibold leading-none sm:h-11 sm:text-xl',
+                    'bg-white text-slate-900 hover:bg-slate-50',
+                    isApproved ? 'cursor-not-allowed' : ''
+                  ]"
                   @click="$emit('cycle-row-status', { rowId: row.id })"
                 >
                   <span v-if="row.status === 'yes'">&#10003;</span>
@@ -174,7 +177,7 @@
       <textarea
         :value="note"
         rows="4"
-        class="w-full rounded border border-slate-400 bg-slate-100 px-3 py-2 text-sm text-slate-900"
+        class="w-full rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 disabled:bg-white disabled:text-slate-900 disabled:border-slate-400 disabled:cursor-not-allowed"
         :disabled="isApproved"
         placeholder="Isi catatan jika ada item bertanda silang."
         @input="$emit('update-note', $event.target.value)"
@@ -183,10 +186,10 @@
         Catatan wajib diisi bila ada item dengan tanda silang.
       </div>
     </div>
-  </div>
-</template>
+  </div></div></template>
 
 <script setup>
+import ApprovalButton from '../Components/ApprovalButton.vue';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -230,6 +233,16 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+});
+
+const approvalReady = computed(() => {
+  const rows = props.rows || [];
+  const allRowsFilled = rows.length > 0 && rows.every((row) => row.status === 'yes' || row.status === 'no');
+  const hasNoAnswer = rows.some((row) => row.status === 'no');
+  const hasRequiredNote = !hasNoAnswer || String(props.note || '').trim() !== '';
+  const hasPeriod = Boolean(String(props.entry?.form?.period_value || '').trim());
+
+  return hasPeriod && allRowsFilled && hasRequiredNote;
 });
 
 const groupedRows = computed(() => {

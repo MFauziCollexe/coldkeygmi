@@ -150,6 +150,10 @@ function hydrateSaranaPrasaranaEntry(savedEntry) {
                 },
                 {},
             ),
+            area_notes: { ...(savedEntry?.form?.area_notes || {}) },
+            area_photo_paths: { ...(savedEntry?.form?.area_photo_paths || {}) },
+            area_photo_urls: { ...(savedEntry?.form?.area_photo_urls || {}) },
+            area_photo_names: { ...(savedEntry?.form?.area_photo_names || {}) },
             sections: rebuildSaranaPrasaranaSections(
                 period,
                 savedEntry?.form?.sections || [],

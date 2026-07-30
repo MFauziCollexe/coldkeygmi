@@ -1,6 +1,5 @@
 import KotakP3KTemplate from "../Templates/KotakP3KTemplate.vue";
 import FireSafetyTemplate from "../Templates/FireSafetyTemplate.vue";
-import NonWarehouseSanitationTemplate from "../Templates/NonWarehouseSanitationTemplate.vue";
 import WasteTransportTemplate from "../Templates/WasteTransportTemplate.vue";
 import WarehouseSanitationTemplate from "../Templates/WarehouseSanitationTemplate.vue";
 import PersonalHygieneTemplate from "../Templates/PersonalHygieneTemplate.vue";
@@ -19,7 +18,6 @@ import InspeksiLokerTemplate from "../Templates/InspeksiLokerTemplate.vue";
 
 const supportedTemplates = [
     "kotak_p3k",
-    "non_warehouse_sanitation",
     "apar_smoke_detector_fire_alarm",
     "pengangkutan_sampah_pt_sier",
     "warehouse_sanitation_1",
@@ -40,7 +38,6 @@ const supportedTemplates = [
 
 export const templateRegistry = {
     kotak_p3k: { component: KotakP3KTemplate },
-    non_warehouse_sanitation: { component: NonWarehouseSanitationTemplate },
     apar_smoke_detector_fire_alarm: { component: FireSafetyTemplate },
     pengangkutan_sampah_pt_sier: { component: WasteTransportTemplate },
     warehouse_sanitation_1: { component: WarehouseSanitationTemplate },

@@ -1,6 +1,7 @@
 <template>
-  <div class="rounded border border-slate-300 bg-white p-4 text-black shadow-sm">
-    <div class="mb-5 overflow-x-auto border border-black">
+  <div class="relative">
+    <div :class="['rounded border border-slate-300 p-4 text-black shadow-sm transition duration-200', isApproved ? 'bg-slate-50' : 'bg-white']">
+      <div class="mb-5 overflow-x-auto border border-black">
       <table class="w-full table-fixed border-collapse text-xs sm:text-sm">
         <tbody>
           <tr>
@@ -53,7 +54,7 @@
           <input
             :value="entry.form.date_value"
             type="date"
-            class="w-full max-w-[220px] rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 sm:max-w-none"
+            class="w-full max-w-[220px] rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 sm:max-w-none disabled:bg-white disabled:text-slate-900 disabled:border-slate-400 disabled:cursor-not-allowed"
             :disabled="isApproved"
             @input="$emit('update-date', $event.target.value)"
           />
@@ -88,17 +89,14 @@
             Mode tanpa QRCode aktif.
           </div>
 
-          <button
-            type="button"
-            :disabled="!canApproveEntry"
-            class="w-[96px] rounded px-4 py-2 text-sm font-semibold transition"
-            :class="canApproveEntry
-              ? 'bg-amber-500 text-white hover:bg-amber-400'
-              : 'cursor-not-allowed bg-slate-300 text-slate-500'"
+          <ApprovalButton
+            :is-ready="canApproveEntry"
+            :disabled="isApproved || !canApproveEntry"
+            :label="isApproved ? 'Approved' : 'Approval'"
+            button-class="w-[96px]"
+            tooltip="Approval siap jika semua kondisi terpenuhi"
             @click="$emit('approve')"
-          >
-            Approval
-          </button>
+          />
         </div>
 
         <div class="max-w-[180px] text-xs text-slate-600">
@@ -110,26 +108,17 @@
       </div>
     </div>
 
-    <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-1">
       <div class="rounded border border-slate-300 bg-slate-50 p-3">
         <label class="mb-2 block text-sm font-semibold">A. HOUR METER</label>
         <input
           :value="entry.form.hour_meter"
           type="text"
-          class="w-full rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900"
+          class="w-full rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 disabled:bg-white disabled:text-slate-900 disabled:border-slate-400 disabled:cursor-not-allowed"
           :disabled="isApproved"
           placeholder="Isi hour meter"
           @input="$emit('update-hour-meter', $event.target.value)"
         />
-      </div>
-
-      <div class="rounded border border-slate-300 bg-slate-50 p-3">
-        <div class="mb-2 text-sm font-semibold">Status</div>
-        <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-3">
-          <div>&#10003; = Centang</div>
-          <div>&#10005; = Silang</div>
-          <div>- = Minus</div>
-        </div>
       </div>
     </div>
 
@@ -158,7 +147,11 @@
                 <button
                   type="button"
                   :disabled="isApproved"
-                  class="flex h-10 w-full items-center justify-center text-base font-semibold leading-none sm:h-11 sm:text-lg"
+                  :class="[
+                    'flex h-10 w-full items-center justify-center text-base font-semibold leading-none sm:h-11 sm:text-lg',
+                    'bg-white text-slate-900 hover:bg-slate-50',
+                    isApproved ? 'cursor-not-allowed' : ''
+                  ]"
                   @click="$emit('cycle-row-status', { rowId: row.id })"
                 >
                   <span v-if="row.status === 'yes'">&#10003;</span>
@@ -177,7 +170,7 @@
       <textarea
         :value="note"
         rows="4"
-        class="w-full rounded border border-slate-400 bg-slate-100 px-3 py-2 text-sm text-slate-900"
+        class="w-full rounded border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 disabled:bg-white disabled:text-slate-900 disabled:border-slate-400 disabled:cursor-not-allowed"
         :disabled="isApproved"
         placeholder="Isi catatan jika ada item bertanda silang."
         @input="$emit('update-note', $event.target.value)"
@@ -186,11 +179,75 @@
         Catatan wajib diisi bila ada item dengan tanda silang.
       </div>
     </div>
+
+    <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
+      <div class="mb-2 flex items-center justify-between gap-3">
+        <div class="text-sm font-semibold">Foto Area</div>
+        <div class="text-xs text-slate-600">{{ currentPhotos.length }} foto</div>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <button
+          type="button"
+          class="inline-flex w-fit items-center rounded px-4 py-2 text-sm font-semibold transition"
+          :disabled="isApproved || photoUploading"
+          :class="isApproved || photoUploading
+            ? 'cursor-not-allowed bg-slate-300 text-slate-500'
+            : 'bg-sky-600 text-white hover:bg-sky-500'"
+          @click="onOpenCamera"
+        >
+          {{ photoUploading ? 'Uploading...' : 'Ambil Foto' }}
+        </button>
+
+        <div v-if="currentPhotos.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            v-for="(photo, index) in currentPhotos"
+            :key="`${photo.path || photo.url || 'photo'}-${index}`"
+            class="overflow-hidden rounded border border-slate-300 bg-white p-2"
+          >
+            <button
+              type="button"
+              class="block w-full"
+              @click="openPhotoPreview(photo, index)"
+            >
+              <img
+                :src="photo.url"
+                :alt="photo.name || `Foto genset ${index + 1}`"
+                class="h-40 w-full rounded object-cover"
+              />
+            </button>
+            <div class="mt-2 flex items-start justify-between gap-2">
+              <div class="min-w-0 text-xs text-slate-600">
+                <div class="truncate">{{ photo.name || `Foto ${index + 1}` }}</div>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 text-xs font-semibold text-rose-600 hover:text-rose-500"
+                :disabled="isApproved"
+                @click="onRemovePhoto(index)"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="photoError" class="rounded border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          {{ photoError }}
+        </div>
+
+        <div class="text-xs text-slate-600">
+          Foto akan langsung dibuka dari kamera lalu di-upload ke server.
+        </div>
+      </div>
+    </div>
   </div>
+</div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed } from 'vue'
+import ApprovalButton from '../Components/ApprovalButton.vue'
 
 const props = defineProps({
   entry: {
@@ -229,7 +286,27 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
-});
+  currentPhotos: {
+    type: Array,
+    default: () => [],
+  },
+  photoUploading: {
+    type: Boolean,
+    default: false,
+  },
+  photoError: {
+    type: String,
+    default: '',
+  },
+  onOpenCamera: {
+    type: Function,
+    default: () => {},
+  },
+  onRemovePhoto: {
+    type: Function,
+    default: () => {},
+  },
+})
 
 const groupedRows = computed(() => {
   const groups = [];

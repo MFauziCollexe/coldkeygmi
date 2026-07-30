@@ -123,17 +123,14 @@
             Mode tanpa QRCode aktif.
           </div>
 
-          <button
-            type="button"
-            :disabled="!canApproveEntry"
-            class="w-[96px] rounded px-4 py-2 text-sm font-semibold transition"
-            :class="canApproveEntry
-              ? 'bg-amber-500 text-white hover:bg-amber-400'
-              : 'cursor-not-allowed bg-slate-300 text-slate-500'"
-            @click="$emit('approve')"
-          >
-            Approval
-          </button>
+          <ApprovalButton
+            :is-ready="localMaintenanceApprovalReady"
+            :disabled="!localMaintenanceApprovalReady"
+            label="Approval"
+            button-class="w-[96px]"
+            :tooltip="localMaintenanceApprovalReady ? 'Approval siap' : (approvalDisabledReason || (showQrScanner ? (currentBarcode || 'QRCode area aktif belum discan.') : 'Lengkapi semua isian'))"
+            @click="handleApproveClick"
+          />
         </div>
 
         <div class="max-w-[132px] text-xs text-slate-600">
@@ -240,12 +237,13 @@
           {{ photoUploading ? 'Uploading...' : 'Ambil Foto' }}
         </button>
 
-        <div v-if="currentPhotos.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div v-if="currentPhotos.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <div
             v-for="(photo, index) in currentPhotos"
             :key="`${photo.path || photo.url || 'photo'}-${index}`"
             class="overflow-hidden rounded border border-slate-300 bg-white p-2"
           >
+            
             <button
               type="button"
               class="block w-full"
@@ -324,9 +322,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import ApprovalButton from '../Components/ApprovalButton.vue';
 
-defineProps({
+const props = defineProps({
   entry: {
     type: Object,
     required: true,
@@ -410,7 +409,7 @@ function closePhotoPreview() {
   previewPhoto.value = null;
 }
 
-defineEmits([
+const emit = defineEmits([
   'approve',
   'update-type',
   'update-date',
@@ -422,4 +421,36 @@ defineEmits([
   'open-camera',
   'remove-photo',
 ]);
+
+const localMaintenanceApprovalReady = computed(() => {
+  if (!props.entry || props.entry.template_id !== 'site_visit_maintenance') return false
+  if (props.entry.form.approved) return false
+  const visitType = String(props.entry.form.visit_type || '').trim()
+  if (!visitType) return false
+  const selectedArea = String(props.entry.form.selected_area || '').trim()
+  if (visitType === 'maintenance_harian' && Array.isArray(props.entry.form.approved_areas) && props.entry.form.approved_areas.includes(selectedArea)) return false
+  const hasSchedule = visitType === 'maintenance_mingguan'
+    ? Boolean(String(props.entry.form.period_value || '').trim())
+    : Boolean(String(props.entry.form.date_value || '').trim())
+  if (!hasSchedule) return false
+  if (visitType === 'maintenance_harian' && !selectedArea) return false
+
+  const items = visitType === 'maintenance_harian'
+    ? (props.sections || []).flatMap((s) => s.items || [])
+    : (props.rows || [])
+
+  if (!items.length) return false
+  const statuses = items.map((row) => String(row.status || '').trim())
+  const allAnswersFilled = statuses.every((s) => s === 'yes' || s === 'no')
+  if (!allAnswersFilled) return false
+  const hasNoAnswer = statuses.includes('no')
+  const hasRequiredNote = String(props.note || '').trim() !== ''
+  if (hasNoAnswer && !hasRequiredNote) return false
+  if (props.showQrScanner && !String(props.currentBarcode || '').trim()) return false
+  return true
+})
+
+function handleApproveClick() {
+  if (localMaintenanceApprovalReady.value) emit('approve')
+}
 </script>

@@ -255,6 +255,48 @@ Route::post('gmiic/checklist/checklist-it/photo', [App\Http\Controllers\Checklis
 Route::delete('gmiic/checklist/checklist-it/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteChecklistITPhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.checklist-it.photo.delete');
+Route::post('gmiic/checklist/running-genset/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadRunningGensetPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.running-genset.photo');
+Route::delete('gmiic/checklist/running-genset/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteRunningGensetPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.running-genset.photo.delete');
+Route::post('gmiic/checklist/kompresor-harian/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadKompresorHarianPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.kompresor-harian.photo');
+Route::delete('gmiic/checklist/kompresor-harian/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteKompresorHarianPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.kompresor-harian.photo.delete');
+Route::post('gmiic/checklist/charger-baterai/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadChargerBateraiPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.charger-baterai.photo');
+Route::delete('gmiic/checklist/charger-baterai/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteChargerBateraiPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.charger-baterai.photo.delete');
+Route::post('gmiic/checklist/checklist-baterai/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadChecklistBateraiPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.checklist-baterai.photo');
+Route::delete('gmiic/checklist/checklist-baterai/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteChecklistBateraiPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.checklist-baterai.photo.delete');
+Route::post('gmiic/checklist/inspeksi-loker/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadInspeksiLokerPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.inspeksi-loker.photo');
+Route::delete('gmiic/checklist/inspeksi-loker/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteInspeksiLokerPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.inspeksi-loker.photo.delete');
+Route::post('gmiic/checklist/warehouse/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadWarehousePhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.warehouse.photo');
+Route::delete('gmiic/checklist/warehouse/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteWarehousePhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.warehouse.photo.delete');
+Route::post('gmiic/checklist/sarana-prasarana/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadSaranaPrasaranaPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.sarana-prasarana.photo');
+Route::delete('gmiic/checklist/sarana-prasarana/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteSaranaPrasaranaPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.sarana-prasarana.photo.delete');
 
 // GMIVP - Visitor Form
 Route::get('gmi-visitor-permit/visitor-form', [App\Http\Controllers\VisitorFormController::class, 'index'])

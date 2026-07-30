@@ -1,8 +1,5 @@
 export const checklistOptions = [
-    {
-        id: "non_warehouse_sanitation",
-        name: "Kebersihan dan Sanitasi (Non-Warehouse Area)",
-    },
+    // Non-warehouse sanitation removed
     { id: "kotak_p3k", name: "Kotak P3K" },
     {
         id: "apar_smoke_detector_fire_alarm",

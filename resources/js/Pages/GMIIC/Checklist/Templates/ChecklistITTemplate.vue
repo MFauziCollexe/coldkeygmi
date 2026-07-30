@@ -90,16 +90,14 @@
         <div class="font-semibold">Status checklist aktif</div>
         <div class="text-slate-600">{{ currentCheckLabel }}</div>
       </div>
-      <button
-        type="button"
+      <ApprovalButton
+        :is-ready="isApproverEnabled"
         :disabled="!isApproverEnabled"
-        :class="isApproverEnabled
-          ? 'rounded bg-amber-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-amber-400'
-          : 'rounded px-5 py-2 text-sm font-semibold text-slate-700 bg-slate-300 cursor-not-allowed'"
+        label="Approval"
+        button-class="w-[132px]"
+        tooltip="Approval siap jika semua kondisi terpenuhi"
         @click="$emit('approve')"
-      >
-        Approval
-      </button>
+      />
     </div>
 
     <div class="rounded border border-slate-300 bg-slate-50 p-3">
@@ -247,6 +245,7 @@
 </template>
 
 <script setup>
+import ApprovalButton from '../Components/ApprovalButton.vue';
 import { computed, ref } from 'vue'
 
 // checklistItems removed: using entry.form.check_items instead
