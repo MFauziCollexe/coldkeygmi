@@ -496,6 +496,15 @@ function getChecklistEntryDateLabel(entry) {
     return formatIsoDateDisplay(selectedDate.value);
   }
 
+  const monthValue = normalizeMonthValue(entry?.form?.date_value);
+  if (monthValue) {
+    const [year, month] = monthValue.split('-').map(Number);
+    return new Intl.DateTimeFormat('id-ID', {
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date(year, month - 1, 1));
+  }
+
   const directDate = normalizeIsoDate(entry?.form?.date_value);
   if (directDate) {
     return formatIsoDateDisplay(directDate);
@@ -580,6 +589,11 @@ function formatIsoDateDisplay(value) {
 function normalizeIsoDate(value) {
   const normalized = String(value || '').trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+}
+
+function normalizeMonthValue(value) {
+  const normalized = String(value || '').trim();
+  return /^\d{4}-\d{2}$/.test(normalized) ? normalized : null;
 }
 
 function parseChecklistDisplayDate(value) {

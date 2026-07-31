@@ -335,20 +335,23 @@ class ChecklistEntryController extends Controller
         $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
 
         $monthlyTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
+        $monthlyDateValueTemplates = ['inspeksi_loker'];
 
         $query = ChecklistHeader::query()
             ->with('template:id,code,module')
             ->whereHas('template', fn ($query) => $query->where('module', self::CHECKLIST_MODULE))
             ->when(!empty($allowedTemplateIds), fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds)), fn ($query) => $query->whereRaw('1 = 0'))
             ->when($templateId !== '', fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->where('code', $templateId)))
-            ->when($selectedDate !== '', function ($query) use ($selectedDate, $templateId, $monthlyTemplates) {
+            ->when($selectedDate !== '', function ($query) use ($selectedDate, $templateId, $monthlyTemplates, $monthlyDateValueTemplates) {
                 $year = date('Y', strtotime($selectedDate));
                 $formattedDisplayDate = $this->formatChecklistDisplayDateForQuery($selectedDate);
 
                 if (in_array($templateId, $monthlyTemplates, true)) {
                     $this->applyMonthlyChecklistDateFilter($query, $selectedDate, $formattedDisplayDate, $year);
+                } elseif (in_array($templateId, $monthlyDateValueTemplates, true)) {
+                    $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [substr($selectedDate, 0, 7)]);
                 } else {
-                    $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate, $templateId, $monthlyTemplates, $year) {
+                    $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate, $templateId, $monthlyTemplates, $monthlyDateValueTemplates, $year) {
                         $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate]);
 
                         if ($formattedDisplayDate !== null) {
@@ -361,6 +364,12 @@ class ChecklistEntryController extends Controller
                                     ->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $monthlyTemplates));
 
                                 $this->applyMonthlyChecklistDateFilter($monthlyQuery, $selectedDate, $formattedDisplayDate, $year);
+                            });
+
+                            $subQuery->orWhere(function ($monthlyValueQuery) use ($monthlyDateValueTemplates, $selectedDate) {
+                                $monthlyValueQuery
+                                    ->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $monthlyDateValueTemplates))
+                                    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [substr($selectedDate, 0, 7)]);
                             });
                         }
                     });
