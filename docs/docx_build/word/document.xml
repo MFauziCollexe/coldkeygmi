@@ -24,10 +24,6 @@
     <w:p><w:r><w:t>Water Meter: C Ada, U Ada, D Tidak ada.</w:t></w:r></w:p>
     <w:p><w:r><w:t>Utility Report: C Tidak ada, U Tidak ada, D Tidak ada. (index/view)</w:t></w:r></w:p>
     <w:p/>
-    <w:p><w:r><w:t>3) LEAVE PERMIT (GMIVP)</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Visitor Form: C Ada, U Ada, D Tidak ada. (status + approval flow)</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Exit Permit (Surat Izin Keluar): C Ada, U Ada, D Tidak ada. (approval Security/HRD/Manager)</w:t></w:r></w:p>
-    <w:p/>
     <w:p><w:r><w:t>4) GMIHR</w:t></w:r></w:p>
     <w:p><w:r><w:t>Attendance Log: C Ada, U Ada, D Tidak ada. (koreksi + approve/reject)</w:t></w:r></w:p>
     <w:p><w:r><w:t>Leave &amp; Permission: C Ada, U Ada, D Tidak ada.</w:t></w:r></w:p>

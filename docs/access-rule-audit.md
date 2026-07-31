@@ -34,14 +34,6 @@ Dokumen ini merangkum rule `approval` dan `list view` yang masih di-hardcode per
   - Evaluator rule: [AccessRuleService.php](/c:/xampp/htdocs/coldkeygmi/app/Support/AccessRuleService.php)
   - Controller tahap awal: [RequestAccessController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/RequestAccessController.php)
   - Model tahap awal: [RequestAccess.php](/c:/xampp/htdocs/coldkeygmi/app/Models/RequestAccess.php)
-- `Exit Permit`
-  - Pondasi baru: [access_rules.php](/c:/xampp/htdocs/coldkeygmi/config/access_rules.php)
-  - Evaluator rule: [AccessRuleService.php](/c:/xampp/htdocs/coldkeygmi/app/Support/AccessRuleService.php)
-  - Controller tahap awal: [ExitPermitController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/ExitPermitController.php)
-- `Visitor Form`
-  - Pondasi baru: [access_rules.php](/c:/xampp/htdocs/coldkeygmi/config/access_rules.php)
-  - Evaluator rule: [AccessRuleService.php](/c:/xampp/htdocs/coldkeygmi/app/Support/AccessRuleService.php)
-  - Controller tahap awal: [VisitorFormController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/VisitorFormController.php)
 - `Plugging`
   - Pondasi baru: [access_rules.php](/c:/xampp/htdocs/coldkeygmi/config/access_rules.php)
   - Evaluator rule: [AccessRuleService.php](/c:/xampp/htdocs/coldkeygmi/app/Support/AccessRuleService.php)
@@ -76,8 +68,6 @@ Dokumen ini merangkum rule `approval` dan `list view` yang masih di-hardcode per
 | Leave Permission | [LeavePermissionController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/LeavePermissionController.php) | List view, review, edit, create scope | IT, HRD, manager, supervisor, OPS | Tahap refactor lanjut selesai: list view, review, submit-for-others, edit ability, dan pengecualian OPS->IT sudah pindah ke config |
 | Roster List | [RosterController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/RosterController.php) | List view, approve, special approve | IT, HRD, manager, OPS, INV/RSC/ADL | Tahap awal refactor selesai untuk list view dan approve scope; extra OPS->INV/RSC/ADL sudah pindah ke config |
 | Attendance Log | [AttendanceLogController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/AttendanceLogController.php) | Approval correction, manage correction | IT/HRD | Tahap awal refactor selesai untuk ability manage/approve/reject correction |
-| Exit Permit | [ExitPermitController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/ExitPermitController.php) | Multi-step approval | Security, HRD, manager/supervisor | Tahap awal refactor selesai untuk rule per tahap approval |
-| Visitor Form | [VisitorFormController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/VisitorFormController.php) | Approval | Security, user tujuan | Tahap awal refactor selesai untuk security approver; host approver tetap dinamis per record |
 | Request Access | [RequestAccessController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/RequestAccessController.php) | List view, review, process | IT, manager, admin | Tahap awal refactor selesai untuk list view, create-new-user, review, process |
 | Plugging | [PluggingController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/PluggingController.php) | Approval | OPS / operational manager | Tahap awal refactor selesai untuk ability approve |
 | Berita Acara | [BeritaAcaraController.php](/c:/xampp/htdocs/coldkeygmi/app/Http/Controllers/BeritaAcaraController.php) | Delete | IT | Tahap awal refactor selesai untuk ability delete |

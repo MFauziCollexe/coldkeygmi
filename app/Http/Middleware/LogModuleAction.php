@@ -153,12 +153,6 @@ class LogModuleAction
             $first = $parts[0] ?? '';
             $second = $parts[1] ?? '';
 
-            // For GMIVP routes (gmi-visitor-permit.*), use module segment (visitor-form / exit-permit)
-            // so logs are more specific than the parent namespace.
-            if (in_array($first, ['gmi-visitor-permit', 'gmi_visitor_permit'], true) && $second !== '') {
-                return str_replace('-', '_', $second);
-            }
-
             return str_replace(['.', '-'], '_', $first);
         }
 

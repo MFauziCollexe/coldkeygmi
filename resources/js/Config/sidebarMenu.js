@@ -130,28 +130,6 @@ export const sidebarMenuConfig = [
         ],
     },
     {
-        id: "gmi-visitor-permit",
-        label: "GMIVP ( Visitor & Permit )",
-        icon: "Users",
-        color: "text-white",
-        children: [
-            {
-                id: "visitor-form",
-                label: "Visitor Form",
-                icon: "User",
-                route: "/gmi-visitor-permit/visitor-form",
-                module_key: "gmi_visitor_permit.visitor_form",
-            },
-            {
-                id: "exit-permit",
-                label: "Exit Permit (Surat Izin Keluar)",
-                icon: "FileText",
-                route: "/gmi-visitor-permit/exit-permit",
-                module_key: "gmi_visitor_permit.exit_permit",
-            },
-        ],
-    },
-    {
         id: "gmiic",
         label: "GMIIC ( Inspection & Checklist )",
         icon: "Clipboard",

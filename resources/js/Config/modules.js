@@ -45,17 +45,6 @@ export default [
         children: [{ key: "gmiic.checklist", label: "Checklist" }],
     },
     {
-        key: "gmi_visitor_permit",
-        label: "Leave Permit",
-        children: [
-            { key: "gmi_visitor_permit.visitor_form", label: "Visitor Form" },
-            {
-                key: "gmi_visitor_permit.exit_permit",
-                label: "Exit Permit (Surat Izin Keluar)",
-            },
-        ],
-    },
-    {
         key: "gmihr",
         label: "GMIHR",
         children: [

@@ -298,37 +298,6 @@ Route::delete('gmiic/checklist/sarana-prasarana/photo', [App\Http\Controllers\Ch
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.sarana-prasarana.photo.delete');
 
-// GMIVP - Visitor Form
-Route::get('gmi-visitor-permit/visitor-form', [App\Http\Controllers\VisitorFormController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.visitor_form'])
-    ->name('gmi-visitor-permit.visitor-form.index');
-Route::get('gmi-visitor-permit/visitor-form/create', [App\Http\Controllers\VisitorFormController::class, 'create'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.visitor_form'])
-    ->name('gmi-visitor-permit.visitor-form.create');
-Route::post('gmi-visitor-permit/visitor-form', [App\Http\Controllers\VisitorFormController::class, 'store'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.visitor_form'])
-    ->name('gmi-visitor-permit.visitor-form.store');
-Route::post('gmi-visitor-permit/visitor-form/{visitorForm}/status', [App\Http\Controllers\VisitorFormController::class, 'updateStatus'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.visitor_form'])
-    ->name('gmi-visitor-permit.visitor-form.update-status');
-Route::post('gmi-visitor-permit/visitor-form/{visitorForm}/approve', [App\Http\Controllers\VisitorFormController::class, 'approve'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.visitor_form'])
-    ->name('gmi-visitor-permit.visitor-form.approve');
-
-// GMIVP - Exit Permit (Surat Izin Keluar)
-Route::get('gmi-visitor-permit/exit-permit', [App\Http\Controllers\ExitPermitController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.exit_permit'])
-    ->name('gmi-visitor-permit.exit-permit.index');
-Route::get('gmi-visitor-permit/exit-permit/create', [App\Http\Controllers\ExitPermitController::class, 'create'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.exit_permit'])
-    ->name('gmi-visitor-permit.exit-permit.create');
-Route::post('gmi-visitor-permit/exit-permit', [App\Http\Controllers\ExitPermitController::class, 'store'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.exit_permit'])
-    ->name('gmi-visitor-permit.exit-permit.store');
-Route::post('gmi-visitor-permit/exit-permit/{exitPermit}/approve', [App\Http\Controllers\ExitPermitController::class, 'approve'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmi_visitor_permit.exit_permit'])
-    ->name('gmi-visitor-permit.exit-permit.approve');
-
 // Request Access custom actions: approve, reject, process
 Route::post('request-access/{requestAccess}/approve', [App\Http\Controllers\RequestAccessController::class, 'approve'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.request_access'])

@@ -259,39 +259,6 @@ return [
                 ],
             ],
         ],
-        'exit_permit' => [
-            'scopes' => [
-                'manager_approve' => [
-                    'all_if' => [
-                        ['type' => 'admin'],
-                    ],
-                    'ids_from' => [
-                        'managed_departments',
-                    ],
-                ],
-            ],
-            'abilities' => [
-                'security_approve' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'SEC'],
-                    ['type' => 'department_name_contains', 'value' => 'SECURITY'],
-                ],
-                'hrd_approve' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'HRD'],
-                    ['type' => 'department_name_contains', 'value' => 'HRD'],
-                ],
-            ],
-        ],
-        'visitor_form' => [
-            'abilities' => [
-                'security_approve' => [
-                    ['type' => 'admin'],
-                    ['type' => 'department_code', 'value' => 'SEC'],
-                    ['type' => 'department_name_contains', 'value' => 'SECURITY'],
-                ],
-            ],
-        ],
         'berita_acara' => [
             'abilities' => [
                 'delete' => [

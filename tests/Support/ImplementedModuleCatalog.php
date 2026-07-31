@@ -30,8 +30,6 @@ class ImplementedModuleCatalog
             'gmisl.master_data.stock_card_unit' => ['label' => 'Satuan Stock Card', 'uri' => '/master-data/stock-card-unit'],
             'gmisl.master_data.attendance_lock_area' => ['label' => 'Area Absensi', 'uri' => '/master-data/attendance-lock-area'],
             'gmiic.checklist' => ['label' => 'Checklist', 'uri' => '/gmiic/checklist'],
-            'gmi_visitor_permit.visitor_form' => ['label' => 'Visitor Form', 'uri' => '/gmi-visitor-permit/visitor-form'],
-            'gmi_visitor_permit.exit_permit' => ['label' => 'Exit Permit', 'uri' => '/gmi-visitor-permit/exit-permit'],
             'gmihr.attendance.log' => ['label' => 'Attendance Log', 'uri' => '/attendance-log'],
             'gmihr.attendance.absensi' => ['label' => 'Absensi', 'uri' => '/absensi'],
             'gmihr.attendance.approval' => ['label' => 'Attendance Approval', 'uri' => '/attendance-approval'],

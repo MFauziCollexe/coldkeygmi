@@ -216,18 +216,6 @@ class OpenAIHelpAssistantService
                 '- Jelaskan alur stock in, request item, dan approval dengan hati-hati sesuai role user.',
                 '- Jika user bertanya kenapa request tidak bisa diproses, arahkan ke status request dan permission approval.',
             ],
-            'visitor_form' => [
-                'Fokus Visitor Form:',
-                '- Visitor Form dipakai untuk pengajuan atau pencatatan kunjungan tamu.',
-                '- Jelaskan alur umum: isi data tamu, tujuan kunjungan, tanggal, pihak yang dikunjungi, lalu submit.',
-                '- Jika status belum berubah, arahkan ke approval dan kelengkapan data.',
-            ],
-            'exit_permit' => [
-                'Fokus Exit Permit:',
-                '- Exit Permit dipakai untuk pengajuan barang atau item keluar.',
-                '- Jelaskan alur umum pengisian data barang, tujuan, alasan, lalu submit ke proses approval.',
-                '- Jika user bertanya update status, jelaskan bahwa itu biasanya tergantung role dan posisi dokumen di alur.',
-            ],
             'master_data' => [
                 'Fokus Master Data:',
                 '- Master Data dipakai untuk mengelola data referensi seperti department, position, employee, customer, vehicle type, dan sejenisnya.',
@@ -331,14 +319,6 @@ class OpenAIHelpAssistantService
                 default => 'Halaman daftar berita acara.',
             },
             'stock_card' => 'Halaman stock card.',
-            'visitor_form' => match (true) {
-                str_contains($value, 'create') => 'Halaman pembuatan visitor form.',
-                default => 'Halaman daftar visitor form.',
-            },
-            'exit_permit' => match (true) {
-                str_contains($value, 'create') => 'Halaman pembuatan exit permit.',
-                default => 'Halaman daftar exit permit.',
-            },
             'master_data' => 'Halaman master data.',
             'control_panel' => 'Halaman control panel.',
             'dashboard' => 'Halaman dashboard.',
@@ -382,9 +362,6 @@ class OpenAIHelpAssistantService
             str_contains($value, 'gmihr/overtime/create') || str_contains($value, 'overtime/create') => [
                 '- Halaman ini fokus pada pembuatan lembur dengan tanggal, jam, alasan, dan detail pekerjaan.',
             ],
-            str_contains($value, 'gmivp/visitorform/create') || str_contains($value, 'visitor-form/create') => [
-                '- Halaman ini fokus pada pengisian data tamu, tujuan kunjungan, tanggal/waktu, dan pihak yang dikunjungi.',
-            ],
             str_contains($value, 'gmisl/utility/requestaccess/create') || str_contains($value, 'request-access/create') => [
                 '- Halaman ini fokus pada pembuatan request access beserta jenis request, target user, department, dan alasan.',
             ],
@@ -414,8 +391,6 @@ class OpenAIHelpAssistantService
             'Berita Acara: daftar, create, detail, print, download PDF, delete bila berwenang.',
             'Date Code: bantu membaca atau mengolah kode tanggal.',
             'Stock Card: master item, stok masuk, request stock, approve request, histori stok.',
-            'Visitor Form: create dan daftar visitor form beserta approval.',
-            'Exit Permit: create dan daftar exit permit beserta update status/approval.',
             'Master Data: department, position, employee, customer, vehicle type, stock card reference, attendance lock area, dan data referensi lain.',
             'Control Panel: user management, module control, access rules, activity logs, database backup.',
         ];
@@ -436,8 +411,6 @@ class OpenAIHelpAssistantService
             'Check Inline: index daftar data, create/store buat entri, show membuka edit/detail, update revisi data dan gambar.',
             'Berita Acara: index daftar dokumen, create/store buat dokumen, show detail, print tampilan cetak, downloadPdf unduh PDF, destroy hapus dokumen jika berwenang.',
             'Stock Card: masterIndex/storeItem/updateItem kelola master barang, index lihat kartu stok dan pending request, storeStockIn tambah stok masuk, storeRequest buat permintaan stok, approveRequest setujui permintaan stok.',
-            'Visitor Form: index daftar, create/store buat form tamu, approve approval form, updateStatus ubah status kunjungan.',
-            'Exit Permit: index daftar, create/store buat permit, approve setujui permit.',
             'Master Data: department/customer/vehicle type/position/employee/user/item type/unit/attendance lock area pada umumnya punya pola index, create/store, edit/update, destroy; employee juga punya resign/cancelResign/faceReferencePhoto.',
             'Control Panel: module control index/save/forUser, access rules index/save/reset/rollback, logs index/show/clear, database backup index/store/start/stop/download/destroy/updatePath.',
         ];

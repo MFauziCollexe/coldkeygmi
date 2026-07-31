@@ -263,48 +263,6 @@ flowchart LR
       </section>
 
       <section class="page">
-        <h2>Visitor Form (/gmi-visitor-permit/visitor-form)</h2>
-<pre class="mermaid">
-flowchart LR
-  m_1x4r8q0_start([Mulai])
-  m_1x4r8q0_end([Selesai])
-  m_1x4r8q0_open["Buka halaman Visitor Form"]
-  m_1x4r8q0_filter["Set filter (opsional)"]
-  m_1x4r8q0_load["Load data"]
-  m_1x4r8q0_action{"Aksi lanjutan?"}
-  m_1x4r8q0_export["Export/Download (opsional)"]
-  m_1x4r8q0_start --> m_1x4r8q0_open
-  m_1x4r8q0_open --> m_1x4r8q0_filter
-  m_1x4r8q0_filter --> m_1x4r8q0_load
-  m_1x4r8q0_load --> m_1x4r8q0_action
-  m_1x4r8q0_action -->|Export| m_1x4r8q0_export
-  m_1x4r8q0_action -->|Selesai| m_1x4r8q0_end
-  m_1x4r8q0_export --> m_1x4r8q0_end
-</pre>
-      </section>
-
-      <section class="page">
-        <h2>Exit Permit (Surat Izin Keluar) (/gmi-visitor-permit/exit-permit)</h2>
-<pre class="mermaid">
-flowchart LR
-  m_2ffqi5_start([Mulai])
-  m_2ffqi5_end([Selesai])
-  m_2ffqi5_open["Buka halaman Exit Permit (Surat Izin Keluar)"]
-  m_2ffqi5_filter["Set filter (opsional)"]
-  m_2ffqi5_load["Load data"]
-  m_2ffqi5_action{"Aksi lanjutan?"}
-  m_2ffqi5_export["Export/Download (opsional)"]
-  m_2ffqi5_start --> m_2ffqi5_open
-  m_2ffqi5_open --> m_2ffqi5_filter
-  m_2ffqi5_filter --> m_2ffqi5_load
-  m_2ffqi5_load --> m_2ffqi5_action
-  m_2ffqi5_action -->|Export| m_2ffqi5_export
-  m_2ffqi5_action -->|Selesai| m_2ffqi5_end
-  m_2ffqi5_export --> m_2ffqi5_end
-</pre>
-      </section>
-
-      <section class="page">
         <h2>Checklist (/gmiic/checklist)</h2>
 <pre class="mermaid">
 flowchart LR
