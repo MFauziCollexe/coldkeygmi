@@ -33,6 +33,13 @@ export default [
         ],
     },
     {
+        key: "gmisl.cross_odoo",
+        label: "Cross Odoo",
+        children: [
+            { key: "gmisl.cross_odoo.stock_card", label: "Stock Card" },
+        ],
+    },
+    {
         key: "gmiic",
         label: "GMIIC",
         children: [{ key: "gmiic.checklist", label: "Checklist" }],

@@ -117,7 +117,7 @@ Route::get('gmisl/utility/stock-card', [App\Http\Controllers\StockCardController
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
     ->name('stock-card.index');
 Route::get('gmisl/cross-odoo/stock-card', [App\Http\Controllers\CrossOdoo\StockCardController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.stock_card'])
     ->name('stock-card.cross-odoo.index');
 Route::get('gmisl/utility/stock-card/export', [App\Http\Controllers\StockCardController::class, 'export'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])

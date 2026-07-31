@@ -59,13 +59,14 @@ export const sidebarMenuConfig = [
                 id: "cross-odoo",
                 label: "Cross Odoo",
                 icon: "Layers",
+                module_key: "gmisl.cross_odoo",
                 children: [
                     {
                         id: "cross-odoo-stock-card",
                         label: "Stock Card",
                         icon: "Package",
                         route: "/gmisl/cross-odoo/stock-card",
-                        module_key: "utility.stock_card",
+                        module_key: "gmisl.cross_odoo.stock_card",
                     },
                 ],
             },
