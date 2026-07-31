@@ -74,11 +74,23 @@
             :disabled="!canApproveEntry"
             label="Approval"
             button-class="w-[132px]"
-            tooltip="Approval siap jika semua kondisi terpenuhi"
+            :tooltip="approvalTooltip"
             @click="$emit('approve')"
           />
         </div>
       </div>
+    </div>
+
+    <div class="mb-3 flex items-center gap-3 px-3 text-sm text-slate-700">
+      <label class="inline-flex cursor-pointer items-center gap-2 font-semibold">
+        <input
+          type="checkbox"
+          :checked="isAllLockersChecked"
+          class="h-4 w-4 rounded border-slate-400 text-slate-600 focus:ring-slate-500"
+          @change="$emit('toggle-all-lockers')"
+        />
+        Centang Semua
+      </label>
     </div>
 
     <div class="overflow-x-auto border border-black">
@@ -102,13 +114,10 @@
               <button
                 type="button"
                 class="inline-flex h-8 w-8 items-center justify-center rounded bg-white text-xs font-semibold leading-none text-slate-800 transition hover:bg-slate-200 focus:outline-none focus-visible:outline-none"
-                :class="{
-                  'text-rose-600': row.lockers?.[String(locker)] === 'no',
-                }"
                 @click="$emit('cycle-locker-status', row.no, locker)"
               >
                 <span v-if="row.lockers?.[String(locker)] === 'yes'">✓</span>
-                <span v-else-if="row.lockers?.[String(locker)] === 'no'">✕</span>
+                <span v-else-if="row.lockers?.[String(locker)] === 'no'" class="text-rose-600">✕</span>
               </button>
             </td>
           </tr>
@@ -125,9 +134,12 @@
         :value="entry.form.note || ''"
         rows="3"
         class="w-full rounded border border-slate-400 bg-slate-100 px-3 py-2 text-sm text-slate-900"
-        placeholder="Isi keterangan jika ada temuan atau catatan..."
+        placeholder="Isi catatan / temuan jika ada loker yang bertanda silang (✕)..."
         @input="$emit('update-note', $event.target.value)"
       ></textarea>
+      <div class="mt-2 text-xs text-slate-600">
+        Isi catatan ini jika ada loker yang bertanda silang (✕).
+      </div>
     </div>
 
     <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
@@ -233,7 +245,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import ApprovalButton from '../Components/ApprovalButton.vue';
 
 const lockerNumbers = Array.from({ length: 32 }, (_, index) => index + 1)
@@ -261,7 +273,27 @@ const props = defineProps({
   },
 })
 
+const requiresNote = computed(() => {
+  const rows = Array.isArray(props.entry.form.rows) ? props.entry.form.rows : []
+  return rows.some((row) => Object.values(row.lockers || {}).some((value) => String(value || '') === 'no'))
+})
+
+const approvalTooltip = computed(() => {
+  if (requiresNote.value && !String(props.entry.form.note || '').trim()) {
+    return 'Approval memerlukan catatan karena ada loker yang bertanda silang (✕).'
+  }
+  return 'Approval siap jika semua kondisi terpenuhi.'
+})
+
 const previewPhoto = ref(null)
+
+const isAllLockersChecked = computed(() => {
+  const rows = Array.isArray(props.entry?.form?.rows) ? props.entry.form.rows : []
+  if (!rows.length) return false
+  const lockerKeys = rows[0]?.lockers ? Object.keys(rows[0].lockers) : []
+  if (!lockerKeys.length) return false
+  return rows.every((row) => lockerKeys.every((key) => row.lockers?.[key] === 'yes'))
+})
 
 function openPhotoPreview(photo, index) {
   if (!photo?.url) return
@@ -275,5 +307,5 @@ function closePhotoPreview() {
   previewPhoto.value = null
 }
 
-defineEmits(['approve', 'update-date', 'update-pic', 'update-note', 'cycle-locker-status', 'open-camera', 'remove-photo'])
+defineEmits(['approve', 'update-date', 'update-pic', 'update-note', 'cycle-locker-status', 'toggle-all-lockers', 'open-camera', 'remove-photo'])
 </script>

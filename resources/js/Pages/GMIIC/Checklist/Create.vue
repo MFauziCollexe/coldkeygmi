@@ -619,6 +619,22 @@ const currentTemplateProps = computed(() => {
           },
         }
       })
+      if (entry.value) entry.value.form.approved = false
+    },
+    onToggleAllLockers: () => {
+      if (!entry.value || !Array.isArray(entry.value.form.rows)) return
+      const rows = entry.value.form.rows
+      const lockerKeys = rows[0]?.lockers ? Object.keys(rows[0].lockers) : []
+      if (!lockerKeys.length) return
+      const allChecked = rows.every((row) => lockerKeys.every((key) => row.lockers?.[key] === 'yes'))
+      entry.value.form.rows = rows.map((row) => ({
+        ...row,
+        lockers: lockerKeys.reduce((obj, key) => ({
+          ...obj,
+          [key]: allChecked ? '' : 'yes',
+        }), {}),
+      }))
+      entry.value.form.approved = false
     },
   }
 
@@ -709,6 +725,12 @@ function isInspeksiLokerAllCellsFilled() {
   const firstRowLockers = rows[0]?.lockers ? Object.keys(rows[0].lockers) : []
   if (!firstRowLockers.length) return false
   return rows.every((row) => firstRowLockers.every((k) => String(row.lockers?.[k] || '').trim() !== ''))
+}
+
+function hasInspeksiLokerNoAnswer() {
+  if (!entry.value) return false
+  const rows = Array.isArray(entry.value.form.rows) ? entry.value.form.rows : []
+  return rows.some((row) => Object.values(row.lockers || {}).some((value) => String(value || '') === 'no'))
 }
 
 const canApprovePatroliSecurityEntry = computed(() => {
@@ -884,6 +906,7 @@ const canApproveEntry = computed(() => {
     if (!String(entry.value.form.date_value || '').trim()) return false
     if (!String(entry.value.form.pic || '').trim()) return false
     if (!isInspeksiLokerAllCellsFilled()) return false
+    if (hasInspeksiLokerNoAnswer() && !isFilled(entry.value.form.note)) return false
     return true
   }
 
