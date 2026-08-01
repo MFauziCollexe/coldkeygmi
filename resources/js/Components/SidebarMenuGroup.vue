@@ -48,6 +48,9 @@ import {
   Server,
   Building,
   Briefcase,
+  Gauge,
+  Zap,
+  Droplets,
 } from 'lucide-vue-next';
 import SidebarSubItem from './SidebarSubItem.vue';
 
@@ -84,6 +87,9 @@ const iconMap = {
   Server,
   Building,
   Briefcase,
+  Gauge,
+  Zap,
+  Droplets,
 };
 
 function getIcon(iconName) {

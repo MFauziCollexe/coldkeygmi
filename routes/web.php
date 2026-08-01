@@ -83,6 +83,16 @@ Route::resource('request-access', App\Http\Controllers\RequestAccessController::
 Route::get('gmisl/utility/date-code', [DateCodeController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.date_code']);
 
+// Listrik (GMISL > Utility > Listrik)
+Route::get('gmisl/listrik', [App\Http\Controllers\ListrikController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.listrik'])
+    ->name('gmisl.listrik.index');
+
+// Alias route for GMIUM Listrik (no module-permission middleware) to allow access during testing
+Route::get('gmium/listrik', [App\Http\Controllers\ListrikController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('gmium.listrik.index');
+
 // Berita Acara (GMISL > Utility > Berita Acara)
 Route::get('gmisl/utility/berita-acara', [App\Http\Controllers\BeritaAcaraController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])

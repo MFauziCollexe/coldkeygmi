@@ -145,6 +145,28 @@ export const sidebarMenuConfig = [
         ],
     },
     {
+        id: "gmium",
+        label: "GMIUM ( Utility Management )",
+        icon: "Gauge",
+        color: "text-white",
+        children: [
+            {
+                id: "listrik",
+                label: "Listrik",
+                icon: "Zap",
+                route: "/gmium/listrik",
+                module_key: "gmium.electricity",
+            },
+            {
+                id: "pdam",
+                label: "PDAM",
+                icon: "Droplets",
+                route: "/gmisl/pdam",
+                module_key: "gmium.water",
+            },
+        ],
+    },
+    {
         id: "gmihr",
         label: "GMIHR ( Human Resources )",
         icon: "Users",

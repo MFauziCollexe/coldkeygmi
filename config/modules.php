@@ -54,6 +54,14 @@ return [
         ],
     ],
     [
+        'key' => 'gmium',
+        'label' => 'GMIUM',
+        'children' => [
+            ['key' => 'gmium.electricity', 'label' => 'Listrik'],
+            ['key' => 'gmium.water', 'label' => 'PDAM'],
+        ],
+    ],
+    [
         'key' => 'gmihr',
         'label' => 'GMIHR',
         'children' => [

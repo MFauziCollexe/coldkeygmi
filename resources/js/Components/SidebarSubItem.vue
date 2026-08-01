@@ -31,6 +31,9 @@ import {
   Server,
   Building,
   Briefcase,
+  Gauge,
+  Zap,
+  Droplets,
 } from 'lucide-vue-next';
 import { Link } from '@inertiajs/vue3';
 
@@ -61,6 +64,9 @@ const iconMap = {
   Server,
   Building,
   Briefcase,
+  Gauge,
+  Zap,
+  Droplets,
 };
 
 function getIcon(iconName) {

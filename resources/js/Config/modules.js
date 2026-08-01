@@ -45,6 +45,14 @@ export default [
         children: [{ key: "gmiic.checklist", label: "Checklist" }],
     },
     {
+        key: "gmium",
+        label: "GMIUM",
+        children: [
+            { key: "gmium.electricity", label: "Listrik" },
+            { key: "gmium.water", label: "PDAM" },
+        ],
+    },
+    {
         key: "gmihr",
         label: "GMIHR",
         children: [
