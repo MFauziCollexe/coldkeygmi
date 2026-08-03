@@ -1088,15 +1088,17 @@ class RosterController extends Controller
             return [
                 ['nrp' => '25091508', 'name' => 'ISNINDAR UMAR SAID'],
                 ['nrp' => '25111725', 'name' => 'RAFI EKA PRASTIAWAN'],
-                ['nrp' => '25111727', 'name' => 'FEBRIHAN BAGUS PERMANA'],
                 ['nrp' => '26011538', 'name' => 'RANGGA SURYADIPTA LINTANG KUSUMA'],
-                ['nrp' => '25120126', 'name' => 'ADI PUJI P'],
+                ['nrp' => '26081348', 'name' => 'RIZAL MAULANA'],
+                ['nrp' => '26020240', 'name' => 'YUDISTIRA ALDI KURNIAWAN'],
+                ['nrp' => '25120126', 'name' => 'ADI PUJI PRAMANA'],
+                ['nrp' => '26071344', 'name' => 'YUQAL ISA SURYA'],
                 ['nrp' => '25100110', 'name' => 'CHOIRUL ANWAR'],
                 ['nrp' => '25101312', 'name' => 'FIRMAN EFENDI'],
-                ['nrp' => '25100109', 'name' => 'YOGA ADITYA PRADANA'],
-                ['nrp' => '26020240', 'name' => 'YUDISTIRA ALDI KURNIAWAN'],
-                ['nrp' => '26071344', 'name' => 'YUQAL ISA SURYA'],
                 ['nrp' => '26071345', 'name' => 'KHOIR REFORMANSYAH'],
+                ['nrp' => '25100109', 'name' => 'YOGA ADITYA PRADANA'],
+                ['nrp' => '25111724', 'name' => 'EKO PURNIAWAN'],
+                ['nrp' => '26081347', 'name' => 'MUHAMMAD ALFAN SETYAWAN'],
             ];
         }
 
@@ -1104,11 +1106,11 @@ class RosterController extends Controller
             return [
                 ['nrp' => '25081507', 'name' => 'IMANDA ARIESANDY'],
                 ['nrp' => '26010536', 'name' => 'JOJOK SETIYADI'],
-                ['nrp' => '25111724', 'name' => 'EKO PURNIAWAN'],
                 ['nrp' => '25111728', 'name' => 'DIMAS SEPTIAN D'],
                 ['nrp' => '26010535', 'name' => 'ADITYA RAINDY ANSHAR'],
-                ['nrp' => '26011539', 'name' => 'RIO SEPTIANTO FANDY PRATAMA'],
+                ['nrp' => '25111727', 'name' => 'FEBRIHAN BAGUS PERMANA'],
                 ['nrp' => '26011537', 'name' => 'EDI ATMADJA'],
+                ['nrp' => '26011539', 'name' => 'RIO SEPTIANTO FANDY PRATAMA'],
                 ['nrp' => '25111723', 'name' => 'HUSNI ANSORY'],
                 ['nrp' => '25101313', 'name' => 'ELRIES ARIF AFIFUDIN'],
                 ['nrp' => '26071343', 'name' => 'DJULIANTO'],
