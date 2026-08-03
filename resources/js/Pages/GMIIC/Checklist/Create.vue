@@ -135,7 +135,7 @@ const { knownChecklistEntries, saveState, saveError, saveStateLabel, saveStateCl
 const kotakP3K = useKotakP3K(entry, { showQrScanner, canApproveHse: canApproveKotakP3KHse })
 const fireSafety = useFireSafety(entry, { showQrScanner })
 const sanitation = useSanitation(entry, { currentUser, canApproveCurrentTemplate, showQrScanner })
-const wasteTransport = useWasteTransport(entry)
+const wasteTransport = useWasteTransport(entry, { currentUser })
 const warehouse = useWarehouseSanitation(entry, { canApproveWarehouseFinal, showQrScanner })
 const personalHygiene = usePersonalHygiene(entry, { props, currentUser })
 const saranaPrasarana = useSaranaPrasarana(entry, { showQrScanner })
@@ -307,7 +307,7 @@ const currentTemplateProps = computed(() => {
     entry: entry.value, rows: wasteTransport.wasteTransportRows.value,
     periodLabel: formatMonthYearDisplay(entry.value.form.period),
     approvedDays: wasteTransport.wasteTransportApprovedDays.value,
-    canApproveEntry: canApproveEntry,
+    canApproveEntry: canApproveEntry.value,
     onApprove: approveChecklist, onUpdateRow: wasteTransport.updateWasteTransportRow,
     onOpenCamera: photo.openWasteTransportCamera,
   }
@@ -847,7 +847,9 @@ const canApproveEntry = computed(() => {
   if (tid === 'pengangkutan_sampah_pt_sier') {
     if (!canApproveCurrentTemplate.value || !wasteTransport.nextPendingWasteTransportDay.value) return false
     const d = wasteTransport.nextPendingWasteTransportDay.value
-    return Boolean(d.pickup_time && d.handover_name && d.collector_name && d.collector_photo_name)
+    return Boolean(String(d.handover_name || '').trim())
+      && Boolean(String(d.collector_name || '').trim())
+      && Boolean(String(d.collector_photo_name || '').trim())
   }
 
   if (tid === 'warehouse_sanitation_1') {
@@ -1181,7 +1183,7 @@ function createEntryByTemplate(templateId, options = {}) {
     kotak_p3k: () => continuableEntry ? hydrateContinuableMonthlyEntry(continuableEntry) : createKotakP3KEntry(userName),
     non_warehouse_sanitation: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createNonWarehouseSanitationEntry(userName),
     apar_smoke_detector_fire_alarm: () => continuableEntry ? hydrateContinuableMonthlyEntry(continuableEntry) : createFireSafetyEntry(userName),
-    pengangkutan_sampah_pt_sier: () => createWasteTransportEntry(userName),
+    pengangkutan_sampah_pt_sier: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createWasteTransportEntry(userName),
     warehouse_sanitation_1: () => createWarehouseSanitationEntry(userName),
     personal_hygiene_karyawan: () => createPersonalHygieneEntry(userName),
     sarana_dan_prasarana: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createSaranaPrasaranaEntry(userName),
@@ -1212,9 +1214,10 @@ function createInitialEntry() {
   const continuableMaintenanceEntry = selectedChecklist.value === 'site_visit_maintenance' ? siteVisitMaintenance.findOpenSiteVisitMaintenanceDraft(props.existingEntries) : null
   const continuableSiteVisitHseEntry = selectedChecklist.value === 'site_visit_hse' ? siteVisitHse.findOpenSiteVisitHseDraft(props.existingEntries) : null
   const continuableSaranaPrasaranaEntry = selectedChecklist.value === 'sarana_dan_prasarana' ? saranaPrasarana.findOpenSaranaPrasaranaDraft(props.existingEntries) : null
+  const continuableWasteTransportEntry = selectedChecklist.value === 'pengangkutan_sampah_pt_sier' ? wasteTransport.findOpenWasteTransportEntry(props.existingEntries) : null
   const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(props.existingEntries) : null
   const continuableFireSafetyEntry = selectedChecklist.value === 'apar_smoke_detector_fire_alarm' ? findSameYearFireSafetyEntry(props.existingEntries) : null
-  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableKotakP3KEntry || continuableFireSafetyEntry })
+  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry })
 }
 
 function refreshEntry() {
@@ -1225,10 +1228,11 @@ function refreshEntry() {
   const continuableMaintenanceEntry = selectedChecklist.value === 'site_visit_maintenance' ? siteVisitMaintenance.findOpenSiteVisitMaintenanceDraft(knownChecklistEntries.value) : null
   const continuableSiteVisitHseEntry = selectedChecklist.value === 'site_visit_hse' ? siteVisitHse.findOpenSiteVisitHseDraft(knownChecklistEntries.value) : null
   const continuableSaranaPrasaranaEntry = selectedChecklist.value === 'sarana_dan_prasarana' ? saranaPrasarana.findOpenSaranaPrasaranaDraft(knownChecklistEntries.value) : null
+  const continuableWasteTransportEntry = selectedChecklist.value === 'pengangkutan_sampah_pt_sier' ? wasteTransport.findOpenWasteTransportEntry(knownChecklistEntries.value) : null
   const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(knownChecklistEntries.value) : null
   const continuableFireSafetyEntry = selectedChecklist.value === 'apar_smoke_detector_fire_alarm' ? findSameYearFireSafetyEntry(knownChecklistEntries.value) : null
-  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuablePatroliEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableKotakP3KEntry || continuableFireSafetyEntry })
-  if ((continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id) || (continuableKotakP3KEntry && entry.value?.id === continuableKotakP3KEntry.id) || (continuableFireSafetyEntry && entry.value?.id === continuableFireSafetyEntry.id) || (continuableSiteVisitHseEntry && entry.value?.id === continuableSiteVisitHseEntry.id) || (continuableSaranaPrasaranaEntry && entry.value?.id === continuableSaranaPrasaranaEntry.id)) syncCurrentEntryUrl(entry.value)
+  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuablePatroliEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry })
+  if ((continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id) || (continuableKotakP3KEntry && entry.value?.id === continuableKotakP3KEntry.id) || (continuableFireSafetyEntry && entry.value?.id === continuableFireSafetyEntry.id) || (continuableSiteVisitHseEntry && entry.value?.id === continuableSiteVisitHseEntry.id) || (continuableSaranaPrasaranaEntry && entry.value?.id === continuableSaranaPrasaranaEntry.id) || (continuableWasteTransportEntry && entry.value?.id === continuableWasteTransportEntry.id)) syncCurrentEntryUrl(entry.value)
 }
 
 // ─── Initial Save State ──────────────────────────────────────

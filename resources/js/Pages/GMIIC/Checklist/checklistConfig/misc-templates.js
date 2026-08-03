@@ -14,30 +14,54 @@ import {
     personalHygieneRows,
 } from "./location-data";
 
-export function createWasteTransportRows(periodValue) {
-    return getDaysInPeriod(periodValue).map((dayInfo) => ({
-        day: dayInfo.day,
-        handover_name: "",
-        pickup_time: "",
-        collector_name: "",
-        collector_photo_name: "",
-        collector_photo_preview: "",
-    }));
+export const WASTE_TRANSPORT_COLLECTOR_NAME = "Pak Ghana";
+
+export function createWasteTransportRows(periodValue, userName = "") {
+    const todayDay =
+        toPeriodValue(new Date()) === periodValue
+            ? new Date().getDate()
+            : null;
+    return getDaysInPeriod(periodValue).map((dayInfo) => {
+        const isToday = Number(dayInfo.day) === todayDay;
+        return {
+            day: dayInfo.day,
+            handover_name: isToday ? userName || "" : "",
+            pickup_time: "",
+            collector_name: isToday ? WASTE_TRANSPORT_COLLECTOR_NAME : "",
+            collector_photo_name: "",
+            collector_photo_preview: "",
+        };
+    });
 }
 
-export function rebuildWasteTransportRows(periodValue, existingRows = []) {
+export function rebuildWasteTransportRows(
+    periodValue,
+    existingRows = [],
+    userName = "",
+) {
+    const todayDay =
+        toPeriodValue(new Date()) === periodValue
+            ? new Date().getDate()
+            : null;
     return getDaysInPeriod(periodValue).map((dayInfo) => {
         const matchedRow = existingRows.find(
             (row) => Number(row.day) === dayInfo.day,
         );
+        const isToday = Number(dayInfo.day) === todayDay;
 
         return {
             day: dayInfo.day,
-            handover_name: matchedRow?.handover_name || "",
+            handover_name:
+                matchedRow?.handover_name ||
+                (isToday ? userName : "") ||
+                "",
             pickup_time: matchedRow?.pickup_time || "",
-            collector_name: matchedRow?.collector_name || "",
+            collector_name:
+                matchedRow?.collector_name ||
+                (isToday ? WASTE_TRANSPORT_COLLECTOR_NAME : ""),
             collector_photo_name: matchedRow?.collector_photo_name || "",
-            collector_photo_preview: matchedRow?.collector_photo_preview || "",
+            collector_photo_preview:
+                matchedRow?.collector_photo_preview || "",
         };
     });
 }
@@ -57,7 +81,7 @@ export function createWasteTransportEntry(userName) {
             pic: userName || "User Login",
             approved: false,
             approved_days: [],
-            rows: createWasteTransportRows(period),
+            rows: createWasteTransportRows(period, userName),
         },
     };
 }

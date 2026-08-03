@@ -45,7 +45,7 @@
         :disabled="!canApproveEntry"
         label="Approval"
         button-class="w-[96px]"
-        tooltip="Approval siap jika semua kondisi terpenuhi"
+        tooltip="Approval aktif jika petugas penyerahan, petugas pengangkut, dan foto sudah terisi"
         @click="$emit('approve')"
       />
     </div>
@@ -84,32 +84,44 @@
               {{ row.day }}
             </td>
             <td class="border border-black px-2 py-1">
-              <input
-                :value="row.pickup_time"
-                type="time"
-                class="w-full border-0 bg-transparent px-0 py-1 text-sm text-slate-900 focus:outline-none focus:ring-0"
-                :disabled="approvedDays.includes(row.day)"
-                @input="$emit('update-row', row.day, 'pickup_time', $event.target.value)"
-              />
+              <div class="flex items-center justify-center gap-1">
+                <input
+                  :value="row.pickup_time"
+                  type="time"
+                  :readonly="row.day === todayDay"
+                  class="w-full border-0 bg-transparent px-0 py-1 text-sm text-slate-900 focus:outline-none focus:ring-0"
+                  :class="row.day === todayDay ? 'cursor-not-allowed text-slate-600' : ''"
+                  :disabled="approvedDays.includes(row.day)"
+                  :title="row.day === todayDay ? 'Waktu terisi otomatis realtime' : 'Waktu pengangkutan'"
+                  @input="$emit('update-row', row.day, 'pickup_time', $event.target.value)"
+                />
+                <span
+                  v-if="row.day === todayDay"
+                  class="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500"
+                  title="Realtime"
+                ></span>
+              </div>
             </td>
             <td class="border border-black px-2 py-1">
               <input
                 :value="row.handover_name"
                 type="text"
-                class="w-full border-0 bg-transparent px-0 py-1 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                readonly
+                class="w-full cursor-not-allowed border-0 bg-slate-50 px-0 py-1 text-sm text-slate-700 focus:outline-none focus:ring-0"
                 :disabled="approvedDays.includes(row.day)"
                 placeholder="Nama"
-                @input="$emit('update-row', row.day, 'handover_name', $event.target.value)"
+                title="Terisi otomatis pada tanggal hari ini"
               />
             </td>
             <td class="border border-black px-2 py-1">
               <input
                 :value="row.collector_name"
                 type="text"
-                class="w-full border-0 bg-transparent px-0 py-1 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                readonly
+                class="w-full cursor-not-allowed border-0 bg-slate-50 px-0 py-1 text-sm text-slate-700 focus:outline-none focus:ring-0"
                 :disabled="approvedDays.includes(row.day)"
                 placeholder="Nama"
-                @input="$emit('update-row', row.day, 'collector_name', $event.target.value)"
+                title="Terisi otomatis pada tanggal hari ini"
               />
             </td>
             <td class="border border-black px-2 py-1">
@@ -126,7 +138,9 @@
                 <div class="min-w-0 flex-1">
                   <div
                     v-if="row.collector_photo_preview"
-                    class="mb-1 h-12 w-12 overflow-hidden rounded border border-slate-300 bg-slate-100"
+                    class="mb-1 h-12 w-12 cursor-pointer overflow-hidden rounded border border-slate-300 bg-slate-100 hover:ring-2 hover:ring-sky-400"
+                    title="Klik untuk melihat foto"
+                    @click="openPhotoPreview(row)"
                   >
                     <img
                       :src="row.collector_photo_preview"
@@ -146,13 +160,44 @@
     <div class="mt-3 text-xs text-slate-600">
       Baris yang sudah di-approve akan terkunci. `Stempel` petugas pengangkut diganti dengan foto langsung dari kamera.
     </div>
+
+    <!-- Photo Preview Modal -->
+    <div
+      v-if="previewPhoto"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      @click.self="closePhotoPreview"
+    >
+      <div class="w-full max-w-2xl overflow-hidden rounded-xl border border-slate-300 bg-white p-3 shadow-2xl">
+        <div class="mb-3 flex items-center justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-black">Foto Petugas Pengangkut</h3>
+            <p class="text-sm text-slate-500">{{ previewPhoto.name || `Hari ${previewPhoto.day}` }}</p>
+          </div>
+          <button
+            type="button"
+            class="rounded bg-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-300"
+            @click="closePhotoPreview"
+          >
+            Tutup
+          </button>
+        </div>
+        <div class="max-h-[70vh] overflow-auto rounded border border-slate-300 bg-black">
+          <img
+            :src="previewPhoto.preview"
+            :alt="previewPhoto.name || 'Foto petugas pengangkut'"
+            class="mx-auto h-auto w-full object-contain"
+          />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import ApprovalButton from '../Components/ApprovalButton.vue';
 
-defineProps({
+const props = defineProps({
   entry: {
     type: Object,
     required: true,
@@ -176,4 +221,34 @@ defineProps({
 });
 
 defineEmits(['approve', 'update-row', 'open-camera']);
+
+const todayDay = computed(() => {
+  const period = props.entry?.form?.period;
+  if (!period) return null;
+  const now = new Date();
+  const currentPeriod = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}`;
+  return period === currentPeriod ? now.getDate() : null;
+});
+
+const previewPhoto = ref(null);
+
+function openPhotoPreview(row) {
+  if (!row?.collector_photo_preview) return;
+  previewPhoto.value = {
+    preview: row.collector_photo_preview,
+    name: row.collector_photo_name || '',
+    day: row.day,
+  };
+}
+
+function closePhotoPreview() {
+  previewPhoto.value = null;
+}
+
+function handlePreviewKeydown(event) {
+  if (event.key === 'Escape') closePhotoPreview();
+}
+
+onMounted(() => document.addEventListener('keydown', handlePreviewKeydown));
+onBeforeUnmount(() => document.removeEventListener('keydown', handlePreviewKeydown));
 </script>

@@ -121,6 +121,7 @@ export {
     createChecklistBateraiEntry,
 } from "./daily-machines";
 export {
+    WASTE_TRANSPORT_COLLECTOR_NAME,
     createWasteTransportRows,
     rebuildWasteTransportRows,
     createWasteTransportEntry,
