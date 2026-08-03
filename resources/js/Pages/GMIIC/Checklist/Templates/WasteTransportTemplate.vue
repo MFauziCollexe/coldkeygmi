@@ -97,16 +97,13 @@
             </td>
             <td class="border border-black px-2 py-1">
               <div class="flex items-center justify-center gap-1">
-                <input
-                  :value="row.pickup_time"
-                  type="time"
-                  :readonly="row.day === todayDay"
-                  class="w-full border-0 bg-transparent px-0 py-1 text-sm text-slate-900 focus:outline-none focus:ring-0"
-                  :class="row.day === todayDay ? 'cursor-not-allowed text-slate-600' : ''"
-                  :disabled="approvedDays.includes(row.day)"
+                <span
+                  class="w-full px-0 py-1 text-center text-sm"
+                  :class="row.pickup_time ? 'text-slate-900' : 'text-slate-400'"
                   :title="row.day === todayDay ? 'Waktu terisi otomatis realtime' : 'Waktu pengangkutan'"
-                  @input="$emit('update-row', row.day, 'pickup_time', $event.target.value)"
-                />
+                >
+                  {{ row.pickup_time || '-' }}
+                </span>
                 <span
                   v-if="row.day === todayDay"
                   class="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500"
