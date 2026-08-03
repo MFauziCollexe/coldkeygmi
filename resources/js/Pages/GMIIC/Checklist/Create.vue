@@ -307,6 +307,7 @@ const currentTemplateProps = computed(() => {
     entry: entry.value, rows: wasteTransport.wasteTransportRows.value,
     periodLabel: formatMonthYearDisplay(entry.value.form.period),
     approvedDays: wasteTransport.wasteTransportApprovedDays.value,
+    pendingDay: wasteTransport.nextPendingWasteTransportDay.value?.day ?? null,
     canApproveEntry: canApproveEntry.value,
     onApprove: approveChecklist, onUpdateRow: wasteTransport.updateWasteTransportRow,
     onOpenCamera: photo.openWasteTransportCamera,

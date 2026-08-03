@@ -40,14 +40,26 @@
         />
       </div>
 
-      <ApprovalButton
-        :is-ready="canApproveEntry"
-        :disabled="!canApproveEntry"
-        label="Approval"
-        button-class="w-[96px]"
-        tooltip="Approval aktif jika petugas penyerahan, petugas pengangkut, dan foto sudah terisi"
-        @click="$emit('approve')"
-      />
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded bg-slate-600 px-4 py-2 text-sm font-semibold text-white transition"
+          :class="!pendingDay || approvedDays.includes(pendingDay) ? 'cursor-not-allowed bg-slate-300 text-slate-500 hover:bg-slate-300' : 'hover:bg-slate-500'"
+          :disabled="!pendingDay || approvedDays.includes(pendingDay)"
+          :title="pendingDay ? `Ambil foto petugas pengangkut untuk tanggal ${pendingDay}` : 'Tidak ada tanggal yang menunggu'"
+          @click="$emit('open-camera', pendingDay)"
+        >
+          Ambil Foto
+        </button>
+        <ApprovalButton
+          :is-ready="canApproveEntry"
+          :disabled="!canApproveEntry"
+          label="Approval"
+          button-class="w-[96px]"
+          tooltip="Approval aktif jika petugas penyerahan, petugas pengangkut, dan foto sudah terisi"
+          @click="$emit('approve')"
+        />
+      </div>
     </div>
 
       <div class="overflow-x-auto border border-black">
@@ -126,15 +138,6 @@
             </td>
             <td class="border border-black px-2 py-1">
               <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  class="inline-flex cursor-pointer rounded bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-800"
-                  :class="approvedDays.includes(row.day) ? 'cursor-not-allowed opacity-60' : 'hover:bg-slate-300'"
-                  :disabled="approvedDays.includes(row.day)"
-                  @click="$emit('open-camera', row.day)"
-                >
-                  Ambil Foto
-                </button>
                 <div class="min-w-0 flex-1">
                   <div
                     v-if="row.collector_photo_preview"
@@ -213,6 +216,10 @@ const props = defineProps({
   approvedDays: {
     type: Array,
     required: true,
+  },
+  pendingDay: {
+    type: Number,
+    default: null,
   },
   canApproveEntry: {
     type: Boolean,
