@@ -13,6 +13,40 @@
         </div>
       </div>
 
+      <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
+        <form method="get" class="grid gap-3 md:grid-cols-3">
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Customer</label>
+            <select
+              id="owner_id"
+              name="owner_id"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              :value="selectedOwnerId ?? ''"
+            >
+              <option value="">Semua Customer</option>
+              <option v-for="owner in owners" :key="owner.owner_id" :value="owner.owner_id">{{ owner.owner_name }}</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product</label>
+            <select
+              id="product_id"
+              name="product_id"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              :value="selectedProductId ?? ''"
+            >
+              <option value="">Semua Product</option>
+              <option v-for="product in products" :key="product.product_id" :value="product.product_id">{{ product.default_code }} - {{ product.product_name }}</option>
+            </select>
+          </div>
+
+          <div class="flex items-end">
+            <button type="submit" class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">Apply filters</button>
+          </div>
+        </form>
+      </div>
+
       <div class="overflow-x-auto rounded border border-slate-600 bg-white">
         <table class="w-full border-collapse text-xs text-slate-900" style="table-layout: auto;">
           <thead>
@@ -63,6 +97,22 @@ const props = defineProps({
   rows: {
     type: Array,
     default: () => [],
+  },
+  owners: {
+    type: Array,
+    default: () => [],
+  },
+  products: {
+    type: Array,
+    default: () => [],
+  },
+  selectedOwnerId: {
+    type: [String, Number],
+    default: null,
+  },
+  selectedProductId: {
+    type: [String, Number],
+    default: null,
   },
 });
 

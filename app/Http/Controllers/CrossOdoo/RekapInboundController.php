@@ -19,7 +19,8 @@ SELECT
 
     DATE '2026-01-01' AS date_from,
     DATE '2026-01-31' AS date_to,
-    NULL::INTEGER AS owner_id,
+    ?::INTEGER AS owner_id,
+    ?::INTEGER AS product_id,
     NULL::INTEGER AS warehouse_id
 
 )
@@ -99,6 +100,11 @@ AND (
 )
 
 AND (
+        p.product_id IS NULL
+        OR sml.product_id=p.product_id
+)
+
+AND (
         p.warehouse_id IS NULL
         OR sl.warehouse_id=p.warehouse_id
 )
@@ -110,11 +116,65 @@ no_receipt,
 kd_barang;
 SQL;
 
-        $rows = DB::connection('pgsql')->select($query);
+        // fetch owners (customers) for filter
+        $ownerQuery = <<<'SQL'
+SELECT DISTINCT
+    rp.id AS owner_id,
+    rp.name AS owner_name
+FROM stock_move_line sml
+LEFT JOIN stock_picking sp
+    ON sp.id = sml.picking_id
+LEFT JOIN res_partner rp
+    ON rp.id = COALESCE(sml.owner_id, sp.partner_id)
+WHERE rp.id IS NOT NULL
+ORDER BY rp.name;
+SQL;
+
+        $productQuery = <<<'SQL'
+SELECT DISTINCT
+    pp.id AS product_id,
+    pp.default_code,
+    pt.name->>'en_US' AS product_name
+FROM stock_move_line sml
+JOIN product_product pp
+    ON pp.id = sml.product_id
+LEFT JOIN product_template pt
+    ON pt.id = pp.product_tmpl_id
+WHERE sml.product_id IS NOT NULL
+ORDER BY pp.default_code, pt.name->>'en_US';
+SQL;
+
+        $owners = DB::connection('pgsql')->select($ownerQuery);
+        $owners = array_map(fn ($o) => (array) $o, $owners);
+
+        $products = DB::connection('pgsql')->select($productQuery);
+        $products = array_map(fn ($p) => (array) $p, $products);
+
+        $selectedOwnerId = $request->input('owner_id');
+        if ($selectedOwnerId !== null && $selectedOwnerId !== '') {
+            $selectedOwnerId = (int) $selectedOwnerId;
+        } else {
+            $selectedOwnerId = null;
+        }
+
+        $selectedProductId = $request->input('product_id');
+        if ($selectedProductId !== null && $selectedProductId !== '') {
+            $selectedProductId = (int) $selectedProductId;
+        } else {
+            $selectedProductId = null;
+        }
+
+        $bindings = [$selectedOwnerId, $selectedProductId];
+
+        $rows = DB::connection('pgsql')->select($query, $bindings);
         $rows = array_map(fn ($row) => (array) $row, $rows);
 
         return Inertia::render('GMISL/CrossOdoo/RekapInbound/Index', [
             'rows' => $rows,
+            'owners' => $owners,
+            'products' => $products,
+            'selectedOwnerId' => $selectedOwnerId,
+            'selectedProductId' => $selectedProductId,
         ]);
     }
 }
