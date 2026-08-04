@@ -109,9 +109,6 @@ opening_balance AS (
     LEFT JOIN stock_picking sp
         ON sp.id = sml.picking_id
 
-    LEFT JOIN approval_request ar
-        ON ar.id = sp.x_studio_approval_id
-
     LEFT JOIN stock_picking_type spt
         ON spt.id = sp.picking_type_id
 
@@ -409,9 +406,6 @@ opening_balance AS (
 
     JOIN locations dst
         ON dst.id = sml.location_dest_id
-
-    LEFT JOIN approval_request ar
-        ON ar.id = sp.x_studio_approval_id
 
     LEFT JOIN stock_picking_type spt
         ON spt.id = sp.picking_type_id
