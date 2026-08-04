@@ -338,12 +338,18 @@ class ChecklistEntryController extends Controller
             ->with('template:id,code,module')
             ->whereHas('template', fn ($query) => $query->where('module', self::CHECKLIST_MODULE))
             ->when(!empty($allowedTemplateIds), fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds)), fn ($query) => $query->whereRaw('1 = 0'))
-            ->when($templateId !== '', fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->where('code', $templateId)))
-            ->orderByDesc('updated_at');
+            ->when($templateId !== '', fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->where('code', $templateId)));
 
-        $headers = $query->limit($perPage !== null ? 1000 : 200)->get();
+        $headerIds = $query->pluck('id')->all();
+
+        $headers = ChecklistHeader::query()
+            ->with('template:id,code,module')
+            ->whereIn('id', $headerIds)
+            ->get();
 
         $allEntries = $headers
+            ->sortByDesc(fn (ChecklistHeader $header) => $header->updated_at?->timestamp ?? 0)
+            ->values()
             ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
             ->filter(fn ($entry) => is_array($entry) && !empty($entry))
             ->when($selectedDate !== '', fn ($entries) => $entries->filter(fn ($entry) => $this->matchesSelectedDateFilter($entry, $selectedDate)))
