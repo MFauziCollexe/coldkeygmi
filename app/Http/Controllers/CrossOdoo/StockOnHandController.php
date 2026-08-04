@@ -129,7 +129,7 @@ ORDER BY
     wh.code,
     rp.name,
     pp.default_code,
-    lot.name
+    lot.name;
 SQL;
 
         $ownerQuery = <<<'SQL'
@@ -143,74 +143,6 @@ WHERE sq.owner_id IS NOT NULL
 ORDER BY rp.name;
 SQL;
 
-        $countQuery = <<<'SQL'
-WITH params AS (
-
-    SELECT
-        ?::INTEGER AS owner_id,
-        NULL::INTEGER AS product_id,
-        NULL::INTEGER AS warehouse_id
-
-),
-
-stock_onhand AS (
-
-    SELECT
-
-        sq.id,
-
-        sq.owner_id,
-
-        sq.product_id,
-
-        sq.location_id,
-
-        sq.lot_id,
-
-        sq.quantity,
-
-        sq.reserved_quantity,
-
-        sq.in_date,
-
-        sl.usage,
-
-        sl.complete_name,
-
-        sl.warehouse_id
-
-    FROM stock_quant sq
-
-    JOIN stock_location sl
-        ON sl.id = sq.location_id
-
-    CROSS JOIN params p
-
-    WHERE sq.quantity <> 0
-
-      AND sl.usage='internal'
-
-      AND (
-            p.owner_id IS NULL
-            OR sq.owner_id=p.owner_id
-      )
-
-      AND (
-            p.product_id IS NULL
-            OR sq.product_id=p.product_id
-      )
-
-      AND (
-            p.warehouse_id IS NULL
-            OR sl.warehouse_id=p.warehouse_id
-      )
-
-)
-
-SELECT COUNT(*) AS total_count
-FROM stock_onhand;
-SQL;
-
         $owners = DB::connection('pgsql')->select($ownerQuery);
         $owners = array_map(fn ($owner) => (array) $owner, $owners);
 
@@ -221,25 +153,13 @@ SQL;
             $selectedOwnerId = (int) $owners[0]['owner_id'];
         }
 
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = 50;
-        $offset = ($page - 1) * $perPage;
-
-        $countResult = DB::connection('pgsql')->selectOne($countQuery, [$selectedOwnerId]);
-        $totalRows = (int) ($countResult->total_count ?? 0);
-
-        $rowsQuery = "{$query} LIMIT ? OFFSET ?";
-
-        $rows = DB::connection('pgsql')->select($rowsQuery, [$selectedOwnerId, $perPage, $offset]);
+        $rows = DB::connection('pgsql')->select($query, [$selectedOwnerId]);
         $rows = array_map(fn ($row) => (array) $row, $rows);
 
         return Inertia::render('GMISL/CrossOdoo/SOH/Index', [
             'rows' => $rows,
             'owners' => $owners,
             'selectedOwnerId' => $selectedOwnerId,
-            'currentPage' => $page,
-            'perPage' => $perPage,
-            'totalRows' => $totalRows,
         ]);
     }
 }
