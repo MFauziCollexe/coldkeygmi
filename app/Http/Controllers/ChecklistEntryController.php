@@ -337,12 +337,17 @@ class ChecklistEntryController extends Controller
         }
 
         $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
+        $monthlyTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
+        $monthlyDateValueTemplates = ['inspeksi_loker'];
 
         $query = ChecklistHeader::query()
-            ->with('template:id,code,module')
             ->whereHas('template', fn ($query) => $query->where('module', self::CHECKLIST_MODULE))
             ->when(!empty($allowedTemplateIds), fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds)), fn ($query) => $query->whereRaw('1 = 0'))
             ->when($templateId !== '', fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->where('code', $templateId)));
+
+        if ($selectedDate !== '') {
+            $this->applyChecklistDateSqlFilter($query, $selectedDate, $templateId, $monthlyTemplates, $monthlyDateValueTemplates);
+        }
 
         $headerIds = $query->pluck('id')->all();
 
@@ -377,6 +382,66 @@ class ChecklistEntryController extends Controller
         }
 
         return $allEntries->all();
+    }
+
+    private function applyChecklistDateSqlFilter($query, string $selectedDate, string $templateId, array $monthlyTemplates, array $monthlyDateValueTemplates): void
+    {
+        $year = date('Y', strtotime($selectedDate));
+        $formattedDisplayDate = $this->formatChecklistDisplayDateForQuery($selectedDate);
+        $monthKey = $this->resolveChecklistMonthKey($selectedDate);
+        $monthName = $this->resolveChecklistDisplayMonthName($selectedDate);
+
+        $query->where(function ($dateQuery) use ($selectedDate, $formattedDisplayDate, $templateId, $monthlyTemplates, $monthlyDateValueTemplates, $year, $monthKey, $monthName) {
+            $dateQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate]);
+
+            if ($formattedDisplayDate !== null) {
+                $dateQuery->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date')) = ?", [$formattedDisplayDate]);
+            }
+
+            if ($templateId === '' || in_array($templateId, $monthlyTemplates, true)) {
+                $dateQuery->orWhere(function ($monthlyQuery) use ($year, $formattedDisplayDate, $monthKey, $monthName) {
+                    $monthlyQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.year')) = ?", [$year]);
+
+                    if ($formattedDisplayDate !== null && $monthKey !== null) {
+                        $monthlyQuery->where(function ($nestedQuery) use ($formattedDisplayDate, $monthKey) {
+                            $nestedQuery
+                                ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.monthly_check_dates.{$monthKey}')) = ?", [$formattedDisplayDate])
+                                ->orWhereRaw("JSON_SEARCH(JSON_EXTRACT(payload_summary_json, '$.form.location_entries'), 'one', ?, NULL, '$.*.monthly_check_dates.{$monthKey}') IS NOT NULL", [$formattedDisplayDate])
+                                ->orWhereRaw("JSON_SEARCH(JSON_EXTRACT(payload_summary_json, '$.form.location_records'), 'one', ?, NULL, '$.*.monthly_check_dates.{$monthKey}') IS NOT NULL", [$formattedDisplayDate]);
+                        });
+                    }
+                });
+            }
+
+            if ($templateId === '' || in_array($templateId, $monthlyDateValueTemplates, true)) {
+                $dateQuery->orWhere(function ($templateQuery) use ($monthlyDateValueTemplates, $selectedDate) {
+                    $templateQuery->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $monthlyDateValueTemplates))
+                        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [substr($selectedDate, 0, 7)]);
+                });
+            }
+        });
+    }
+
+    private function resolveChecklistDisplayMonthName(string $date): ?string
+    {
+        if (!preg_match('/^\d{4}-(\d{2})-\d{2}$/', $date, $matches)) {
+            return null;
+        }
+
+        return [
+            '01' => 'Januari',
+            '02' => 'Februari',
+            '03' => 'Maret',
+            '04' => 'April',
+            '05' => 'Mei',
+            '06' => 'Juni',
+            '07' => 'Juli',
+            '08' => 'Agustus',
+            '09' => 'September',
+            '10' => 'Oktober',
+            '11' => 'November',
+            '12' => 'Desember',
+        ][$matches[1]] ?? null;
     }
 
     private function matchesSelectedDateFilter(array $entry, string $selectedDate): bool
