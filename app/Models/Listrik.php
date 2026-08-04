@@ -9,6 +9,8 @@ class Listrik extends Model
 {
     use HasFactory;
 
+    protected $table = 'listriks';
+
     protected $fillable = [
         'lokasi',
         'tanggal',
