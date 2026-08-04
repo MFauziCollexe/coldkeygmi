@@ -183,7 +183,7 @@ SELECT
 
     wh.code                                       AS kd_gudang,
 
-    sp.x_studio_no_kendaraan                      AS no_mobil,
+    ar.x_studio_vehicle_plate_number                     AS no_mobil,
 
     sp.name                                       AS no_reference_1,
 
@@ -479,7 +479,7 @@ SELECT
     pt.name->>'en_US'                             AS nm_barang,
     sml.date::date                                AS tgl_tran,
     wh.code                                       AS kd_gudang,
-    sp.x_studio_no_kendaraan                      AS no_mobil,
+    ar.x_studio_vehicle_plate_number                      AS no_mobil,
     sp.name                                       AS no_reference_1,
     sp.origin                                     AS no_reference_2,
     COALESCE(sm.origin, sp.origin)                AS no_po_so,
