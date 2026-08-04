@@ -2,45 +2,63 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Listrik;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Illuminate\Pagination\LengthAwarePaginator;
 
 class ListrikController extends Controller
 {
     public function index(Request $request)
     {
-        // For now provide sample data. Replace with DB queries as needed.
-        $sample = [];
-        for ($i = 1; $i <= 25; $i++) {
-            $sample[] = [
-                'id' => $i,
-                'tanggal' => date('Y-m-d', strtotime("-" . ($i - 1) . " days")),
-                'jam' => '17:00',
-                'lbp' => 125000 + $i * 100,
-                'wbp' => 660000 + $i * 10,
-                'total' => 785000 + $i * 110,
-                'kvarh' => round(0.000 + $i * 0.001, 3),
-                'tt' => null,
-            ];
+        $query = Listrik::query();
+
+        $bulan = $request->get('bulan', now()->format('Y-m'));
+        if (!preg_match('/^\d{4}-\d{2}$/', (string) $bulan)) {
+            $bulan = now()->format('Y-m');
+        }
+        [$year, $month] = array_map('intval', explode('-', $bulan));
+        $query->whereYear('tanggal', $year)->whereMonth('tanggal', $month);
+
+        if ($request->filled('lokasi')) {
+            $query->where('lokasi', $request->get('lokasi'));
         }
 
-        $page = max(1, (int) $request->get('page', 1));
-        $perPage = 10;
-        $offset = ($page - 1) * $perPage;
-        $itemsForCurrentPage = array_slice($sample, $offset, $perPage);
-
-        $paginator = new LengthAwarePaginator(
-            $itemsForCurrentPage,
-            count($sample),
-            $perPage,
-            $page,
-            ['path' => url('gmium/listrik')]
-        );
+        $records = $query
+            ->orderByDesc('tanggal')
+            ->orderByDesc('jam')
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('GMIUM/Listrik/Index', [
-            'records' => $paginator,
-            'filters' => ['search' => $request->get('search')],
+            'records' => $records,
+            'filters' => [
+                'bulan' => $bulan,
+                'lokasi' => $request->get('lokasi'),
+            ],
         ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'lokasi' => ['required', 'in:GMI,CRMI,Office'],
+            'lbp' => ['required', 'numeric'],
+            'wbp' => ['required', 'numeric'],
+            'total' => ['required', 'numeric'],
+            'kvarh' => ['nullable', 'numeric'],
+        ]);
+
+        Listrik::create([
+            'lokasi' => $validated['lokasi'],
+            'tanggal' => now()->toDateString(),
+            'jam' => now()->format('H:i'),
+            'lbp' => $validated['lbp'],
+            'wbp' => $validated['wbp'],
+            'total' => $validated['total'],
+            'kvarh' => $validated['kvarh'] ?? null,
+        ]);
+
+        return back()->with('success', 'Data listrik berhasil disimpan.');
     }
 }

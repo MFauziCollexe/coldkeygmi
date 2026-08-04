@@ -93,6 +93,11 @@ Route::get('gmium/listrik', [App\Http\Controllers\ListrikController::class, 'ind
     ->middleware(['auth'])
     ->name('gmium.listrik.index');
 
+// Listrik store (used by the GMIUM index "Tambah" popup)
+Route::post('gmium/listrik', [App\Http\Controllers\ListrikController::class, 'store'])
+    ->middleware(['auth'])
+    ->name('gmium.listrik.store');
+
 // Berita Acara (GMISL > Utility > Berita Acara)
 Route::get('gmisl/utility/berita-acara', [App\Http\Controllers\BeritaAcaraController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])

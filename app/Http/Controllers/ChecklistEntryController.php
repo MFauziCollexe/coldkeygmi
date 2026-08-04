@@ -334,55 +334,22 @@ class ChecklistEntryController extends Controller
     {
         $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
 
-        $monthlyTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
-        $monthlyDateValueTemplates = ['inspeksi_loker'];
-
         $query = ChecklistHeader::query()
             ->with('template:id,code,module')
             ->whereHas('template', fn ($query) => $query->where('module', self::CHECKLIST_MODULE))
             ->when(!empty($allowedTemplateIds), fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds)), fn ($query) => $query->whereRaw('1 = 0'))
             ->when($templateId !== '', fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->where('code', $templateId)))
-            ->when($selectedDate !== '', function ($query) use ($selectedDate, $templateId, $monthlyTemplates, $monthlyDateValueTemplates) {
-                $year = date('Y', strtotime($selectedDate));
-                $formattedDisplayDate = $this->formatChecklistDisplayDateForQuery($selectedDate);
-
-                if (in_array($templateId, $monthlyTemplates, true)) {
-                    $this->applyMonthlyChecklistDateFilter($query, $selectedDate, $formattedDisplayDate, $year);
-                } elseif (in_array($templateId, $monthlyDateValueTemplates, true)) {
-                    $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [substr($selectedDate, 0, 7)]);
-                } else {
-                    $query->where(function ($subQuery) use ($selectedDate, $formattedDisplayDate, $templateId, $monthlyTemplates, $monthlyDateValueTemplates, $year) {
-                        $subQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate]);
-
-                        if ($formattedDisplayDate !== null) {
-                            $subQuery->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date')) = ?", [$formattedDisplayDate]);
-                        }
-
-                        if ($templateId === '') {
-                            $subQuery->orWhere(function ($monthlyQuery) use ($monthlyTemplates, $selectedDate, $formattedDisplayDate, $year) {
-                                $monthlyQuery
-                                    ->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $monthlyTemplates));
-
-                                $this->applyMonthlyChecklistDateFilter($monthlyQuery, $selectedDate, $formattedDisplayDate, $year);
-                            });
-
-                            $subQuery->orWhere(function ($monthlyValueQuery) use ($monthlyDateValueTemplates, $selectedDate) {
-                                $monthlyValueQuery
-                                    ->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $monthlyDateValueTemplates))
-                                    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [substr($selectedDate, 0, 7)]);
-                            });
-                        }
-                    });
-                }
-            })
             ->orderByDesc('updated_at');
 
-        if ($perPage !== null) {
-            $allEntries = $query->get()
-                ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
-                ->filter(fn ($entry) => is_array($entry) && !empty($entry))
-                ->values();
+        $headers = $query->limit($perPage !== null ? 1000 : 200)->get();
 
+        $allEntries = $headers
+            ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
+            ->filter(fn ($entry) => is_array($entry) && !empty($entry))
+            ->when($selectedDate !== '', fn ($entries) => $entries->filter(fn ($entry) => $this->matchesSelectedDateFilter($entry, $selectedDate)))
+            ->values();
+
+        if ($perPage !== null) {
             $page = max(1, (int) request()->input('page', 1));
             $paginatedItems = $allEntries->forPage($page, $perPage)->values();
 
@@ -399,32 +366,59 @@ class ChecklistEntryController extends Controller
             );
         }
 
-        return $query->limit(200)->get()
-            ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
-            ->filter(fn ($entry) => is_array($entry) && !empty($entry))
-            ->values()
-            ->all();
+        return $allEntries->all();
     }
 
-    private function applyMonthlyChecklistDateFilter($query, string $selectedDate, ?string $formattedDisplayDate, string $year): void
+    private function matchesSelectedDateFilter(array $entry, string $selectedDate): bool
     {
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $templateId = (string) ($entry['template_id'] ?? '');
+        $selectedYear = date('Y', strtotime($selectedDate));
+        $selectedMonthPrefix = substr($selectedDate, 0, 7);
+        $formattedDisplayDate = $this->formatChecklistDisplayDateForQuery($selectedDate);
         $monthKey = $this->resolveChecklistMonthKey($selectedDate);
 
-        $query->where(function ($dateQuery) use ($formattedDisplayDate, $monthKey, $year) {
-            $dateQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.year')) = ?", [$year]);
+        $dateValue = trim((string) ($form['date_value'] ?? ''));
+        $date = trim((string) ($form['date'] ?? ''));
+        $year = trim((string) ($form['year'] ?? ''));
+        $monthlyCheckDates = is_array($form['monthly_check_dates'] ?? null) ? $form['monthly_check_dates'] : [];
 
-            if ($formattedDisplayDate === null || $monthKey === null) {
-                $dateQuery->whereRaw('1 = 0');
-                return;
+        if ($dateValue !== '' && $dateValue === $selectedDate) {
+            return true;
+        }
+
+        if (in_array($templateId, ['inspeksi_loker'], true) && $dateValue !== '' && substr($dateValue, 0, 7) === $selectedMonthPrefix) {
+            return true;
+        }
+
+        if ($formattedDisplayDate !== '' && $date !== '' && $date === $formattedDisplayDate) {
+            return true;
+        }
+
+        if ($year !== '' && $selectedYear !== '' && $year === $selectedYear && $monthKey !== null) {
+            if (isset($monthlyCheckDates[$monthKey]) && trim((string) $monthlyCheckDates[$monthKey]) !== '' && trim((string) $monthlyCheckDates[$monthKey]) === $formattedDisplayDate) {
+                return true;
             }
 
-            $dateQuery->where(function ($monthlyDateQuery) use ($formattedDisplayDate, $monthKey) {
-                $monthlyDateQuery
-                    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.monthly_check_dates.{$monthKey}')) = ?", [$formattedDisplayDate])
-                    ->orWhereRaw("JSON_SEARCH(JSON_EXTRACT(payload_summary_json, '$.form.location_entries'), 'one', ?, NULL, '$.*.monthly_check_dates.{$monthKey}') IS NOT NULL", [$formattedDisplayDate])
-                    ->orWhereRaw("JSON_SEARCH(JSON_EXTRACT(payload_summary_json, '$.form.location_records'), 'one', ?, NULL, '$.*.monthly_check_dates.{$monthKey}') IS NOT NULL", [$formattedDisplayDate]);
-            });
-        });
+            foreach ([($form['location_entries'] ?? []), ($form['location_records'] ?? [])] as $locationGroup) {
+                if (!is_array($locationGroup)) {
+                    continue;
+                }
+
+                foreach ($locationGroup as $locationEntry) {
+                    if (!is_array($locationEntry)) {
+                        continue;
+                    }
+
+                    $locationMonthlyCheckDates = is_array($locationEntry['monthly_check_dates'] ?? null) ? $locationEntry['monthly_check_dates'] : [];
+                    if (isset($locationMonthlyCheckDates[$monthKey]) && trim((string) $locationMonthlyCheckDates[$monthKey]) !== '' && trim((string) $locationMonthlyCheckDates[$monthKey]) === $formattedDisplayDate) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     private function resolveChecklistMonthKey(string $date): ?string
