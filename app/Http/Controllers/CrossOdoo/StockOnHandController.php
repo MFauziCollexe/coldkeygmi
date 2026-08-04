@@ -17,7 +17,8 @@ WITH params AS (
 
     SELECT
         ?::INTEGER AS owner_id,
-        ?::INTEGER AS product_id
+        NULL::INTEGER AS product_id,
+        NULL::INTEGER AS warehouse_id
 
     ),
 
@@ -66,6 +67,11 @@ stock_onhand AS (
       AND (
             p.product_id IS NULL
             OR sq.product_id=p.product_id
+      )
+
+      AND (
+            p.warehouse_id IS NULL
+            OR sl.warehouse_id=p.warehouse_id
       )
 
 )
@@ -119,7 +125,6 @@ LEFT JOIN uom_uom uom
     ON uom.id=pt.uom_id
 
 ORDER BY
-
     soh.in_date DESC,
     wh.code,
     rp.name,
@@ -138,25 +143,8 @@ WHERE sq.owner_id IS NOT NULL
 ORDER BY rp.name;
 SQL;
 
-        $productQuery = <<<'SQL'
-SELECT DISTINCT
-    pp.id AS product_id,
-    COALESCE(pp.default_code, '') AS product_code,
-    COALESCE(pt.name->>'en_US', '') AS product_name
-FROM stock_quant sq
-JOIN product_product pp
-    ON pp.id = sq.product_id
-JOIN product_template pt
-    ON pt.id = pp.product_tmpl_id
-WHERE sq.product_id IS NOT NULL
-ORDER BY pp.default_code;
-SQL;
-
         $owners = DB::connection('pgsql')->select($ownerQuery);
         $owners = array_map(fn ($owner) => (array) $owner, $owners);
-
-        $products = DB::connection('pgsql')->select($productQuery);
-        $products = array_map(fn ($product) => (array) $product, $products);
 
         $selectedOwnerId = $request->input('owner_id');
         $selectedOwnerId = ($selectedOwnerId === null || $selectedOwnerId === '') ? null : (int) $selectedOwnerId;
@@ -165,18 +153,13 @@ SQL;
             $selectedOwnerId = (int) $owners[0]['owner_id'];
         }
 
-        $selectedProductId = $request->input('product_id');
-        $selectedProductId = ($selectedProductId === null || $selectedProductId === '') ? null : (int) $selectedProductId;
-
-        $rows = DB::connection('pgsql')->select($query, [$selectedOwnerId, $selectedProductId]);
+        $rows = DB::connection('pgsql')->select($query, [$selectedOwnerId]);
         $rows = array_map(fn ($row) => (array) $row, $rows);
 
         return Inertia::render('GMISL/CrossOdoo/SOH/Index', [
             'rows' => $rows,
             'owners' => $owners,
-            'products' => $products,
             'selectedOwnerId' => $selectedOwnerId,
-            'selectedProductId' => $selectedProductId,
         ]);
     }
 }
