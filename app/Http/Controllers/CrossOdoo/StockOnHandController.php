@@ -76,10 +76,35 @@ SQL;
             $selectedWarehouseId = null;
         }
 
+        $startDate = $request->input('start_date', '2026-01-01');
+        $endDate = $request->input('end_date', '2026-12-31');
+
+        try {
+            $start = new \DateTime($startDate);
+            $end = new \DateTime($endDate);
+        } catch (\Exception $exception) {
+            $start = new \DateTime('2026-01-01');
+            $end = new \DateTime('2026-12-31');
+        }
+
+        if ($end < $start) {
+            $end = clone $start;
+        }
+
+        $maxEnd = (clone $start)->modify('+1 month');
+        if ($end > $maxEnd) {
+            $end = $maxEnd;
+        }
+
+        $startDate = $start->format('Y-m-d');
+        $endDate = $end->format('Y-m-d');
+
         $query = <<<'SQL'
 WITH params AS (
 
     SELECT
+        ?::date AS date_from,
+        ?::date AS date_to,
         ?::INTEGER AS owner_id,
         ?::INTEGER AS product_id,
         ?::INTEGER AS warehouse_id
@@ -137,6 +162,8 @@ stock_onhand AS (
             p.warehouse_id IS NULL
             OR sl.warehouse_id=p.warehouse_id
       )
+
+      AND sq.in_date::date BETWEEN p.date_from AND p.date_to
 
 )
 
@@ -196,7 +223,7 @@ ORDER BY
     lot.name;
 SQL;
 
-        $bindings = [$selectedOwnerId, $selectedProductId, $selectedWarehouseId];
+        $bindings = [$startDate, $endDate, $selectedOwnerId, $selectedProductId, $selectedWarehouseId];
         $rows = DB::connection('pgsql')->select($query, $bindings);
 
         $formattedRows = array_map(function ($row) {
@@ -225,6 +252,8 @@ SQL;
             'selectedOwnerId' => $selectedOwnerId,
             'selectedProductId' => $selectedProductId,
             'selectedWarehouseId' => $selectedWarehouseId,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
         ]);
     }
 }
