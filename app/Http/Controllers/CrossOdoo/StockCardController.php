@@ -108,7 +108,7 @@ opening_balance AS (
 
     LEFT JOIN stock_picking sp
         ON sp.id = sml.picking_id
-    
+
     LEFT JOIN approval_request ar
         ON ar.id = sp.x_studio_approval_request_id
 
@@ -249,6 +249,7 @@ JOIN locations dst
 LEFT JOIN stock_warehouse wh
     ON wh.id = COALESCE(dst.warehouse_id, src.warehouse_id)
 
+
 CROSS JOIN params p
 
 WHERE sml.state='done'
@@ -301,7 +302,7 @@ SELECT
 
     t.*,
 
-    COALESCE(ob.opening_qty,0) AS opening_qty,
+    COALESCE(ob.opening_qty,0) AS sd_aw,
 
     COALESCE(ob.opening_qty,0)
     +
@@ -314,7 +315,6 @@ SELECT
         ORDER BY
             t.tgl_tran,
             t.id
-        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS saldo_akhir
 
 FROM trx t
@@ -329,30 +329,43 @@ AND ob.product_id = t.product_id
 SELECT
 
     kd_gudang                              AS "KD_GUDANG",
+
     kd_customer                            AS "KD_CUST",
+
     nm_customer                            AS "NM_CUST",
+
     kd_barang                              AS "KD_BRG",
+
     nm_barang                              AS "NM_BRG",
+
     tgl_tran                               AS "TGL_TRAN",
+
     no_mobil                               AS "NO_MOBIL",
+
     no_reference_1                         AS "NO_REFERENCE_1",
+
     no_reference_2                         AS "NO_REFERENCE_2",
+
     no_po_so                               AS "NO_PO/SO",
+
     no_invoice                             AS "NO_INVOICE",
+
     keterangan                             AS "KETERANGAN",
-    COALESCE(
-        LAG(saldo_akhir) OVER (
-            PARTITION BY owner_id, product_id
-            ORDER BY tgl_tran, id
-        ),
-        opening_qty
-    ) AS "SD_AW",
+
+    sd_aw                                  AS "SD_AW",
+
     qty_in                                 AS "MUTASI_IN",
+
     qty_out                                AS "MUTASI_OUT",
+
     saldo_akhir                            AS "SALDO_AKHIR_QTY",
+
     NULL::numeric                          AS "SD_AW_KG",
+
     NULL::numeric                          AS "MUTASI_IN_KG",
+
     NULL::numeric                          AS "MUTASI_OUT_KG",
+
     NULL::numeric                          AS "SALDO_AKHIR_KG"
 
 FROM running_balance
@@ -369,11 +382,11 @@ SQL;
 WITH params AS (
 
     SELECT
-        ?::date AS date_from,
-        ?::date AS date_to,
-        ?::INTEGER AS owner_id,
-        ?::INTEGER AS product_id,
-        ?::INTEGER AS warehouse_id
+        DATE '2026-01-01' AS date_from,
+        DATE '2026-01-31' AS date_to,
+        NULL::INTEGER AS owner_id,
+        NULL::INTEGER AS product_id,
+        NULL::INTEGER AS warehouse_id
 
 ),
 
@@ -414,7 +427,7 @@ opening_balance AS (
         ON sp.id = sml.picking_id
 
     LEFT JOIN approval_request ar
-    ON ar.id = sp.x_studio_approval_id
+        ON ar.id = sp.x_studio_approval_id
 
     LEFT JOIN stock_picking_type spt
         ON spt.id = sp.picking_type_id
@@ -585,15 +598,13 @@ AND (
 SELECT COUNT(*) AS total_count
 FROM trx;
 SQL;
-        $warehouseId = null;
-        $bindings = [$startDate, $endDate, $selectedOwnerId, $targetProductId, $warehouseId];
 
         $rowsQuery = "{$query} LIMIT ? OFFSET ?";
 
-        $countResult = DB::connection('pgsql')->selectOne($countQuery, $bindings);
+        $countResult = DB::connection('pgsql')->selectOne($countQuery);
         $totalRows = $countResult->total_count ?? 0;
 
-        $rows = DB::connection('pgsql')->select($rowsQuery, array_merge($bindings, [$perPage, $offset]));
+        $rows = DB::connection('pgsql')->select($rowsQuery, [$perPage, $offset]);
 
         $formattedRows = array_map(function ($row) {
             return [
