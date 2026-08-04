@@ -110,11 +110,7 @@ opening_balance AS (
         ON sp.id = sml.picking_id
 
     LEFT JOIN approval_request ar
-        ON ar.id = sp.x_studio_approval_request_id
-
-    LEFT JOIN stock_picking_type spt
-        ON spt.id = sp.picking_type_id
-
+    ON ar.id = sp.x_studio_approval_id
     CROSS JOIN params p
 
     WHERE sml.state = 'done'
