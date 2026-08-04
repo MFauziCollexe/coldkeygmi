@@ -16,30 +16,26 @@
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
         <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4">
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_name">Nama Customer</label>
-            <input
-              id="customer_name"
-              name="customer_name"
-              type="text"
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Nama Customer</label>
+            <select
+              id="owner_id"
+              name="owner_id"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="customerName"
-              placeholder="Cari nama customer..."
-              @keydown.enter="submitFilters"
-            />
+              :value="selectedOwnerId"
+              @change="submitFilters"
+            >
+              <option v-for="owner in owners" :key="owner.owner_id" :value="owner.owner_id">
+                {{ owner.owner_name }}
+              </option>
+            </select>
           </div>
-          <div class="flex items-end gap-2">
+          <div class="flex items-end">
             <button
               type="submit"
               class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
             >
               Apply
             </button>
-            <a
-              href="/gmisl/cross-odoo/soh"
-              class="inline-flex w-full justify-center rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100"
-            >
-              Clear
-            </a>
           </div>
         </form>
       </div>
@@ -98,9 +94,13 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
-  customerName: {
-    type: String,
-    default: '',
+  owners: {
+    type: Array,
+    default: () => [],
+  },
+  selectedOwnerId: {
+    type: [String, Number],
+    default: null,
   },
 });
 

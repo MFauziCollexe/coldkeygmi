@@ -16,10 +16,9 @@ class StockOnHandController extends Controller
 WITH params AS (
 
     SELECT
-        NULL::INTEGER AS owner_id,
+        ?::INTEGER AS owner_id,
         NULL::INTEGER AS product_id,
-        NULL::INTEGER AS warehouse_id,
-        ?::TEXT AS customer_name
+        NULL::INTEGER AS warehouse_id
 
     ),
 
@@ -107,8 +106,6 @@ SELECT
 
 FROM stock_onhand soh
 
-CROSS JOIN params p
-
 LEFT JOIN res_partner rp
     ON rp.id=soh.owner_id
 
@@ -127,11 +124,6 @@ LEFT JOIN stock_warehouse wh
 LEFT JOIN uom_uom uom
     ON uom.id=pt.uom_id
 
-WHERE (
-    p.customer_name IS NULL
-    OR rp.name ILIKE '%' || p.customer_name || '%'
-)
-
 ORDER BY
 
     wh.code,
@@ -140,15 +132,34 @@ ORDER BY
     lot.name;
 SQL;
 
-        $customerName = trim((string) $request->input('customer_name', ''));
-        $customerName = $customerName === '' ? null : $customerName;
+        $ownerQuery = <<<'SQL'
+SELECT DISTINCT
+    rp.id AS owner_id,
+    rp.name AS owner_name
+FROM stock_quant sq
+JOIN res_partner rp
+    ON rp.id = sq.owner_id
+WHERE sq.owner_id IS NOT NULL
+ORDER BY rp.name;
+SQL;
 
-        $rows = DB::connection('pgsql')->select($query, [$customerName]);
+        $owners = DB::connection('pgsql')->select($ownerQuery);
+        $owners = array_map(fn ($owner) => (array) $owner, $owners);
+
+        $selectedOwnerId = $request->input('owner_id');
+        $selectedOwnerId = ($selectedOwnerId === null || $selectedOwnerId === '') ? null : (int) $selectedOwnerId;
+
+        if ($selectedOwnerId === null && count($owners) > 0) {
+            $selectedOwnerId = (int) $owners[0]['owner_id'];
+        }
+
+        $rows = DB::connection('pgsql')->select($query, [$selectedOwnerId]);
         $rows = array_map(fn ($row) => (array) $row, $rows);
 
         return Inertia::render('GMISL/CrossOdoo/SOH/Index', [
             'rows' => $rows,
-            'customerName' => $customerName ?? '',
+            'owners' => $owners,
+            'selectedOwnerId' => $selectedOwnerId,
         ]);
     }
 }
