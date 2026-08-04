@@ -31,7 +31,7 @@ SQL;
         $startDate = $request->input('start_date', '2026-01-01');
         $endDate = $request->input('end_date', '2026-12-31');
         $page = max(1, (int) $request->query('page', 1));
-        $perPage = 50;
+        $perPage = 25;
 
         if ($targetProductId !== null && $targetProductId !== '') {
             $targetProductId = (int) $targetProductId;
@@ -49,6 +49,11 @@ SQL;
 
         if ($end < $start) {
             $end = clone $start;
+        }
+
+        $maxEnd = (clone $start)->modify('+1 month');
+        if ($end > $maxEnd) {
+            $end = $maxEnd;
         }
 
         $startDate = $start->format('Y-m-d');
