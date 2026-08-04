@@ -14,7 +14,7 @@
       </div>
 
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <form method="get" class="grid gap-3 md:grid-cols-4">
+        <form method="get" class="grid gap-3 md:grid-cols-5">
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Owner</label>
             <select
@@ -58,6 +58,28 @@
                 {{ warehouse.code }} - {{ warehouse.name }}
               </option>
             </select>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="start_date">Start Date</label>
+            <input
+              id="start_date"
+              name="start_date"
+              type="date"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              :value="startDate"
+            />
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="end_date">End Date</label>
+            <input
+              id="end_date"
+              name="end_date"
+              type="date"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              :value="endDate"
+            />
           </div>
 
           <div class="flex items-end">
@@ -147,6 +169,14 @@ const props = defineProps({
   selectedWarehouseId: {
     type: [String, Number],
     default: null,
+  },
+  startDate: {
+    type: String,
+    default: '2026-01-01',
+  },
+  endDate: {
+    type: String,
+    default: '2026-12-31',
   },
 });
 
