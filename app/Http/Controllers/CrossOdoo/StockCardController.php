@@ -109,6 +109,9 @@ opening_balance AS (
     LEFT JOIN stock_picking sp
         ON sp.id = sml.picking_id
 
+    LEFT JOIN approval_request ar
+        ON ar.id = sp.x_studio_approval_id
+
     LEFT JOIN stock_picking_type spt
         ON spt.id = sp.picking_type_id
 
@@ -183,7 +186,7 @@ SELECT
 
     wh.code                                       AS kd_gudang,
 
-    sp.x_studio_no_kendaraan                      AS no_mobil,
+    ar.x_studio_vehicle_plate_number              AS no_mobil,
 
     sp.name                                       AS no_reference_1,
 
@@ -218,6 +221,9 @@ JOIN stock_move sm
 
 LEFT JOIN stock_picking sp
     ON sp.id = sml.picking_id
+
+LEFT JOIN approval_request ar
+    ON ar.id = sp.x_studio_approval_id
 
 LEFT JOIN stock_picking_type spt
     ON spt.id = sp.picking_type_id
@@ -404,8 +410,8 @@ opening_balance AS (
     JOIN locations dst
         ON dst.id = sml.location_dest_id
 
-    LEFT JOIN stock_picking sp
-        ON sp.id = sml.picking_id
+    LEFT JOIN approval_request ar
+        ON ar.id = sp.x_studio_approval_id
 
     LEFT JOIN stock_picking_type spt
         ON spt.id = sp.picking_type_id
@@ -473,7 +479,7 @@ SELECT
     pt.name->>'en_US'                             AS nm_barang,
     sml.date::date                                AS tgl_tran,
     wh.code                                       AS kd_gudang,
-    sp.x_studio_no_kendaraan                      AS no_mobil,
+    ar.x_studio_vehicle_plate_number              AS no_mobil,
     sp.name                                       AS no_reference_1,
     sp.origin                                     AS no_reference_2,
     COALESCE(sm.origin, sp.origin)                AS no_po_so,
@@ -500,6 +506,9 @@ JOIN stock_move sm
 
 LEFT JOIN stock_picking sp
     ON sp.id = sml.picking_id
+
+LEFT JOIN approval_request ar
+    ON ar.id = sp.x_studio_approval_id
 
 LEFT JOIN stock_picking_type spt
     ON spt.id = sp.picking_type_id
