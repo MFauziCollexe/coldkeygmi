@@ -91,11 +91,6 @@ SQL;
             $end = clone $start;
         }
 
-        $maxEnd = (clone $start)->modify('+1 month');
-        if ($end > $maxEnd) {
-            $end = $maxEnd;
-        }
-
         $startDate = $start->format('Y-m-d');
         $endDate = $end->format('Y-m-d');
 

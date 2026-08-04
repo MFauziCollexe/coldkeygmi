@@ -242,7 +242,7 @@ const props = defineProps({
   },
   perPage: {
     type: Number,
-    default: 25,
+    default: 50,
   },
   totalRows: {
     type: Number,
@@ -260,7 +260,7 @@ const customerLabel = computed(() => props.customerName || 'Customer');
 const productLabel = computed(() => props.productName || 'Product');
 const totalRows = computed(() => Number(props.totalRows || 0));
 
-const perPage = ref(props.perPage ?? 25);
+const perPage = ref(props.perPage ?? 50);
 const currentPage = ref(props.currentPage ?? 1);
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / perPage.value)));

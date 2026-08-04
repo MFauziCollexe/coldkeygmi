@@ -116,7 +116,7 @@
             <tr v-if="!rows.length">
               <td colspan="13" class="border border-slate-300 px-2 py-6 text-center text-slate-400">Tidak ada data untuk filter yang dipilih.</td>
             </tr>
-            <tr v-for="(row, index) in rows" :key="index" :class="index % 2 === 0 ? 'bg-white' : 'bg-slate-50'">
+            <tr v-for="(row, index) in paginatedRows" :key="index" :class="index % 2 === 0 ? 'bg-white' : 'bg-slate-50'">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.warehouse_code || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.customer_code || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.customer_name || '-' }}</td>
@@ -179,6 +179,38 @@ const props = defineProps({
     default: '2026-12-31',
   },
 });
+
+const perPage = ref(50);
+const currentPage = ref(1);
+
+const totalPages = computed(() => Math.max(1, Math.ceil(props.rows.length / perPage.value)));
+const paginatedRows = computed(() => {
+  const start = (currentPage.value - 1) * perPage.value;
+  return props.rows.slice(start, start + perPage.value);
+});
+
+const visiblePages = computed(() => {
+  const total = totalPages.value;
+  const current = currentPage.value;
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages = [];
+  pages.push(1);
+  if (current > 3) pages.push('...');
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+    pages.push(i);
+  }
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
+});
+
+function changePage(page) {
+  const safePage = Math.max(1, Math.min(page, totalPages.value));
+  if (safePage !== currentPage.value) {
+    currentPage.value = safePage;
+  }
+}
 
 function formatNumber(value) {
   if (value === null || value === undefined) return '-';
