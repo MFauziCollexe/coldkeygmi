@@ -601,10 +601,10 @@ SQL;
 
         $rowsQuery = "{$query} LIMIT ? OFFSET ?";
 
-        $countResult = DB::connection('pgsql')->selectOne($countQuery);
+        $countResult = DB::connection('pgsql')->selectOne($countQuery, $bindings);
         $totalRows = $countResult->total_count ?? 0;
 
-        $rows = DB::connection('pgsql')->select($rowsQuery, [$perPage, $offset]);
+        $rows = DB::connection('pgsql')->select($rowsQuery, array_merge($bindings, [$perPage, $offset]));
 
         $formattedRows = array_map(function ($row) {
             return [
