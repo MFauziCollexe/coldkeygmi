@@ -332,6 +332,10 @@ class ChecklistEntryController extends Controller
 
     private function getChecklistEntries($user = null, ?int $perPage = null, string $templateId = '', string $selectedDate = '')
     {
+        if ($selectedDate === '') {
+            $selectedDate = now()->format('Y-m-d');
+        }
+
         $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
 
         $query = ChecklistHeader::query()
