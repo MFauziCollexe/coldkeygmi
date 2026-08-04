@@ -21,6 +21,7 @@ return [
             ['key' => 'gmisl.cross_odoo', 'label' => 'Cross Odoo', 'children' => [
                 ['key' => 'gmisl.cross_odoo.stock_card', 'label' => 'Stock Card'],
                 ['key' => 'gmisl.cross_odoo.soh', 'label' => 'SOH'],
+                ['key' => 'gmisl.cross_odoo.rekap_inbound', 'label' => 'Rekap Inbound'],
             ]],
             ['key' => 'gmisl.tools', 'label' => 'Tools', 'children' => [
                 ['key' => 'tools.compress_pdf', 'label' => 'Compress PDF'],

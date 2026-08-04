@@ -75,6 +75,13 @@ export const sidebarMenuConfig = [
                         route: "/gmisl/cross-odoo/soh",
                         module_key: "gmisl.cross_odoo.stock_card",
                     },
+                    {
+                        id: "cross-odoo-rekap-inbound",
+                        label: "Rekap Inbound",
+                        icon: "Download",
+                        route: "/gmisl/cross-odoo/rekap-inbound",
+                        module_key: "gmisl.cross_odoo.stock_card",
+                    },
                 ],
             },
             {
