@@ -68,13 +68,6 @@ export const sidebarMenuConfig = [
                         route: "/gmisl/cross-odoo/stock-card",
                         module_key: "gmisl.cross_odoo.stock_card",
                     },
-                    {
-                        id: "cross-odoo-soh",
-                        label: "SOH",
-                        icon: "Boxes",
-                        route: "/gmisl/cross-odoo/soh",
-                        module_key: "gmisl.cross_odoo.stock_card",
-                    },
                 ],
             },
             {
