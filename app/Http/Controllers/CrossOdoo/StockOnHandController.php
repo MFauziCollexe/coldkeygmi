@@ -18,9 +18,10 @@ WITH params AS (
     SELECT
         NULL::INTEGER AS owner_id,
         NULL::INTEGER AS product_id,
-        NULL::INTEGER AS warehouse_id
+        NULL::INTEGER AS warehouse_id,
+        ?::TEXT AS customer_name
 
-),
+    ),
 
 stock_onhand AS (
 
@@ -106,6 +107,8 @@ SELECT
 
 FROM stock_onhand soh
 
+CROSS JOIN params p
+
 LEFT JOIN res_partner rp
     ON rp.id=soh.owner_id
 
@@ -124,6 +127,11 @@ LEFT JOIN stock_warehouse wh
 LEFT JOIN uom_uom uom
     ON uom.id=pt.uom_id
 
+WHERE (
+    p.customer_name IS NULL
+    OR rp.name ILIKE '%' || p.customer_name || '%'
+)
+
 ORDER BY
 
     wh.code,
@@ -132,11 +140,15 @@ ORDER BY
     lot.name;
 SQL;
 
-        $rows = DB::connection('pgsql')->select($query);
+        $customerName = trim((string) $request->input('customer_name', ''));
+        $customerName = $customerName === '' ? null : $customerName;
+
+        $rows = DB::connection('pgsql')->select($query, [$customerName]);
         $rows = array_map(fn ($row) => (array) $row, $rows);
 
         return Inertia::render('GMISL/CrossOdoo/SOH/Index', [
             'rows' => $rows,
+            'customerName' => $customerName ?? '',
         ]);
     }
 }
