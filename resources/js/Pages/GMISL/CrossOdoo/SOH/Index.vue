@@ -9,12 +9,13 @@
           </p>
         </div>
         <div class="text-sm text-slate-400">
-          Total: <span class="font-semibold text-slate-200">{{ rows.length }}</span> data
+          Total: <span class="font-semibold text-slate-200">{{ totalRows }}</span> data
         </div>
       </div>
 
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
         <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4">
+          <input type="hidden" name="page" v-model.number="currentPage" />
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Nama Customer</label>
             <select
@@ -81,12 +82,69 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="text-sm text-slate-400">
+          Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
+        </div>
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="currentPage === 1"
+            @click="changePage(1)"
+          >
+            &laquo;
+          </button>
+          <button
+            type="button"
+            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="currentPage === 1"
+            @click="changePage(currentPage - 1)"
+          >
+            &lsaquo;
+          </button>
+
+          <template v-for="page in visiblePages" :key="page">
+            <span v-if="page === '...'" class="px-1.5 py-1 text-xs text-slate-500">...</span>
+            <button
+              v-else
+              type="button"
+              class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition"
+              :class="page === currentPage
+                ? 'border-indigo-500 bg-indigo-600 text-white'
+                : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'"
+              @click="changePage(page)"
+            >
+              {{ page }}
+            </button>
+          </template>
+
+          <button
+            type="button"
+            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="currentPage === totalPages"
+            @click="changePage(currentPage + 1)"
+          >
+            &rsaquo;
+          </button>
+          <button
+            type="button"
+            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="currentPage === totalPages"
+            @click="changePage(totalPages)"
+          >
+            &raquo;
+          </button>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -102,11 +160,63 @@ const props = defineProps({
     type: [String, Number],
     default: null,
   },
+  currentPage: {
+    type: Number,
+    default: 1,
+  },
+  perPage: {
+    type: Number,
+    default: 50,
+  },
+  totalRows: {
+    type: Number,
+    default: 0,
+  },
+});
+
+const owners = computed(() => props.owners || []);
+const selectedOwnerId = computed(() => props.selectedOwnerId);
+const totalRows = computed(() => Number(props.totalRows || 0));
+
+const perPage = ref(props.perPage ?? 50);
+const currentPage = ref(props.currentPage ?? 1);
+
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / perPage.value)));
+
+const visiblePages = computed(() => {
+  const total = totalPages.value;
+  const current = currentPage.value;
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages = [];
+  pages.push(1);
+  if (current > 3) pages.push('...');
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+    pages.push(i);
+  }
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
 });
 
 const filterForm = ref(null);
 
 function submitFilters() {
+  currentPage.value = 1;
+  submitForm();
+}
+
+async function changePage(page) {
+  const safePage = Math.max(1, Math.min(page, totalPages.value));
+  if (safePage === currentPage.value) {
+    return;
+  }
+  currentPage.value = safePage;
+  await nextTick();
+  submitForm();
+}
+
+function submitForm() {
   if (filterForm.value) {
     filterForm.value.submit();
   }
