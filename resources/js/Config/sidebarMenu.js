@@ -144,6 +144,28 @@ export const sidebarMenuConfig = [
         ],
     },
     {
+        id: "portal",
+        label: "Portal",
+        icon: "Globe",
+        color: "text-white",
+        children: [
+            {
+                id: "portal-odoo",
+                label: "Odoo",
+                icon: "Layers",
+                children: [
+                    {
+                        id: "portal-odoo-stock-card",
+                        label: "Stock Card",
+                        icon: "Package",
+                        route: "/gmisl/cross-odoo/stock-card",
+                        module_key: "gmisl.cross_odoo.stock_card",
+                    },
+                ],
+            },
+        ],
+    },
+    {
         id: "gmiic",
         label: "GMIIC ( Inspection & Checklist )",
         icon: "Clipboard",

@@ -35,8 +35,19 @@ export default [
     {
         key: "gmisl.cross_odoo",
         label: "Cross Odoo",
+        children: [{ key: "gmisl.cross_odoo.stock_card", label: "Stock Card" }],
+    },
+    {
+        key: "portal",
+        label: "Portal",
         children: [
-            { key: "gmisl.cross_odoo.stock_card", label: "Stock Card" },
+            {
+                key: "portal.odoo",
+                label: "Odoo",
+                children: [
+                    { key: "portal.odoo.stock_card", label: "Stock Card" },
+                ],
+            },
         ],
     },
     {

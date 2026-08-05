@@ -31,6 +31,15 @@ return [
         ],
     ],
     [
+        'key' => 'portal',
+        'label' => 'Portal',
+        'children' => [
+            ['key' => 'portal.odoo', 'label' => 'Odoo', 'children' => [
+                ['key' => 'portal.odoo.stock_card', 'label' => 'Stock Card'],
+            ]],
+        ],
+    ],
+    [
         'key' => 'master_data',
         'label' => 'Master Data',
         'children' => [
