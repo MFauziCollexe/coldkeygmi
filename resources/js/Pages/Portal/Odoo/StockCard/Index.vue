@@ -16,15 +16,51 @@
         </div>
       </div>
 
+      <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".csv,.xls,.xlsx"
+          class="hidden"
+          @change="handleFileSelect"
+        />
+        <button
+          type="button"
+          class="inline-flex items-center justify-center rounded border border-blue-700 bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+          @click="triggerFileInput"
+          :disabled="isUploadLoading"
+        >
+          <span v-if="isUploadLoading">Memproses...</span>
+          <span v-else>Import Excel/CSV</span>
+        </button>
+      </div>
+      <div v-if="uploadMessage" :class="uploadMessage.type === 'success' ? 'mb-4 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800' : 'mb-4 rounded border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800'">
+        {{ uploadMessage.text }}
+      </div>
+
+      <div v-if="isUploadLoading" class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl p-6 shadow-xl w-[320px] text-center">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p class="text-lg font-semibold text-slate-900 mb-3">{{ activeLoadingMessage }}</p>
+          <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div
+              class="h-full bg-blue-600 transition-all duration-300 ease-out"
+              :style="{ width: `${loadingProgress}%` }"
+            ></div>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">{{ loadingProgress }}%</p>
+        </div>
+      </div>
+
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
         <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4">
           <input type="hidden" name="page" v-model.number="currentPage" />
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Owner</label>
+            <label class="mb-1 block text-xs bg-white font-semibold uppercase tracking-wider text-slate-800" for="owner_id">Owner</label>
             <select
               id="owner_id"
               name="owner_id"
-              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="selectedOwnerId"
               @change="submitFilters"
             >
@@ -35,24 +71,24 @@
           </div>
 
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="start_date">Start Date</label>
+            <label class="mb-1 bg-white block text-xs font-semibold uppercase tracking-wider text-slate-800" for="start_date">Start Date</label>
             <input
               id="start_date"
               name="start_date"
               type="date"
-              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="startDate"
               @change="submitFilters"
             />
           </div>
 
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="end_date">End Date</label>
+            <label class="mb-1 bg-white block text-xs font-semibold uppercase tracking-wider text-slate-800" for="end_date">End Date</label>
             <input
               id="end_date"
               name="end_date"
               type="date"
-              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="endDate"
               @change="submitFilters"
             />
@@ -101,16 +137,12 @@
             </tr>
             <tr
               v-for="(row, index) in paginatedRows"
-              :key="index"
+              :key="row.id ?? index"
               :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
               class="hover:bg-blue-50"
             >
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ (currentPage - 1) * perPage + index + 1 }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.warehouse_code || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.customer_code || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.customer_name || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.product_code || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.product_name || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.mobile_no || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.reference_1 || '-' }}</td>
@@ -257,10 +289,16 @@ const productLabel = computed(() => props.productName || 'Product');
 const currentPage = ref(props.currentPage);
 const perPage = computed(() => props.perPage);
 const totalRows = computed(() => props.totalRows);
+const fileInput = ref(null);
+const isUploadLoading = ref(false);
+const uploadMessage = ref(null);
+const loadingMessage = ref('Memproses file...');
+const loadingProgress = ref(0);
+const activeLoadingMessage = computed(() => loadingMessage.value);
 
 const paginatedRows = computed(() => {
   const start = (currentPage.value - 1) * perPage.value;
-  return allRows.value.slice(start, start + perPage.value);
+  return allRows.value.slice(start, start + perPage.value).filter((r) => r != null);
 });
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / perPage.value)));
@@ -316,6 +354,96 @@ const formatDateShort = (value) => {
     return new Date(value).toISOString().slice(0, 10);
   } catch {
     return value;
+  }
+};
+
+const triggerFileInput = () => {
+  uploadMessage.value = null;
+  fileInput.value?.click();
+};
+
+const handleFileSelect = async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  if (!['csv', 'xls', 'xlsx'].includes(extension)) {
+    uploadMessage.value = { type: 'error', text: 'File harus berformat CSV atau Excel.' };
+    event.target.value = '';
+    return;
+  }
+
+  await uploadFile(file);
+  event.target.value = '';
+};
+
+const uploadFile = async (file) => {
+  isUploadLoading.value = true;
+  uploadMessage.value = null;
+  loadingMessage.value = 'Membaca file...';
+  loadingProgress.value = 10;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch('/portal/odoo/stock-card/import', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+
+    loadingProgress.value = 40;
+    loadingMessage.value = 'Mengunggah file...';
+
+    const data = await response.json();
+    loadingProgress.value = 70;
+
+    if (response.ok) {
+      uploadMessage.value = {
+        type: 'success',
+        text: data.message || 'File berhasil diunggah.',
+      };
+      loadingMessage.value = 'Selesai memproses.';
+      loadingProgress.value = 100;
+    } else {
+      let msg = data.message || 'Gagal mengunggah file.';
+      if (data.detected_headers) {
+        msg += ' Detected headers: ' + (Array.isArray(data.detected_headers) ? data.detected_headers.join(', ') : String(data.detected_headers));
+      }
+      if (data.raw_headers) {
+        try {
+          msg += ' Raw headers: ' + JSON.stringify(data.raw_headers);
+        } catch (e) {
+          msg += ' Raw headers: ' + String(data.raw_headers);
+        }
+      }
+
+      uploadMessage.value = {
+        type: 'error',
+        text: msg,
+      };
+      loadingMessage.value = 'Gagal memproses.';
+      loadingProgress.value = 100;
+    }
+  } catch (error) {
+    loadingMessage.value = 'Terjadi kesalahan.';
+    loadingProgress.value = 100;
+    uploadMessage.value = {
+      type: 'error',
+      text: 'Terjadi kesalahan saat mengunggah file: ' + error.message,
+    };
+  } finally {
+    setTimeout(() => {
+      isUploadLoading.value = false;
+      loadingProgress.value = 0;
+    }, 300);
   }
 };
 

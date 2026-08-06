@@ -137,6 +137,9 @@ Route::get('gmisl/cross-odoo/stock-card', [App\Http\Controllers\CrossOdoo\StockC
 Route::get('portal/odoo/stock-card', [App\Http\Controllers\Portal\Odoo\StockCardController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':portal.odoo.stock_card'])
     ->name('portal.odoo.stock-card.index');
+Route::post('portal/odoo/stock-card/import', [App\Http\Controllers\Portal\Odoo\StockCardController::class, 'import'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':portal.odoo.stock_card'])
+    ->name('portal.odoo.stock-card.import');
 Route::get('gmisl/cross-odoo/soh', [App\Http\Controllers\CrossOdoo\StockOnHandController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.stock_card'])
     ->name('cross-odoo.soh.index');
