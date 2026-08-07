@@ -122,24 +122,22 @@ class StockCardController extends Controller
             $customer = (string) ($customerName ?? '');
             $product = (string) ($targetProductId ?? '');
 
-        $openingQuery = <<<'SQL'
+            $monthStart = $start->format('Y-m-01');
+
+            $openingQuery = <<<'SQL'
 SELECT IFNULL(SUM(
     CASE
-        WHEN from_location='Partners/Vendors'
-         AND to_location='GMI/Input'
-        THEN quantity
+        WHEN operation_type IN (
+            'PT Golden Multi Indotama: Receipts',
+            'PT Golden Multi Indotama: Return Receipts',
+            'PT Golden Multi Indotama: Repack Inbound'
+        ) THEN quantity
 
-        WHEN from_location='Partners/Customers'
-         AND to_location='GMI/Output'
-        THEN quantity
-
-        WHEN from_location='GMI/Output'
-         AND to_location='Partners/Customers'
-        THEN -quantity
-
-        WHEN from_location='GMI/Input'
-         AND to_location='Partners/Vendors'
-        THEN -quantity
+        WHEN operation_type IN (
+            'PT Golden Multi Indotama: Delivery Orders',
+            'PT Golden Multi Indotama: Repack Outbound',
+            'PT Golden Multi Indotama: Credit Note/Return'
+        ) THEN -quantity
 
         ELSE 0
     END
@@ -150,8 +148,34 @@ WHERE DATE(`date`) < ?
   AND (? = '' OR product_internal_reference = ?)
 SQL;
 
-        $openingRow = DB::selectOne($openingQuery, [$startDate, $customer, $customer, $product, $product]);
-        $openingValue = (float) ($openingRow->opening ?? 0);
+            $openingQueryPartialMonth = <<<'SQL'
+SELECT IFNULL(SUM(
+    CASE
+        WHEN operation_type IN (
+            'PT Golden Multi Indotama: Receipts',
+            'PT Golden Multi Indotama: Return Receipts',
+            'PT Golden Multi Indotama: Repack Inbound'
+        ) THEN quantity
+
+        WHEN operation_type IN (
+            'PT Golden Multi Indotama: Delivery Orders',
+            'PT Golden Multi Indotama: Repack Outbound',
+            'PT Golden Multi Indotama: Credit Note/Return'
+        ) THEN -quantity
+
+        ELSE 0
+    END
+), 0) AS opening
+FROM t_move_history
+WHERE DATE(`date`) >= ?
+  AND DATE(`date`) < ?
+  AND (? = '' OR from_owner = ?)
+  AND (? = '' OR product_internal_reference = ?)
+SQL;
+
+            $openingRow = DB::selectOne($openingQuery, [$monthStart, $customer, $customer, $product, $product]);
+            $openingPartialRow = DB::selectOne($openingQueryPartialMonth, [$monthStart, $startDate, $customer, $customer, $product, $product]);
+            $openingValue = (float) ($openingRow->opening ?? 0) + (float) ($openingPartialRow->opening ?? 0);
 
         $rowsQuery = <<<'SQL'
 SELECT
@@ -227,15 +251,11 @@ SELECT
 
         CASE
 
-            WHEN from_location='Partners/Vendors'
-             AND to_location='GMI/Input'
-
-            THEN quantity
-
-            WHEN from_location='Partners/Customers'
-             AND to_location='GMI/Output'
-
-            THEN quantity
+            WHEN operation_type IN (
+                'PT Golden Multi Indotama: Receipts',
+                'PT Golden Multi Indotama: Return Receipts',
+                'PT Golden Multi Indotama: Repack Inbound'
+            ) THEN quantity
 
             ELSE 0
 
@@ -247,15 +267,11 @@ SELECT
 
         CASE
 
-            WHEN from_location='GMI/Output'
-             AND to_location='Partners/Customers'
-
-            THEN quantity
-
-            WHEN from_location='GMI/Input'
-             AND to_location='Partners/Vendors'
-
-            THEN quantity
+            WHEN operation_type IN (
+                'PT Golden Multi Indotama: Delivery Orders',
+                'PT Golden Multi Indotama: Repack Outbound',
+                'PT Golden Multi Indotama: Credit Note/Return'
+            ) THEN quantity
 
             ELSE 0
 

@@ -100,6 +100,24 @@ document.addEventListener("inertia:finish", endGlobalLoading);
 document.addEventListener("inertia:error", endGlobalLoading);
 document.addEventListener("inertia:invalid", endGlobalLoading);
 document.addEventListener("inertia:exception", endGlobalLoading);
+document.addEventListener("inertia:before", () => {
+    const state = window.history.state;
+    if (state && state.page) {
+        window.history.replaceState({}, "");
+    }
+});
+document.addEventListener("inertia:start", () => {
+    const el = document.getElementById("app");
+    if (el) {
+        el.setAttribute("data-page", "");
+    }
+});
+document.addEventListener("inertia:success", (event) => {
+    const el = document.getElementById("app");
+    if (el && event?.detail?.page) {
+        el.setAttribute("data-page", JSON.stringify(event.detail.page));
+    }
+});
 document.addEventListener("inertia:error", (event) => {
     if (event?.detail?.response?.status === 419) {
         redirectToLoginOnSessionExpired();

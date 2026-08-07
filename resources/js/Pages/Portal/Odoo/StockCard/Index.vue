@@ -68,7 +68,7 @@
               id="owner_id"
               name="owner_id"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="selectedOwnerId || ''"
+              v-model="ownerFilter"
             >
               <option value="">Semua Owner</option>
               <option v-for="owner in owners" :key="owner.owner_id" :value="owner.owner_id">
@@ -83,7 +83,7 @@
               id="product_id"
               name="product_id"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="targetProductId || ''"
+              v-model="productFilter"
             >
               <option value="">Semua Product</option>
               <option v-for="product in products" :key="product.product_id" :value="product.product_id">
@@ -99,7 +99,7 @@
               name="start_date"
               type="date"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="startDate"
+              v-model="startFilter"
             />
           </div>
 
@@ -110,7 +110,7 @@
               name="end_date"
               type="date"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="endDate"
+              v-model="endFilter"
             />
           </div>
 
@@ -312,16 +312,16 @@ const props = defineProps({
 
 const allRows = computed(() => props.rows || []);
 const owners = computed(() => props.owners || []);
-const selectedOwnerId = computed(() => props.selectedOwnerId);
-const startDate = computed(() => props.startDate);
-const endDate = computed(() => props.endDate);
-const targetProductId = computed(() => props.targetProductId);
 const customerLabel = computed(() => props.customerName || 'Customer');
 const productLabel = computed(() => props.productName || 'Product');
 const currentPage = ref(props.currentPage);
 const perPage = computed(() => props.perPage);
 const totalRows = computed(() => props.totalRows);
 const hasApplied = computed(() => props.applied);
+const ownerFilter = ref(props.selectedOwnerId != null && props.selectedOwnerId !== '' ? String(props.selectedOwnerId) : '');
+const productFilter = ref(props.targetProductId != null && props.targetProductId !== '' ? String(props.targetProductId) : '');
+const startFilter = ref(props.startDate || '');
+const endFilter = ref(props.endDate || '');
 const fileInput = ref(null);
 const filterForm = ref(null);
 const isUploadLoading = ref(false);
