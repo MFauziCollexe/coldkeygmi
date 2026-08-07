@@ -52,8 +52,15 @@
         </div>
       </div>
 
+      <div v-if="isFilterLoading" class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl p-6 shadow-xl w-[280px] text-center">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p class="text-lg font-semibold text-slate-900">Memuat data...</p>
+        </div>
+      </div>
+
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <form ref="filterForm" method="get" class="grid gap-3 md:grid-cols-5">
+        <form ref="filterForm" method="get" class="grid gap-3 md:grid-cols-5" @submit="handleApplyFilters">
           <input type="hidden" name="page" v-model.number="currentPage" />
           <div>
             <label class="mb-1 block text-xs bg-white font-semibold uppercase tracking-wider text-slate-800" for="owner_id">Owner</label>
@@ -62,7 +69,6 @@
               name="owner_id"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="selectedOwnerId || ''"
-              @change="submitFilters"
             >
               <option value="">Semua Owner</option>
               <option v-for="owner in owners" :key="owner.owner_id" :value="owner.owner_id">
@@ -78,7 +84,6 @@
               name="product_id"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="targetProductId || ''"
-              @change="submitFilters"
             >
               <option value="">Semua Product</option>
               <option v-for="product in products" :key="product.product_id" :value="product.product_id">
@@ -95,7 +100,6 @@
               type="date"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="startDate"
-              @change="submitFilters"
             />
           </div>
 
@@ -107,7 +111,6 @@
               type="date"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="endDate"
-              @change="submitFilters"
             />
           </div>
 
@@ -145,7 +148,7 @@
           <tbody>
             <tr v-if="!paginatedRows.length">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="14">
-                Tidak ada data untuk filter yang dipilih.
+                {{ hasApplied ? 'Tidak ada data untuk filter yang dipilih.' : 'Pilih filter lalu klik Apply filters untuk memuat data.' }}
               </td>
             </tr>
             <tr
@@ -307,8 +310,11 @@ const productLabel = computed(() => props.productName || 'Product');
 const currentPage = ref(props.currentPage);
 const perPage = computed(() => props.perPage);
 const totalRows = computed(() => props.totalRows);
+const hasApplied = computed(() => !!(startDate.value && endDate.value));
 const fileInput = ref(null);
+const filterForm = ref(null);
 const isUploadLoading = ref(false);
+const isFilterLoading = ref(false);
 const uploadMessage = ref(null);
 const loadingMessage = ref('Memproses file...');
 const loadingProgress = ref(0);
@@ -352,10 +358,10 @@ const visiblePages = computed(() => {
   return pages;
 });
 
-const pageTotalOpening = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.sd_aw || 0), 0));
-const pageTotalIn = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.mutasi_in || 0), 0));
-const pageTotalOut = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.mutasi_out || 0), 0));
-const pageTotalBalance = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.saldo_akhir || 0), 0));
+const pageTotalOpening = computed(() => (paginatedRows.value.length ? Number(paginatedRows.value[0].sd_aw) || 0 : 0));
+const pageTotalIn = computed(() => paginatedRows.value.reduce((sum, row) => sum + (Number(row.mutasi_in) || 0), 0));
+const pageTotalOut = computed(() => paginatedRows.value.reduce((sum, row) => sum + (Number(row.mutasi_out) || 0), 0));
+const pageTotalBalance = computed(() => pageTotalOpening.value + pageTotalIn.value - pageTotalOut.value);
 
 const formatNumber = (value) => {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -509,6 +515,14 @@ const submitFilters = () => {
       form.submit();
     }
   }, 0);
+};
+
+const handleApplyFilters = (event) => {
+  event.preventDefault();
+  isFilterLoading.value = true;
+  setTimeout(() => {
+    filterForm.value?.submit();
+  }, 50);
 };
 
 const changePage = (page) => {

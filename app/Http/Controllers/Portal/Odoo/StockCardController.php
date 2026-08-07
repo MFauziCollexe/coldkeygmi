@@ -71,44 +71,53 @@ class StockCardController extends Controller
             $targetProductId = null;
         }
 
-        $startDate = $request->input('start_date', '2026-01-01');
-        $endDate = $request->input('end_date', '2026-12-31');
+        $hasFilters = $request->query('start_date') !== null || $request->query('end_date') !== null;
 
-        try {
-            $start = new \DateTime($startDate);
-            $end = new \DateTime($endDate);
-        } catch (\Exception $exception) {
-            $start = new \DateTime('2026-01-01');
-            $end = new \DateTime('2026-12-31');
-        }
-
-        if ($end < $start) {
-            $end = clone $start;
-        }
-
-        $startDate = $start->format('Y-m-d');
-        $endDate = $end->format('Y-m-d');
-
+        $startDate = '';
+        $endDate = '';
         $customerName = null;
-        if ($selectedOwnerId !== null && $selectedOwnerId !== '') {
-            $customerName = DB::table('t_move_history')
-                ->where('from_owner_id', $selectedOwnerId)
-                ->whereNotNull('from_owner')
-                ->where('from_owner', '!=', '')
-                ->value('from_owner');
-        }
-
         $productName = null;
-        if ($targetProductId !== null) {
-            $productName = DB::table('t_move_history')
-                ->where('product_internal_reference', $targetProductId)
-                ->whereNotNull('product_name')
-                ->where('product_name', '!=', '')
-                ->value('product_name');
-        }
+        $openingValue = 0;
+        $rows = [];
+        $totalRows = 0;
 
-        $customer = (string) ($customerName ?? '');
-        $product = (string) ($targetProductId ?? '');
+        if ($hasFilters) {
+            $startDate = $request->input('start_date', '');
+            $endDate = $request->input('end_date', '');
+
+            try {
+                $start = new \DateTime($startDate);
+                $end = new \DateTime($endDate);
+            } catch (\Exception $exception) {
+                $start = new \DateTime('2026-01-01');
+                $end = new \DateTime('2026-12-31');
+            }
+
+            if ($end < $start) {
+                $end = clone $start;
+            }
+
+            $startDate = $start->format('Y-m-d');
+            $endDate = $end->format('Y-m-d');
+
+            if ($selectedOwnerId !== null && $selectedOwnerId !== '') {
+                $customerName = DB::table('t_move_history')
+                    ->where('from_owner_id', $selectedOwnerId)
+                    ->whereNotNull('from_owner')
+                    ->where('from_owner', '!=', '')
+                    ->value('from_owner');
+            }
+
+            if ($targetProductId !== null) {
+                $productName = DB::table('t_move_history')
+                    ->where('product_internal_reference', $targetProductId)
+                    ->whereNotNull('product_name')
+                    ->where('product_name', '!=', '')
+                    ->value('product_name');
+            }
+
+            $customer = (string) ($customerName ?? '');
+            $product = (string) ($targetProductId ?? '');
 
         $openingQuery = <<<'SQL'
 SELECT IFNULL(SUM(
@@ -286,6 +295,7 @@ SQL;
         ]);
         $rows = array_map(fn ($row) => (array) $row, $rows);
         $totalRows = count($rows);
+        }
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = 25;
