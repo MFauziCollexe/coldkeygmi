@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,50 +16,284 @@ class StockCardController extends Controller
 {
     public function index(Request $request): Response
     {
-        $owners = [];
+        $user = Auth::user();
+        $userOwnerId = $user && !empty($user->from_owner_id) ? (string) $user->from_owner_id : null;
 
-        $selectedOwnerId = (int) $request->input('owner_id', 0);
+        $baseQuery = function () use ($userOwnerId) {
+            $query = DB::table('t_move_history');
+
+            if ($userOwnerId !== null) {
+                $query->where('from_owner_id', $userOwnerId);
+            }
+
+            return $query;
+        };
+
+        $owners = $baseQuery()
+            ->select('from_owner_id')
+            ->selectRaw('MAX(from_owner) AS from_owner')
+            ->whereNotNull('from_owner_id')
+            ->where('from_owner_id', '!=', '')
+            ->groupBy('from_owner_id')
+            ->orderBy('from_owner_id')
+            ->get()
+            ->map(fn ($owner) => [
+                'owner_id' => $owner->from_owner_id,
+                'owner_name' => $owner->from_owner ?: $owner->from_owner_id,
+            ])
+            ->values()
+            ->all();
+
+        $products = $baseQuery()
+            ->select('product_internal_reference', 'product_name')
+            ->whereNotNull('product_internal_reference')
+            ->whereNotNull('product_name')
+            ->distinct()
+            ->orderBy('product_internal_reference')
+            ->get()
+            ->map(fn ($product) => [
+                'product_id' => $product->product_internal_reference,
+                'default_code' => $product->product_internal_reference,
+                'product_name' => $product->product_name,
+            ])
+            ->values()
+            ->all();
+
+        $selectedOwnerId = $request->input('owner_id');
+        if ($userOwnerId !== null) {
+            $selectedOwnerId = $userOwnerId;
+        }
+
         $targetProductId = $request->input('product_id');
-        $startDate = $request->input('start_date', '2026-01-01');
-        $endDate = $request->input('end_date', '2026-12-31');
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = 25;
-
         if ($targetProductId !== null && $targetProductId !== '') {
-            $targetProductId = (int) $targetProductId;
+            $targetProductId = (string) $targetProductId;
         } else {
             $targetProductId = null;
         }
+
+        $startDate = $request->input('start_date', '2026-01-01');
+        $endDate = $request->input('end_date', '2026-12-31');
 
         try {
             $start = new \DateTime($startDate);
             $end = new \DateTime($endDate);
         } catch (\Exception $exception) {
             $start = new \DateTime('2026-01-01');
-            $end = new \DateTime('2026-01-31');
+            $end = new \DateTime('2026-12-31');
         }
 
         if ($end < $start) {
             $end = clone $start;
         }
 
-        $maxEnd = (clone $start)->modify('+1 month');
-        if ($end > $maxEnd) {
-            $end = $maxEnd;
-        }
-
         $startDate = $start->format('Y-m-d');
         $endDate = $end->format('Y-m-d');
-        $offset = ($page - 1) * $perPage;
 
-        $rows = [];
-        $totalRows = 0;
         $customerName = null;
+        if ($selectedOwnerId !== null && $selectedOwnerId !== '') {
+            $customerName = DB::table('t_move_history')
+                ->where('from_owner_id', $selectedOwnerId)
+                ->whereNotNull('from_owner')
+                ->where('from_owner', '!=', '')
+                ->value('from_owner');
+        }
+
         $productName = null;
+        if ($targetProductId !== null) {
+            $productName = DB::table('t_move_history')
+                ->where('product_internal_reference', $targetProductId)
+                ->whereNotNull('product_name')
+                ->where('product_name', '!=', '')
+                ->value('product_name');
+        }
+
+        $customer = (string) ($customerName ?? '');
+        $product = (string) ($targetProductId ?? '');
+
+        $openingQuery = <<<'SQL'
+SELECT IFNULL(SUM(
+    CASE
+        WHEN from_location='Partners/Vendors'
+         AND to_location='GMI/Input'
+        THEN quantity
+
+        WHEN from_location='Partners/Customers'
+         AND to_location='GMI/Output'
+        THEN quantity
+
+        WHEN from_location='GMI/Output'
+         AND to_location='Partners/Customers'
+        THEN -quantity
+
+        WHEN from_location='GMI/Input'
+         AND to_location='Partners/Vendors'
+        THEN -quantity
+
+        ELSE 0
+    END
+), 0) AS opening
+FROM t_move_history
+WHERE DATE(`date`) < ?
+  AND (? = '' OR from_owner = ?)
+  AND (? = '' OR product_internal_reference = ?)
+SQL;
+
+        $openingRow = DB::selectOne($openingQuery, [$startDate, $customer, $customer, $product, $product]);
+        $openingValue = (float) ($openingRow->opening ?? 0);
+
+        $rowsQuery = <<<'SQL'
+SELECT
+
+    @no:=@no+1 AS No,
+
+    t.tgl_tran,
+
+    t.kd_gudang,
+
+    t.kd_cust,
+
+    t.nm_cust,
+
+    t.kd_brg,
+
+    t.nm_brg,
+
+    t.no_mobil,
+
+    t.no_reference_1,
+
+    t.no_reference_2,
+
+    t.no_po_so,
+
+    '' AS no_invoice,
+
+    t.keterangan,
+
+    @saldo AS sd_aw,
+
+    t.mutasi_in,
+
+    t.mutasi_out,
+
+    (@saldo:=@saldo+t.mutasi_in-t.mutasi_out) AS saldo_akhir
+
+FROM
+(
+
+SELECT
+
+    DATE(`date`) AS tgl_tran,
+
+    MAX(
+        CASE
+            WHEN to_location LIKE 'GMI/%'
+            THEN to_location
+            ELSE from_location
+        END
+    ) AS kd_gudang,
+
+    from_owner AS kd_cust,
+
+    MAX(display_name) AS nm_cust,
+
+    product_internal_reference AS kd_brg,
+
+    MAX(product_name) AS nm_brg,
+
+    MAX(transfer_plate_number) AS no_mobil,
+
+    GROUP_CONCAT(DISTINCT reference) AS no_reference_1,
+
+    GROUP_CONCAT(DISTINCT source_documents) AS no_reference_2,
+
+    GROUP_CONCAT(DISTINCT so_contract) AS no_po_so,
+
+    GROUP_CONCAT(DISTINCT operation_type) AS keterangan,
+
+    SUM(
+
+        CASE
+
+            WHEN from_location='Partners/Vendors'
+             AND to_location='GMI/Input'
+
+            THEN quantity
+
+            WHEN from_location='Partners/Customers'
+             AND to_location='GMI/Output'
+
+            THEN quantity
+
+            ELSE 0
+
+        END
+
+    ) AS mutasi_in,
+
+    SUM(
+
+        CASE
+
+            WHEN from_location='GMI/Output'
+             AND to_location='Partners/Customers'
+
+            THEN quantity
+
+            WHEN from_location='GMI/Input'
+             AND to_location='Partners/Vendors'
+
+            THEN quantity
+
+            ELSE 0
+
+        END
+
+    ) AS mutasi_out
+
+FROM t_move_history
+
+WHERE DATE(`date`) BETWEEN ? AND ?
+
+AND (? = '' OR from_owner = ?)
+AND (? = '' OR product_internal_reference = ?)
+
+GROUP BY
+
+    DATE(`date`),
+    from_owner,
+    product_internal_reference
+
+) t
+
+ORDER BY
+
+    t.tgl_tran,
+    t.kd_brg;
+SQL;
+
+        DB::statement('SET @opening := ?', [$openingValue]);
+        DB::statement('SET @saldo := @opening');
+        DB::statement('SET @no := 0');
+
+        $rows = DB::select($rowsQuery, [
+            $startDate,
+            $endDate,
+            $customer,
+            $customer,
+            $product,
+            $product,
+        ]);
+        $rows = array_map(fn ($row) => (array) $row, $rows);
+        $totalRows = count($rows);
+
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 25;
 
         return Inertia::render('Portal/Odoo/StockCard/Index', [
             'rows' => $rows,
             'owners' => $owners,
+            'products' => $products,
             'selectedOwnerId' => $selectedOwnerId,
             'startDate' => $startDate,
             'endDate' => $endDate,
@@ -226,6 +461,7 @@ class StockCardController extends Controller
             'date' => null,
             'operation_type' => null,
             'from_owner' => null,
+            'from_owner_id' => null,
             'display_name' => null,
             'product_internal_reference' => null,
             'product_name' => null,
@@ -355,6 +591,7 @@ class StockCardController extends Controller
                 'date' => 'date',
                 'operation_type' => 'operation_type',
                 'from_owner' => 'from_owner',
+                'from_owner_id' => 'from_owner_id',
                 'display_name' => 'display_name',
                 'product_internal_reference' => 'product_internal_reference',
                 'product_name' => 'product_name',

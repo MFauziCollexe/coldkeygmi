@@ -42,6 +42,20 @@
 
         <div class="relative">
           <input
+            v-model="form.from_owner_id"
+            placeholder=" "
+            class="peer w-full rounded-lg border border-slate-700 bg-slate-800 px-3 pb-2 pt-5 text-slate-100"
+          />
+          <label
+            class="pointer-events-none absolute left-3 top-0 z-10 -translate-y-1/2 bg-slate-800 px-1 text-xs text-slate-300 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:bg-transparent peer-placeholder-shown:px-0 peer-placeholder-shown:text-base peer-placeholder-shown:text-slate-400 peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:bg-slate-800 peer-focus:px-1 peer-focus:text-xs peer-focus:text-slate-200"
+          >
+            From Owner ID
+          </label>
+          <div v-if="errors.from_owner_id" class="mt-1 text-sm text-red-400">{{ errors.from_owner_id }}</div>
+        </div>
+
+        <div class="relative">
+          <input
             v-model="form.email"
             type="email"
             placeholder=" "
@@ -182,6 +196,7 @@ const props = defineProps({
 const form = reactive({
   name: '',
   account: '',
+  from_owner_id: '',
   email: '',
   password: '',
   status: 'active',

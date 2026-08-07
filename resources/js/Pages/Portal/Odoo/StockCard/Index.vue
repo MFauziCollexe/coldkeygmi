@@ -53,7 +53,7 @@
       </div>
 
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4">
+        <form ref="filterForm" method="get" class="grid gap-3 md:grid-cols-5">
           <input type="hidden" name="page" v-model.number="currentPage" />
           <div>
             <label class="mb-1 block text-xs bg-white font-semibold uppercase tracking-wider text-slate-800" for="owner_id">Owner</label>
@@ -61,11 +61,28 @@
               id="owner_id"
               name="owner_id"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="selectedOwnerId"
+              :value="selectedOwnerId || ''"
               @change="submitFilters"
             >
+              <option value="">Semua Owner</option>
               <option v-for="owner in owners" :key="owner.owner_id" :value="owner.owner_id">
                 {{ owner.owner_name }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="mb-1 bg-white block text-xs font-semibold uppercase tracking-wider text-slate-800" for="product_id">Product</label>
+            <select
+              id="product_id"
+              name="product_id"
+              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              :value="targetProductId || ''"
+              @change="submitFilters"
+            >
+              <option value="">Semua Product</option>
+              <option v-for="product in products" :key="product.product_id" :value="product.product_id">
+                {{ product.default_code }} - {{ product.product_name }}
               </option>
             </select>
           </div>
@@ -95,7 +112,6 @@
           </div>
 
           <div class="flex items-end">
-            <input type="hidden" name="product_id" :value="targetProductId || ''" />
             <button
               type="submit"
               class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
@@ -139,15 +155,19 @@
               class="hover:bg-blue-50"
             >
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ (currentPage - 1) * perPage + index + 1 }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.product_name || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.mobile_no || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.po_so || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.description || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.opening_qty) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_out) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold text-slate-900">{{ formatNumber(row.balance_qty) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.tgl_tran) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_gudang || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_cust || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_cust || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_brg || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_brg || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_mobil || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_po_so || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.keterangan || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.sd_aw) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.mutasi_in) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.mutasi_out) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold text-slate-900">{{ formatNumber(row.saldo_akhir) }}</td>
             </tr>
           </tbody>
           <tfoot v-if="paginatedRows.length">
@@ -231,6 +251,10 @@ const props = defineProps({
     default: () => [],
   },
   owners: {
+    type: Array,
+    default: () => [],
+  },
+  products: {
     type: Array,
     default: () => [],
   },
@@ -328,10 +352,10 @@ const visiblePages = computed(() => {
   return pages;
 });
 
-const pageTotalOpening = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.opening_qty || 0), 0));
-const pageTotalIn = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.qty_in || 0), 0));
-const pageTotalOut = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.qty_out || 0), 0));
-const pageTotalBalance = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.balance_qty || 0), 0));
+const pageTotalOpening = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.sd_aw || 0), 0));
+const pageTotalIn = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.mutasi_in || 0), 0));
+const pageTotalOut = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.mutasi_out || 0), 0));
+const pageTotalBalance = computed(() => paginatedRows.value.reduce((sum, row) => sum + (row.saldo_akhir || 0), 0));
 
 const formatNumber = (value) => {
   if (value === null || value === undefined || Number.isNaN(value)) {

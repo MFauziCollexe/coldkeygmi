@@ -91,6 +91,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'account' => 'required|string|unique:users,account',
+            'from_owner_id' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string',
             'status' => 'required|in:active,deactivated',
@@ -103,6 +104,7 @@ class UserController extends Controller
             $user = User::create([
                 'name' => $validated['name'],
                 'account' => $validated['account'],
+                'from_owner_id' => $validated['from_owner_id'] ?? null,
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
                 'status' => $validated['status'],
@@ -153,6 +155,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'account' => 'required|string|unique:users,account,' . $user->id,
+            'from_owner_id' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string',
             'status' => 'required|in:active,deactivated',
@@ -167,6 +170,7 @@ class UserController extends Controller
             $updateData = [
                 'name' => $validated['name'],
                 'account' => $validated['account'],
+                'from_owner_id' => $validated['from_owner_id'] ?? null,
                 'email' => $validated['email'],
                 'status' => $validated['status'],
                 'department_id' => $validated['department_id'] ?? null,
