@@ -267,15 +267,26 @@ const props = defineProps({
   },
   startDate: {
     type: String,
-    default: '2026-01-01',
+    default: () => {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    },
   },
   endDate: {
     type: String,
-    default: '2026-12-31',
+    default: () => {
+      const now = new Date();
+      const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-01`;
+    },
   },
   targetProductId: {
     type: [String, Number],
     default: null,
+  },
+  applied: {
+    type: Boolean,
+    default: false,
   },
   customerName: {
     type: String,
@@ -310,7 +321,7 @@ const productLabel = computed(() => props.productName || 'Product');
 const currentPage = ref(props.currentPage);
 const perPage = computed(() => props.perPage);
 const totalRows = computed(() => props.totalRows);
-const hasApplied = computed(() => !!(startDate.value && endDate.value));
+const hasApplied = computed(() => props.applied);
 const fileInput = ref(null);
 const filterForm = ref(null);
 const isUploadLoading = ref(false);

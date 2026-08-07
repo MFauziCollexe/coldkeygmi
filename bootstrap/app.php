@@ -32,6 +32,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\LogModuleAction::class,
         ]);
+
+        $middleware->web(prepend: [
+            \App\Http\Middleware\NoStoreHeaders::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -73,8 +73,11 @@ class StockCardController extends Controller
 
         $hasFilters = $request->query('start_date') !== null || $request->query('end_date') !== null;
 
-        $startDate = '';
-        $endDate = '';
+        $defaultStartDate = \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d');
+        $defaultEndDate = \Carbon\Carbon::now()->startOfMonth()->addMonth()->format('Y-m-d');
+
+        $startDate = $defaultStartDate;
+        $endDate = $defaultEndDate;
         $customerName = null;
         $productName = null;
         $openingValue = 0;
@@ -89,8 +92,8 @@ class StockCardController extends Controller
                 $start = new \DateTime($startDate);
                 $end = new \DateTime($endDate);
             } catch (\Exception $exception) {
-                $start = new \DateTime('2026-01-01');
-                $end = new \DateTime('2026-12-31');
+                $start = new \DateTime($defaultStartDate);
+                $end = new \DateTime($defaultEndDate);
             }
 
             if ($end < $start) {
@@ -308,6 +311,7 @@ SQL;
             'startDate' => $startDate,
             'endDate' => $endDate,
             'targetProductId' => $targetProductId,
+            'applied' => $hasFilters,
             'customerName' => $customerName,
             'productName' => $productName,
             'currentPage' => $page,
