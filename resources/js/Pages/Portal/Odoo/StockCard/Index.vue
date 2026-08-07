@@ -388,63 +388,100 @@ const uploadFile = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
 
-  try {
-    const response = await fetch('/portal/odoo/stock-card/import', {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-        Accept: 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    });
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/portal/odoo/stock-card/import');
 
-    loadingProgress.value = 40;
-    loadingMessage.value = 'Mengunggah file...';
-
-    const data = await response.json();
-    loadingProgress.value = 70;
-
-    if (response.ok) {
-      uploadMessage.value = {
-        type: 'success',
-        text: data.message || 'File berhasil diunggah.',
-      };
-      loadingMessage.value = 'Selesai memproses.';
-      loadingProgress.value = 100;
-    } else {
-      let msg = data.message || 'Gagal mengunggah file.';
-      if (data.detected_headers) {
-        msg += ' Detected headers: ' + (Array.isArray(data.detected_headers) ? data.detected_headers.join(', ') : String(data.detected_headers));
-      }
-      if (data.raw_headers) {
-        try {
-          msg += ' Raw headers: ' + JSON.stringify(data.raw_headers);
-        } catch (e) {
-          msg += ' Raw headers: ' + String(data.raw_headers);
-        }
-      }
-
-      uploadMessage.value = {
-        type: 'error',
-        text: msg,
-      };
-      loadingMessage.value = 'Gagal memproses.';
-      loadingProgress.value = 100;
+    // Set headers (CSRF, accept)
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta && csrfMeta.content) {
+      xhr.setRequestHeader('X-CSRF-TOKEN', csrfMeta.content);
     }
-  } catch (error) {
-    loadingMessage.value = 'Terjadi kesalahan.';
-    loadingProgress.value = 100;
-    uploadMessage.value = {
-      type: 'error',
-      text: 'Terjadi kesalahan saat mengunggah file: ' + error.message,
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 80); // map upload to 0-80
+        loadingProgress.value = Math.max(15, percent);
+        loadingMessage.value = 'Mengunggah file...';
+      } else {
+        loadingProgress.value = 30;
+        loadingMessage.value = 'Mengunggah file...';
+      }
     };
-  } finally {
-    setTimeout(() => {
-      isUploadLoading.value = false;
-      loadingProgress.value = 0;
-    }, 300);
-  }
+
+    xhr.onload = () => {
+      loadingProgress.value = 85;
+      loadingMessage.value = 'Memproses file di server...';
+
+      let data = {};
+      try {
+        data = JSON.parse(xhr.responseText || '{}');
+      } catch (e) {
+        uploadMessage.value = { type: 'error', text: 'Response tidak valid dari server.' };
+        loadingProgress.value = 100;
+        loadingMessage.value = 'Gagal memproses.';
+        setTimeout(() => {
+          isUploadLoading.value = false;
+          loadingProgress.value = 0;
+        }, 300);
+        return resolve();
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        uploadMessage.value = { type: 'success', text: data.message || 'File berhasil diunggah.' };
+        loadingMessage.value = 'Selesai memproses.';
+        loadingProgress.value = 100;
+      } else {
+        let msg = data.message || 'Gagal mengunggah file.';
+        if (data.detected_headers) {
+          msg += ' Detected headers: ' + (Array.isArray(data.detected_headers) ? data.detected_headers.join(', ') : String(data.detected_headers));
+        }
+        if (data.raw_headers) {
+          try { msg += ' Raw headers: ' + JSON.stringify(data.raw_headers); } catch (e) { msg += ' Raw headers: ' + String(data.raw_headers); }
+        }
+        uploadMessage.value = { type: 'error', text: msg };
+        loadingMessage.value = 'Gagal memproses.';
+        loadingProgress.value = 100;
+      }
+
+      setTimeout(() => {
+        isUploadLoading.value = false;
+        loadingProgress.value = 0;
+      }, 600);
+
+      resolve();
+    };
+
+    xhr.onerror = () => {
+      uploadMessage.value = { type: 'error', text: 'Terjadi kesalahan saat mengunggah file.' };
+      loadingMessage.value = 'Terjadi kesalahan.';
+      loadingProgress.value = 100;
+      setTimeout(() => {
+        isUploadLoading.value = false;
+        loadingProgress.value = 0;
+      }, 600);
+      resolve();
+    };
+
+    // Start upload
+    try {
+      xhr.send(formData);
+      loadingMessage.value = 'Mengunggah file...';
+      // If upload is very fast, ensure progress changes from 10
+      loadingProgress.value = 20;
+    } catch (e) {
+      uploadMessage.value = { type: 'error', text: 'Gagal memulai unggahan: ' + (e.message || e) };
+      loadingMessage.value = 'Terjadi kesalahan.';
+      loadingProgress.value = 100;
+      setTimeout(() => {
+        isUploadLoading.value = false;
+        loadingProgress.value = 0;
+      }, 600);
+      resolve();
+    }
+  });
 };
 
 const submitFilters = () => {
