@@ -118,10 +118,7 @@
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_BRG</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NM_BRG</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_MOBIL</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_REFERENCE_1</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_REFERENCE_2</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_PO_SO</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_INVOICE</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KETERANGAN</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SD_AW</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">MUTASI_IN</th>
@@ -131,7 +128,7 @@
           </thead>
           <tbody>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="17">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="14">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
@@ -145,10 +142,7 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.product_name || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.mobile_no || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.reference_1 || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.reference_2 || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.po_so || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.invoice_no || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.description || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.opening_qty) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>
@@ -158,7 +152,7 @@
           </tbody>
           <tfoot v-if="paginatedRows.length">
             <tr class="bg-sky-50 font-semibold text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="13">Total Halaman</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="10">Total Halaman</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOpening) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOut) }}</td>
