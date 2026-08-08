@@ -129,14 +129,16 @@ SELECT IFNULL(SUM(
     CASE
         WHEN operation_type IN (
             'PT Golden Multi Indotama: Receipts',
-            'PT Golden Multi Indotama: Return Receipts',
-            'PT Golden Multi Indotama: Repack Inbound'
+            'PT Golden Multi Indotama: Repack Inbound',
+            'PT Golden Multi Indotama: Adjustment Inbound',
+            'PT Golden Multi Indotama: Credit Note/Return'
         ) THEN quantity
 
         WHEN operation_type IN (
             'PT Golden Multi Indotama: Delivery Orders',
+            'PT Golden Multi Indotama: Return Receipts',
             'PT Golden Multi Indotama: Repack Outbound',
-            'PT Golden Multi Indotama: Credit Note/Return'
+            'PT Golden Multi Indotama: Adjustment Outbound'
         ) THEN -quantity
 
         ELSE 0
@@ -153,14 +155,16 @@ SELECT IFNULL(SUM(
     CASE
         WHEN operation_type IN (
             'PT Golden Multi Indotama: Receipts',
-            'PT Golden Multi Indotama: Return Receipts',
-            'PT Golden Multi Indotama: Repack Inbound'
+            'PT Golden Multi Indotama: Repack Inbound',
+            'PT Golden Multi Indotama: Adjustment Inbound',
+            'PT Golden Multi Indotama: Credit Note/Return'
         ) THEN quantity
 
         WHEN operation_type IN (
             'PT Golden Multi Indotama: Delivery Orders',
+            'PT Golden Multi Indotama: Return Receipts',
             'PT Golden Multi Indotama: Repack Outbound',
-            'PT Golden Multi Indotama: Credit Note/Return'
+            'PT Golden Multi Indotama: Adjustment Outbound'
         ) THEN -quantity
 
         ELSE 0
@@ -253,8 +257,9 @@ SELECT
 
             WHEN operation_type IN (
                 'PT Golden Multi Indotama: Receipts',
-                'PT Golden Multi Indotama: Return Receipts',
-                'PT Golden Multi Indotama: Repack Inbound'
+                'PT Golden Multi Indotama: Repack Inbound',
+                'PT Golden Multi Indotama: Adjustment Inbound',
+                'PT Golden Multi Indotama: Credit Note/Return'
             ) THEN quantity
 
             ELSE 0
@@ -269,8 +274,9 @@ SELECT
 
             WHEN operation_type IN (
                 'PT Golden Multi Indotama: Delivery Orders',
+                'PT Golden Multi Indotama: Return Receipts',
                 'PT Golden Multi Indotama: Repack Outbound',
-                'PT Golden Multi Indotama: Credit Note/Return'
+                'PT Golden Multi Indotama: Adjustment Outbound'
             ) THEN quantity
 
             ELSE 0
