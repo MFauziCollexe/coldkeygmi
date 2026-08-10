@@ -13,7 +13,7 @@
         </div>
       </div>
 
-      <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <div v-if="isIT" class="mb-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
         <input
           ref="fileInput"
           type="file"
@@ -31,11 +31,11 @@
           <span v-else>Import Excel/CSV</span>
         </button>
       </div>
-      <div v-if="uploadMessage" :class="uploadMessage.type === 'success' ? 'mb-4 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800' : 'mb-4 rounded border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800'">
+      <div v-if="isIT && uploadMessage" :class="uploadMessage.type === 'success' ? 'mb-4 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800' : 'mb-4 rounded border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800'">
         {{ uploadMessage.text }}
       </div>
 
-      <div v-if="isUploadLoading" class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
+      <div v-if="isIT && isUploadLoading" class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
         <div class="bg-white rounded-xl p-6 shadow-xl w-[320px] text-center">
           <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p class="text-lg font-semibold text-slate-900 mb-3">{{ activeLoadingMessage }}</p>
@@ -246,7 +246,10 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+
+const page = usePage();
 
 const props = defineProps({
   rows: {
@@ -296,6 +299,7 @@ const props = defineProps({
 });
 
 const allRows = computed(() => props.rows || []);
+const isIT = computed(() => String(page.props.auth?.user?.department?.code || '').toUpperCase() === 'IT');
 const owners = computed(() => props.owners || []);
 const products = computed(() => {
   const opts = props.products || [];

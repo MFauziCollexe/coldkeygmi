@@ -163,6 +163,14 @@ class StockOnHandController extends Controller
 
     public function import(Request $request): JsonResponse
     {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        $user?->loadMissing('department');
+
+        if (strtoupper(trim((string) ($user?->department?->code ?? ''))) !== 'IT') {
+            abort(403, 'Hanya departemen IT yang dapat mengakses import.');
+        }
+
         $request->validate([
             'file' => ['required', 'file', 'mimes:csv,xls,xlsx'],
         ]);
