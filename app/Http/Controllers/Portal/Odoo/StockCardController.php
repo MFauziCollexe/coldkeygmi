@@ -324,6 +324,7 @@ SQL;
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = 25;
+        $page = min($page, max(1, (int) ceil($totalRows / $perPage)));
 
         return Inertia::render('Portal/Odoo/StockCard/Index', [
             'rows' => $rows,

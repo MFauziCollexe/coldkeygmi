@@ -530,6 +530,7 @@ const submitFilters = () => {
 
 const handleApplyFilters = (event) => {
   event.preventDefault();
+  currentPage.value = 1;
   isFilterLoading.value = true;
   setTimeout(() => {
     filterForm.value?.submit();
