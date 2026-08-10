@@ -140,6 +140,18 @@ Route::get('portal/odoo/stock-card', [App\Http\Controllers\Portal\Odoo\StockCard
 Route::post('portal/odoo/stock-card/import', [App\Http\Controllers\Portal\Odoo\StockCardController::class, 'import'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':portal.odoo.stock_card'])
     ->name('portal.odoo.stock-card.import');
+Route::get('portal/odoo/soh', [App\Http\Controllers\Portal\Odoo\StockOnHandController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':portal.odoo.soh'])
+    ->name('portal.odoo.soh.index');
+Route::post('portal/odoo/soh/import', [App\Http\Controllers\Portal\Odoo\StockOnHandController::class, 'import'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':portal.odoo.soh'])
+    ->name('portal.odoo.soh.import');
+Route::get('portal/odoo/rekap-inbound', [App\Http\Controllers\Portal\Odoo\RekapInboundController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':portal.odoo.rekap_inbound'])
+    ->name('portal.odoo.rekap-inbound.index');
+Route::get('portal/odoo/rekap-outbound', [App\Http\Controllers\Portal\Odoo\RekapOutboundController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':portal.odoo.rekap_outbound'])
+    ->name('portal.odoo.rekap-outbound.index');
 Route::get('gmisl/cross-odoo/soh', [App\Http\Controllers\CrossOdoo\StockOnHandController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.stock_card'])
     ->name('cross-odoo.soh.index');

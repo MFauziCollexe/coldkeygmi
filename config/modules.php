@@ -36,6 +36,9 @@ return [
         'children' => [
             ['key' => 'portal.odoo', 'label' => 'Odoo', 'children' => [
                 ['key' => 'portal.odoo.stock_card', 'label' => 'Stock Card'],
+                ['key' => 'portal.odoo.soh', 'label' => 'SOH'],
+                ['key' => 'portal.odoo.rekap_inbound', 'label' => 'Rekap Inbound'],
+                ['key' => 'portal.odoo.rekap_outbound', 'label' => 'Rekap Outbound'],
             ]],
         ],
     ],
