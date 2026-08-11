@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal\Odoo;
 
 use App\Http\Controllers\Controller;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
@@ -320,6 +321,7 @@ SQL;
             'currentPage' => $page,
             'perPage' => $perPage,
             'totalRows' => $totalRows,
+            'canImport' => $this->accessRules()->allows($user, 'portal.odoo.stock_card', 'import'),
         ]);
     }
 
@@ -327,10 +329,9 @@ SQL;
     {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
-        $user?->loadMissing('department');
 
-        if (strtoupper(trim((string) ($user?->department?->code ?? ''))) !== 'IT') {
-            abort(403, 'Hanya departemen IT yang dapat mengakses import.');
+        if (! $this->accessRules()->allows($user, 'portal.odoo.stock_card', 'import')) {
+            abort(403, 'Anda tidak memiliki akses untuk mengimpor data stock card.');
         }
 
         $request->validate([
@@ -792,5 +793,10 @@ SQL;
         }
 
         return $value;
+    }
+
+    private function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
     }
 }
