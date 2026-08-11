@@ -80,7 +80,6 @@ class StockCardController extends Controller
         $endDate = $defaultEndDate;
         $customerName = null;
         $productName = null;
-        $openingValue = 0;
         $rows = [];
         $totalRows = 0;
 
@@ -122,69 +121,40 @@ class StockCardController extends Controller
             $customer = (string) ($customerName ?? '');
             $product = (string) ($targetProductId ?? '');
 
-            $monthStart = $start->format('Y-m-01');
+            $openingByProductQuery = <<<'SQL'
+SELECT IFNULL(product_internal_reference, '') AS product,
+       IFNULL(SUM(
+           CASE
+               WHEN operation_type IN (
+                   'PT Golden Multi Indotama: Receipts',
+                   'PT Golden Multi Indotama: Repack Inbound',
+                   'PT Golden Multi Indotama: Adjustment Inbound',
+                   'PT Golden Multi Indotama: Credit Note/Return'
+               ) THEN quantity
 
-            $openingQuery = <<<'SQL'
-SELECT IFNULL(SUM(
-    CASE
-        WHEN operation_type IN (
-            'PT Golden Multi Indotama: Receipts',
-            'PT Golden Multi Indotama: Repack Inbound',
-            'PT Golden Multi Indotama: Adjustment Inbound',
-            'PT Golden Multi Indotama: Credit Note/Return'
-        ) THEN quantity
+               WHEN operation_type IN (
+                   'PT Golden Multi Indotama: Delivery Orders',
+                   'PT Golden Multi Indotama: Return Receipts',
+                   'PT Golden Multi Indotama: Repack Outbound',
+                   'PT Golden Multi Indotama: Adjustment Outbound'
+               ) THEN -quantity
 
-        WHEN operation_type IN (
-            'PT Golden Multi Indotama: Delivery Orders',
-            'PT Golden Multi Indotama: Return Receipts',
-            'PT Golden Multi Indotama: Repack Outbound',
-            'PT Golden Multi Indotama: Adjustment Outbound'
-        ) THEN -quantity
-
-        ELSE 0
-    END
-), 0) AS opening
+               ELSE 0
+           END
+       ), 0) AS opening
 FROM t_move_history
 WHERE DATE(`date`) < ?
   AND (? = '' OR from_owner = ?)
-  AND (? = '' OR product_internal_reference = ?)
+GROUP BY product_internal_reference
 SQL;
 
-            $openingQueryPartialMonth = <<<'SQL'
-SELECT IFNULL(SUM(
-    CASE
-        WHEN operation_type IN (
-            'PT Golden Multi Indotama: Receipts',
-            'PT Golden Multi Indotama: Repack Inbound',
-            'PT Golden Multi Indotama: Adjustment Inbound',
-            'PT Golden Multi Indotama: Credit Note/Return'
-        ) THEN quantity
-
-        WHEN operation_type IN (
-            'PT Golden Multi Indotama: Delivery Orders',
-            'PT Golden Multi Indotama: Return Receipts',
-            'PT Golden Multi Indotama: Repack Outbound',
-            'PT Golden Multi Indotama: Adjustment Outbound'
-        ) THEN -quantity
-
-        ELSE 0
-    END
-), 0) AS opening
-FROM t_move_history
-WHERE DATE(`date`) >= ?
-  AND DATE(`date`) < ?
-  AND (? = '' OR from_owner = ?)
-  AND (? = '' OR product_internal_reference = ?)
-SQL;
-
-            $openingRow = DB::selectOne($openingQuery, [$monthStart, $customer, $customer, $product, $product]);
-            $openingPartialRow = DB::selectOne($openingQueryPartialMonth, [$monthStart, $startDate, $customer, $customer, $product, $product]);
-            $openingValue = (float) ($openingRow->opening ?? 0) + (float) ($openingPartialRow->opening ?? 0);
+            $openingByProduct = [];
+            foreach (DB::select($openingByProductQuery, [$startDate, $customer, $customer]) as $openingRow) {
+                $openingByProduct[(string) $openingRow->product] = (float) $openingRow->opening;
+            }
 
         $rowsQuery = <<<'SQL'
 SELECT
-
-    @no:=@no+1 AS No,
 
     t.tgl_tran,
 
@@ -210,13 +180,9 @@ SELECT
 
     t.keterangan,
 
-    @saldo AS sd_aw,
-
     t.mutasi_in,
 
-    t.mutasi_out,
-
-    (@saldo:=@saldo+t.mutasi_in-t.mutasi_out) AS saldo_akhir
+    t.mutasi_out
 
 FROM
 (
@@ -302,13 +268,9 @@ GROUP BY
 
 ORDER BY
 
-    t.tgl_tran,
-    t.kd_brg;
+    t.kd_brg,
+    t.tgl_tran;
 SQL;
-
-        DB::statement('SET @opening := ?', [$openingValue]);
-        DB::statement('SET @saldo := @opening');
-        DB::statement('SET @no := 0');
 
         $rows = DB::select($rowsQuery, [
             $startDate,
@@ -337,6 +299,7 @@ SQL;
             'applied' => $hasFilters,
             'customerName' => $customerName,
             'productName' => $productName,
+            'openingByProduct' => $openingByProduct ?? [],
             'currentPage' => $page,
             'perPage' => $perPage,
             'totalRows' => $totalRows,

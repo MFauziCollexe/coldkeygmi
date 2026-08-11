@@ -61,7 +61,6 @@
 
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
         <form ref="filterForm" method="get" class="grid gap-3 md:grid-cols-5" @submit="handleApplyFilters">
-          <input type="hidden" name="page" v-model.number="currentPage" />
           <div>
             <label class="mb-1 block text-xs bg-white font-semibold uppercase tracking-wider text-slate-800" for="owner_id">Owner</label>
             <select
@@ -146,99 +145,48 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!paginatedRows.length">
+            <tr v-if="!productGroups.length">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="14">
                 {{ hasApplied ? 'Tidak ada data untuk filter yang dipilih.' : 'Pilih filter lalu klik Apply filters untuk memuat data.' }}
               </td>
             </tr>
-            <tr
-              v-for="(row, index) in paginatedRows"
-              :key="row.id ?? index"
-              :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
-              class="hover:bg-blue-50"
-            >
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ (currentPage - 1) * perPage + index + 1 }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.tgl_tran) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_gudang || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_cust || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_cust || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_brg || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_brg || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_mobil || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_po_so || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.keterangan || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.sd_aw) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.mutasi_in) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.mutasi_out) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold text-slate-900">{{ formatNumber(row.saldo_akhir) }}</td>
-            </tr>
+            <template v-for="(group, groupIndex) in productGroups" :key="group.product">
+              <tr class="bg-indigo-100 text-slate-900">
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="14">
+                  PRODUCT {{ group.product }} - {{ group.productName }}
+                </td>
+              </tr>
+              <tr
+                v-for="(row, index) in group.rows"
+                :key="`${group.product}-${index}`"
+                :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
+                class="hover:bg-blue-50"
+              >
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ index + 1 }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.tgl_tran) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_gudang || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_cust || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_cust || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_brg || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_brg || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_mobil || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_po_so || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.keterangan || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.sd_aw) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.mutasi_in) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.mutasi_out) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold text-slate-900">{{ formatNumber(row.saldo_akhir) }}</td>
+              </tr>
+              <tr class="bg-emerald-100 font-semibold text-slate-900">
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="10">TOTAL PRODUCT {{ group.product }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.sd_aw) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.mutasi_in) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.mutasi_out) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.saldo_akhir) }}</td>
+              </tr>
+            </template>
           </tbody>
-          <tfoot v-if="paginatedRows.length">
-            <tr class="bg-sky-50 font-semibold text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="10">Total Halaman</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOpening) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalIn) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOut) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalBalance) }}</td>
-            </tr>
-          </tfoot>
         </table>
-      </div>
-
-      <div v-if="totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="text-sm text-slate-400">
-          Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
-        </div>
-        <div class="flex items-center gap-1">
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === 1"
-            @click="changePage(1)"
-          >
-            &laquo;
-          </button>
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === 1"
-            @click="changePage(currentPage - 1)"
-          >
-            &lsaquo;
-          </button>
-
-          <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-1.5 py-1 text-xs text-slate-500">...</span>
-            <button
-              v-else
-              type="button"
-              class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition"
-              :class="page === currentPage
-                ? 'border-indigo-500 bg-indigo-600 text-white'
-                : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'"
-              @click="changePage(page)"
-            >
-              {{ page }}
-            </button>
-          </template>
-
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === totalPages"
-            @click="changePage(currentPage + 1)"
-          >
-            &rsaquo;
-          </button>
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === totalPages"
-            @click="changePage(totalPages)"
-          >
-            &raquo;
-          </button>
-        </div>
       </div>
     </div>
   </AppLayout>
@@ -299,6 +247,10 @@ const props = defineProps({
     type: String,
     default: 'Product',
   },
+  openingByProduct: {
+    type: Object,
+    default: () => ({}),
+  },
   currentPage: {
     type: Number,
     default: 1,
@@ -318,8 +270,6 @@ const isIT = computed(() => String(page.props.auth?.user?.department?.code || ''
 const owners = computed(() => props.owners || []);
 const customerLabel = computed(() => props.customerName || 'Customer');
 const productLabel = computed(() => props.productName || 'Product');
-const currentPage = ref(props.currentPage);
-const perPage = computed(() => props.perPage);
 const totalRows = computed(() => props.totalRows);
 const hasApplied = computed(() => props.applied);
 const ownerFilter = ref(props.selectedOwnerId != null && props.selectedOwnerId !== '' ? String(props.selectedOwnerId) : '');
@@ -335,48 +285,49 @@ const loadingMessage = ref('Memproses file...');
 const loadingProgress = ref(0);
 const activeLoadingMessage = computed(() => loadingMessage.value);
 
-const paginatedRows = computed(() => {
-  const start = (currentPage.value - 1) * perPage.value;
-  return allRows.value.slice(start, start + perPage.value).filter((r) => r != null);
-});
+const productGroups = computed(() => {
+  const opening = props.openingByProduct || {};
+  const groups = [];
+  let current = null;
 
-const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / perPage.value)));
-
-const visiblePages = computed(() => {
-  const pages = [];
-  const maxButtons = 5;
-  let start = Math.max(1, currentPage.value - Math.floor(maxButtons / 2));
-  let end = Math.min(totalPages.value, start + maxButtons - 1);
-
-  if (end - start < maxButtons - 1) {
-    start = Math.max(1, end - maxButtons + 1);
-  }
-
-  for (let page = start; page <= end; page += 1) {
-    if (page === start && page > 1) {
-      pages.push(1);
-      if (start > 2) {
-        pages.push('...');
-      }
+  for (const raw of allRows.value) {
+    const product = String(raw.kd_brg || '');
+    if (!current || current.product !== product) {
+      current = {
+        product,
+        productName: String(raw.nm_brg || ''),
+        rows: [],
+        sdAw: Number(opening[product]) || 0,
+        running: Number(opening[product]) || 0,
+        totalIn: 0,
+        totalOut: 0,
+      };
+      groups.push(current);
     }
 
-    pages.push(page);
+    const mutasiIn = Number(raw.mutasi_in) || 0;
+    const mutasiOut = Number(raw.mutasi_out) || 0;
+    const sdAw = current.running;
+    const saldoAkhir = sdAw + mutasiIn - mutasiOut;
 
-    if (page === end && end < totalPages.value) {
-      if (end < totalPages.value - 1) {
-        pages.push('...');
-      }
-      pages.push(totalPages.value);
-    }
+    current.rows.push({ ...raw, sd_aw: sdAw, saldo_akhir: saldoAkhir });
+    current.running = saldoAkhir;
+    current.totalIn += mutasiIn;
+    current.totalOut += mutasiOut;
   }
 
-  return pages;
+  return groups.map((group) => ({
+    product: group.product,
+    productName: group.productName,
+    rows: group.rows,
+    totals: {
+      sd_aw: group.sdAw,
+      mutasi_in: group.totalIn,
+      mutasi_out: group.totalOut,
+      saldo_akhir: group.running,
+    },
+  }));
 });
-
-const pageTotalOpening = computed(() => (paginatedRows.value.length ? Number(paginatedRows.value[0].sd_aw) || 0 : 0));
-const pageTotalIn = computed(() => paginatedRows.value.reduce((sum, row) => sum + (Number(row.mutasi_in) || 0), 0));
-const pageTotalOut = computed(() => paginatedRows.value.reduce((sum, row) => sum + (Number(row.mutasi_out) || 0), 0));
-const pageTotalBalance = computed(() => pageTotalOpening.value + pageTotalIn.value - pageTotalOut.value);
 
 const formatNumber = (value) => {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -523,26 +474,11 @@ const uploadFile = async (file) => {
   });
 };
 
-const submitFilters = () => {
-  setTimeout(() => {
-    const form = document.querySelector('form');
-    if (form) {
-      form.submit();
-    }
-  }, 0);
-};
-
 const handleApplyFilters = (event) => {
   event.preventDefault();
-  currentPage.value = 1;
   isFilterLoading.value = true;
   setTimeout(() => {
     filterForm.value?.submit();
   }, 50);
-};
-
-const changePage = (page) => {
-  currentPage.value = page;
-  submitFilters();
 };
 </script>
