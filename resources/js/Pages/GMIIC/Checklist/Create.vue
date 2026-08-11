@@ -45,11 +45,13 @@
             <button type="button" class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600" @click="closePhotoModal">Close</button>
           </div>
           <div v-if="photoError" class="mb-3 rounded border border-rose-700 bg-rose-950/40 px-3 py-2 text-sm text-rose-200">{{ photoError }}</div>
-          <div v-if="photoLoading" class="mb-3 text-sm text-slate-400">Menyiapkan kamera...</div>
+          <div v-if="photoLoading" class="mb-3 text-sm text-slate-400">Memproses...</div>
           <div class="overflow-hidden rounded-lg border border-slate-700 bg-black">
             <video ref="photoVideoRef" autoplay playsinline muted class="min-h-[320px] w-full bg-black object-cover"></video>
           </div>
           <div class="mt-4 flex justify-end gap-3">
+            <input ref="photoGalleryInput" type="file" accept="image/*" class="hidden" @change="handleWasteTransportGalleryFile" />
+            <button v-if="photoCaptureMode === 'waste_transport'" type="button" :disabled="photoLoading || photoCapturing" class="rounded bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600 disabled:cursor-not-allowed disabled:bg-slate-600" @click="openWasteTransportGallery">Pilih dari Galeri</button>
             <button type="button" class="rounded bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600" @click="closePhotoModal">Batal</button>
             <button type="button" :disabled="photoLoading || photoCapturing" class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-600" @click="capturePhoto">{{ photoCapturing ? 'Memproses...' : photoCaptureButtonLabel }}</button>
           </div>
@@ -245,7 +247,7 @@ const photo = usePhotoCapture({
 })
 
 const { scannerModalOpen, scannerLoading, scannerError, closeScannerModal } = scanner
-const { photoModalOpen, photoLoading, photoCapturing, photoError, photoVideoRef, photoModalTitle, photoModalDescription, photoCaptureButtonLabel, capturePhoto, closePhotoModal } = photo
+const { photoModalOpen, photoLoading, photoCapturing, photoError, photoVideoRef, photoGalleryInput, photoCaptureMode, photoModalTitle, photoModalDescription, photoCaptureButtonLabel, capturePhoto, openWasteTransportGallery, handleWasteTransportGalleryFile, closePhotoModal } = photo
 
 entry.value = createInitialEntry()
 

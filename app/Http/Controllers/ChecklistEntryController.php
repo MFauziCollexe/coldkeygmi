@@ -390,8 +390,9 @@ class ChecklistEntryController extends Controller
         $formattedDisplayDate = $this->formatChecklistDisplayDateForQuery($selectedDate);
         $monthKey = $this->resolveChecklistMonthKey($selectedDate);
         $monthName = $this->resolveChecklistDisplayMonthName($selectedDate);
+        $periodMatchTemplates = ['pengangkutan_sampah_pt_sier'];
 
-        $query->where(function ($dateQuery) use ($selectedDate, $formattedDisplayDate, $templateId, $monthlyTemplates, $monthlyDateValueTemplates, $year, $monthKey, $monthName) {
+        $query->where(function ($dateQuery) use ($selectedDate, $formattedDisplayDate, $templateId, $monthlyTemplates, $monthlyDateValueTemplates, $year, $monthKey, $monthName, $periodMatchTemplates) {
             $dateQuery->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [$selectedDate]);
 
             if ($formattedDisplayDate !== null) {
@@ -417,6 +418,13 @@ class ChecklistEntryController extends Controller
                 $dateQuery->orWhere(function ($templateQuery) use ($monthlyDateValueTemplates, $selectedDate) {
                     $templateQuery->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $monthlyDateValueTemplates))
                         ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.date_value')) = ?", [substr($selectedDate, 0, 7)]);
+                });
+            }
+
+            if ($templateId === '' || in_array($templateId, $periodMatchTemplates, true)) {
+                $dateQuery->orWhere(function ($periodQuery) use ($periodMatchTemplates, $selectedDate) {
+                    $periodQuery->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $periodMatchTemplates))
+                        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload_summary_json, '$.form.period')) = ?", [substr($selectedDate, 0, 7)]);
                 });
             }
         });
@@ -463,6 +471,10 @@ class ChecklistEntryController extends Controller
         }
 
         if (in_array($templateId, ['inspeksi_loker'], true) && $dateValue !== '' && substr($dateValue, 0, 7) === $selectedMonthPrefix) {
+            return true;
+        }
+
+        if (in_array($templateId, ['pengangkutan_sampah_pt_sier'], true) && $selectedMonthPrefix !== '' && trim((string) ($form['period'] ?? '')) === $selectedMonthPrefix) {
             return true;
         }
 

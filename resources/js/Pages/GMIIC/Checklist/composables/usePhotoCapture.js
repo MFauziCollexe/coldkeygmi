@@ -39,6 +39,7 @@ export function usePhotoCapture({
     const photoCaptureDay = ref(null);
     const photoCaptureMode = ref("");
     const photoVideoRef = ref(null);
+    const photoGalleryInput = ref(null);
 
     const patroliSecurityPhotoUploading = ref(false);
     const patroliSecurityPhotoError = ref("");
@@ -131,7 +132,7 @@ export function usePhotoCapture({
         } else {
             photoModalTitle.value = "Ambil Foto Petugas Pengangkut";
             photoModalDescription.value =
-                "Gunakan kamera HP atau laptop, lalu ambil foto langsung.";
+                "Ambil foto langsung dari kamera HP/laptop, atau pilih dari galeri.";
             photoCaptureButtonLabel.value = "Ambil Foto";
         }
     }
@@ -146,6 +147,87 @@ export function usePhotoCapture({
         photoModalOpen.value = true;
         await nextTick();
         await startPhotoCamera();
+    }
+
+    function openWasteTransportGallery() {
+        if (!entry.value || !isWasteTransport.value || !photoCaptureDay.value) return;
+        if (!photoGalleryInput.value) return;
+        photoGalleryInput.value.click();
+    }
+
+    function readImageFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error("Gambar gagal dimuat."));
+                image.src = reader.result;
+            };
+            reader.onerror = () => reject(new Error("File gagal dibaca."));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function drawImageWithinMaxDimension(image, maxDimension = 1920) {
+        const width = image.naturalWidth || image.width;
+        const height = image.naturalHeight || image.height;
+        const scale = Math.min(1, maxDimension / Math.max(width, height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(width * scale);
+        canvas.height = Math.round(height * scale);
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Foto gagal diproses.");
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        return canvas;
+    }
+
+    async function handleWasteTransportGalleryFile(event) {
+        const file = event.target?.files?.[0];
+        if (event.target) event.target.value = "";
+        if (!file) return;
+        if (!String(file.type || "").startsWith("image/")) {
+            photoError.value = "File yang dipilih bukan gambar.";
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            photoError.value = "Ukuran foto maksimal 20MB.";
+            return;
+        }
+        photoLoading.value = true;
+        photoCapturing.value = true;
+        try {
+            const image = await readImageFile(file);
+            const canvas = drawImageWithinMaxDimension(image, 1920);
+            const matchedRow = wasteTransportRows.value.find(
+                (row) => Number(row.day) === Number(photoCaptureDay.value),
+            ) || {};
+            applyWasteTransportPhotoOverlay(canvas, new Date(), {
+                day: photoCaptureDay.value,
+                period: entry.value?.form?.period,
+                handoverName: matchedRow.handover_name,
+                collectorName: matchedRow.collector_name,
+            });
+            const preview = canvas.toDataURL("image/jpeg", 0.9);
+            const fileName = `foto-pengangkut-hari-${photoCaptureDay.value}.jpg`;
+            entry.value.form.rows = wasteTransportRows.value.map((row) =>
+                row.day === photoCaptureDay.value
+                    ? {
+                          ...row,
+                          collector_photo_name: fileName,
+                          collector_photo_preview: preview,
+                      }
+                    : row,
+            );
+            await closePhotoModal();
+        } catch (error) {
+            photoError.value = error?.message || "Foto gagal diproses.";
+        } finally {
+            photoLoading.value = false;
+            photoCapturing.value = false;
+        }
     }
 
     async function openPatroliSecurityCamera() {
@@ -3093,6 +3175,7 @@ export function usePhotoCapture({
         photoCaptureDay,
         photoCaptureMode,
         photoVideoRef,
+        photoGalleryInput,
         patroliSecurityPhotoUploading,
         patroliSecurityPhotoError,
         maintenancePhotoUploading,
@@ -3119,6 +3202,8 @@ export function usePhotoCapture({
         photoModalDescription,
         photoCaptureButtonLabel,
         openWasteTransportCamera,
+        openWasteTransportGallery,
+        handleWasteTransportGalleryFile,
         openPatroliSecurityCamera,
         openMaintenanceCamera,
         openCleaningOBCamera,
