@@ -171,14 +171,13 @@ SELECT
     t.no_mobil,
 
     t.no_reference_1,
-
-    t.no_reference_2 AS source_document,
-
+'' AS source_document1,
     t.no_po_so,
 
     '' AS no_invoice,
 
     t.keterangan,
+    t.source_documents,
 
     t.mutasi_in,
 
@@ -211,11 +210,10 @@ SELECT
 
     GROUP_CONCAT(DISTINCT reference) AS no_reference_1,
 
-    GROUP_CONCAT(DISTINCT source_documents) AS no_reference_2,
-
     GROUP_CONCAT(DISTINCT so_contract) AS no_po_so,
 
-    GROUP_CONCAT(DISTINCT operation_type) AS keterangan,
+    operation_type AS keterangan,
+    source_documents AS source_documents,
 
     SUM(
 
