@@ -192,12 +192,32 @@ class StockOnHandController extends Controller
             ], 422);
         }
 
-        $rows = [];
-        foreach ($this->streamParsedLocationRows($file, $fields) as $row) {
-            $rows[] = $row;
+        $rowGenerator = $this->streamParsedLocationRows($file, $fields);
+        $parsedCount = 0;
+        $chunk = [];
+        $chunkSize = 500;
+        $tableCleared = false;
+
+        foreach ($rowGenerator as $row) {
+            if (! $tableCleared) {
+                DB::table('t_location')->delete();
+                $tableCleared = true;
+            }
+
+            $parsedCount++;
+            $chunk[] = $row;
+
+            if (count($chunk) >= $chunkSize) {
+                DB::table('t_location')->insert($chunk);
+                $chunk = [];
+            }
         }
 
-        if (count($rows) === 0) {
+        if (! empty($chunk)) {
+            DB::table('t_location')->insert($chunk);
+        }
+
+        if ($parsedCount === 0) {
             return response()->json([
                 'message' => 'File tidak berisi data yang valid setelah parsing.',
                 'detected_headers' => $headerInfo['normalized'],
@@ -205,14 +225,9 @@ class StockOnHandController extends Controller
             ], 422);
         }
 
-        DB::table('t_location')->delete();
-        foreach (array_chunk($rows, 500) as $chunk) {
-            DB::table('t_location')->insert($chunk);
-        }
-
         return response()->json([
-            'inserted' => count($rows),
-            'message' => sprintf('%d baris berhasil diimport ke Stock On Hand.', count($rows)),
+            'inserted' => $parsedCount,
+            'message' => sprintf('%d baris berhasil diimport ke Stock On Hand.', $parsedCount),
         ]);
     }
 
