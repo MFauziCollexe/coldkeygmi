@@ -172,7 +172,7 @@ SELECT
 
     t.no_reference_1,
 
-    t.no_reference_2,
+    t.no_reference_2 AS source_document,
 
     t.no_po_so,
 

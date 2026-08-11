@@ -137,6 +137,7 @@
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NM_BRG</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_MOBIL</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_PO_SO</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">SOURCE_DOCUMENT</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KETERANGAN</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SD_AW</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">MUTASI_IN</th>
@@ -146,13 +147,13 @@
           </thead>
           <tbody>
             <tr v-if="!productGroups.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="14">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="15">
                 {{ hasApplied ? 'Tidak ada data untuk filter yang dipilih.' : 'Pilih filter lalu klik Apply filters untuk memuat data.' }}
               </td>
             </tr>
             <template v-for="(group, groupIndex) in productGroups" :key="group.product">
               <tr class="bg-indigo-100 text-slate-900">
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="14">
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="15">
                   PRODUCT {{ group.product }} - {{ group.productName }}
                 </td>
               </tr>
@@ -171,6 +172,7 @@
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_brg || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_mobil || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_po_so || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.source_document || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.keterangan || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.sd_aw) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.mutasi_in) }}</td>
@@ -178,7 +180,7 @@
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold text-slate-900">{{ formatNumber(row.saldo_akhir) }}</td>
               </tr>
               <tr class="bg-emerald-100 font-semibold text-slate-900">
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="10">TOTAL PRODUCT {{ group.product }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="11">TOTAL PRODUCT {{ group.product }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.sd_aw) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.mutasi_in) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.mutasi_out) }}</td>
