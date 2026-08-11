@@ -39,6 +39,7 @@ return new class extends Migration
             $table->string('plat_number')->nullable();
             $table->date('expiration_date_2')->nullable();
             $table->dateTime('created_on')->nullable();
+            $table->string('product_customer_reference')->nullable();
             $table->timestamps();
         });
     }

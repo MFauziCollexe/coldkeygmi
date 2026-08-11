@@ -130,9 +130,8 @@
             <tr class="bg-sky-100 text-slate-900">
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-center font-semibold">No</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TGL_TRAN</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_GUDANG</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">REFERENCE</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_CUST</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NM_CUST</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_BRG</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NM_BRG</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_MOBIL</th>
@@ -147,13 +146,13 @@
           </thead>
           <tbody>
             <tr v-if="!productGroups.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="15">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="14">
                 {{ hasApplied ? 'Tidak ada data untuk filter yang dipilih.' : 'Pilih filter lalu klik Apply filters untuk memuat data.' }}
               </td>
             </tr>
             <template v-for="(group, groupIndex) in productGroups" :key="group.product">
               <tr class="bg-indigo-100 text-slate-900">
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="15">
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="14">
                   PRODUCT {{ group.product }} - {{ group.productName }}
                 </td>
               </tr>
@@ -167,7 +166,6 @@
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.tgl_tran) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_gudang || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_cust || '-' }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_cust || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_brg || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_brg || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_mobil || '-' }}</td>
@@ -180,7 +178,7 @@
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold text-slate-900">{{ formatNumber(row.saldo_akhir) }}</td>
               </tr>
               <tr class="bg-emerald-100 font-semibold text-slate-900">
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="11">TOTAL PRODUCT {{ group.product }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold" colspan="10">TOTAL PRODUCT {{ group.product }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.sd_aw) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.mutasi_in) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(group.totals.mutasi_out) }}</td>

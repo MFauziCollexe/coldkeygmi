@@ -104,10 +104,9 @@ class RekapOutboundController extends Controller
 SELECT
     DATE(t.`date`) AS tanggal,
     t.from_location AS kd_gudang,
-    t.from_owner AS kd_customer,
-    MAX(t.display_name) AS nm_customer,
+    MAX(t.product_customer_reference) AS kd_customer,
+    MAX(t.from_owner) AS nm_customer,
     GROUP_CONCAT(DISTINCT t.reference) AS no_delivery,
-    GROUP_CONCAT(DISTINCT t.so_contract) AS no_po,
     GROUP_CONCAT(DISTINCT t.transfer_plate_number) AS no_mobil,
     GROUP_CONCAT(DISTINCT t.source_documents) AS source_documents,
     t.product_internal_reference AS kd_barang,

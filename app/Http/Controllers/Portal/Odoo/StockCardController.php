@@ -162,8 +162,6 @@ SELECT
 
     t.kd_cust,
 
-    t.nm_cust,
-
     t.kd_brg,
 
     t.nm_brg,
@@ -191,17 +189,9 @@ SELECT
 
     DATE(`date`) AS tgl_tran,
 
-    MAX(
-        CASE
-            WHEN to_location LIKE 'GMI/%'
-            THEN to_location
-            ELSE from_location
-        END
-    ) AS kd_gudang,
+    reference AS kd_gudang,
 
     from_owner AS kd_cust,
-
-    MAX(display_name) AS nm_cust,
 
     product_internal_reference AS kd_brg,
 
@@ -211,11 +201,35 @@ SELECT
 
     GROUP_CONCAT(DISTINCT reference) AS no_reference_1,
 
-    MAX(source_documents) AS no_reference_2,
+    MAX(CASE
+        WHEN operation_type IN (
+            'PT Golden Multi Indotama: Receipts',
+            'PT Golden Multi Indotama: Repack Inbound',
+            'PT Golden Multi Indotama: Adjustment Inbound',
+            'PT Golden Multi Indotama: Credit Note/Return',
+            'PT Golden Multi Indotama: Delivery Orders',
+            'PT Golden Multi Indotama: Return Receipts',
+            'PT Golden Multi Indotama: Repack Outbound',
+            'PT Golden Multi Indotama: Adjustment Outbound'
+        ) THEN source_documents
+        ELSE NULL
+    END) AS no_reference_2,
 
     GROUP_CONCAT(DISTINCT so_contract) AS no_po_so,
 
-    MAX(operation_type) AS keterangan,
+    GROUP_CONCAT(DISTINCT CASE
+        WHEN operation_type IN (
+            'PT Golden Multi Indotama: Receipts',
+            'PT Golden Multi Indotama: Repack Inbound',
+            'PT Golden Multi Indotama: Adjustment Inbound',
+            'PT Golden Multi Indotama: Credit Note/Return',
+            'PT Golden Multi Indotama: Delivery Orders',
+            'PT Golden Multi Indotama: Return Receipts',
+            'PT Golden Multi Indotama: Repack Outbound',
+            'PT Golden Multi Indotama: Adjustment Outbound'
+        ) THEN operation_type
+        ELSE NULL
+    END) AS keterangan,
 
     SUM(
 
@@ -262,7 +276,10 @@ GROUP BY
 
     DATE(`date`),
     from_owner,
-    product_internal_reference
+    product_internal_reference,
+    reference
+
+HAVING mutasi_in > 0 OR mutasi_out > 0
 
 ) t
 
@@ -496,6 +513,7 @@ SQL;
             'plat_number' => null,
             'expiration_date_2' => null,
             'created_on' => null,
+            'product_customer_reference' => null,
         ], $parsed);
     }
 
@@ -582,6 +600,7 @@ SQL;
                 'plat_number' => null,
                 'expiration_date_2' => null,
                 'created_on' => null,
+                'product_customer_reference' => null,
             ], $parsed);
         }
 
@@ -626,6 +645,7 @@ SQL;
                 'product' => 'product',
                 'plat_number' => 'plat_number',
                 'created_on' => 'created_on',
+                'product_customer_reference' => 'product_customer_reference',
                 default => null,
             };
 
