@@ -25,12 +25,13 @@
     <table>
         <thead>
             <tr>
-                <th style="width:8%">No</th>
-                <th style="width:14%">Tanggal</th>
-                <th style="width:14%">Pickup Time</th>
-                <th style="width:16%">Handover</th>
-                <th style="width:14%">Collector</th>
-                <th style="width:16%">Foto</th>
+                <th style="width:6%">No</th>
+                <th style="width:13%">Tanggal</th>
+                <th style="width:12%">Waktu</th>
+                <th style="width:14%">Petugas</th>
+                <th style="width:12%">Pengangkut</th>
+                <th style="width:14%">Foto</th>
+                <th style="width:19%">Keterangan</th>
                 <th style="width:10%">Status</th>
             </tr>
         </thead>
@@ -52,6 +53,7 @@
                             -
                         @endif
                     </td>
+                    <td>{{ $row['keterangan'] ?? '-' }}</td>
                     <td class="text-center">
                         @if(in_array($row['day'] ?? 0, $approvedDays))
                             <span class="check-yes">&#10003;</span>

@@ -56,7 +56,7 @@
           :disabled="!canApproveEntry"
           label="Approval"
           button-class="w-[96px]"
-          tooltip="Approval aktif jika petugas penyerahan, petugas pengangkut, dan foto sudah terisi"
+          tooltip="Approval aktif jika petugas penyerahan, petugas pengangkut, foto, dan keterangan sudah terisi"
           @click="$emit('approve')"
         />
       </div>
@@ -65,18 +65,20 @@
       <div class="overflow-x-auto border border-black">
         <table class="min-w-full border-collapse text-sm">
           <colgroup>
+            <col class="w-10" />
+            <col class="w-5" />
+            <col class="w-5" />
             <col class="w-20" />
-            <col class="w-44" />
-            <col class="w-56" />
-            <col class="w-56" />
-            <col class="w-60" />
+            <col class="w-30" />
+            <col class="w-64" />
           </colgroup>
           <thead>
             <tr class="bg-slate-100">
             <th rowspan="2" class="border border-black px-2 py-1 text-center">Tanggal</th>
-            <th rowspan="2" class="border border-black px-2 py-1 text-center">Waktu Pengangkutan</th>
-            <th colspan="1" class="border border-black px-2 py-1 text-center">Petugas Penyerahan</th>
-            <th colspan="2" class="border border-black px-2 py-1 text-center">Petugas Pengangkut</th>
+            <th rowspan="2" class="border border-black px-2 py-1 text-center">Waktu</th>
+            <th colspan="1" class="border border-black px-2 py-1 text-center">Petugas</th>
+            <th colspan="2" class="border border-black px-2 py-1 text-center">Pengangkut</th>
+            <th rowspan="2" class="border border-black px-2 py-1 text-center">Keterangan</th>
           </tr>
           <tr class="bg-slate-100">
             <th class="border border-black px-2 py-1 text-center">Nama</th>
@@ -151,6 +153,16 @@
                   <span class="block truncate text-xs text-slate-700">{{ row.collector_photo_name || '-' }}</span>
                 </div>
               </div>
+            </td>
+            <td class="border border-black px-2 py-1">
+              <input
+                :value="row.keterangan"
+                type="text"
+                class="w-full rounded border-0 bg-slate-50 px-0 py-1 text-sm text-slate-700 focus:outline-none focus:ring-0"
+                :disabled="approvedDays.includes(row.day)"
+                placeholder="Keterangan"
+                @input="$emit('update-row', row.day, 'keterangan', $event.target.value)"
+              />
             </td>
           </tr>
         </tbody>

@@ -30,6 +30,7 @@ export function createWasteTransportRows(periodValue, userName = "") {
             collector_name: isToday ? WASTE_TRANSPORT_COLLECTOR_NAME : "",
             collector_photo_name: "",
             collector_photo_preview: "",
+            keterangan: "",
         };
     });
 }
@@ -62,6 +63,7 @@ export function rebuildWasteTransportRows(
             collector_photo_name: matchedRow?.collector_photo_name || "",
             collector_photo_preview:
                 matchedRow?.collector_photo_preview || "",
+            keterangan: matchedRow?.keterangan || "",
         };
     });
 }

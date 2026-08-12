@@ -853,6 +853,7 @@ const canApproveEntry = computed(() => {
     return Boolean(String(d.handover_name || '').trim())
       && Boolean(String(d.collector_name || '').trim())
       && Boolean(String(d.collector_photo_name || '').trim())
+      && Boolean(String(d.keterangan || '').trim())
   }
 
   if (tid === 'warehouse_sanitation_1') {
