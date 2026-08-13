@@ -44,8 +44,8 @@ class ListrikController extends Controller
         $validated = $request->validate([
             'lokasi' => ['required', 'in:GMI,CRMI,Office'],
             'lbp' => ['required', 'numeric'],
-            'wbp' => ['required', 'numeric'],
-            'total' => ['required', 'numeric'],
+            'wbp' => ['required_if:lokasi,GMI', 'nullable', 'numeric'],
+            'total' => ['required_if:lokasi,GMI', 'nullable', 'numeric'],
             'kvarh' => ['nullable', 'numeric'],
             'foto' => ['nullable', 'image', 'max:5120'],
         ]);
@@ -55,16 +55,30 @@ class ListrikController extends Controller
             $fotoPath = $request->file('foto')->store('listrik', 'public');
         }
 
-        Listrik::create([
-            'lokasi' => $validated['lokasi'],
-            'tanggal' => now()->toDateString(),
-            'jam' => now()->format('H:i'),
+        $now = now();
+        $data = [
+            'tanggal' => $now->toDateString(),
+            'jam' => $now->format('H:i'),
             'lbp' => $validated['lbp'],
-            'wbp' => $validated['wbp'],
-            'total' => $validated['total'],
+            'wbp' => $validated['wbp'] ?? null,
+            'total' => $validated['total'] ?? null,
             'kvarh' => $validated['kvarh'] ?? null,
             'foto_path' => $fotoPath,
+        ];
+
+        if ($validated['lokasi'] === 'GMI') {
+            Listrik::create(array_merge(['lokasi' => 'GMI'], $data));
+
+            return back()->with('success', 'Data listrik berhasil disimpan.');
+        }
+
+        // CRMI / Office: satu pencatatan per tanggal
+        $record = Listrik::firstOrNew([
+            'lokasi' => $validated['lokasi'],
+            'tanggal' => $now->toDateString(),
         ]);
+        $record->fill($data);
+        $record->save();
 
         return back()->with('success', 'Data listrik berhasil disimpan.');
     }

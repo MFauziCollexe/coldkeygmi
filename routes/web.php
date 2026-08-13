@@ -83,6 +83,11 @@ Route::resource('request-access', App\Http\Controllers\RequestAccessController::
 Route::get('gmisl/utility/date-code', [DateCodeController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.date_code']);
 
+// RCS (GMISL > Utility > RCS)
+Route::get('gmisl/utility/rcs', [App\Http\Controllers\RcsController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
+    ->name('gmisl.utility.rcs.index');
+
 // Listrik (GMISL > Utility > Listrik)
 Route::get('gmisl/listrik', [App\Http\Controllers\ListrikController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.listrik'])

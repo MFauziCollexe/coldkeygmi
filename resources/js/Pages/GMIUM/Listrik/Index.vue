@@ -52,9 +52,9 @@
                           <th class="border border-black px-2 py-1 text-center">Tanggal</th>
                           <th class="border border-black px-2 py-1 text-center">Jam</th>
                           <th class="border border-black px-2 py-1 text-center">LbP</th>
-                          <th class="border border-black px-2 py-1 text-center">WbP</th>
-                          <th class="border border-black px-2 py-1 text-center">Total</th>
-                          <th class="border border-black px-2 py-1 text-center">Kvarh</th>
+                          <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">WbP</th>
+                          <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">Total</th>
+                          <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">Kvarh</th>
                           <th class="border border-black px-2 py-1 text-center">Foto</th>
                         </tr>
                 </thead>
@@ -64,9 +64,9 @@
                     <td class="border border-black px-2 py-1 text-center">{{ formatDate(r.tanggal) || '-' }}</td>
                     <td class="border border-black px-2 py-1 text-center">{{ r.jam || '-' }}</td>
                     <td class="border border-black px-2 py-1 text-right">{{ formatNumber(r.lbp) }}</td>
-                    <td class="border border-black px-2 py-1 text-right">{{ formatNumber(r.wbp) }}</td>
-                    <td class="border border-black px-2 py-1 text-right">{{ formatNumber(r.total) }}</td>
-                    <td class="border border-black px-2 py-1 text-right">{{ formatNumber(r.kvarh) }}</td>
+                    <td v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-right">{{ formatNumber(r.wbp) }}</td>
+                    <td v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-right">{{ formatNumber(r.total) }}</td>
+                    <td v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-right">{{ formatNumber(r.kvarh) }}</td>
                     <td class="border border-black px-2 py-1 text-center">
                       <a v-if="r.foto_url" :href="r.foto_url" target="_blank" rel="noopener">
                         <img :src="r.foto_url" alt="Foto meter listrik" class="inline-block h-10 w-10 rounded object-cover" />
@@ -75,7 +75,7 @@
                     </td>
                   </tr>
                   <tr v-if="records.data.length === 0">
-                    <td colspan="8" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
+                    <td :colspan="activeLokasi === 'GMI' ? 8 : 5" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
                   </tr>
                 </tbody>
               </table>
@@ -247,12 +247,18 @@ function selectLokasi(value) {
 }
 
 const showModal = ref(false);
-const formFields = [
+const allFormFields = [
   { key: 'lbp', label: 'LbP' },
   { key: 'wbp', label: 'WbP' },
   { key: 'total', label: 'Total' },
   { key: 'kvarh', label: 'Kvarh' },
 ];
+const formFields = computed(() => {
+  if (form.value.lokasi === 'CRMI' || form.value.lokasi === 'Office') {
+    return allFormFields.filter((f) => f.key === 'lbp');
+  }
+  return allFormFields;
+});
 const form = ref({ lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '' });
 const fotoCameraInput = ref(null);
 const fotoGalleryInput = ref(null);

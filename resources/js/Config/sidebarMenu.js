@@ -53,6 +53,13 @@ export const sidebarMenuConfig = [
                         route: "/gmisl/utility/stock-card",
                         module_key: "utility.stock_card",
                     },
+                    {
+                        id: "rcs",
+                        label: "RCS",
+                        icon: "Boxes",
+                        route: "/gmisl/utility/rcs",
+                        module_key: "utility.rcs",
+                    },
                 ],
             },
             {

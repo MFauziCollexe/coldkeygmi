@@ -16,6 +16,7 @@ class ImplementedModuleCatalog
             'utility.check_inline' => ['label' => 'Check Inline', 'uri' => '/check-inline'],
             'utility.berita_acara' => ['label' => 'Berita Acara', 'uri' => '/gmisl/utility/berita-acara'],
             'utility.stock_card' => ['label' => 'Stock Card', 'uri' => '/gmisl/utility/stock-card'],
+            'utility.rcs' => ['label' => 'RCS', 'uri' => '/gmisl/utility/rcs'],
             'gmisl.cross_odoo.stock_card' => ['label' => 'Cross Odoo Stock Card', 'uri' => '/gmisl/cross-odoo/stock-card'],
             'tools.compress_pdf' => ['label' => 'Compress PDF', 'uri' => '/gmisl/tools/compress-pdf'],
             'tools.merge_pdf' => ['label' => 'Merge PDF', 'uri' => '/gmisl/tools/merge-pdf'],
