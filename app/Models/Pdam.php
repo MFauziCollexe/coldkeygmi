@@ -6,30 +6,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
-class Listrik extends Model
+class Pdam extends Model
 {
     use HasFactory;
 
-    protected $table = 'listriks';
+    protected $table = 'pdams';
 
     protected $fillable = [
-        'lokasi',
         'tanggal',
-        'jam',
-        'lbp',
-        'wbp',
-        'total',
-        'kvarh',
+        'jam_1',
+        'meter_1',
+        'jam_2',
+        'meter_2',
         'foto_path',
     ];
 
     protected $appends = ['foto_url'];
 
     protected $casts = [
-        'lbp' => 'decimal:2',
-        'wbp' => 'decimal:2',
-        'total' => 'decimal:2',
-        'kvarh' => 'decimal:4',
+        'meter_1' => 'decimal:2',
+        'meter_2' => 'decimal:2',
     ];
 
     public function getFotoUrlAttribute()

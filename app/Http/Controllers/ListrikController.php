@@ -47,7 +47,13 @@ class ListrikController extends Controller
             'wbp' => ['required', 'numeric'],
             'total' => ['required', 'numeric'],
             'kvarh' => ['nullable', 'numeric'],
+            'foto' => ['nullable', 'image', 'max:5120'],
         ]);
+
+        $fotoPath = null;
+        if ($request->hasFile('foto')) {
+            $fotoPath = $request->file('foto')->store('listrik', 'public');
+        }
 
         Listrik::create([
             'lokasi' => $validated['lokasi'],
@@ -57,6 +63,7 @@ class ListrikController extends Controller
             'wbp' => $validated['wbp'],
             'total' => $validated['total'],
             'kvarh' => $validated['kvarh'] ?? null,
+            'foto_path' => $fotoPath,
         ]);
 
         return back()->with('success', 'Data listrik berhasil disimpan.');

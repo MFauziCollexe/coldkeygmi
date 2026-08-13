@@ -98,6 +98,14 @@ Route::post('gmium/listrik', [App\Http\Controllers\ListrikController::class, 'st
     ->middleware(['auth'])
     ->name('gmium.listrik.store');
 
+// PDAM (GMIUM > Utility Management > PDAM)
+Route::get('gmisl/pdam', [App\Http\Controllers\PdamController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('gmisl.pdam.index');
+Route::post('gmisl/pdam', [App\Http\Controllers\PdamController::class, 'store'])
+    ->middleware(['auth'])
+    ->name('gmisl.pdam.store');
+
 // Berita Acara (GMISL > Utility > Berita Acara)
 Route::get('gmisl/utility/berita-acara', [App\Http\Controllers\BeritaAcaraController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.berita_acara'])
