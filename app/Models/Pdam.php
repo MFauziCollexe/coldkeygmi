@@ -24,8 +24,8 @@ class Pdam extends Model
     protected $appends = ['foto_url'];
 
     protected $casts = [
-        'meter_1' => 'decimal:2',
-        'meter_2' => 'decimal:2',
+        'meter_1' => 'decimal:4',
+        'meter_2' => 'decimal:4',
     ];
 
     public function getFotoUrlAttribute()

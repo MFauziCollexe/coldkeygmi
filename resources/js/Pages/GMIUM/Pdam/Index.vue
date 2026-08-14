@@ -91,8 +91,8 @@
             <div>
               <input
                 v-model="form.meter"
-                type="number"
-                step="any"
+                type="text"
+                inputmode="decimal"
                 required
                 class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
@@ -232,11 +232,16 @@ function clearFoto() {
   if (fotoGalleryInput.value) fotoGalleryInput.value.value = '';
 }
 
+function normalizeNumber(value) {
+  if (value === null || value === undefined || value === '') return '';
+  return String(value).replace(/,/g, '.');
+}
+
 function saveRecord() {
   router.post(
     '/gmisl/pdam',
     {
-      meter: form.value.meter,
+      meter: normalizeNumber(form.value.meter),
       foto: fotoFile.value || undefined,
     },
     {
@@ -269,6 +274,6 @@ function formatDate(d) {
 
 function formatNumber(v) {
   if (v === null || v === undefined || v === '') return '-';
-  return Number(v).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  return Number(v).toLocaleString('id-ID', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 }
 </script>

@@ -26,9 +26,9 @@ class Listrik extends Model
     protected $appends = ['foto_url'];
 
     protected $casts = [
-        'lbp' => 'decimal:2',
-        'wbp' => 'decimal:2',
-        'total' => 'decimal:2',
+        'lbp' => 'decimal:4',
+        'wbp' => 'decimal:4',
+        'total' => 'decimal:4',
         'kvarh' => 'decimal:4',
     ];
 
