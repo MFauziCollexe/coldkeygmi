@@ -153,7 +153,7 @@
               type="button"
               class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               :disabled="!abilities.view_history"
-              @click="exportExcel"
+              @click="openExportModal"
             >
               Export Excel
             </button>
@@ -574,6 +574,54 @@
         </form>
       </div>
     </div>
+
+    <div
+      v-if="showExportModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+    >
+      <div class="w-full max-w-md rounded border border-slate-700 bg-slate-900 p-4 shadow-xl md:p-6">
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div class="text-lg font-semibold text-slate-100">Export Excel</div>
+            <div class="text-sm text-slate-400">Pilih jenis data yang ingin diexport.</div>
+          </div>
+          <button type="button" class="text-slate-400 hover:text-slate-200" @click="closeExportModal">Tutup</button>
+        </div>
+
+        <div class="space-y-3">
+          <button
+            type="button"
+            class="flex w-full items-center justify-between rounded border border-slate-700 bg-slate-800 px-4 py-3 text-left transition hover:border-emerald-600 hover:bg-emerald-950/40"
+            @click="exportExcel('saldo')"
+          >
+            <div>
+              <div class="font-semibold text-slate-100">Saldo Akhir</div>
+              <div class="text-xs text-slate-400">Export saldo akhir per barang (seperti view list).</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            class="flex w-full items-center justify-between rounded border border-slate-700 bg-slate-800 px-4 py-3 text-left transition hover:border-emerald-600 hover:bg-emerald-950/40"
+            @click="exportExcel('all')"
+          >
+            <div>
+              <div class="font-semibold text-slate-100">All Transaction</div>
+              <div class="text-xs text-slate-400">Export semua transaksi masuk/keluar beserta saldo.</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="showExportLoading"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4"
+    >
+      <div class="flex flex-col items-center gap-4 rounded border border-slate-700 bg-slate-900 p-8 shadow-xl">
+        <div class="h-10 w-10 animate-spin rounded-full border-4 border-slate-600 border-t-emerald-500"></div>
+        <div class="text-sm text-slate-200">Menyiapkan export excel...</div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -639,6 +687,8 @@ const currentUserName = computed(() => page.props.auth?.user?.name || '');
 const showStockInModal = ref(false);
 const showRequestModal = ref(false);
 const showEditModal = ref(false);
+const showExportModal = ref(false);
+const showExportLoading = ref(false);
 
 const editForm = useForm({
   source_type: '',
@@ -686,11 +736,52 @@ function currentQuery() {
   return query;
 }
 
-const exportUrl = computed(() => {
+function openExportModal() {
+  showExportModal.value = true;
+}
+
+function closeExportModal() {
+  showExportModal.value = false;
+}
+
+function exportExcel(mode) {
   const params = new URLSearchParams(currentQuery());
-  const query = params.toString();
-  return query ? `/gmisl/utility/stock-card/export?${query}` : '/gmisl/utility/stock-card/export';
-});
+  params.set('mode', mode);
+  const url = `/gmisl/utility/stock-card/export?${params.toString()}`;
+
+  closeExportModal();
+  showExportLoading.value = true;
+
+  fetch(url)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Export gagal (HTTP ${response.status})`);
+      }
+      return response.blob().then((blob) => ({ blob, response }));
+    })
+    .then(({ blob, response }) => {
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = exportFileName(response);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    })
+    .catch(() => {
+      alert('Terjadi kesalahan saat export excel.');
+    })
+    .finally(() => {
+      showExportLoading.value = false;
+    });
+}
+
+function exportFileName(response) {
+  const disposition = response.headers.get('Content-Disposition');
+  const match = disposition ? disposition.match(/filename="?([^";]+)"?/) : null;
+  return match ? match[1] : 'stock_card.xlsx';
+}
 
 function fetchList() {
   router.get('/gmisl/utility/stock-card', currentQuery(), {
@@ -702,10 +793,6 @@ function fetchList() {
 function onSearchInput() {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => fetchList(), 300);
-}
-
-function exportExcel() {
-  window.location.href = exportUrl.value;
 }
 
 function preferredItemId() {

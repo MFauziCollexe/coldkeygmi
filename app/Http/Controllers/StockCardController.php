@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
@@ -126,6 +127,7 @@ class StockCardController extends Controller
 
         $search = trim((string) $request->string('q'));
         $itemIdInput = trim((string) $request->input('item_id', 'all'));
+        $mode = $request->input('mode', 'all') === 'saldo' ? 'saldo' : 'all';
 
         $items = $this->baseItemsQuery($search)
             ->orderBy('name')
@@ -135,11 +137,24 @@ class StockCardController extends Controller
         $selectedItem = $selectedItemId ? $items->firstWhere('id', $selectedItemId) : null;
         $rows = $selectedItem ? $this->buildCardRows($selectedItem) : $this->buildAllCardRows($items);
 
+        if ($mode === 'saldo') {
+            $rows = collect($rows)
+                ->filter(fn (array $row) => !empty($row['is_latest_balance']))
+                ->values()
+                ->all();
+        }
+
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Stock Card');
 
-        $sheet->mergeCells('A1:F1');
+        $headers = $mode === 'saldo'
+            ? ['Tanggal', 'Nama Barang', 'Sisa Stock', 'Keterangan']
+            : ['Tanggal', 'Nama Barang', 'Masuk', 'Dipakai', 'Sisa Stock', 'Keterangan'];
+        $columnCount = count($headers);
+        $lastColumnLetter = Coordinate::stringFromColumnIndex($columnCount);
+
+        $sheet->mergeCells('A1:' . $lastColumnLetter . '1');
         $sheet->setCellValue('A1', 'KARTU STOCK BARANG - NON PRODUK');
         $sheet->setCellValue('A2', 'Nama Barang');
         $sheet->setCellValue('B2', $selectedItem ? $selectedItem->name : 'Semua Barang');
@@ -148,22 +163,24 @@ class StockCardController extends Controller
         $sheet->setCellValue('D3', 'Satuan');
         $sheet->setCellValue('E3', $selectedItem ? $selectedItem->unit : '-');
 
-        $headers = ['Tanggal', 'Nama Barang', 'Masuk', 'Dipakai', 'Sisa Stock', 'Keterangan'];
         $sheet->fromArray($headers, null, 'A5');
 
         $rowIndex = 6;
         foreach ($rows as $row) {
-            $sheet->fromArray([
-                $row['date'] ?? '',
-                $row['item_name'] ?? '',
-                $row['incoming'] ?? '',
-                $row['outgoing'] ?? '',
-                $row['balance'] ?? '',
-                $row['note'] ?? '',
-            ], null, 'A' . $rowIndex);
+            $values = $mode === 'saldo'
+                ? [$row['date'] ?? '', $row['item_name'] ?? '', $row['balance'] ?? '', $row['note'] ?? '']
+                : [
+                    $row['date'] ?? '',
+                    $row['item_name'] ?? '',
+                    $row['incoming'] ?? '',
+                    $row['outgoing'] ?? '',
+                    $row['balance'] ?? '',
+                    $row['note'] ?? '',
+                ];
+            $sheet->fromArray($values, null, 'A' . $rowIndex);
 
             if (!empty($row['is_latest_balance'])) {
-                $sheet->getStyle('A' . $rowIndex . ':F' . $rowIndex)
+                $sheet->getStyle('A' . $rowIndex . ':' . $lastColumnLetter . $rowIndex)
                     ->getFill()
                     ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()
@@ -175,23 +192,26 @@ class StockCardController extends Controller
 
         $lastRow = max(5, $rowIndex - 1);
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-        $sheet->getStyle('A1:F1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A5:F5')->getFont()->setBold(true);
-        $sheet->getStyle('A5:F5')
+        $sheet->getStyle('A1:' . $lastColumnLetter . '1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A5:' . $lastColumnLetter . '5')->getFont()->setBold(true);
+        $sheet->getStyle('A5:' . $lastColumnLetter . '5')
             ->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()
             ->setARGB('FFE2E8F0');
-        $sheet->getStyle('A5:F' . $lastRow)
+        $sheet->getStyle('A5:' . $lastColumnLetter . $lastRow)
             ->getBorders()
             ->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN);
         if ($lastRow >= 6) {
-            $sheet->getStyle('C6:E' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $centerRange = $mode === 'saldo'
+                ? 'C6:C' . $lastRow
+                : 'C6:E' . $lastRow;
+            $sheet->getStyle($centerRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
-        $sheet->getStyle('A1:F' . $lastRow)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle('A1:' . $lastColumnLetter . $lastRow)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
 
-        foreach (range('A', 'F') as $column) {
+        foreach (range('A', $lastColumnLetter) as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
