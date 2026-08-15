@@ -17,7 +17,7 @@ return [
                 ['key' => 'utility.check_inline', 'label' => 'Check Inline'],
                 ['key' => 'utility.berita_acara', 'label' => 'Berita Acara'],
                 ['key' => 'utility.stock_card', 'label' => 'Stock Card'],
-                ['key' => 'utility.rcs', 'label' => 'RCS'],
+                ['key' => 'utility.rcs', 'label' => 'Tally'],
             ]],
             ['key' => 'gmisl.cross_odoo', 'label' => 'Cross Odoo', 'children' => [
                 ['key' => 'gmisl.cross_odoo.stock_card', 'label' => 'Stock Card'],

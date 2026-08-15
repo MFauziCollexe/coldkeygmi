@@ -87,6 +87,12 @@ Route::get('gmisl/utility/date-code', [DateCodeController::class, 'index'])
 Route::get('gmisl/utility/rcs', [App\Http\Controllers\RcsController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
     ->name('gmisl.utility.rcs.index');
+Route::post('gmisl/utility/rcs', [App\Http\Controllers\RcsController::class, 'store'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
+    ->name('gmisl.utility.rcs.store');
+Route::post('gmisl/utility/rcs/tally', [App\Http\Controllers\RcsController::class, 'storeTally'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
+    ->name('gmisl.utility.rcs.tally.store');
 
 // Listrik (GMISL > Utility > Listrik)
 Route::get('gmisl/listrik', [App\Http\Controllers\ListrikController::class, 'index'])

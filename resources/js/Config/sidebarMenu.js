@@ -55,7 +55,7 @@ export const sidebarMenuConfig = [
                     },
                     {
                         id: "rcs",
-                        label: "RCS",
+                        label: "Tally",
                         icon: "Boxes",
                         route: "/gmisl/utility/rcs",
                         module_key: "utility.rcs",
