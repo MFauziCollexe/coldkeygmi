@@ -467,6 +467,14 @@ Route::resource('master-data/customer', CustomerController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.customer'])
     ->names('customers');
 
+// Master Data - Products (route: /master-data/products)
+Route::get('master-data/products', [App\Http\Controllers\ProductsController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.products'])
+    ->name('products.index');
+Route::post('master-data/products/import', [App\Http\Controllers\ProductsController::class, 'import'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.products'])
+    ->name('products.import');
+
 // Master Data - Supplier (route: /master-data/supplier)
 Route::resource('master-data/supplier', App\Http\Controllers\SupplierController::class)
     ->except(['show'])

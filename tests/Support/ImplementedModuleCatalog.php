@@ -30,6 +30,7 @@ class ImplementedModuleCatalog
             'gmisl.master_data.stock_card_item_type' => ['label' => 'Jenis/Tipe Barang', 'uri' => '/master-data/stock-card-item-type'],
             'gmisl.master_data.stock_card_unit' => ['label' => 'Satuan Stock Card', 'uri' => '/master-data/stock-card-unit'],
             'gmisl.master_data.attendance_lock_area' => ['label' => 'Area Absensi', 'uri' => '/master-data/attendance-lock-area'],
+            'gmisl.master_data.products' => ['label' => 'Products', 'uri' => '/master-data/products'],
             'gmiic.checklist' => ['label' => 'Checklist', 'uri' => '/gmiic/checklist'],
             'gmihr.attendance.log' => ['label' => 'Attendance Log', 'uri' => '/attendance-log'],
             'gmihr.attendance.absensi' => ['label' => 'Absensi', 'uri' => '/absensi'],

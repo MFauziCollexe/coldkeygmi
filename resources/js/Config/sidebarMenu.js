@@ -435,6 +435,13 @@ export const sidebarMenuConfig = [
                 route: "/master-data/master-item",
                 module_key: "gmisl.master_data.procurement_master_item",
             },
+            {
+                id: "products",
+                label: "Products",
+                icon: "Package",
+                route: "/master-data/products",
+                module_key: "gmisl.master_data.products",
+            },
         ],
     },
     {

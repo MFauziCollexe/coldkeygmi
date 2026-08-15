@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Portal\Odoo;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
+use App\Models\TProduct;
 use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -20,42 +22,28 @@ class StockCardController extends Controller
         $user = Auth::user();
         $userOwnerId = $user && !empty($user->from_owner_id) ? (string) $user->from_owner_id : null;
 
-        $baseQuery = function () use ($userOwnerId) {
-            $query = DB::table('t_move_history');
-
-            if ($userOwnerId !== null) {
-                $query->where('from_owner_id', $userOwnerId);
-            }
-
-            return $query;
-        };
-
-        $owners = $baseQuery()
-            ->select('from_owner_id')
-            ->selectRaw('MAX(from_owner) AS from_owner')
-            ->whereNotNull('from_owner_id')
-            ->where('from_owner_id', '!=', '')
-            ->groupBy('from_owner_id')
-            ->orderBy('from_owner_id')
-            ->get()
-            ->map(fn ($owner) => [
-                'owner_id' => $owner->from_owner_id,
-                'owner_name' => $owner->from_owner ?: $owner->from_owner_id,
+        $owners = Customer::query()
+            ->whereNotNull('customers_id_odoo')
+            ->where('customers_id_odoo', '!=', '')
+            ->orderBy('name')
+            ->get(['customers_id_odoo', 'name'])
+            ->map(fn ($customer) => [
+                'owner_id' => (string) $customer->customers_id_odoo,
+                'owner_name' => $customer->name,
             ])
             ->values()
             ->all();
 
-        $products = $baseQuery()
-            ->select('product_internal_reference', 'product_name')
-            ->whereNotNull('product_internal_reference')
-            ->whereNotNull('product_name')
-            ->distinct()
-            ->orderBy('product_internal_reference')
-            ->get()
+        $products = TProduct::query()
+            ->whereNotNull('internal_reference')
+            ->where('internal_reference', '!=', '')
+            ->orderBy('internal_reference')
+            ->get(['internal_reference', 'name', 'customer_id'])
             ->map(fn ($product) => [
-                'product_id' => $product->product_internal_reference,
-                'default_code' => $product->product_internal_reference,
-                'product_name' => $product->product_name,
+                'owner_id' => $product->customer_id !== null && $product->customer_id !== '' ? (string) $product->customer_id : null,
+                'product_id' => $product->internal_reference,
+                'default_code' => $product->internal_reference,
+                'product_name' => $product->name,
             ])
             ->values()
             ->all();
@@ -425,7 +413,8 @@ SQL;
         for ($rowIndex = 2; $rowIndex <= $highestRow; ++$rowIndex) {
             $row = [];
             for ($colIndex = 1; $colIndex <= $highestColumnIndex; ++$colIndex) {
-                $row[] = $sheet->getCellByColumnAndRow($colIndex, $rowIndex)->getValue();
+                $columnLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+                $row[] = $sheet->getCell($columnLetter . $rowIndex)->getValue();
             }
 
             if ($this->isBlankRow($row)) {

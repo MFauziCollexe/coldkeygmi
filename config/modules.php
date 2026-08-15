@@ -59,6 +59,7 @@ return [
             ['key' => 'gmisl.master_data.stock_card_unit', 'label' => 'Master UoM'],
             ['key' => 'gmisl.master_data.attendance_lock_area', 'label' => 'Area Absensi'],
             ['key' => 'gmisl.master_data.procurement_master_item', 'label' => 'Master Item'],
+            ['key' => 'gmisl.master_data.products', 'label' => 'Products'],
         ],
     ],
     [

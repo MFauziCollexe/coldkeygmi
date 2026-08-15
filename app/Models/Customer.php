@@ -28,6 +28,7 @@ class Customer extends Model
         'is_pkp',
         'invoice_transaction_code',
         'tags',
+        'customers_id_odoo',
         'is_active',
     ];
 
