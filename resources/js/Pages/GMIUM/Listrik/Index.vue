@@ -216,6 +216,7 @@ import { ref, computed } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
+import { compressImageToMax } from '@/Utils/imageCompression';
 
 const props = defineProps({ records: Object, filters: Object });
 const records = computed(() => props.records || { data: [] });
@@ -283,11 +284,22 @@ function triggerFotoGallery() {
   if (fotoGalleryInput.value) fotoGalleryInput.value.click();
 }
 
-function handleFotoChange(event) {
+async function handleFotoChange(event) {
   const file = event.target.files?.[0];
   if (!file) return;
-  fotoFile.value = file;
-  fotoPreview.value = URL.createObjectURL(file);
+  if (!String(file.type || '').startsWith('image/')) {
+    alert('File yang dipilih bukan gambar.');
+    event.target.value = '';
+    return;
+  }
+  try {
+    const processed = await compressImageToMax(file);
+    fotoFile.value = processed;
+    fotoPreview.value = URL.createObjectURL(processed);
+  } catch (error) {
+    alert(error?.message || 'Foto gagal diproses.');
+    clearFoto();
+  }
 }
 
 function clearFoto() {
