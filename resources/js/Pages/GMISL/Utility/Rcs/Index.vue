@@ -63,16 +63,13 @@
               <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">Driver</th>
               <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">Customer</th>
               <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">Transaksi</th>
-              <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold text-center">Pallet</th>
-              <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold text-right">Total KG</th>
-              <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold text-center">Status</th>
             </tr>
           </thead>
           <tbody>
             <template v-for="(tally, index) in tallies" :key="tally.id">
               <tr
                 class="text-slate-800 hover:bg-slate-50 cursor-pointer"
-                @click="toggleRow(tally.id)"
+                @click="toggleRow('po-' + tally.id)"
               >
                 <td class="border-b border-slate-100 px-4 py-2 text-center" @click.stop>
                   <input
@@ -83,71 +80,84 @@
                   />
                 </td>
                 <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ index + 1 }}</td>
-                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 font-medium">{{ tally.po || '-' }}</td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 font-medium">
+                  <span class="mr-1 text-xs text-slate-400">{{ isRowExpanded('po-' + tally.id) ? '▾' : '▸' }}</span>
+                  {{ tally.po || '-' }}
+                </td>
                 <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.nopol || '-' }}</td>
                 <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.driver || '-' }}</td>
                 <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.customer?.name || '-' }}</td>
                 <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.transaksi || '-' }}</td>
-                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 text-center">
-                  <span class="inline-flex min-w-[2rem] justify-center rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-                    {{ getTallyTotalPallet(tally.id) }}
-                  </span>
-                </td>
-                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 text-right font-semibold">
-                  {{ Number(getTallyTotalKg(tally.id)).toFixed(2) }}
-                </td>
-                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 text-center">
-                  <span
-                    v-if="finishedPoIds.includes(tally.id)"
-                    class="inline-flex items-center gap-1 rounded-md border border-emerald-400/40 bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-700"
-                  >
-                    Selesai
-                  </span>
-                  <span
-                    v-else-if="getTallyEntries(tally.id).length > 0"
-                    class="inline-flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-700"
-                  >
-                    Draft
-                  </span>
-                  <span
-                    v-else
-                    class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500"
-                  >
-                    Kosong
-                  </span>
-                </td>
               </tr>
 
-              <tr v-if="isRowExpanded(tally.id)">
-                <td colspan="10" class="border-b border-slate-200 bg-slate-50/50 px-4 py-3">
-                  <div v-if="getTallyEntries(tally.id).length === 0" class="py-2 text-center text-sm text-slate-400">
+              <tr v-if="isRowExpanded('po-' + tally.id)">
+                <td colspan="7" class="border-b border-slate-200 bg-slate-50/50 px-4 py-3">
+                  <div v-if="getItemGroups(tally.id).length === 0" class="py-2 text-center text-sm text-slate-400">
                     Belum ada data tally untuk PO ini.
                   </div>
                   <div v-else class="overflow-auto rounded-md border border-slate-200 bg-white">
                     <table class="w-full border-collapse text-xs">
                       <thead>
                         <tr class="bg-slate-100 text-left text-slate-500">
-                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">#</th>
-                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Pallet</th>
-                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Item</th>
-                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-right">KG</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Nama Item</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Pallet</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-right">Total KG</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(entry, ei) in getTallyEntries(tally.id)" :key="ei" class="text-slate-700 hover:bg-slate-50">
-                          <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5">{{ ei + 1 }}</td>
-                          <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5">{{ entry.pallet }}</td>
-                          <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5">{{ entry.item }}</td>
-                          <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-right font-medium">{{ Number(entry.kg).toFixed(2) }}</td>
-                        </tr>
+                        <template v-for="(group, gi) in getItemGroups(tally.id)" :key="gi">
+                          <tr
+                            class="text-slate-700 hover:bg-slate-50 cursor-pointer"
+                            @click="toggleRow('item-' + tally.id + '-' + gi)"
+                          >
+                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 font-medium">
+                              <span class="mr-1 text-xs text-slate-400">{{ isRowExpanded('item-' + tally.id + '-' + gi) ? '▾' : '▸' }}</span>
+                              {{ group.item }}
+                            </td>
+                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-center">
+                              <span class="inline-flex min-w-[1.5rem] justify-center rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                                {{ group.palletCount }}
+                              </span>
+                            </td>
+                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-right font-semibold">
+                              {{ Number(group.totalKg).toFixed(2) }}
+                            </td>
+                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-center">
+                              <span
+                                v-if="group.isFinish"
+                                class="inline-flex items-center rounded border border-emerald-400/40 bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+                              >
+                                Selesai
+                              </span>
+                              <span
+                                v-else
+                                class="inline-flex items-center rounded border border-amber-400/40 bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
+                              >
+                                Draft
+                              </span>
+                            </td>
+                          </tr>
+                          <tr v-if="isRowExpanded('item-' + tally.id + '-' + gi)">
+                            <td colspan="4" class="border-b border-slate-100 bg-slate-50/30 px-3 py-2">
+                              <table class="w-full border-collapse text-xs">
+                                <thead>
+                                  <tr class="text-left text-slate-400">
+                                    <th class="whitespace-nowrap px-2 py-1 font-semibold">Pallet</th>
+                                    <th class="whitespace-nowrap px-2 py-1 font-semibold text-right">KG</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr v-for="(entry, ei) in group.entries" :key="ei" class="text-slate-600">
+                                    <td class="whitespace-nowrap px-2 py-1">{{ entry.pallet }}</td>
+                                    <td class="whitespace-nowrap px-2 py-1 text-right">{{ Number(entry.kg).toFixed(2) }}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </td>
+                          </tr>
+                        </template>
                       </tbody>
-                      <tfoot>
-                        <tr class="bg-slate-100 font-semibold text-slate-700">
-                          <td colspan="2" class="border-t border-slate-200 px-3 py-1.5 text-right">Total</td>
-                          <td class="border-t border-slate-200 px-3 py-1.5">{{ getTallyTotalPallet(tally.id) }} Pallet</td>
-                          <td class="whitespace-nowrap border-t border-slate-200 px-3 py-1.5 text-right">{{ Number(getTallyTotalKg(tally.id)).toFixed(2) }}</td>
-                        </tr>
-                      </tfoot>
                     </table>
                   </div>
                 </td>
@@ -554,14 +564,27 @@ function getTallyEntries(poId) {
   return props.tallyData[poId] || [];
 }
 
-function getTallyTotalPallet(poId) {
+function getItemGroups(poId) {
   const entries = props.tallyData[poId] || [];
-  return [...new Set(entries.map((e) => e.pallet))].length;
-}
-
-function getTallyTotalKg(poId) {
-  const entries = props.tallyData[poId] || [];
-  return entries.reduce((sum, e) => sum + Number(e.kg), 0);
+  if (entries.length === 0) return [];
+  const map = new Map();
+  for (const entry of entries) {
+    if (!map.has(entry.item)) {
+      map.set(entry.item, { item: entry.item, entries: [], palletSet: new Set(), totalKg: 0, isFinish: false });
+    }
+    const g = map.get(entry.item);
+    g.entries.push(entry);
+    g.palletSet.add(entry.pallet);
+    g.totalKg += Number(entry.kg);
+    if (entry.is_finish) g.isFinish = true;
+  }
+  return Array.from(map.values()).map((g) => ({
+    item: g.item,
+    entries: g.entries,
+    palletCount: g.palletSet.size,
+    totalKg: g.totalKg,
+    isFinish: g.isFinish,
+  }));
 }
 
 const currentEntries = computed(() => palletEntries.value[currentPallet.value] || []);
