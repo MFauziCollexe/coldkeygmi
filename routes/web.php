@@ -93,6 +93,12 @@ Route::post('gmisl/utility/rcs', [App\Http\Controllers\RcsController::class, 'st
 Route::post('gmisl/utility/rcs/tally', [App\Http\Controllers\RcsController::class, 'storeTally'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
     ->name('gmisl.utility.rcs.tally.store');
+Route::delete('gmisl/utility/rcs/tally/{id}', [App\Http\Controllers\RcsController::class, 'destroyTally'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
+    ->name('gmisl.utility.rcs.tally.destroy');
+Route::delete('gmisl/utility/rcs/{id}', [App\Http\Controllers\RcsController::class, 'destroy'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
+    ->name('gmisl.utility.rcs.destroy');
 
 // Listrik (GMISL > Utility > Listrik)
 Route::get('gmisl/listrik', [App\Http\Controllers\ListrikController::class, 'index'])

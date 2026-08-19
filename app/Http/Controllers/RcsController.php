@@ -7,6 +7,7 @@ use App\Models\TPo;
 use App\Models\TProduct;
 use App\Models\TTally;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Http\RedirectResponse;
@@ -33,10 +34,29 @@ class RcsController extends Controller
             ->orderBy('internal_reference')
             ->get(['id', 'customer_id', 'internal_reference', 'name']);
 
+        $tallyMaxPallet = TTally::select('t_po_id', DB::raw('MAX(pallet) as max_pallet'))
+            ->groupBy('t_po_id')
+            ->pluck('max_pallet', 't_po_id');
+
+        $finishedPoIds = TTally::where('is_finish', 1)
+            ->pluck('t_po_id')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $tallyData = TTally::select('t_po_id', 'item', 'pallet', 'kg', 'is_finish')
+            ->orderBy('t_po_id')
+            ->orderBy('pallet')
+            ->get()
+            ->groupBy('t_po_id');
+
         return Inertia::render('GMISL/Utility/Rcs/Index', [
             'customers' => $customers,
             'tallies' => $tallies,
             'products' => $products,
+            'tallyMaxPallet' => $tallyMaxPallet,
+            'finishedPoIds' => $finishedPoIds,
+            'tallyData' => $tallyData,
         ]);
     }
 
@@ -61,11 +81,14 @@ class RcsController extends Controller
     {
         $validated = $request->validate([
             't_po_id' => ['required', 'exists:t_po,id'],
+            'is_finish' => ['nullable', 'boolean'],
             'entries' => ['required', 'array', 'min:1'],
             'entries.*.item' => ['required', 'string'],
             'entries.*.pallet' => ['required', 'integer', 'min:1'],
             'entries.*.kg' => ['required', 'numeric', 'min:0'],
         ]);
+
+        $isFinish = !empty($validated['is_finish']) ? 1 : 0;
 
         foreach ($validated['entries'] as $entry) {
             TTally::create([
@@ -73,10 +96,35 @@ class RcsController extends Controller
                 'item' => $entry['item'],
                 'pallet' => $entry['pallet'],
                 'kg' => $entry['kg'],
+                'is_finish' => $isFinish,
             ]);
         }
 
+        if ($isFinish) {
+            TTally::where('t_po_id', $validated['t_po_id'])
+                ->where('is_finish', 0)
+                ->update(['is_finish' => 1]);
+        }
+
         session()->flash('success', 'Data tally berhasil disimpan.');
+
+        return back();
+    }
+
+    public function destroyTally($id): RedirectResponse
+    {
+        TTally::where('t_po_id', $id)->delete();
+
+        session()->flash('success', 'Data tally berhasil dihapus.');
+
+        return back();
+    }
+
+    public function destroy($id): RedirectResponse
+    {
+        TPo::where('id', $id)->delete();
+
+        session()->flash('success', 'Data PO berhasil dihapus.');
 
         return back();
     }
