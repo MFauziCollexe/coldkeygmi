@@ -63,25 +63,96 @@
               <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">Driver</th>
               <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">Customer</th>
               <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">Transaksi</th>
+              <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold text-center">Pallet</th>
+              <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold text-right">Total KG</th>
+              <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold text-center">Status</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(tally, index) in tallies" :key="tally.id" class="text-slate-800 hover:bg-slate-50">
-              <td class="border-b border-slate-100 px-4 py-2 text-center">
-                <input
-                  type="checkbox"
-                  :checked="selectedId === tally.id"
-                  @change="toggleSelect(tally.id)"
-                  class="h-4 w-4 cursor-pointer rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                />
-              </td>
-              <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ index + 1 }}</td>
-              <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.po || '-' }}</td>
-              <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.nopol || '-' }}</td>
-              <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.driver || '-' }}</td>
-              <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.customer?.name || '-' }}</td>
-              <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.transaksi || '-' }}</td>
-            </tr>
+            <template v-for="(tally, index) in tallies" :key="tally.id">
+              <tr
+                class="text-slate-800 hover:bg-slate-50 cursor-pointer"
+                @click="toggleRow(tally.id)"
+              >
+                <td class="border-b border-slate-100 px-4 py-2 text-center" @click.stop>
+                  <input
+                    type="checkbox"
+                    :checked="selectedId === tally.id"
+                    @change="toggleSelect(tally.id)"
+                    class="h-4 w-4 cursor-pointer rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ index + 1 }}</td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 font-medium">{{ tally.po || '-' }}</td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.nopol || '-' }}</td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.driver || '-' }}</td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.customer?.name || '-' }}</td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ tally.transaksi || '-' }}</td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 text-center">
+                  <span class="inline-flex min-w-[2rem] justify-center rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                    {{ getTallyTotalPallet(tally.id) }}
+                  </span>
+                </td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 text-right font-semibold">
+                  {{ Number(getTallyTotalKg(tally.id)).toFixed(2) }}
+                </td>
+                <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 text-center">
+                  <span
+                    v-if="finishedPoIds.includes(tally.id)"
+                    class="inline-flex items-center gap-1 rounded-md border border-emerald-400/40 bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-700"
+                  >
+                    Selesai
+                  </span>
+                  <span
+                    v-else-if="getTallyEntries(tally.id).length > 0"
+                    class="inline-flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-700"
+                  >
+                    Draft
+                  </span>
+                  <span
+                    v-else
+                    class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500"
+                  >
+                    Kosong
+                  </span>
+                </td>
+              </tr>
+
+              <tr v-if="isRowExpanded(tally.id)">
+                <td colspan="10" class="border-b border-slate-200 bg-slate-50/50 px-4 py-3">
+                  <div v-if="getTallyEntries(tally.id).length === 0" class="py-2 text-center text-sm text-slate-400">
+                    Belum ada data tally untuk PO ini.
+                  </div>
+                  <div v-else class="overflow-auto rounded-md border border-slate-200 bg-white">
+                    <table class="w-full border-collapse text-xs">
+                      <thead>
+                        <tr class="bg-slate-100 text-left text-slate-500">
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">#</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Pallet</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Item</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-right">KG</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(entry, ei) in getTallyEntries(tally.id)" :key="ei" class="text-slate-700 hover:bg-slate-50">
+                          <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5">{{ ei + 1 }}</td>
+                          <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5">{{ entry.pallet }}</td>
+                          <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5">{{ entry.item }}</td>
+                          <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-right font-medium">{{ Number(entry.kg).toFixed(2) }}</td>
+                        </tr>
+                      </tbody>
+                      <tfoot>
+                        <tr class="bg-slate-100 font-semibold text-slate-700">
+                          <td colspan="2" class="border-t border-slate-200 px-3 py-1.5 text-right">Total</td>
+                          <td class="border-t border-slate-200 px-3 py-1.5">{{ getTallyTotalPallet(tally.id) }} Pallet</td>
+                          <td class="whitespace-nowrap border-t border-slate-200 px-3 py-1.5 text-right">{{ Number(getTallyTotalKg(tally.id)).toFixed(2) }}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -398,7 +469,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -469,6 +540,29 @@ const palletEntries = ref({});
 const currentPallet = ref(1);
 const tallyStates = ref({});
 const hasUnsaved = ref(false);
+const expandedRows = reactive({});
+
+function toggleRow(key) {
+  expandedRows[key] = !expandedRows[key];
+}
+
+function isRowExpanded(key) {
+  return expandedRows[key] === true;
+}
+
+function getTallyEntries(poId) {
+  return props.tallyData[poId] || [];
+}
+
+function getTallyTotalPallet(poId) {
+  const entries = props.tallyData[poId] || [];
+  return [...new Set(entries.map((e) => e.pallet))].length;
+}
+
+function getTallyTotalKg(poId) {
+  const entries = props.tallyData[poId] || [];
+  return entries.reduce((sum, e) => sum + Number(e.kg), 0);
+}
 
 const currentEntries = computed(() => palletEntries.value[currentPallet.value] || []);
 
