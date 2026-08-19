@@ -82,22 +82,24 @@ class RcsController extends Controller
         $validated = $request->validate([
             't_po_id' => ['required', 'exists:t_po,id'],
             'is_finish' => ['nullable', 'boolean'],
-            'entries' => ['required', 'array', 'min:1'],
-            'entries.*.item' => ['required', 'string'],
-            'entries.*.pallet' => ['required', 'integer', 'min:1'],
-            'entries.*.kg' => ['required', 'numeric', 'min:0'],
+            'entries' => ['nullable', 'array'],
+            'entries.*.item' => ['required_with:entries', 'string'],
+            'entries.*.pallet' => ['required_with:entries', 'integer', 'min:1'],
+            'entries.*.kg' => ['required_with:entries', 'numeric', 'min:0'],
         ]);
 
         $isFinish = !empty($validated['is_finish']) ? 1 : 0;
 
-        foreach ($validated['entries'] as $entry) {
-            TTally::create([
-                't_po_id' => $validated['t_po_id'],
-                'item' => $entry['item'],
-                'pallet' => $entry['pallet'],
-                'kg' => $entry['kg'],
-                'is_finish' => $isFinish,
-            ]);
+        if (!empty($validated['entries'])) {
+            foreach ($validated['entries'] as $entry) {
+                TTally::create([
+                    't_po_id' => $validated['t_po_id'],
+                    'item' => $entry['item'],
+                    'pallet' => $entry['pallet'],
+                    'kg' => $entry['kg'],
+                    'is_finish' => $isFinish,
+                ]);
+            }
         }
 
         if ($isFinish) {

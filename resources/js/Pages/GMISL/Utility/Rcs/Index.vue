@@ -26,7 +26,7 @@
           <button
             type="button"
             @click="openTallyModal"
-            :disabled="!selectedId || isPoFinished"
+            :disabled="!selectedId"
             class="inline-flex items-center justify-center rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Add Tally
@@ -100,8 +100,8 @@
                       <thead>
                         <tr class="bg-slate-100 text-left text-slate-500">
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Nama Item</th>
-                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Pallet</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-right">Total KG</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Total Pallet</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Status</th>
                         </tr>
                       </thead>
@@ -115,13 +115,13 @@
                               <span class="mr-1 text-xs text-slate-400">{{ isRowExpanded('item-' + tally.id + '-' + gi) ? '▾' : '▸' }}</span>
                               {{ group.item }}
                             </td>
+                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-right font-semibold">
+                              {{ Number(group.totalKg).toFixed(2) }}
+                            </td>
                             <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-center">
                               <span class="inline-flex min-w-[1.5rem] justify-center rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
                                 {{ group.palletCount }}
                               </span>
-                            </td>
-                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-right font-semibold">
-                              {{ Number(group.totalKg).toFixed(2) }}
                             </td>
                             <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-center">
                               <span
@@ -148,10 +148,18 @@
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  <tr v-for="(entry, ei) in group.entries" :key="ei" class="text-slate-600">
-                                    <td class="whitespace-nowrap px-2 py-1">{{ entry.pallet }}</td>
-                                    <td class="whitespace-nowrap px-2 py-1 text-right">{{ Number(entry.kg).toFixed(2) }}</td>
-                                  </tr>
+                                  <template v-for="(pg, pi) in groupByPallet(group.entries)" :key="'pg-' + pi">
+                                    <tr
+                                      v-for="(entry, ei) in pg.entries"
+                                      :class="getDetailRowBg(pi, ei, group.entries)"
+                                    >
+                                      <td class="whitespace-nowrap px-2 py-1">{{ entry.pallet }}</td>
+                                      <td class="whitespace-nowrap px-2 py-1 text-right">{{ Number(entry.kg).toFixed(2) }}</td>
+                                    </tr>
+                                    <tr class="bg-green-50 font-semibold text-green-800">
+                                      <td colspan="2" class="whitespace-nowrap px-2 py-1 text-right">Total Pallet {{ pg.pallet }} — {{ Number(pg.totalKg).toFixed(2) }} KG</td>
+                                    </tr>
+                                  </template>
                                 </tbody>
                               </table>
                             </td>
@@ -587,6 +595,30 @@ function getItemGroups(poId) {
   }));
 }
 
+function groupByPallet(entries) {
+  const map = new Map();
+  for (const entry of entries) {
+    const p = entry.pallet;
+    if (!map.has(p)) {
+      map.set(p, { pallet: p, entries: [], totalKg: 0 });
+    }
+    const pg = map.get(p);
+    pg.entries.push(entry);
+    pg.totalKg += Number(entry.kg);
+  }
+  return Array.from(map.values());
+}
+
+function getDetailRowBg(pi, ei, allEntries) {
+  let flatIndex = 0;
+  const groups = groupByPallet(allEntries);
+  for (let g = 0; g < pi; g++) {
+    flatIndex += groups[g].entries.length;
+  }
+  flatIndex += ei;
+  return flatIndex % 2 === 0 ? 'bg-blue-50 text-slate-600' : 'bg-white text-slate-600';
+}
+
 const currentEntries = computed(() => palletEntries.value[currentPallet.value] || []);
 
 const totalKg = computed(() => {
@@ -607,10 +639,7 @@ const summaryTotalKg = computed(() => {
 });
 
 const isPoFinished = computed(() => {
-  if (!selectedPo.value) {
-    return false;
-  }
-  return finishedPoIds.value.includes(selectedPo.value.id);
+  return false;
 });
 
 const isNextDisabled = computed(() => {
@@ -635,31 +664,17 @@ function openTallyModal() {
   }
   const poId = selectedPo.value.id;
   const saved = tallyStates.value[poId];
-  if (saved) {
+  const isFinished = props.finishedPoIds.includes(poId);
+  if (saved && !isFinished) {
     tallyForm.value = { item: saved.item || '', kg: '' };
     currentPallet.value = saved.currentPallet || 1;
     palletEntries.value = { ...saved.palletEntries };
     itemLocked.value = saved.itemLocked || false;
   } else {
-    const maxPallet = props.tallyMaxPallet[poId] || 0;
-    const existingData = props.tallyData[poId] || [];
-    const restoredEntries = {};
-    existingData.forEach((row) => {
-      const p = row.pallet;
-      if (!restoredEntries[p]) {
-        restoredEntries[p] = [];
-      }
-      restoredEntries[p].push({
-        item: row.item,
-        pallet: row.pallet,
-        kg: row.kg,
-        _new: false,
-      });
-    });
-    tallyForm.value = { item: existingData.length > 0 ? existingData[0].item : '', kg: '' };
-    currentPallet.value = maxPallet + 1;
-    palletEntries.value = { ...restoredEntries };
-    itemLocked.value = maxPallet > 0;
+    tallyForm.value = { item: '', kg: '' };
+    currentPallet.value = 1;
+    palletEntries.value = {};
+    itemLocked.value = false;
   }
   hasUnsaved.value = false;
   showTallyModal.value = true;
@@ -780,10 +795,7 @@ async function finishTally() {
     return;
   }
   const unsaved = getUnsavedEntries();
-  const allEntries = [];
-  for (const entries of Object.values(palletEntries.value)) {
-    allEntries.push(...entries);
-  }
+  const poId = selectedPo.value?.id;
 
   summaryData.value = {
     po: selectedPo.value?.po || '-',
@@ -795,13 +807,13 @@ async function finishTally() {
     totalKg: summaryTotalKg.value,
   };
 
-  if (unsaved.length > 0 && selectedPo.value) {
+  if (selectedPo.value) {
     saving.value = true;
     await new Promise((resolve) => {
       router.post(
         '/gmisl/utility/rcs/tally',
         {
-          t_po_id: selectedPo.value.id,
+          t_po_id: poId,
           is_finish: true,
           entries: unsaved.map((entry) => ({
             item: entry.item,
@@ -813,22 +825,27 @@ async function finishTally() {
           preserveScroll: true,
           onFinish: () => {
             saving.value = false;
-            if (selectedPo.value && !finishedPoIds.value.includes(selectedPo.value.id)) {
-              finishedPoIds.value.push(selectedPo.value.id);
-            }
             resolve();
           },
         }
       );
     });
   }
+
   palletEntries.value = {};
   currentPallet.value = 1;
-  if (selectedPo.value) {
-    delete tallyStates.value[selectedPo.value.id];
+  if (poId) {
+    delete tallyStates.value[poId];
   }
   showTallyModal.value = false;
   showSummary.value = true;
+
+  await new Promise((resolve) => {
+    router.reload({
+      only: ['tallyMaxPallet', 'tallyData', 'finishedPoIds'],
+      onFinish: () => resolve(),
+    });
+  });
 }
 const form = useForm({
   po: '',
