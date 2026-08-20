@@ -10,7 +10,7 @@
           <button
             type="button"
             @click="deleteTally"
-            :disabled="!selectedId"
+            :disabled="!selectedId && !hasCheckedItems"
             class="inline-flex items-center justify-center rounded bg-rose-600 px-4 py-2 text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Delete Tally
@@ -74,7 +74,7 @@
                 <td class="border-b border-slate-100 px-4 py-2 text-center" @click.stop>
                   <input
                     type="checkbox"
-                    :checked="selectedId === tally.id"
+                    :checked="isPoChecked(tally.id)"
                     @change="toggleSelect(tally.id)"
                     class="h-4 w-4 cursor-pointer rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
@@ -375,23 +375,28 @@
               <thead class="sticky top-0">
                 <tr class="bg-slate-50 text-left text-slate-500">
                   <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">#</th>
-                  <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">Item</th>
-                  <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">Pallet</th>
                   <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold">KG</th>
+                  <th class="whitespace-nowrap border-b border-slate-200 px-4 py-2 font-semibold"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(entry, index) in currentEntries" :key="index" class="text-slate-800 hover:bg-slate-50">
                   <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ index + 1 }}</td>
-                  <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ entry.item }}</td>
-                  <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ entry.pallet }}</td>
                   <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ Number(entry.kg).toFixed(2) }}</td>
+                  <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 text-center">
+                    <button type="button" @click="removeEntry(index)" class="text-red-500 hover:text-red-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  </td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr class="bg-slate-50 font-semibold text-slate-700">
-                  <td colspan="3" class="border-t border-slate-200 px-4 py-2 text-right">Total KG</td>
+                  <td class="border-t border-slate-200 px-4 py-2 text-right">Total KG</td>
                   <td class="whitespace-nowrap border-t border-slate-200 px-4 py-2">{{ totalKg }}</td>
+                  <td class="border-t border-slate-200 px-4 py-2"></td>
                 </tr>
               </tfoot>
             </table>
@@ -497,6 +502,52 @@
         </div>
       </div>
     </div>
+    <!-- Modal Confirm Delete Tally -->
+    <div
+      v-if="showDeleteConfirm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+    >
+      <div class="w-full max-w-md overflow-hidden rounded-xl border border-slate-300 bg-white p-6 shadow-2xl">
+        <div class="mb-4 flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-slate-900">Hapus Tally</h3>
+          <button type="button" class="text-slate-400 hover:text-slate-600" @click="cancelDelete">
+            &times;
+          </button>
+        </div>
+
+        <div class="text-sm text-slate-600">
+          <p class="mb-3">Yakin ingin menghapus data tally berikut?</p>
+          <div class="max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-slate-50 p-3">
+            <template v-for="(items, poId) in deleteConfirmGroups" :key="poId">
+              <div class="mb-2 last:mb-0">
+                <p class="font-medium text-slate-800">{{ getPoName(poId) }}</p>
+                <ul class="ml-3 mt-1 list-disc text-slate-500">
+                  <li v-if="items.length === 0">Semua item</li>
+                  <li v-else v-for="item in items" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            class="rounded bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-300"
+            @click="cancelDelete"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            class="rounded bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+            @click="confirmDeleteTally"
+          >
+            Hapus
+          </button>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -505,20 +556,71 @@ import { computed, reactive, ref } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
-const checkedItems = reactive({});
+const checkedItems = ref({});
+
+const hasCheckedItems = computed(() => {
+  return Object.values(checkedItems.value).some((items) => items && Object.values(items).some((v) => v));
+});
+
+const showDeleteConfirm = ref(false);
+const deleteConfirmGroups = ref({});
+
+function getPoName(poId) {
+  const tally = tallies.value.find((t) => t.id === Number(poId));
+  return tally ? `${tally.po} — ${tally.customer?.name || '-'}` : `PO #${poId}`;
+}
+
+function cancelDelete() {
+  showDeleteConfirm.value = false;
+  deleteConfirmGroups.value = {};
+}
+
+function isPoChecked(poId) {
+  const items = checkedItems.value[poId];
+  return !!(items && Object.values(items).some((v) => v));
+}
 
 function isItemChecked(poId, gi) {
-  return checkedItems[poId]?.[gi] === true;
+  return checkedItems.value[poId]?.[gi] === true;
+}
+
+function toggleSelect(id) {
+  if (selectedId.value === id) {
+    selectedId.value = null;
+    checkedItems.value = {};
+  } else {
+    selectedId.value = id;
+    const newChecked = {};
+    newChecked[id] = {};
+    const groups = getItemGroups(id);
+    groups.forEach((_, i) => { newChecked[id][i] = true; });
+    checkedItems.value = newChecked;
+  }
 }
 
 function toggleItemCheck(poId, gi) {
-  if (!checkedItems[poId]) {
-    checkedItems[poId] = {};
-  }
-  checkedItems[poId][gi] = !checkedItems[poId][gi];
-  const groups = getItemGroups(poId);
-  const allChecked = groups.length > 0 && groups.every((_, i) => checkedItems[poId]?.[i]);
-  if (allChecked) {
+  const wasChecked = checkedItems.value[poId]?.[gi] === true;
+
+  if (wasChecked) {
+    const newChecked = {};
+    for (const [k, v] of Object.entries(checkedItems.value)) {
+      newChecked[k] = { ...v };
+    }
+    if (!newChecked[poId]) newChecked[poId] = {};
+    newChecked[poId][gi] = false;
+    const anyLeft = Object.values(newChecked[poId]).some((v) => v);
+    if (!anyLeft) {
+      delete newChecked[poId];
+      if (selectedId.value === poId) {
+        selectedId.value = null;
+      }
+    }
+    checkedItems.value = newChecked;
+  } else {
+    const newChecked = {};
+    newChecked[poId] = {};
+    newChecked[poId][gi] = true;
+    checkedItems.value = newChecked;
     selectedId.value = poId;
   }
 }
@@ -562,20 +664,6 @@ const flashMessage = computed(() => props.flash?.success || '');
 
 const showModal = ref(false);
 const selectedId = ref(null);
-
-function toggleSelect(id) {
-  if (selectedId.value === id) {
-    selectedId.value = null;
-    if (checkedItems[id]) {
-      Object.keys(checkedItems[id]).forEach((k) => { checkedItems[id][k] = false; });
-    }
-  } else {
-    selectedId.value = id;
-    const groups = getItemGroups(id);
-    if (!checkedItems[id]) checkedItems[id] = {};
-    groups.forEach((_, i) => { checkedItems[id][i] = true; });
-  }
-}
 
 const selectedPo = computed(() => tallies.value.find((tally) => tally.id === selectedId.value) || null);
 
@@ -705,13 +793,45 @@ function openTallyModal() {
     return;
   }
   const poId = selectedPo.value.id;
-  const saved = tallyStates.value[poId];
   const isFinished = props.finishedPoIds.includes(poId);
+  const saved = tallyStates.value[poId];
+
+  let checkedItemName = '';
+  const poChecked = checkedItems.value[poId];
+  if (poChecked) {
+    const groups = getItemGroups(poId);
+    const checkedIndices = Object.keys(poChecked).filter((k) => poChecked[k]);
+    if (checkedIndices.length === 1 && groups[Number(checkedIndices[0])]) {
+      checkedItemName = groups[Number(checkedIndices[0])].item;
+    }
+  }
+
   if (saved && !isFinished) {
-    tallyForm.value = { item: saved.item || '', kg: '' };
+    tallyForm.value = { item: checkedItemName || saved.item || '', kg: '' };
     currentPallet.value = saved.currentPallet || 1;
     palletEntries.value = { ...saved.palletEntries };
     itemLocked.value = saved.itemLocked || false;
+  } else if (!isFinished) {
+    const serverEntries = props.tallyData[poId] || [];
+    if (serverEntries.length > 0) {
+      const pe = {};
+      let maxPallet = 0;
+      for (const e of serverEntries) {
+        const p = e.pallet;
+        if (p > maxPallet) maxPallet = p;
+        if (!pe[p]) pe[p] = [];
+        pe[p].push({ item: e.item, pallet: p, kg: e.kg, _new: false });
+      }
+      palletEntries.value = pe;
+      currentPallet.value = maxPallet + 1;
+      tallyForm.value = { item: checkedItemName || '', kg: '' };
+      itemLocked.value = true;
+    } else {
+      tallyForm.value = { item: checkedItemName || '', kg: '' };
+      currentPallet.value = 1;
+      palletEntries.value = {};
+      itemLocked.value = false;
+    }
   } else {
     tallyForm.value = { item: '', kg: '' };
     currentPallet.value = 1;
@@ -726,29 +846,94 @@ function closeTallyModal() {
   if (saving.value) {
     return;
   }
-  if (selectedPo.value) {
-    tallyStates.value[selectedPo.value.id] = {
-      item: tallyForm.value.item,
-      currentPallet: currentPallet.value,
-      palletEntries: { ...palletEntries.value },
-      itemLocked: itemLocked.value,
-    };
+  const unsaved = getUnsavedEntries();
+  if (unsaved.length > 0 && selectedPo.value) {
+    saving.value = true;
+    router.post(
+      '/gmisl/utility/rcs/tally',
+      {
+        t_po_id: selectedPo.value.id,
+        entries: unsaved.map((entry) => ({
+          item: entry.item,
+          pallet: entry.pallet,
+          kg: entry.kg,
+        })),
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          hasUnsaved.value = false;
+          const updated = { ...palletEntries.value };
+          for (const pallet of Object.keys(updated)) {
+            updated[pallet] = updated[pallet].map((e) => ({ ...e, _new: false }));
+          }
+          palletEntries.value = updated;
+          showTallyModal.value = false;
+        },
+        onFinish: () => {
+          saving.value = false;
+        },
+      }
+    );
+  } else {
+    showTallyModal.value = false;
   }
-  showTallyModal.value = false;
 }
 
 function deleteTally() {
-  if (!selectedId.value) {
+  const poIds = Object.keys(checkedItems.value).filter((poId) => {
+    const items = checkedItems.value[poId];
+    return items && Object.values(items).some((v) => v);
+  });
+
+  if (poIds.length === 0 && !selectedId.value) {
     return;
   }
-  if (!window.confirm('Hapus data tally dari PO ini?')) {
+
+  const itemsToDelete = [];
+
+  if (poIds.length > 0) {
+    poIds.forEach((poId) => {
+      const groups = getItemGroups(Number(poId));
+      Object.keys(checkedItems.value[poId]).forEach((gi) => {
+        if (checkedItems.value[poId][gi] && groups[Number(gi)]) {
+          itemsToDelete.push({ poId: Number(poId), item: groups[Number(gi)].item });
+        }
+      });
+    });
+  } else if (selectedId.value) {
+    itemsToDelete.push({ poId: selectedId.value, item: null });
+  }
+
+  if (itemsToDelete.length === 0) {
     return;
   }
-  router.delete(`/gmisl/utility/rcs/tally/${selectedId.value}`, {
-    preserveScroll: true,
-    onSuccess: () => {
-      selectedId.value = null;
-    },
+
+  const poGroups = {};
+  itemsToDelete.forEach(({ poId, item }) => {
+    if (!poGroups[poId]) poGroups[poId] = [];
+    if (item) poGroups[poId].push(item);
+  });
+
+  deleteConfirmGroups.value = poGroups;
+  showDeleteConfirm.value = true;
+}
+
+function confirmDeleteTally() {
+  const poGroups = deleteConfirmGroups.value;
+  showDeleteConfirm.value = false;
+
+  const promises = Object.keys(poGroups).map((poId) => {
+    const payload = { items: poGroups[poId].length > 0 ? poGroups[poId] : null };
+    return router.post(`/gmisl/utility/rcs/tally/${poId}/destroy`, payload, {
+      preserveScroll: true,
+    });
+  });
+
+  Promise.all(promises).then(() => {
+    Object.keys(checkedItems.value).forEach((k) => delete checkedItems.value[k]);
+    selectedId.value = null;
+    deleteConfirmGroups.value = {};
   });
 }
 
@@ -783,6 +968,15 @@ function addEntry() {
   ];
   palletEntries.value = updated;
   tallyForm.value.kg = '';
+  hasUnsaved.value = true;
+}
+
+function removeEntry(index) {
+  const updated = { ...palletEntries.value };
+  const entries = [...(updated[currentPallet.value] || [])];
+  entries.splice(index, 1);
+  updated[currentPallet.value] = entries;
+  palletEntries.value = updated;
   hasUnsaved.value = true;
 }
 

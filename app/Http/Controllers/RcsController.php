@@ -113,9 +113,17 @@ class RcsController extends Controller
         return back();
     }
 
-    public function destroyTally($id): RedirectResponse
+    public function destroyTally(Request $request, $id): RedirectResponse
     {
-        TTally::where('t_po_id', $id)->delete();
+        $items = $request->input('items');
+
+        $query = TTally::where('t_po_id', $id);
+
+        if (!empty($items) && is_array($items)) {
+            $query->whereIn('item', $items);
+        }
+
+        $query->delete();
 
         session()->flash('success', 'Data tally berhasil dihapus.');
 
