@@ -99,6 +99,7 @@
                     <table class="w-full border-collapse text-xs">
                       <thead>
                         <tr class="bg-slate-100 text-left text-slate-500">
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">No</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Nama Item</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-right">Total KG</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Total Pallet</th>
@@ -111,6 +112,17 @@
                             class="text-slate-700 hover:bg-slate-50 cursor-pointer"
                             @click="toggleRow('item-' + tally.id + '-' + gi)"
                           >
+                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-center" @click.stop>
+                              <div class="flex items-center justify-center gap-1.5">
+                                <input
+                                  type="checkbox"
+                                  :checked="isItemChecked(tally.id, gi)"
+                                  @change="toggleItemCheck(tally.id, gi)"
+                                  class="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span>{{ gi + 1 }}</span>
+                              </div>
+                            </td>
                             <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 font-medium">
                               <span class="mr-1 text-xs text-slate-400">{{ isRowExpanded('item-' + tally.id + '-' + gi) ? '▾' : '▸' }}</span>
                               {{ group.item }}
@@ -139,10 +151,11 @@
                             </td>
                           </tr>
                           <tr v-if="isRowExpanded('item-' + tally.id + '-' + gi)">
-                            <td colspan="4" class="border-b border-slate-100 bg-slate-50/30 px-3 py-2">
+                            <td colspan="5" class="border-b border-slate-100 bg-slate-50/30 px-3 py-2">
                               <table class="w-full border-collapse text-xs">
                                 <thead>
                                   <tr class="text-left text-slate-400">
+                                    <th class="whitespace-nowrap px-2 py-1 font-semibold text-center">No</th>
                                     <th class="whitespace-nowrap px-2 py-1 font-semibold">Pallet</th>
                                     <th class="whitespace-nowrap px-2 py-1 font-semibold text-right">KG</th>
                                   </tr>
@@ -153,11 +166,12 @@
                                       v-for="(entry, ei) in pg.entries"
                                       :class="getDetailRowBg(pi, ei, group.entries)"
                                     >
+                                      <td class="whitespace-nowrap px-2 py-1 text-center">{{ ei + 1 }}</td>
                                       <td class="whitespace-nowrap px-2 py-1">{{ entry.pallet }}</td>
                                       <td class="whitespace-nowrap px-2 py-1 text-right">{{ Number(entry.kg).toFixed(2) }}</td>
                                     </tr>
                                     <tr class="bg-green-50 font-semibold text-green-800">
-                                      <td colspan="2" class="whitespace-nowrap px-2 py-1 text-right">Total Pallet {{ pg.pallet }} — {{ Number(pg.totalKg).toFixed(2) }} KG</td>
+                                      <td colspan="3" class="whitespace-nowrap px-2 py-1 text-right">Total Pallet {{ pg.pallet }} — {{ Number(pg.totalKg).toFixed(2) }} KG</td>
                                     </tr>
                                   </template>
                                 </tbody>
@@ -491,6 +505,24 @@ import { computed, reactive, ref } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
+const checkedItems = reactive({});
+
+function isItemChecked(poId, gi) {
+  return checkedItems[poId]?.[gi] === true;
+}
+
+function toggleItemCheck(poId, gi) {
+  if (!checkedItems[poId]) {
+    checkedItems[poId] = {};
+  }
+  checkedItems[poId][gi] = !checkedItems[poId][gi];
+  const groups = getItemGroups(poId);
+  const allChecked = groups.length > 0 && groups.every((_, i) => checkedItems[poId]?.[i]);
+  if (allChecked) {
+    selectedId.value = poId;
+  }
+}
+
 const props = defineProps({
   customers: {
     type: Array,
@@ -532,7 +564,17 @@ const showModal = ref(false);
 const selectedId = ref(null);
 
 function toggleSelect(id) {
-  selectedId.value = selectedId.value === id ? null : id;
+  if (selectedId.value === id) {
+    selectedId.value = null;
+    if (checkedItems[id]) {
+      Object.keys(checkedItems[id]).forEach((k) => { checkedItems[id][k] = false; });
+    }
+  } else {
+    selectedId.value = id;
+    const groups = getItemGroups(id);
+    if (!checkedItems[id]) checkedItems[id] = {};
+    groups.forEach((_, i) => { checkedItems[id][i] = true; });
+  }
 }
 
 const selectedPo = computed(() => tallies.value.find((tally) => tally.id === selectedId.value) || null);
