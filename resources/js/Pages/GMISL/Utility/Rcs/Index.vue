@@ -74,7 +74,7 @@
                 <td class="border-b border-slate-100 px-4 py-2 text-center" @click.stop>
                   <input
                     type="checkbox"
-                    :checked="isPoChecked(tally.id)"
+                    :checked="selectedId === tally.id || isPoChecked(tally.id)"
                     @change="toggleSelect(tally.id)"
                     class="h-4 w-4 cursor-pointer rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
@@ -587,13 +587,22 @@ function isItemChecked(poId, gi) {
 function toggleSelect(id) {
   if (selectedId.value === id) {
     selectedId.value = null;
-    checkedItems.value = {};
+    const newChecked = {};
+    for (const [k, v] of Object.entries(checkedItems.value)) {
+      if (String(k) !== String(id)) {
+        newChecked[k] = { ...v };
+      }
+    }
+    checkedItems.value = newChecked;
   } else {
     selectedId.value = id;
     const newChecked = {};
-    newChecked[id] = {};
-    const groups = getItemGroups(id);
-    groups.forEach((_, i) => { newChecked[id][i] = true; });
+    for (const [k, v] of Object.entries(checkedItems.value)) {
+      if (String(k) !== String(id)) {
+        newChecked[k] = {};
+      }
+    }
+    newChecked[id] = { ...(checkedItems.value[id] || {}) };
     checkedItems.value = newChecked;
   }
 }
@@ -606,7 +615,6 @@ function toggleItemCheck(poId, gi) {
     for (const [k, v] of Object.entries(checkedItems.value)) {
       newChecked[k] = { ...v };
     }
-    if (!newChecked[poId]) newChecked[poId] = {};
     newChecked[poId][gi] = false;
     const anyLeft = Object.values(newChecked[poId]).some((v) => v);
     if (!anyLeft) {
@@ -618,7 +626,12 @@ function toggleItemCheck(poId, gi) {
     checkedItems.value = newChecked;
   } else {
     const newChecked = {};
-    newChecked[poId] = {};
+    for (const [k, v] of Object.entries(checkedItems.value)) {
+      if (String(k) !== String(poId)) {
+        newChecked[k] = {};
+      }
+    }
+    newChecked[poId] = { ...(checkedItems.value[poId] || {}) };
     newChecked[poId][gi] = true;
     checkedItems.value = newChecked;
     selectedId.value = poId;
