@@ -548,6 +548,47 @@
         </div>
       </div>
     </div>
+    <!-- Modal Finish Info -->
+    <div
+      v-if="showFinishMsg"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+    >
+      <div class="w-full max-w-sm overflow-hidden rounded-xl border border-slate-300 bg-white p-6 shadow-2xl">
+        <div class="mb-4 flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900">Tally Selesai</h3>
+        </div>
+
+        <div class="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p class="text-sm text-slate-700">Data tally untuk item ini sudah <span class="font-bold text-amber-700">Finish</span>.</p>
+          <div class="mt-3 space-y-1.5 text-sm">
+            <div class="flex gap-2">
+              <span class="font-medium text-slate-500">PO</span>
+              <span class="font-semibold text-slate-800">{{ finishMsgData.po }}</span>
+            </div>
+            <div class="flex gap-2">
+              <span class="font-medium text-slate-500">Item</span>
+              <span class="font-semibold text-slate-800">{{ finishMsgData.item }}</span>
+            </div>
+          </div>
+          <p class="mt-3 text-sm text-slate-600">Silakan hubungi <span class="font-semibold">SPV</span> untuk membuka kembali statusnya.</p>
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="button"
+            class="rounded bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+            @click="showFinishMsg = false"
+          >
+            Mengerti
+          </button>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -781,10 +822,6 @@ const summaryTotalKg = computed(() => {
   return Number.isFinite(total) ? total : 0;
 });
 
-const isPoFinished = computed(() => {
-  return false;
-});
-
 const isNextDisabled = computed(() => {
   return currentEntries.value.some((e) => e._new);
 });
@@ -801,35 +838,34 @@ function getUnsavedEntries() {
   return all;
 }
 
+const showFinishMsg = ref(false);
+const finishMsgData = ref({ po: '', item: '' });
+
 function openTallyModal() {
   if (!selectedPo.value) {
     return;
   }
   const poId = selectedPo.value.id;
-  const isFinished = props.finishedPoIds.includes(poId);
-  const saved = tallyStates.value[poId];
-
-  let checkedItemName = '';
   const poChecked = checkedItems.value[poId];
-  if (poChecked) {
-    const groups = getItemGroups(poId);
-    const checkedIndices = Object.keys(poChecked).filter((k) => poChecked[k]);
-    if (checkedIndices.length === 1 && groups[Number(checkedIndices[0])]) {
-      checkedItemName = groups[Number(checkedIndices[0])].item;
-    }
-  }
+  const checkedIndices = poChecked ? Object.keys(poChecked).filter((k) => poChecked[k]) : [];
+  const hasCheckedItem = checkedIndices.length > 0;
 
-  if (saved && !isFinished) {
-    tallyForm.value = { item: checkedItemName || saved.item || '', kg: '' };
-    currentPallet.value = saved.currentPallet || 1;
-    palletEntries.value = { ...saved.palletEntries };
-    itemLocked.value = saved.itemLocked || false;
-  } else if (!isFinished) {
+  if (hasCheckedItem) {
+    const groups = getItemGroups(poId);
+    const checkedGroup = groups[Number(checkedIndices[0])];
+
+    if (checkedGroup && checkedGroup.isFinish) {
+      finishMsgData.value = { po: selectedPo.value.po, item: checkedGroup.item };
+      showFinishMsg.value = true;
+      return;
+    }
+
     const serverEntries = props.tallyData[poId] || [];
-    if (serverEntries.length > 0) {
+    const itemEntries = serverEntries.filter((e) => checkedGroup && e.item === checkedGroup.item);
+    if (itemEntries.length > 0) {
       const pe = {};
       let maxPallet = 0;
-      for (const e of serverEntries) {
+      for (const e of itemEntries) {
         const p = e.pallet;
         if (p > maxPallet) maxPallet = p;
         if (!pe[p]) pe[p] = [];
@@ -837,18 +873,18 @@ function openTallyModal() {
       }
       palletEntries.value = pe;
       currentPallet.value = maxPallet + 1;
-      tallyForm.value = { item: checkedItemName || '', kg: '' };
+      tallyForm.value = { item: checkedGroup.item, kg: '' };
       itemLocked.value = true;
     } else {
-      tallyForm.value = { item: checkedItemName || '', kg: '' };
-      currentPallet.value = 1;
       palletEntries.value = {};
+      currentPallet.value = 1;
+      tallyForm.value = { item: checkedGroup ? checkedGroup.item : '', kg: '' };
       itemLocked.value = false;
     }
   } else {
-    tallyForm.value = { item: '', kg: '' };
-    currentPallet.value = 1;
     palletEntries.value = {};
+    currentPallet.value = 1;
+    tallyForm.value = { item: '', kg: '' };
     itemLocked.value = false;
   }
   hasUnsaved.value = false;
