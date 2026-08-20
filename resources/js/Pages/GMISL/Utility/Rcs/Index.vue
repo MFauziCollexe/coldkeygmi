@@ -1247,6 +1247,8 @@ function closeModal() {
   if (form.processing) {
     return;
   }
+  form.reset();
+  form.clearErrors();
   showModal.value = false;
 }
 
