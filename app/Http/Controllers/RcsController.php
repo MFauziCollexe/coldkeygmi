@@ -44,7 +44,7 @@ class RcsController extends Controller
             ->values()
             ->toArray();
 
-        $tallyData = TTally::select('t_po_id', 'item', 'pallet', 'kg', 'is_finish')
+        $tallyData = TTally::select('id', 't_po_id', 'item', 'pallet', 'kg', 'is_finish')
             ->orderBy('t_po_id')
             ->orderBy('pallet')
             ->get()
@@ -86,9 +86,17 @@ class RcsController extends Controller
             'entries.*.item' => ['required_with:entries', 'string'],
             'entries.*.pallet' => ['required_with:entries', 'integer', 'min:1'],
             'entries.*.kg' => ['required_with:entries', 'numeric', 'min:0'],
+            'deleted_ids' => ['nullable', 'array'],
+            'deleted_ids.*' => ['integer'],
         ]);
 
         $isFinish = !empty($validated['is_finish']) ? 1 : 0;
+
+        if (!empty($validated['deleted_ids'])) {
+            TTally::whereIn('id', $validated['deleted_ids'])
+                ->where('t_po_id', $validated['t_po_id'])
+                ->delete();
+        }
 
         if (!empty($validated['entries'])) {
             foreach ($validated['entries'] as $entry) {

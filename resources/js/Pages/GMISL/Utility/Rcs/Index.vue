@@ -742,6 +742,7 @@ const palletEntries = ref({});
 const currentPallet = ref(1);
 const tallyStates = ref({});
 const hasUnsaved = ref(false);
+const deletedEntryIds = ref([]);
 const expandedRows = reactive({});
 
 function toggleRow(key) {
@@ -869,7 +870,7 @@ function openTallyModal() {
         const p = e.pallet;
         if (p > maxPallet) maxPallet = p;
         if (!pe[p]) pe[p] = [];
-        pe[p].push({ item: e.item, pallet: p, kg: e.kg, _new: false });
+        pe[p].push({ id: e.id, item: e.item, pallet: p, kg: e.kg, _new: false });
       }
       palletEntries.value = pe;
       currentPallet.value = maxPallet + 1;
@@ -888,6 +889,7 @@ function openTallyModal() {
     itemLocked.value = false;
   }
   hasUnsaved.value = false;
+  deletedEntryIds.value = [];
   showTallyModal.value = true;
 }
 
@@ -896,7 +898,8 @@ function closeTallyModal() {
     return;
   }
   const unsaved = getUnsavedEntries();
-  if (unsaved.length > 0 && selectedPo.value) {
+  const hasDeletions = deletedEntryIds.value.length > 0;
+  if ((unsaved.length > 0 || hasDeletions) && selectedPo.value) {
     saving.value = true;
     router.post(
       '/gmisl/utility/rcs/tally',
@@ -907,11 +910,13 @@ function closeTallyModal() {
           pallet: entry.pallet,
           kg: entry.kg,
         })),
+        deleted_ids: hasDeletions ? deletedEntryIds.value : [],
       },
       {
         preserveScroll: true,
         onSuccess: () => {
           hasUnsaved.value = false;
+          deletedEntryIds.value = [];
           const updated = { ...palletEntries.value };
           for (const pallet of Object.keys(updated)) {
             updated[pallet] = updated[pallet].map((e) => ({ ...e, _new: false }));
@@ -925,6 +930,7 @@ function closeTallyModal() {
       }
     );
   } else {
+    deletedEntryIds.value = [];
     showTallyModal.value = false;
   }
 }
@@ -1023,7 +1029,10 @@ function addEntry() {
 function removeEntry(index) {
   const updated = { ...palletEntries.value };
   const entries = [...(updated[currentPallet.value] || [])];
-  entries.splice(index, 1);
+  const removed = entries.splice(index, 1)[0];
+  if (removed && removed.id) {
+    deletedEntryIds.value = [...deletedEntryIds.value, removed.id];
+  }
   updated[currentPallet.value] = entries;
   palletEntries.value = updated;
   hasUnsaved.value = true;
@@ -1043,7 +1052,8 @@ function prevPallet() {
 
 function saveEntries() {
   const unsaved = getUnsavedEntries();
-  if (unsaved.length === 0 || !selectedPo.value || saving.value) {
+  const hasDeletions = deletedEntryIds.value.length > 0;
+  if ((unsaved.length === 0 && !hasDeletions) || !selectedPo.value || saving.value) {
     return;
   }
   saving.value = true;
@@ -1056,12 +1066,14 @@ function saveEntries() {
         pallet: entry.pallet,
         kg: entry.kg,
       })),
+      deleted_ids: hasDeletions ? deletedEntryIds.value : [],
     },
     {
       preserveScroll: true,
       onSuccess: () => {
         itemLocked.value = true;
         hasUnsaved.value = false;
+        deletedEntryIds.value = [];
         const updated = { ...palletEntries.value };
         for (const pallet of Object.keys(updated)) {
           updated[pallet] = updated[pallet].map((e) => ({ ...e, _new: false }));
