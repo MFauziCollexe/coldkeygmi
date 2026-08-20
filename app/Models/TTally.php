@@ -15,6 +15,8 @@ class TTally extends Model
         'pallet',
         'kg',
         'is_finish',
+        'startdate',
+        'enddate',
     ];
 
     public function po(): BelongsTo

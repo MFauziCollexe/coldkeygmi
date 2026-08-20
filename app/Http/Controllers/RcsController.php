@@ -44,7 +44,7 @@ class RcsController extends Controller
             ->values()
             ->toArray();
 
-        $tallyData = TTally::select('id', 't_po_id', 'item', 'pallet', 'kg', 'is_finish')
+        $tallyData = TTally::select('id', 't_po_id', 'item', 'pallet', 'kg', 'is_finish', 'startdate', 'enddate')
             ->orderBy('t_po_id')
             ->orderBy('pallet')
             ->get()
@@ -91,6 +91,7 @@ class RcsController extends Controller
         ]);
 
         $isFinish = !empty($validated['is_finish']) ? 1 : 0;
+        $now = now();
 
         if (!empty($validated['deleted_ids'])) {
             TTally::whereIn('id', $validated['deleted_ids'])
@@ -99,22 +100,35 @@ class RcsController extends Controller
         }
 
         if (!empty($validated['entries'])) {
+            $poHasStartdate = TTally::where('t_po_id', $validated['t_po_id'])
+                ->whereNotNull('startdate')
+                ->exists();
+
             foreach ($validated['entries'] as $entry) {
-                TTally::create([
+                $data = [
                     't_po_id' => $validated['t_po_id'],
                     'item' => $entry['item'],
                     'pallet' => $entry['pallet'],
                     'kg' => $entry['kg'],
                     'is_finish' => $isFinish,
-                ]);
+                ];
+
+                if (!$poHasStartdate) {
+                    $data['startdate'] = $now;
+                }
+
+                TTally::create($data);
             }
         }
 
         if ($isFinish) {
             TTally::where('t_po_id', $validated['t_po_id'])
                 ->where('is_finish', 0)
-                ->update(['is_finish' => 1]);
+                ->update(['is_finish' => 1, 'enddate' => $now]);
         }
+
+        TTally::where('t_po_id', $validated['t_po_id'])
+            ->update(['enddate' => $now]);
 
         session()->flash('success', 'Data tally berhasil disimpan.');
 

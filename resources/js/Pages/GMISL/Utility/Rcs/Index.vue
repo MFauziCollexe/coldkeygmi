@@ -104,6 +104,8 @@
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-right">Total KG</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Total Pallet</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Status</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Start Date</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">End Date</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -149,9 +151,15 @@
                                 Draft
                               </span>
                             </td>
+                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-xs text-slate-500">
+                              {{ group.startdate ? formatDate(group.startdate) : '-' }}
+                            </td>
+                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-xs text-slate-500">
+                              {{ group.enddate ? formatDate(group.enddate) : '-' }}
+                            </td>
                           </tr>
                           <tr v-if="isRowExpanded('item-' + tally.id + '-' + gi)">
-                            <td colspan="5" class="border-b border-slate-100 bg-slate-50/30 px-3 py-2">
+                            <td colspan="7" class="border-b border-slate-100 bg-slate-50/30 px-3 py-2">
                               <table class="w-full border-collapse text-xs">
                                 <thead>
                                   <tr class="text-left text-slate-400">
@@ -206,46 +214,49 @@
 
         <form @submit.prevent="submitForm" class="space-y-4">
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700" for="po">PO</label>
+            <label class="mb-1 bg-white block text-sm font-medium text-slate-700" for="po">PO</label>
             <input
               id="po"
               v-model="form.po"
               type="text"
               required
-              placeholder="Isi nomor PO"
-              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              placeholder=""
+              @input="form.po = $event.target.value.toUpperCase()"
+              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 uppercase focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             <p v-if="form.errors.po" class="mt-1 text-xs text-rose-600">{{ form.errors.po }}</p>
           </div>
 
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700" for="nopol">Nopol</label>
+            <label class="mb-1 bg-white block text-sm font-medium text-slate-700" for="nopol">Nopol</label>
             <input
               id="nopol"
               v-model="form.nopol"
               type="text"
               required
-              placeholder="Isi nomor polisi"
-              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              placeholder=""
+              @input="form.nopol = $event.target.value.toUpperCase()"
+              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 uppercase focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             <p v-if="form.errors.nopol" class="mt-1 text-xs text-rose-600">{{ form.errors.nopol }}</p>
           </div>
 
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700" for="driver">Driver</label>
+            <label class="mb-1 bg-white block text-sm font-medium text-slate-700" for="driver">Driver</label>
             <input
               id="driver"
               v-model="form.driver"
               type="text"
               required
-              placeholder="Nama driver"
-              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              placeholder=""
+              @input="form.driver = $event.target.value.toUpperCase()"
+              class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 uppercase focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             <p v-if="form.errors.driver" class="mt-1 text-xs text-rose-600">{{ form.errors.driver }}</p>
           </div>
 
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700" for="customer_id">Customer</label>
+            <label class="mb-1 bg-white block text-sm font-medium text-slate-700" for="customer_id">Customer</label>
             <select
               id="customer_id"
               v-model="form.customer_id"
@@ -261,7 +272,7 @@
           </div>
 
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700" for="transaksi">Transaksi</label>
+            <label class="mb-1 bg-white block text-sm font-medium text-slate-700" for="transaksi">Transaksi</label>
             <select
               id="transaksi"
               v-model="form.transaksi"
@@ -589,6 +600,58 @@
         </div>
       </div>
     </div>
+    <!-- Modal Confirm Delete PO -->
+    <div
+      v-if="showDeletePoConfirm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+    >
+      <div class="w-full max-w-sm overflow-hidden rounded-xl border border-slate-300 bg-white p-6 shadow-2xl">
+        <div class="mb-4 flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900">Hapus PO</h3>
+        </div>
+
+        <div class="mb-5 rounded-lg border border-red-200 bg-red-50 p-4">
+          <p class="text-sm text-slate-700">Yakin ingin menghapus PO ini beserta <span class="font-bold text-red-700">seluruh data tally</span>-nya?</p>
+          <div v-if="selectedPo" class="mt-3 space-y-1.5 text-sm">
+            <div class="flex gap-2">
+              <span class="font-medium text-slate-500">PO</span>
+              <span class="font-semibold text-slate-800">{{ selectedPo.po }}</span>
+            </div>
+            <div class="flex gap-2">
+              <span class="font-medium text-slate-500">Customer</span>
+              <span class="font-semibold text-slate-800">{{ selectedPo.customer?.name || '-' }}</span>
+            </div>
+            <div class="flex gap-2">
+              <span class="font-medium text-slate-500">Nopol</span>
+              <span class="font-semibold text-slate-800">{{ selectedPo.nopol || '-' }}</span>
+            </div>
+          </div>
+          <p class="mt-3 text-xs text-red-600">Tindakan ini tidak dapat dibatalkan.</p>
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <button
+            type="button"
+            class="rounded bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-300"
+            @click="showDeletePoConfirm = false"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            class="rounded bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+            @click="confirmDeletePo"
+          >
+            Hapus
+          </button>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -605,6 +668,7 @@ const hasCheckedItems = computed(() => {
 
 const showDeleteConfirm = ref(false);
 const deleteConfirmGroups = ref({});
+const showDeletePoConfirm = ref(false);
 
 function getPoName(poId) {
   const tally = tallies.value.find((t) => t.id === Number(poId));
@@ -745,6 +809,18 @@ const hasUnsaved = ref(false);
 const deletedEntryIds = ref([]);
 const expandedRows = reactive({});
 
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+}
+
 function toggleRow(key) {
   expandedRows[key] = !expandedRows[key];
 }
@@ -763,13 +839,15 @@ function getItemGroups(poId) {
   const map = new Map();
   for (const entry of entries) {
     if (!map.has(entry.item)) {
-      map.set(entry.item, { item: entry.item, entries: [], palletSet: new Set(), totalKg: 0, isFinish: false });
+      map.set(entry.item, { item: entry.item, entries: [], palletSet: new Set(), totalKg: 0, isFinish: false, startdate: null, enddate: null });
     }
     const g = map.get(entry.item);
     g.entries.push(entry);
     g.palletSet.add(entry.pallet);
     g.totalKg += Number(entry.kg);
     if (entry.is_finish) g.isFinish = true;
+    if (entry.startdate && (!g.startdate || entry.startdate < g.startdate)) g.startdate = entry.startdate;
+    if (entry.enddate && (!g.enddate || entry.enddate > g.enddate)) g.enddate = entry.enddate;
   }
   return Array.from(map.values()).map((g) => ({
     item: g.item,
@@ -777,6 +855,8 @@ function getItemGroups(poId) {
     palletCount: g.palletSet.size,
     totalKg: g.totalKg,
     isFinish: g.isFinish,
+    startdate: g.startdate,
+    enddate: g.enddate,
   }));
 }
 
@@ -824,7 +904,7 @@ const summaryTotalKg = computed(() => {
 });
 
 const isNextDisabled = computed(() => {
-  return currentEntries.value.some((e) => e._new);
+  return currentEntries.value.length === 0;
 });
 
 function getUnsavedEntries() {
@@ -996,13 +1076,18 @@ function deletePo() {
   if (!selectedId.value) {
     return;
   }
-  if (!window.confirm('Hapus PO ini beserta semua data tally-nya?')) {
-    return;
-  }
-  router.delete(`/gmisl/utility/rcs/${selectedId.value}`, {
+  showDeletePoConfirm.value = true;
+}
+
+function confirmDeletePo() {
+  const id = selectedId.value;
+  showDeletePoConfirm.value = false;
+  if (!id) return;
+  router.delete(`/gmisl/utility/rcs/${id}`, {
     preserveScroll: true,
     onSuccess: () => {
       selectedId.value = null;
+      checkedItems.value = {};
     },
   });
 }
