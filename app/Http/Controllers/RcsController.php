@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\TPo;
 use App\Models\TProduct;
 use App\Models\TTally;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -14,8 +15,17 @@ use Illuminate\Http\RedirectResponse;
 
 class RcsController extends Controller
 {
-    public function index(): Response
+    private const ACCESS_MODULE = 'utility.rcs';
+
+    public function index(Request $request): Response
     {
+        $user = $request->user();
+        $canAddPo = $this->accessRules()->allows($user, self::ACCESS_MODULE, 'add_po');
+        $canAddTally = $this->accessRules()->allows($user, self::ACCESS_MODULE, 'add_tally');
+        $canDeletePo = $this->accessRules()->allows($user, self::ACCESS_MODULE, 'delete_po');
+        $canDeleteTally = $this->accessRules()->allows($user, self::ACCESS_MODULE, 'delete_tally');
+        $canApprove = $this->accessRules()->allows($user, self::ACCESS_MODULE, 'approve');
+
         $customers = Customer::query()
             ->where('is_active', true)
             ->whereNotNull('customers_id_odoo')
@@ -57,6 +67,11 @@ class RcsController extends Controller
             'tallyMaxPallet' => $tallyMaxPallet,
             'finishedPoIds' => $finishedPoIds,
             'tallyData' => $tallyData,
+            'canAddPo' => $canAddPo,
+            'canAddTally' => $canAddTally,
+            'canDeletePo' => $canDeletePo,
+            'canDeleteTally' => $canDeleteTally,
+            'canApprove' => $canApprove,
         ]);
     }
 
@@ -152,6 +167,55 @@ class RcsController extends Controller
         return back();
     }
 
+    public function approveTally(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'tallies' => ['required', 'array'],
+            'tallies.*.po_id' => ['required', 'integer'],
+            'tallies.*.items' => ['required', 'array'],
+        ]);
+
+        $finishedItems = [];
+        $draftItems = [];
+
+        foreach ($validated['tallies'] as $tally) {
+            $poId = $tally['po_id'];
+            $items = $tally['items'];
+
+            foreach ($items as $itemName) {
+                $hasFinished = TTally::where('t_po_id', $poId)
+                    ->where('item', $itemName)
+                    ->where('is_finish', 1)
+                    ->exists();
+
+                $hasDraft = TTally::where('t_po_id', $poId)
+                    ->where('item', $itemName)
+                    ->where('is_finish', 0)
+                    ->exists();
+
+                if ($hasFinished) {
+                    TTally::where('t_po_id', $poId)
+                        ->where('item', $itemName)
+                        ->where('is_finish', 1)
+                        ->update(['is_finish' => 0]);
+                    $finishedItems[] = $itemName;
+                } elseif ($hasDraft) {
+                    $draftItems[] = $itemName;
+                }
+            }
+        }
+
+        if (!empty($finishedItems)) {
+            session()->flash('success', 'Item berhasil di-approve ke status Draft.');
+        }
+
+        if (!empty($draftItems)) {
+            session()->flash('draft_items', $draftItems);
+        }
+
+        return back();
+    }
+
     public function destroy($id): RedirectResponse
     {
         TPo::where('id', $id)->delete();
@@ -159,5 +223,10 @@ class RcsController extends Controller
         session()->flash('success', 'Data PO berhasil dihapus.');
 
         return back();
+    }
+
+    private function accessRules(): AccessRuleService
+    {
+        return app(AccessRuleService::class);
     }
 }

@@ -8,6 +8,7 @@
         </div>
         <div class="flex items-center gap-2">
           <button
+            v-if="props.canDeleteTally"
             type="button"
             @click="deleteTally"
             :disabled="!selectedId && !hasCheckedItems"
@@ -16,6 +17,7 @@
             Delete Tally
           </button>
           <button
+            v-if="props.canDeletePo"
             type="button"
             @click="deletePo"
             :disabled="!selectedId"
@@ -24,6 +26,7 @@
             Delete PO
           </button>
           <button
+            v-if="props.canAddTally"
             type="button"
             @click="openTallyModal"
             :disabled="!selectedId"
@@ -32,11 +35,21 @@
             Add Tally
           </button>
           <button
+            v-if="props.canAddPo"
             type="button"
             @click="openModal"
             class="inline-flex items-center justify-center rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
           >
             Add PO
+          </button>
+          <button
+            v-if="props.canApprove"
+            type="button"
+            :disabled="!hasCheckedItems"
+            @click="approveTally"
+            class="inline-flex items-center justify-center rounded bg-sky-600 px-4 py-2 text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Approve
           </button>
         </div>
       </div>
@@ -600,6 +613,46 @@
         </div>
       </div>
     </div>
+    <!-- Modal Draft Info -->
+    <div
+      v-if="showDraftMsg"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+    >
+      <div class="w-full max-w-sm overflow-hidden rounded-xl border border-slate-300 bg-white p-6 shadow-2xl">
+        <div class="mb-4 flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900">Item Masih Draf</h3>
+        </div>
+
+        <div class="mb-5 rounded-lg border border-sky-200 bg-sky-50 p-4">
+          <p class="text-sm text-slate-700">Item berikut masih berstatus <span class="font-bold text-sky-700">Draf</span> dan bisa diinputkan:</p>
+          <div class="mt-3 space-y-1">
+            <div
+              v-for="(name, idx) in draftMsgItems"
+              :key="idx"
+              class="flex items-center gap-2 text-sm"
+            >
+              <span class="text-slate-400">{{ idx + 1 }}.</span>
+              <span class="font-semibold text-slate-800">{{ name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="button"
+            class="rounded bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+            @click="showDraftMsg = false"
+          >
+            Mengerti
+          </button>
+        </div>
+      </div>
+    </div>
     <!-- Modal Confirm Delete PO -->
     <div
       v-if="showDeletePoConfirm"
@@ -772,6 +825,26 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  canAddPo: {
+    type: Boolean,
+    default: false,
+  },
+  canAddTally: {
+    type: Boolean,
+    default: false,
+  },
+  canDeletePo: {
+    type: Boolean,
+    default: false,
+  },
+  canDeleteTally: {
+    type: Boolean,
+    default: false,
+  },
+  canApprove: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const customers = computed(() => props.customers || []);
@@ -921,6 +994,8 @@ function getUnsavedEntries() {
 
 const showFinishMsg = ref(false);
 const finishMsgData = ref({ po: '', item: '' });
+const showDraftMsg = ref(false);
+const draftMsgItems = ref([]);
 
 function openTallyModal() {
   if (!selectedPo.value) {
@@ -1090,6 +1165,54 @@ function confirmDeletePo() {
       checkedItems.value = {};
     },
   });
+}
+
+function approveTally() {
+  const talliesPayload = [];
+  const draftItemNames = [];
+
+  Object.keys(checkedItems.value).forEach((poId) => {
+    const items = checkedItems.value[poId];
+    if (!items) return;
+    const checkedIndices = Object.keys(items).filter((k) => items[k]);
+    if (checkedIndices.length === 0) return;
+
+    const groups = getItemGroups(Number(poId));
+    const selectedItems = [];
+    checkedIndices.forEach((gi) => {
+      if (groups[Number(gi)]) {
+        const group = groups[Number(gi)];
+        if (group.isFinish) {
+          selectedItems.push(group.item);
+        } else {
+          draftItemNames.push(group.item);
+        }
+      }
+    });
+    if (selectedItems.length > 0) {
+      talliesPayload.push({ po_id: Number(poId), items: selectedItems });
+    }
+  });
+
+  if (draftItemNames.length > 0) {
+    draftMsgItems.value = draftItemNames;
+    showDraftMsg.value = true;
+  }
+
+  if (talliesPayload.length === 0) {
+    return;
+  }
+
+  router.post(
+    '/gmisl/utility/rcs/tally/approve',
+    { tallies: talliesPayload },
+    {
+      preserveScroll: true,
+      onSuccess: () => {
+        checkedItems.value = {};
+      },
+    },
+  );
 }
 
 function addEntry() {

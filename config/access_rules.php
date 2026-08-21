@@ -432,5 +432,24 @@ return [
                 'import' => $itChecklistRules,
             ],
         ],
+        'utility.rcs' => [
+            'abilities' => [
+                'add_po' => [
+                    ['type' => 'admin'],
+                ],
+                'add_tally' => [
+                    ['type' => 'admin'],
+                ],
+                'delete_po' => [
+                    ['type' => 'admin'],
+                ],
+                'delete_tally' => [
+                    ['type' => 'admin'],
+                ],
+                'approve' => [
+                    ['type' => 'admin'],
+                ],
+            ],
+        ],
     ],
 ];

@@ -96,6 +96,9 @@ Route::post('gmisl/utility/rcs/tally', [App\Http\Controllers\RcsController::clas
 Route::post('gmisl/utility/rcs/tally/{id}/destroy', [App\Http\Controllers\RcsController::class, 'destroyTally'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
     ->name('gmisl.utility.rcs.tally.destroy');
+Route::post('gmisl/utility/rcs/tally/approve', [App\Http\Controllers\RcsController::class, 'approveTally'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
+    ->name('gmisl.utility.rcs.tally.approve');
 Route::delete('gmisl/utility/rcs/{id}', [App\Http\Controllers\RcsController::class, 'destroy'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.rcs'])
     ->name('gmisl.utility.rcs.destroy');
