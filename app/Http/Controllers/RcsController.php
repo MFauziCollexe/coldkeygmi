@@ -54,9 +54,11 @@ class RcsController extends Controller
             ->values()
             ->toArray();
 
-        $tallyData = TTally::select('id', 't_po_id', 'item', 'pallet', 'kg', 'is_finish', 'startdate', 'enddate')
-            ->orderBy('t_po_id')
-            ->orderBy('pallet')
+        $tallyData = TTally::query()
+            ->leftJoin('users', 'users.id', '=', 't_tally.user_tally')
+            ->select('t_tally.id', 't_tally.t_po_id', 't_tally.item', 't_tally.pallet', 't_tally.kg', 't_tally.is_finish', 't_tally.startdate', 't_tally.enddate', 't_tally.user_tally', 'users.name as checker_name')
+            ->orderBy('t_tally.t_po_id')
+            ->orderBy('t_tally.pallet')
             ->get()
             ->groupBy('t_po_id');
 
@@ -126,6 +128,7 @@ class RcsController extends Controller
                     'pallet' => $entry['pallet'],
                     'kg' => $entry['kg'],
                     'is_finish' => $isFinish,
+                    'user_tally' => auth()->id(),
                 ];
 
                 if (!$poHasStartdate) {
