@@ -23,7 +23,9 @@
         "flatpickr": "^4.6.13",
         "html-to-image": "^1.11.13",
         "html2canvas": "^1.4.1",
+        "html2pdf.js": "^0.14.0",
         "html5-qrcode": "^2.3.8",
+        "jspdf": "^4.2.1",
         "lucide-vue-next": "^0.259.0",
         "sweetalert2": "^11.10.0"
     }

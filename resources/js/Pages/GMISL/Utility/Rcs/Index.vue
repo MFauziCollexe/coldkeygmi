@@ -51,6 +51,14 @@
           >
             Approve
           </button>
+          <button
+            type="button"
+            :disabled="!hasCheckedItems"
+            @click="handlePrintClick"
+            class="inline-flex items-center justify-center rounded bg-slate-600 px-4 py-2 text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Print
+          </button>
         </div>
       </div>
 
@@ -120,7 +128,6 @@
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Start Date</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">End Date</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Checker</th>
-                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Print</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -175,20 +182,9 @@
                             <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-xs text-slate-500">
                               {{ group.entries[0]?.checker_name || '-' }}
                             </td>
-                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-center">
-                              <button
-                                v-if="group.isFinish"
-                                class="inline-flex items-center justify-center rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition"
-                                title="Print"
-                                @click.stop="openPrintModal(tally, group)"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                              </button>
-                              <span v-else class="text-xs text-slate-300">-</span>
-                            </td>
                           </tr>
                           <tr v-if="isRowExpanded('item-' + tally.id + '-' + gi)">
-                            <td colspan="9" class="border-b border-slate-100 bg-slate-50/30 px-3 py-2">
+                            <td colspan="8" class="border-b border-slate-100 bg-slate-50/30 px-3 py-2">
                               <table class="w-full border-collapse text-xs">
                                 <thead>
                                   <tr class="text-left text-slate-400">
@@ -669,6 +665,46 @@
         </div>
       </div>
     </div>
+    <!-- Modal Draft Print Warning -->
+    <div
+      v-if="showDraftPrintMsg"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+    >
+      <div class="w-full max-w-sm overflow-hidden rounded-xl border border-slate-300 bg-white p-6 shadow-2xl">
+        <div class="mb-4 flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900">Item Masih Proses Checker</h3>
+        </div>
+
+        <div class="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p class="text-sm text-slate-700">Item berikut masih berstatus <span class="font-bold text-amber-700">Draft</span> dan belum bisa di-print:</p>
+          <div class="mt-3 space-y-1">
+            <div
+              v-for="(name, idx) in draftPrintItems"
+              :key="idx"
+              class="flex items-center gap-2 text-sm"
+            >
+              <span class="text-slate-400">{{ idx + 1 }}.</span>
+              <span class="font-semibold text-slate-800">{{ name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="button"
+            class="rounded bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+            @click="showDraftPrintMsg = false"
+          >
+            Mengerti
+          </button>
+        </div>
+      </div>
+    </div>
     <!-- Modal Confirm Delete PO -->
     <div
       v-if="showDeletePoConfirm"
@@ -744,23 +780,25 @@
             <div class="info-row"><span class="font-bold">Checker :</span> {{ printData.checker }}</div>
             <div class="info-row"><span class="font-bold">Nopol :</span> {{ printData.nopol }}</div>
             <div class="info-row"><span class="font-bold">Customer :</span> {{ printData.customer }}</div>
-            <div class="info-row"><span class="font-bold">Item :</span> {{ printData.item }}</div>
             <div class="info-row"><span class="font-bold">Total KG :</span> {{ Number(printData.totalKg).toFixed(2) }}</div>
           </div>
-          <table class="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-left text-black">Pallet</th>
-                <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-right text-black">KG</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="pallet in printData.pallets" :key="pallet.pallet">
-                <td class="border border-slate-300 px-3 py-1.5 text-black">{{ pallet.pallet }}</td>
-                <td class="border border-slate-300 px-3 py-1.5 text-right text-black">{{ Number(pallet.totalKg).toFixed(2) }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-for="(item, idx) in printData.items" :key="idx" class="mb-4">
+            <h3 class="mb-1 text-sm font-bold text-black">Item : {{ item.item }} <span class="font-normal text-slate-600">(Total: {{ Number(item.totalKg).toFixed(2) }} KG)</span></h3>
+            <table class="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-left text-black">Pallet</th>
+                  <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-right text-black">KG</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="pallet in item.pallets" :key="pallet.pallet">
+                  <td class="border border-slate-300 px-3 py-1.5 text-black">{{ pallet.pallet }}</td>
+                  <td class="border border-slate-300 px-3 py-1.5 text-right text-black">{{ Number(pallet.kg).toFixed(2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
@@ -933,6 +971,8 @@ const showModal = ref(false);
 const selectedId = ref(null);
 const showPrintModal = ref(false);
 const printData = ref(null);
+const showDraftPrintMsg = ref(false);
+const draftPrintItems = ref([]);
 
 const selectedPo = computed(() => tallies.value.find((tally) => tally.id === selectedId.value) || null);
 
@@ -1011,47 +1051,161 @@ function getItemGroups(poId) {
   }));
 }
 
-function openPrintModal(tally, group) {
+function isPoFinished(poId) {
+  return finishedPoIds.value.includes(poId);
+}
+
+function handlePrintClick() {
+  const draftItems = [];
+  const finishItems = [];
+
+  for (const [poId, items] of Object.entries(checkedItems.value)) {
+    if (!items) continue;
+    const groups = getItemGroups(Number(poId));
+    for (const [gi, checked] of Object.entries(items)) {
+      if (!checked) continue;
+      const group = groups[Number(gi)];
+      if (!group) continue;
+      if (group.isFinish) {
+        finishItems.push({ poId: Number(poId), group });
+      } else {
+        draftItems.push(group.item);
+      }
+    }
+  }
+
+  if (draftItems.length > 0) {
+    draftPrintItems.value = [...new Set(draftItems)];
+    showDraftPrintMsg.value = true;
+    return;
+  }
+
+  if (finishItems.length === 0) return;
+
+  const itemMap = new Map();
+  let totalKg = 0;
+  let checker = '-';
+  let nopol = '-';
+  let customer = '-';
+
+  for (const { poId, group } of finishItems) {
+    const po = tallies.value.find((t) => t.id === poId);
+    if (nopol === '-' && po) {
+      nopol = po?.nopol || '-';
+      customer = po?.customer?.name || '-';
+    }
+    if (!itemMap.has(group.item)) {
+      itemMap.set(group.item, { item: group.item, pallets: [], totalKg: 0 });
+    }
+    const item = itemMap.get(group.item);
+    for (const p of groupByPallet(group.entries)) {
+      item.pallets.push({ pallet: p.pallet, kg: p.totalKg });
+    }
+    item.totalKg += group.totalKg;
+    totalKg += group.totalKg;
+    if (checker === '-') checker = group.entries[0]?.checker_name || '-';
+  }
+
+  printData.value = { nopol, customer, totalKg, checker, items: Array.from(itemMap.values()) };
+  showPrintModal.value = true;
+}
+
+function openPrintModal(tally) {
   const po = tallies.value.find((t) => t.id === tally.id);
+  const groups = getItemGroups(tally.id);
+  const items = [];
+  let totalKg = 0;
+  let checker = '-';
+  for (const group of groups) {
+    const pallets = groupByPallet(group.entries);
+    items.push({ item: group.item, totalKg: group.totalKg, pallets });
+    totalKg += group.totalKg;
+    if (!checker || checker === '-') checker = group.entries[0]?.checker_name || '-';
+  }
   printData.value = {
     nopol: po?.nopol || '-',
     customer: po?.customer?.name || '-',
-    item: group.item,
-    totalKg: group.totalKg,
-    palletCount: group.palletCount,
-    checker: group.entries[0]?.checker_name || '-',
-    pallets: groupByPallet(group.entries),
+    totalKg,
+    checker,
+    items,
   };
   showPrintModal.value = true;
 }
 
 function handlePrint() {
-  const content = document.getElementById('print-content');
-  if (!content) return;
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Print Tally</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; font-size: 13px; }
-          h2 { text-align: center; margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th, td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
-          th { background: #f0f0f0; }
-          .info-row { margin-bottom: 6px; }
-          .info-row span { font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        ${content.innerHTML}
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
-  printWindow.close();
+  if (!printData.value) return;
+
+  import('jspdf').then(({ jsPDF }) => {
+    const doc = new jsPDF();
+    const data = printData.value;
+    let y = 20;
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TALLY SHEET', 105, y, { align: 'center' });
+    y += 12;
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Checker : ', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(String(data.checker), 50, y);
+    y += 7;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Nopol : ', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(String(data.nopol), 50, y);
+    y += 7;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Customer : ', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(String(data.customer), 55, y);
+    y += 7;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Total KG : ', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(Number(data.totalKg).toFixed(2), 55, y);
+    y += 12;
+
+    for (const item of data.items) {
+      if (y > 260) { doc.addPage(); y = 20; }
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Item : ${item.item}  (Total: ${Number(item.totalKg).toFixed(2)} KG)`, 20, y);
+      y += 8;
+
+      const colX = [20, 100];
+      const colW = [80, 70];
+      const headers = ['Pallet', 'KG'];
+
+      doc.setFillColor(240, 240, 240);
+      doc.rect(20, y, 150, 7, 'F');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(headers[0], colX[0] + 2, y + 5);
+      doc.text(headers[1], colX[1] + colW[1] - 2, y + 5, { align: 'right' });
+      y += 7;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      for (const pallet of item.pallets) {
+        if (y > 275) { doc.addPage(); y = 20; }
+        doc.rect(20, y, colW[0], 6, 'S');
+        doc.rect(colX[1], y, colW[1], 6, 'S');
+        doc.text(String(pallet.pallet), colX[0] + 2, y + 4.5);
+        doc.text(Number(pallet.kg).toFixed(2), colX[1] + colW[1] - 2, y + 4.5, { align: 'right' });
+        y += 6;
+      }
+      y += 8;
+    }
+
+    const fileName = `Tally_${data.nopol || 'Sheet'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(fileName);
+  });
 }
 
 function groupByPallet(entries) {
