@@ -1159,7 +1159,11 @@ function handlePrint() {
       y += 7;
       doc.setFontSize(10);
       doc.text('Operation Type (' + String(data.operationType || '-') + ')', pw / 2, y, { align: 'center' });
-      y += 8;
+      y += 6;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(String(data.noTally || '-'), pw / 2, y, { align: 'center' });
+      y += 7;
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
@@ -1262,9 +1266,6 @@ function handlePrint() {
       return cy + needed > ph - marginBottom - signatureH;
     }
 
-    let grandTotalQty = 0;
-    let grandTotalKg = 0;
-
     const allSheetData = sheets.map((data) => {
       const itemGroups = [];
       let itemNum = 0;
@@ -1281,11 +1282,30 @@ function handlePrint() {
           totalKg: totalKg,
           pallets: item.pallets,
         });
-        grandTotalQty += totalQty;
-        grandTotalKg += totalKg;
       }
       return Object.assign({}, data, { itemGroups: itemGroups });
     });
+
+    function drawSignature(y) {
+      if (y + 28 > ph - marginBottom) {
+        doc.addPage();
+        y = mt;
+      }
+      const sigW = contentW / 3;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+
+      doc.text('Checker', ml + sigW * 0.5, y, { align: 'center' });
+      doc.text('Driver', ml + sigW * 1.5, y, { align: 'center' });
+      doc.text('Admin', ml + sigW * 2.5, y, { align: 'center' });
+
+      y += 18;
+      doc.setLineWidth(0.3);
+      doc.line(ml + sigW * 0.1, y, ml + sigW * 0.9, y);
+      doc.line(ml + sigW * 1.1, y, ml + sigW * 1.9, y);
+      doc.line(ml + sigW * 2.1, y, ml + sigW * 2.9, y);
+      return y;
+    }
 
     for (let si = 0; si < allSheetData.length; si++) {
       const data = allSheetData[si];
@@ -1293,6 +1313,9 @@ function handlePrint() {
 
       let y = drawPageHeader(data);
       y = drawTableHeader(y);
+
+      let sheetTotalQty = 0;
+      let sheetTotalKg = 0;
 
       for (let ii = 0; ii < data.itemGroups.length; ii++) {
         const ig = data.itemGroups[ii];
@@ -1305,50 +1328,33 @@ function handlePrint() {
         }
 
         y = drawGroup(ig, y);
+        sheetTotalQty += ig.totalQty;
+        sheetTotalKg += ig.totalKg;
       }
 
-      const isLastSheet = si === allSheetData.length - 1;
-
-      if (isLastSheet) {
-        if (y + 40 > ph - marginBottom) {
-          doc.addPage();
-          y = mt;
-        }
-
-        y += 2;
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.3);
-        doc.line(ml, y, pw - mr, y);
-        y += 3;
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text('TOTAL', colX[2] + colItemW - 2, y + 2, { align: 'right' });
-        doc.text(fmtNum(grandTotalQty), colX[5] + colQtyW - 1, y + 2, { align: 'right' });
-        doc.text(fmtNum(grandTotalKg), colX[6] + colKgW - 1, y + 2, { align: 'right' });
-        y += 3;
-        doc.setLineWidth(0.4);
-        doc.line(ml, y, pw - mr, y);
-        y += 14;
-
-        const sigW = contentW / 3;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-
-        doc.text('Checker', ml + sigW * 0.5, y, { align: 'center' });
-        doc.text('Driver', ml + sigW * 1.5, y, { align: 'center' });
-        doc.text('Admin', ml + sigW * 2.5, y, { align: 'center' });
-
-        y += 18;
-        doc.setLineWidth(0.3);
-        doc.line(ml + sigW * 0.1, y, ml + sigW * 0.9, y);
-        doc.line(ml + sigW * 1.1, y, ml + sigW * 1.9, y);
-        doc.line(ml + sigW * 2.1, y, ml + sigW * 2.9, y);
-      } else {
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.3);
-        doc.line(ml, y, pw - mr, y);
+      if (y + 12 > ph - marginBottom - signatureH) {
+        doc.addPage();
+        y = drawPageHeader(data);
+        y = drawTableHeader(y);
       }
+
+      y += 2;
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.line(ml, y, pw - mr, y);
+      y += 3;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('TOTAL', colX[2] + colItemW - 2, y + 2, { align: 'right' });
+      doc.text(fmtNum(sheetTotalQty), colX[5] + colQtyW - 1, y + 2, { align: 'right' });
+      doc.text(fmtNum(sheetTotalKg), colX[6] + colKgW - 1, y + 2, { align: 'right' });
+      y += 3;
+      doc.setLineWidth(0.4);
+      doc.line(ml, y, pw - mr, y);
+      y += 10;
+
+      y = drawSignature(y);
     }
 
     const firstNoTally = sheets[0] ? sheets[0].noTally : 'Sheet';
