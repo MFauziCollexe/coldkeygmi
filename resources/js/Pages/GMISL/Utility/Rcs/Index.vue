@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <AppLayout>
     <div class="p-4 md:p-6">
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1019,31 +1019,50 @@ function handlePrintClick() {
 
   if (finishItems.length === 0) return;
 
-  const itemMap = new Map();
-  let totalKg = 0;
-  let checker = '-';
-  let nopol = '-';
-  let customer = '-';
-
+  const tallyMap = new Map();
   for (const { poId, group } of finishItems) {
-    const po = tallies.value.find((t) => t.id === poId);
-    if (nopol === '-' && po) {
-      nopol = po?.nopol || '-';
-      customer = po?.customer?.name || '-';
+    const tallyNo = group.entries[0]?.no_tally || '-';
+    if (!tallyMap.has(tallyNo)) {
+      const po = tallies.value.find((t) => t.id === poId);
+      tallyMap.set(tallyNo, {
+        nopol: po?.nopol || '-',
+        customer: po?.customer?.name || '-',
+        poNumber: po?.po || '-',
+        operationType: po?.transaksi || '-',
+        driver: po?.driver || '-',
+        checker: group.entries[0]?.checker_name || '-',
+        noTally: tallyNo,
+        date: group.startdate || '-',
+        totalKg: 0,
+        items: new Map(),
+      });
     }
-    if (!itemMap.has(group.item)) {
-      itemMap.set(group.item, { item: group.item, pallets: [], totalKg: 0 });
+    const sheet = tallyMap.get(tallyNo);
+    const startDate = group.startdate || '-';
+    const endDate = group.enddate || '-';
+    if (!sheet.items.has(group.item)) {
+      sheet.items.set(group.item, {
+        item: group.item,
+        pallets: [],
+        totalKg: 0,
+        totalQty: 0,
+        expiredDate: endDate,
+      });
     }
-    const item = itemMap.get(group.item);
+    const item = sheet.items.get(group.item);
     for (const entry of group.entries) {
-      item.pallets.push({ pallet: entry.pallet, kg: entry.kg, no_tally: entry.no_tally || '-' });
+      item.pallets.push({ pallet: entry.pallet, kg: entry.kg });
+      item.totalQty += 1;
     }
     item.totalKg += group.totalKg;
-    totalKg += group.totalKg;
-    if (checker === '-') checker = group.entries[0]?.checker_name || '-';
+    sheet.totalKg += group.totalKg;
+    sheet.checker = group.entries[0]?.checker_name || sheet.checker;
   }
 
-  printData.value = { nopol, customer, totalKg, checker, noTally: finishItems[0]?.group?.entries?.[0]?.no_tally || '-', items: Array.from(itemMap.values()) };
+  printData.value = Array.from(tallyMap.values()).map(s => ({
+    ...s,
+    items: Array.from(s.items.values()),
+  }));
   handlePrint();
 }
 
@@ -1052,162 +1071,292 @@ function openPrintModal(tally) {
   const groups = getItemGroups(tally.id);
   const items = [];
   let totalKg = 0;
+  let totalQty = 0;
   let checker = '-';
   for (const group of groups) {
-    const entries = group.entries.map(e => ({ pallet: e.pallet, kg: e.kg, no_tally: e.no_tally || '-' }));
-    items.push({ item: group.item, totalKg: group.totalKg, pallets: entries });
+    const entries = group.entries.map(e => ({ pallet: e.pallet, kg: e.kg }));
+    items.push({
+      item: group.item,
+      totalKg: group.totalKg,
+      totalQty: entries.length,
+      expiredDate: group.enddate || '-',
+      pallets: entries,
+    });
     totalKg += group.totalKg;
+    totalQty += entries.length;
     if (!checker || checker === '-') checker = group.entries[0]?.checker_name || '-';
   }
-  printData.value = {
+  printData.value = [{
     nopol: po?.nopol || '-',
     customer: po?.customer?.name || '-',
+    poNumber: po?.po || '-',
+    operationType: po?.transaksi || '-',
+    driver: po?.driver || '-',
     totalKg,
+    totalQty,
     checker,
-    noTally: group.entries[0]?.no_tally || '-',
+    noTally: groups[0]?.entries[0]?.no_tally || '-',
+    date: groups[0]?.startdate || '-',
     items,
-  };
+  }];
   handlePrint();
 }
 
 function handlePrint() {
-  if (!printData.value) return;
+  if (!printData.value || !printData.value.length) return;
 
   import('jspdf').then(({ jsPDF }) => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    const data = printData.value;
+    const sheets = printData.value;
     const pw = 210, ph = 297;
-    const ml = 14, mr = 14, mt = 12;
+    const ml = 15, mr = 15, mt = 10;
     const contentW = pw - ml - mr;
     const now = new Date();
-    const printedOn = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-    function getProductName(code) {
+    function getSkuName(code) {
       const p = products.value.find(pr => String(pr.internal_reference) === String(code));
-      return p ? '[' + p.internal_reference + '] ' + p.name : code;
+      return p ? p.name : String(code);
     }
 
-    function drawHeader() {
+    function formatDate(d) {
+      if (!d || d === '-') return '-';
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return String(d);
+      return dt.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function fmtNum(v) {
+      return Number(v).toLocaleString('id-ID');
+    }
+
+    const marginBottom = 10;
+    const signatureH = 30;
+
+    const colNoW = 10;
+    const colSkuW = 22;
+    const colPalletW = 14;
+    const colExpW = 22;
+    const colQtyW = 14;
+    const colKgW = 22;
+    const colItemW = contentW - colNoW - colSkuW - colPalletW - colExpW - colQtyW - colKgW;
+
+    const colX = [ml];
+    colX.push(colX[0] + colNoW);
+    colX.push(colX[1] + colSkuW);
+    colX.push(colX[2] + colItemW);
+    colX.push(colX[3] + colPalletW);
+    colX.push(colX[4] + colExpW);
+    colX.push(colX[5] + colQtyW);
+
+    const headerH = 7;
+    const rowH = 5.5;
+
+    function drawPageHeader(data) {
       let y = mt;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.text('Tally Sheet', ml, y + 1);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Customer : ' + String(data.customer), pw - mr, y, { align: 'right' });
-      y += 5;
-      doc.text('Checker  : ' + String(data.checker), pw - mr, y, { align: 'right' });
-      y += 5;
-      doc.text('NoPol    : ' + String(data.nopol), pw - mr, y, { align: 'right' });
+      doc.setFontSize(15);
+      doc.text('Tally Sheet', pw / 2, y + 2, { align: 'center' });
       y += 7;
+      doc.setFontSize(10);
+      doc.text('Operation Type (' + String(data.operationType || '-') + ')', pw / 2, y, { align: 'center' });
+      y += 8;
+
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.text('Printed On: ' + printedOn, ml, y);
+      doc.setFontSize(9);
+      const labelX = ml;
+      const valX = ml + 28;
+      doc.text('Tanggal', labelX, y);
+      doc.text(': ' + formatDate(data.date), valX, y);
+      y += 5;
+      doc.text('Customer', labelX, y);
+      doc.text(': ' + String(data.customer || '-'), valX, y);
+      y += 5;
+      doc.text('No PO', labelX, y);
+      doc.text(': ' + String(data.poNumber || '-'), valX, y);
+      y += 5;
+      doc.text('Nopol', labelX, y);
+      doc.text(': ' + String(data.nopol || '-'), valX, y);
+      y += 5;
+      doc.text('Checker', labelX, y);
+      doc.text(': ' + String(data.checker || '-'), valX, y);
       y += 6;
+
       doc.setDrawColor(0);
-      doc.setLineWidth(0.4);
+      doc.setLineWidth(0.3);
       doc.line(ml, y, pw - mr, y);
-      y += 6;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text(data.noTally || '-', ml, y);
-      y += 4;
-      doc.setLineWidth(0.4);
-      doc.line(ml, y, pw - mr, y);
-      y += 4;
+      y += 2;
       return y;
     }
 
-    let y = drawHeader();
-
-    const colItemW = contentW * 0.55;
-    const colPalletW = contentW * 0.23;
-    const colKgW = contentW * 0.22;
-    const colX = [ml, ml + colItemW, ml + colItemW + colPalletW];
-    const headerH = 6;
-
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-
     function drawTableHeader(cy) {
-      doc.setFillColor(235, 235, 235);
-      doc.rect(ml, cy, contentW, headerH, 'F');
-      doc.rect(ml, cy, contentW, headerH, 'S');
-      doc.rect(colX[1], cy, colPalletW, headerH, 'S');
-      doc.rect(colX[2], cy, colKgW, headerH, 'S');
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.15);
+      doc.line(ml, cy, pw - mr, cy);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.text('Item', colX[0] + 2, cy + 4.2);
-      doc.text('Pallet', colX[1] + colPalletW / 2, cy + 4.2, { align: 'center' });
-      doc.text('KG', colX[2] + colKgW - 2, cy + 4.2, { align: 'right' });
-      return cy + headerH;
+      const headers = ['No', 'SKU', 'Item', 'Pallet', 'Exp Date', 'Qty', 'KG'];
+      const widths = [colNoW, colSkuW, colItemW, colPalletW, colExpW, colQtyW, colKgW];
+      const aligns = ['center', 'center', 'left', 'center', 'center', 'right', 'right'];
+      for (let i = 0; i < headers.length; i++) {
+        let tx = colX[i] + 1;
+        if (aligns[i] === 'center') tx = colX[i] + widths[i] / 2;
+        if (aligns[i] === 'right') tx = colX[i] + widths[i] - 1;
+        doc.text(headers[i], tx, cy + 5, { align: aligns[i] });
+      }
+      cy += headerH;
+      doc.setLineWidth(0.3);
+      doc.line(ml, cy, pw - mr, cy);
+      return cy + 1;
     }
 
-    y = drawTableHeader(y);
+    function calcGroupHeight(ig) {
+      const nameLines = doc.splitTextToSize(getSkuName(ig.sku), colItemW - 4);
+      const nameH = Math.max(rowH, nameLines.length > 1 ? rowH * 2 : rowH);
+      const uniquePallets = new Set(ig.pallets.map(p => p.pallet)).size;
+      return nameH + uniquePallets * rowH + 7;
+    }
 
-    for (const item of data.items) {
-      const productName = getProductName(item.item);
-      const lines = doc.splitTextToSize(productName, colItemW - 4);
-      const textH = Math.max(5, lines.length * 3.5 + 1);
+    function drawGroup(ig, cy) {
+      const nameLines = doc.splitTextToSize(getSkuName(ig.sku), colItemW - 4);
+      const nameH = Math.max(rowH, nameLines.length > 1 ? rowH * 2 : rowH);
 
-      const palletGroups = new Map();
-      for (const p of item.pallets) {
-        if (!palletGroups.has(p.pallet)) palletGroups.set(p.pallet, []);
-        palletGroups.get(p.pallet).push(p);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(String(ig.number), colX[0] + colNoW / 2, cy + nameH / 2 + 1.5, { align: 'center' });
+      doc.text(String(ig.sku), colX[1] + colSkuW / 2, cy + nameH / 2 + 1.5, { align: 'center' });
+      doc.text(nameLines, colX[2] + 2, cy + 4);
+      cy += nameH;
+
+      const palletAgg = new Map();
+      for (const p of ig.pallets) {
+        const key = p.pallet;
+        if (!palletAgg.has(key)) palletAgg.set(key, { pallet: key, qty: 0, kg: 0 });
+        const a = palletAgg.get(key);
+        a.qty += 1;
+        a.kg += Number(p.kg);
+      }
+      for (const [, a] of palletAgg) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(String(a.pallet), colX[3] + colPalletW / 2, cy + rowH / 2 + 1.5, { align: 'center' });
+        doc.text('-', colX[4] + colExpW / 2, cy + rowH / 2 + 1.5, { align: 'center' });
+        doc.text(fmtNum(a.qty), colX[5] + colQtyW - 1, cy + rowH / 2 + 1.5, { align: 'right' });
+        doc.text(fmtNum(a.kg), colX[6] + colKgW - 1, cy + rowH / 2 + 1.5, { align: 'right' });
+        cy += rowH;
       }
 
-      for (const [palletNo, entries] of palletGroups) {
-        for (const entry of entries) {
-          if (y + textH > ph - 15) {
-            doc.line(ml, y, pw - mr, y);
-            doc.addPage();
-            y = mt;
-            y = drawTableHeader(y);
-          }
+      doc.setLineWidth(0.2);
+      doc.line(colX[5] + colQtyW - 10, cy + 2, pw - mr, cy + 2);
+      cy += 3;
 
-          doc.rect(ml, y, contentW, textH, 'S');
-          doc.rect(colX[1], y, colPalletW, textH, 'S');
-          doc.rect(colX[2], y, colKgW, textH, 'S');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('Subtotal', colX[2] + colItemW - 2, cy + 2, { align: 'right' });
+      doc.text(fmtNum(ig.totalQty), colX[5] + colQtyW - 1, cy + 2, { align: 'right' });
+      doc.text(fmtNum(ig.totalKg), colX[6] + colKgW - 1, cy + 2, { align: 'right' });
+      cy += 5;
+      return cy;
+    }
 
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(7);
-          doc.text(lines, colX[0] + 2, y + 3.8);
+    function needPageBreak(cy, needed) {
+      return cy + needed > ph - marginBottom - signatureH;
+    }
 
-          doc.setFontSize(8);
-          doc.text(String(entry.pallet), colX[1] + colPalletW / 2, y + textH / 2 + 1, { align: 'center' });
-          doc.text(Number(entry.kg).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), colX[2] + colKgW - 2, y + textH / 2 + 1, { align: 'right' });
+    let grandTotalQty = 0;
+    let grandTotalKg = 0;
 
-          y += textH;
-        }
+    const allSheetData = sheets.map((data) => {
+      const itemGroups = [];
+      let itemNum = 0;
+      for (const item of data.items) {
+        itemNum++;
+        const totalQty = item.totalQty || item.pallets.length;
+        const totalKg = item.totalKg || item.pallets.reduce((s, p) => s + Number(p.kg), 0);
+        const expiredDate = item.expiredDate || '-';
+        itemGroups.push({
+          number: itemNum,
+          sku: item.item,
+          expiredDate: formatDate(expiredDate),
+          totalQty: totalQty,
+          totalKg: totalKg,
+          pallets: item.pallets,
+        });
+        grandTotalQty += totalQty;
+        grandTotalKg += totalKg;
+      }
+      return Object.assign({}, data, { itemGroups: itemGroups });
+    });
 
-        const subtotalKg = entries.reduce((s, e) => s + Number(e.kg), 0);
-        const sumH = 5;
-        if (y + sumH > ph - 15) {
-          doc.line(ml, y, pw - mr, y);
+    for (let si = 0; si < allSheetData.length; si++) {
+      const data = allSheetData[si];
+      if (si > 0) doc.addPage();
+
+      let y = drawPageHeader(data);
+      y = drawTableHeader(y);
+
+      for (let ii = 0; ii < data.itemGroups.length; ii++) {
+        const ig = data.itemGroups[ii];
+        const groupH = calcGroupHeight(ig);
+
+        if (needPageBreak(y, groupH)) {
           doc.addPage();
-          y = mt;
+          y = drawPageHeader(data);
           y = drawTableHeader(y);
         }
-        doc.setFillColor(245, 245, 245);
-        doc.rect(ml, y, contentW, sumH, 'F');
-        doc.rect(ml, y, contentW, sumH, 'S');
-        doc.rect(colX[1], y, colPalletW, sumH, 'S');
-        doc.rect(colX[2], y, colKgW, sumH, 'S');
+
+        y = drawGroup(ig, y);
+      }
+
+      const isLastSheet = si === allSheetData.length - 1;
+
+      if (isLastSheet) {
+        if (y + 40 > ph - marginBottom) {
+          doc.addPage();
+          y = mt;
+        }
+
+        y += 2;
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+        doc.line(ml, y, pw - mr, y);
+        y += 3;
+
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7);
-        doc.text('Total Pallet ' + palletNo, colX[0] + 2, y + 3.5);
-        doc.setFontSize(8);
-        doc.text(Number(subtotalKg).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), colX[2] + colKgW - 2, y + 3.5, { align: 'right' });
-        y += sumH;
+        doc.setFontSize(9);
+        doc.text('TOTAL', colX[2] + colItemW - 2, y + 2, { align: 'right' });
+        doc.text(fmtNum(grandTotalQty), colX[5] + colQtyW - 1, y + 2, { align: 'right' });
+        doc.text(fmtNum(grandTotalKg), colX[6] + colKgW - 1, y + 2, { align: 'right' });
+        y += 3;
+        doc.setLineWidth(0.4);
+        doc.line(ml, y, pw - mr, y);
+        y += 14;
+
+        const sigW = contentW / 3;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+
+        doc.text('Checker', ml + sigW * 0.5, y, { align: 'center' });
+        doc.text('Driver', ml + sigW * 1.5, y, { align: 'center' });
+        doc.text('Admin', ml + sigW * 2.5, y, { align: 'center' });
+
+        y += 18;
+        doc.setLineWidth(0.3);
+        doc.line(ml + sigW * 0.1, y, ml + sigW * 0.9, y);
+        doc.line(ml + sigW * 1.1, y, ml + sigW * 1.9, y);
+        doc.line(ml + sigW * 2.1, y, ml + sigW * 2.9, y);
+      } else {
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+        doc.line(ml, y, pw - mr, y);
       }
     }
 
-    doc.line(ml, y, pw - mr, y);
-
-    const fileName = 'Tally_' + (data.noTally || data.nopol || 'Sheet') + '_' + now.toISOString().slice(0, 10) + '.pdf';
+    const firstNoTally = sheets[0] ? sheets[0].noTally : 'Sheet';
+    const fileName = 'Tally_' + firstNoTally + '_' + now.toISOString().slice(0, 10) + '.pdf';
     doc.save(fileName);
   });
 }
+
 
 function groupByPallet(entries) {
   const map = new Map();
