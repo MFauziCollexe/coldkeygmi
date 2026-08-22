@@ -187,24 +187,26 @@
                             <td colspan="8" class="border-b border-slate-100 bg-slate-50/30 px-3 py-2">
                               <table class="w-full border-collapse text-xs">
                                 <thead>
-                                  <tr class="text-left text-slate-400">
-                                    <th class="whitespace-nowrap px-2 py-1 font-semibold text-center">No</th>
-                                    <th class="whitespace-nowrap px-2 py-1 font-semibold">Pallet</th>
-                                    <th class="whitespace-nowrap px-2 py-1 font-semibold text-right">KG</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <template v-for="(pg, pi) in groupByPallet(group.entries)" :key="'pg-' + pi">
-                                    <tr
-                                      v-for="(entry, ei) in pg.entries"
-                                      :class="getDetailRowBg(pi, ei, group.entries)"
-                                    >
-                                      <td class="whitespace-nowrap px-2 py-1 text-center">{{ ei + 1 }}</td>
-                                      <td class="whitespace-nowrap px-2 py-1">{{ entry.pallet }}</td>
-                                      <td class="whitespace-nowrap px-2 py-1 text-right">{{ Number(entry.kg).toFixed(2) }}</td>
-                                    </tr>
-                                    <tr class="bg-green-50 font-semibold text-green-800">
-                                      <td colspan="3" class="whitespace-nowrap px-2 py-1 text-right">Total Pallet {{ pg.pallet }} — {{ Number(pg.totalKg).toFixed(2) }} KG</td>
+                                   <tr class="text-left text-slate-400">
+                                     <th class="whitespace-nowrap px-2 py-1 font-semibold text-center">No</th>
+                                     <th class="whitespace-nowrap px-2 py-1 font-semibold">Pallet</th>
+                                     <th class="whitespace-nowrap px-2 py-1 font-semibold">Exp Date</th>
+                                     <th class="whitespace-nowrap px-2 py-1 font-semibold text-right">KG</th>
+                                   </tr>
+                                 </thead>
+                                 <tbody>
+                                   <template v-for="(pg, pi) in groupByPallet(group.entries)" :key="'pg-' + pi">
+                                     <tr
+                                       v-for="(entry, ei) in pg.entries"
+                                       :class="getDetailRowBg(pi, ei, group.entries)"
+                                     >
+                                       <td class="whitespace-nowrap px-2 py-1 text-center">{{ ei + 1 }}</td>
+                                       <td class="whitespace-nowrap px-2 py-1">{{ entry.pallet }}</td>
+                                       <td class="whitespace-nowrap px-2 py-1">{{ entry.exp_date || '-' }}</td>
+                                       <td class="whitespace-nowrap px-2 py-1 text-right">{{ Number(entry.kg).toFixed(2) }}</td>
+                                     </tr>
+                                     <tr class="bg-green-50 font-semibold text-green-800">
+                                       <td colspan="4" class="whitespace-nowrap px-2 py-1 text-right">Total Pallet {{ pg.pallet }} — {{ Number(pg.totalKg).toFixed(2) }} KG</td>
                                     </tr>
                                   </template>
                                 </tbody>
