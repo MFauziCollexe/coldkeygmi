@@ -15,6 +15,7 @@ class TTally extends Model
         't_po_id',
         'item',
         'pallet',
+        'exp_date',
         'kg',
         'is_finish',
         'startdate',

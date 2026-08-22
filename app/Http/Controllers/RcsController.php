@@ -56,7 +56,7 @@ class RcsController extends Controller
 
         $tallyData = TTally::query()
             ->leftJoin('users', 'users.id', '=', 't_tally.user_tally')
-            ->select('t_tally.id', 't_tally.no_tally', 't_tally.t_po_id', 't_tally.item', 't_tally.pallet', 't_tally.kg', 't_tally.is_finish', 't_tally.startdate', 't_tally.enddate', 't_tally.user_tally', 'users.name as checker_name')
+            ->select('t_tally.id', 't_tally.no_tally', 't_tally.t_po_id', 't_tally.item', 't_tally.pallet', 't_tally.exp_date', 't_tally.kg', 't_tally.is_finish', 't_tally.startdate', 't_tally.enddate', 't_tally.user_tally', 'users.name as checker_name')
             ->orderBy('t_tally.t_po_id')
             ->orderBy('t_tally.pallet')
             ->get()
@@ -102,6 +102,7 @@ class RcsController extends Controller
             'entries' => ['nullable', 'array'],
             'entries.*.item' => ['required_with:entries', 'string'],
             'entries.*.pallet' => ['required_with:entries', 'integer', 'min:1'],
+            'entries.*.exp_date' => ['nullable', 'date'],
             'entries.*.kg' => ['required_with:entries', 'numeric', 'min:0'],
             'deleted_ids' => ['nullable', 'array'],
             'deleted_ids.*' => ['integer'],
@@ -144,6 +145,7 @@ class RcsController extends Controller
                     't_po_id' => $validated['t_po_id'],
                     'item' => $entry['item'],
                     'pallet' => $entry['pallet'],
+                    'exp_date' => $entry['exp_date'] ?? null,
                     'kg' => $entry['kg'],
                     'is_finish' => $isFinish,
                     'user_tally' => auth()->id(),

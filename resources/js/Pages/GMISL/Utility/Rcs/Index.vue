@@ -379,6 +379,15 @@
               />
             </div>
             <div class="flex-1">
+              <label class="mb-1 block bg-white text-sm font-medium text-slate-700" for="exp_date">Exp Date</label>
+              <input
+                id="exp_date"
+                v-model="tallyForm.exp_date"
+                type="date"
+                class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div class="flex-1">
               <label class="mb-1 block bg-white text-sm font-medium text-slate-700" for="kg">KG</label>
               <input
                 id="kg"
@@ -929,6 +938,7 @@ const itemLocked = ref(false);
 const tallyForm = ref({
   item: '',
   kg: '',
+  exp_date: '',
 });
 const palletEntries = ref({});
 const currentPallet = ref(1);
@@ -1051,7 +1061,7 @@ function handlePrintClick() {
     }
     const item = sheet.items.get(group.item);
     for (const entry of group.entries) {
-      item.pallets.push({ pallet: entry.pallet, kg: entry.kg });
+      item.pallets.push({ pallet: entry.pallet, kg: entry.kg, exp_date: entry.exp_date || '' });
       item.totalQty += 1;
     }
     item.totalKg += group.totalKg;
@@ -1074,7 +1084,7 @@ function openPrintModal(tally) {
   let totalQty = 0;
   let checker = '-';
   for (const group of groups) {
-    const entries = group.entries.map(e => ({ pallet: e.pallet, kg: e.kg }));
+    const entries = group.entries.map(e => ({ pallet: e.pallet, kg: e.kg, exp_date: e.exp_date || '' }));
     items.push({
       item: group.item,
       totalKg: group.totalKg,
@@ -1234,7 +1244,7 @@ function handlePrint() {
       const palletAgg = new Map();
       for (const p of ig.pallets) {
         const key = p.pallet;
-        if (!palletAgg.has(key)) palletAgg.set(key, { pallet: key, qty: 0, kg: 0 });
+        if (!palletAgg.has(key)) palletAgg.set(key, { pallet: key, qty: 0, kg: 0, exp_date: p.exp_date || '-' });
         const a = palletAgg.get(key);
         a.qty += 1;
         a.kg += Number(p.kg);
@@ -1243,7 +1253,7 @@ function handlePrint() {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.text(String(a.pallet), colX[3] + colPalletW / 2, cy + rowH / 2 + 1.5, { align: 'center' });
-        doc.text('-', colX[4] + colExpW / 2, cy + rowH / 2 + 1.5, { align: 'center' });
+        doc.text(formatDate(a.exp_date), colX[4] + colExpW / 2, cy + rowH / 2 + 1.5, { align: 'center' });
         doc.text(fmtNum(a.qty), colX[5] + colQtyW - 1, cy + rowH / 2 + 1.5, { align: 'right' });
         doc.text(fmtNum(a.kg), colX[6] + colKgW - 1, cy + rowH / 2 + 1.5, { align: 'right' });
         cy += rowH;
@@ -1452,26 +1462,28 @@ function openTallyModal() {
     if (itemEntries.length > 0) {
       const pe = {};
       let maxPallet = 0;
+      let lastExpDate = '';
       for (const e of itemEntries) {
         const p = e.pallet;
         if (p > maxPallet) maxPallet = p;
         if (!pe[p]) pe[p] = [];
-        pe[p].push({ id: e.id, item: e.item, pallet: p, kg: e.kg, _new: false });
+        pe[p].push({ id: e.id, item: e.item, pallet: p, kg: e.kg, exp_date: e.exp_date || '', _new: false });
+        if (e.exp_date) lastExpDate = e.exp_date;
       }
       palletEntries.value = pe;
       currentPallet.value = maxPallet + 1;
-      tallyForm.value = { item: checkedGroup.item, kg: '' };
+      tallyForm.value = { item: checkedGroup.item, kg: '', exp_date: lastExpDate };
       itemLocked.value = true;
     } else {
       palletEntries.value = {};
       currentPallet.value = 1;
-      tallyForm.value = { item: checkedGroup ? checkedGroup.item : '', kg: '' };
+      tallyForm.value = { item: checkedGroup ? checkedGroup.item : '', kg: '', exp_date: '' };
       itemLocked.value = false;
     }
   } else {
     palletEntries.value = {};
     currentPallet.value = 1;
-    tallyForm.value = { item: '', kg: '' };
+    tallyForm.value = { item: '', kg: '', exp_date: '' };
     itemLocked.value = false;
   }
   hasUnsaved.value = false;
@@ -1658,7 +1670,7 @@ function addEntry() {
   }
   updated[currentPallet.value] = [
     ...updated[currentPallet.value],
-    { item: item, pallet: currentPallet.value, kg: kg, _new: true },
+    { item: item, pallet: currentPallet.value, kg: kg, exp_date: tallyForm.value.exp_date || '', _new: true },
   ];
   palletEntries.value = updated;
   tallyForm.value.kg = '';
@@ -1704,6 +1716,7 @@ function saveEntries() {
         item: entry.item,
         pallet: entry.pallet,
         kg: entry.kg,
+        exp_date: entry.exp_date || null,
       })),
       deleted_ids: hasDeletions ? deletedEntryIds.value : [],
     },
