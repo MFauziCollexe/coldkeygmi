@@ -56,7 +56,7 @@ class RcsController extends Controller
 
         $tallyData = TTally::query()
             ->leftJoin('users', 'users.id', '=', 't_tally.user_tally')
-            ->select('t_tally.id', 't_tally.t_po_id', 't_tally.item', 't_tally.pallet', 't_tally.kg', 't_tally.is_finish', 't_tally.startdate', 't_tally.enddate', 't_tally.user_tally', 'users.name as checker_name')
+            ->select('t_tally.id', 't_tally.no_tally', 't_tally.t_po_id', 't_tally.item', 't_tally.pallet', 't_tally.kg', 't_tally.is_finish', 't_tally.startdate', 't_tally.enddate', 't_tally.user_tally', 'users.name as checker_name')
             ->orderBy('t_tally.t_po_id')
             ->orderBy('t_tally.pallet')
             ->get()
@@ -117,12 +117,30 @@ class RcsController extends Controller
         }
 
         if (!empty($validated['entries'])) {
-            $poHasStartdate = TTally::where('t_po_id', $validated['t_po_id'])
-                ->whereNotNull('startdate')
-                ->exists();
+            $today = $now->format('d/m/Y');
+            $monthMax = TTally::whereYear('created_at', $now->year)
+                ->whereMonth('created_at', $now->month)
+                ->max(DB::raw("CAST(SUBSTRING_INDEX(no_tally, '-', -1) AS UNSIGNED)"));
+            $nextNo = ($monthMax ?? 0) + 1;
+            $itemNoMap = [];
 
             foreach ($validated['entries'] as $entry) {
+                if (!isset($itemNoMap[$entry['item']])) {
+                    $existingNo = TTally::where('t_po_id', $validated['t_po_id'])
+                        ->where('item', $entry['item'])
+                        ->whereDate('created_at', $now->toDateString())
+                        ->value('no_tally');
+
+                    if ($existingNo) {
+                        $itemNoMap[$entry['item']] = $existingNo;
+                    } else {
+                        $itemNoMap[$entry['item']] = 'Tally/' . $today . '-' . str_pad($nextNo, 3, '0', STR_PAD_LEFT);
+                        $nextNo++;
+                    }
+                }
+
                 $data = [
+                    'no_tally' => $itemNoMap[$entry['item']],
                     't_po_id' => $validated['t_po_id'],
                     'item' => $entry['item'],
                     'pallet' => $entry['pallet'],
@@ -130,10 +148,6 @@ class RcsController extends Controller
                     'is_finish' => $isFinish,
                     'user_tally' => auth()->id(),
                 ];
-
-                if (!$poHasStartdate) {
-                    $data['startdate'] = $now;
-                }
 
                 TTally::create($data);
             }

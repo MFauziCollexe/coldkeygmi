@@ -11,6 +11,7 @@ class TTally extends Model
     protected $table = 't_tally';
 
     protected $fillable = [
+        'no_tally',
         't_po_id',
         'item',
         'pallet',
@@ -20,6 +21,15 @@ class TTally extends Model
         'enddate',
         'user_tally',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (TTally $tally) {
+            if (is_null($tally->startdate)) {
+                $tally->startdate = now();
+            }
+        });
+    }
 
     public function po(): BelongsTo
     {

@@ -120,7 +120,7 @@
                     <table class="w-full border-collapse text-xs">
                       <thead>
                         <tr class="bg-slate-100 text-left text-slate-500">
-                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">No</th>
+                          <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">No Tally</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold">Nama Item</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-right">Total KG</th>
                           <th class="whitespace-nowrap border-b border-slate-200 px-3 py-1.5 font-semibold text-center">Total Pallet</th>
@@ -136,15 +136,15 @@
                             class="text-slate-700 hover:bg-slate-50 cursor-pointer"
                             @click="toggleRow('item-' + tally.id + '-' + gi)"
                           >
-                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 text-center" @click.stop>
-                              <div class="flex items-center justify-center gap-1.5">
+                            <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 font-medium" @click.stop>
+                              <div class="flex items-center gap-1.5">
                                 <input
                                   type="checkbox"
                                   :checked="isItemChecked(tally.id, gi)"
                                   @change="toggleItemCheck(tally.id, gi)"
                                   class="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                 />
-                                <span>{{ gi + 1 }}</span>
+                                <span class="font-bold text-slate-800">{{ group.entries[0]?.no_tally || '-' }}</span>
                               </div>
                             </td>
                             <td class="whitespace-nowrap border-b border-slate-100 px-3 py-1.5 font-medium">
@@ -787,12 +787,14 @@
             <table class="w-full border-collapse text-sm">
               <thead>
                 <tr>
+                  <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-left text-black">No Tally</th>
                   <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-left text-black">Pallet</th>
                   <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-right text-black">KG</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="pallet in item.pallets" :key="pallet.pallet">
+                  <td class="border border-slate-300 px-3 py-1.5 text-black text-xs">{{ pallet.no_tally }}</td>
                   <td class="border border-slate-300 px-3 py-1.5 text-black">{{ pallet.pallet }}</td>
                   <td class="border border-slate-300 px-3 py-1.5 text-right text-black">{{ Number(pallet.kg).toFixed(2) }}</td>
                 </tr>
@@ -1099,7 +1101,7 @@ function handlePrintClick() {
     }
     const item = itemMap.get(group.item);
     for (const p of groupByPallet(group.entries)) {
-      item.pallets.push({ pallet: p.pallet, kg: p.totalKg });
+      item.pallets.push({ pallet: p.pallet, kg: p.totalKg, no_tally: group.entries[0]?.no_tally || '-' });
     }
     item.totalKg += group.totalKg;
     totalKg += group.totalKg;
@@ -1118,7 +1120,11 @@ function openPrintModal(tally) {
   let checker = '-';
   for (const group of groups) {
     const pallets = groupByPallet(group.entries);
-    items.push({ item: group.item, totalKg: group.totalKg, pallets });
+    const enrichedPallets = pallets.map(p => {
+      const matchEntry = group.entries.find(e => e.pallet === p.pallet);
+      return { ...p, no_tally: matchEntry?.no_tally || '-' };
+    });
+    items.push({ item: group.item, totalKg: group.totalKg, pallets: enrichedPallets });
     totalKg += group.totalKg;
     if (!checker || checker === '-') checker = group.entries[0]?.checker_name || '-';
   }
@@ -1178,16 +1184,17 @@ function handlePrint() {
       doc.text(`Item : ${item.item}  (Total: ${Number(item.totalKg).toFixed(2)} KG)`, 20, y);
       y += 8;
 
-      const colX = [20, 100];
-      const colW = [80, 70];
-      const headers = ['Pallet', 'KG'];
+      const colX = [20, 75, 125];
+      const colW = [55, 50, 45];
+      const headers = ['No Tally', 'Pallet', 'KG'];
 
       doc.setFillColor(240, 240, 240);
       doc.rect(20, y, 150, 7, 'F');
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
       doc.text(headers[0], colX[0] + 2, y + 5);
-      doc.text(headers[1], colX[1] + colW[1] - 2, y + 5, { align: 'right' });
+      doc.text(headers[1], colX[1] + 2, y + 5);
+      doc.text(headers[2], colX[2] + colW[2] - 2, y + 5, { align: 'right' });
       y += 7;
 
       doc.setFont('helvetica', 'normal');
@@ -1196,8 +1203,10 @@ function handlePrint() {
         if (y > 275) { doc.addPage(); y = 20; }
         doc.rect(20, y, colW[0], 6, 'S');
         doc.rect(colX[1], y, colW[1], 6, 'S');
-        doc.text(String(pallet.pallet), colX[0] + 2, y + 4.5);
-        doc.text(Number(pallet.kg).toFixed(2), colX[1] + colW[1] - 2, y + 4.5, { align: 'right' });
+        doc.rect(colX[2], y, colW[2], 6, 'S');
+        doc.text(String(pallet.no_tally || '-'), colX[0] + 2, y + 4.5);
+        doc.text(String(pallet.pallet), colX[1] + 2, y + 4.5);
+        doc.text(Number(pallet.kg).toFixed(2), colX[2] + colW[2] - 2, y + 4.5, { align: 'right' });
         y += 6;
       }
       y += 8;
