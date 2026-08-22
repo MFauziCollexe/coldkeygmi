@@ -757,70 +757,6 @@
         </div>
       </div>
     </div>
-    <!-- Modal Print Preview -->
-    <div
-      v-if="showPrintModal && printData"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-    >
-      <div class="w-full max-w-lg overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl">
-        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h3 class="text-lg font-semibold text-slate-900">Print Preview</h3>
-          <button
-            type="button"
-            class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            @click="showPrintModal = false"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-          </button>
-        </div>
-
-        <div id="print-content" class="px-6 py-4 text-black">
-          <h2 class="mb-4 text-center text-lg font-bold">TALLY SHEET</h2>
-          <div class="mb-3 text-sm">
-            <div class="info-row"><span class="font-bold">Checker :</span> {{ printData.checker }}</div>
-            <div class="info-row"><span class="font-bold">Nopol :</span> {{ printData.nopol }}</div>
-            <div class="info-row"><span class="font-bold">Customer :</span> {{ printData.customer }}</div>
-            <div class="info-row"><span class="font-bold">Total KG :</span> {{ Number(printData.totalKg).toFixed(2) }}</div>
-          </div>
-          <div v-for="(item, idx) in printData.items" :key="idx" class="mb-4">
-            <h3 class="mb-1 text-sm font-bold text-black">Item : {{ item.item }} <span class="font-normal text-slate-600">(Total: {{ Number(item.totalKg).toFixed(2) }} KG)</span></h3>
-            <table class="w-full border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-left text-black">No Tally</th>
-                  <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-left text-black">Pallet</th>
-                  <th class="border border-slate-300 bg-slate-100 px-3 py-1.5 text-right text-black">KG</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="pallet in item.pallets" :key="pallet.pallet">
-                  <td class="border border-slate-300 px-3 py-1.5 text-black text-xs">{{ pallet.no_tally }}</td>
-                  <td class="border border-slate-300 px-3 py-1.5 text-black">{{ pallet.pallet }}</td>
-                  <td class="border border-slate-300 px-3 py-1.5 text-right text-black">{{ Number(pallet.kg).toFixed(2) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
-          <button
-            type="button"
-            class="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            @click="showPrintModal = false"
-          >
-            Batal
-          </button>
-          <button
-            type="button"
-            class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-            @click="handlePrint"
-          >
-            Print
-          </button>
-        </div>
-      </div>
-    </div>
   </AppLayout>
 </template>
 
@@ -971,7 +907,6 @@ const flashMessage = computed(() => props.flash?.success || '');
 
 const showModal = ref(false);
 const selectedId = ref(null);
-const showPrintModal = ref(false);
 const printData = ref(null);
 const showDraftPrintMsg = ref(false);
 const draftPrintItems = ref([]);
@@ -1100,16 +1035,16 @@ function handlePrintClick() {
       itemMap.set(group.item, { item: group.item, pallets: [], totalKg: 0 });
     }
     const item = itemMap.get(group.item);
-    for (const p of groupByPallet(group.entries)) {
-      item.pallets.push({ pallet: p.pallet, kg: p.totalKg, no_tally: group.entries[0]?.no_tally || '-' });
+    for (const entry of group.entries) {
+      item.pallets.push({ pallet: entry.pallet, kg: entry.kg, no_tally: entry.no_tally || '-' });
     }
     item.totalKg += group.totalKg;
     totalKg += group.totalKg;
     if (checker === '-') checker = group.entries[0]?.checker_name || '-';
   }
 
-  printData.value = { nopol, customer, totalKg, checker, items: Array.from(itemMap.values()) };
-  showPrintModal.value = true;
+  printData.value = { nopol, customer, totalKg, checker, noTally: finishItems[0]?.group?.entries?.[0]?.no_tally || '-', items: Array.from(itemMap.values()) };
+  handlePrint();
 }
 
 function openPrintModal(tally) {
@@ -1119,12 +1054,8 @@ function openPrintModal(tally) {
   let totalKg = 0;
   let checker = '-';
   for (const group of groups) {
-    const pallets = groupByPallet(group.entries);
-    const enrichedPallets = pallets.map(p => {
-      const matchEntry = group.entries.find(e => e.pallet === p.pallet);
-      return { ...p, no_tally: matchEntry?.no_tally || '-' };
-    });
-    items.push({ item: group.item, totalKg: group.totalKg, pallets: enrichedPallets });
+    const entries = group.entries.map(e => ({ pallet: e.pallet, kg: e.kg, no_tally: e.no_tally || '-' }));
+    items.push({ item: group.item, totalKg: group.totalKg, pallets: entries });
     totalKg += group.totalKg;
     if (!checker || checker === '-') checker = group.entries[0]?.checker_name || '-';
   }
@@ -1133,86 +1064,147 @@ function openPrintModal(tally) {
     customer: po?.customer?.name || '-',
     totalKg,
     checker,
+    noTally: group.entries[0]?.no_tally || '-',
     items,
   };
-  showPrintModal.value = true;
+  handlePrint();
 }
 
 function handlePrint() {
   if (!printData.value) return;
 
   import('jspdf').then(({ jsPDF }) => {
-    const doc = new jsPDF();
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     const data = printData.value;
-    let y = 20;
+    const pw = 210, ph = 297;
+    const ml = 14, mr = 14, mt = 12;
+    const contentW = pw - ml - mr;
+    const now = new Date();
+    const printedOn = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('TALLY SHEET', 105, y, { align: 'center' });
-    y += 12;
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Checker : ', 20, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(String(data.checker), 50, y);
-    y += 7;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Nopol : ', 20, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(String(data.nopol), 50, y);
-    y += 7;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Customer : ', 20, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(String(data.customer), 55, y);
-    y += 7;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Total KG : ', 20, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(Number(data.totalKg).toFixed(2), 55, y);
-    y += 12;
-
-    for (const item of data.items) {
-      if (y > 260) { doc.addPage(); y = 20; }
-
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Item : ${item.item}  (Total: ${Number(item.totalKg).toFixed(2)} KG)`, 20, y);
-      y += 8;
-
-      const colX = [20, 75, 125];
-      const colW = [55, 50, 45];
-      const headers = ['No Tally', 'Pallet', 'KG'];
-
-      doc.setFillColor(240, 240, 240);
-      doc.rect(20, y, 150, 7, 'F');
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(headers[0], colX[0] + 2, y + 5);
-      doc.text(headers[1], colX[1] + 2, y + 5);
-      doc.text(headers[2], colX[2] + colW[2] - 2, y + 5, { align: 'right' });
-      y += 7;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      for (const pallet of item.pallets) {
-        if (y > 275) { doc.addPage(); y = 20; }
-        doc.rect(20, y, colW[0], 6, 'S');
-        doc.rect(colX[1], y, colW[1], 6, 'S');
-        doc.rect(colX[2], y, colW[2], 6, 'S');
-        doc.text(String(pallet.no_tally || '-'), colX[0] + 2, y + 4.5);
-        doc.text(String(pallet.pallet), colX[1] + 2, y + 4.5);
-        doc.text(Number(pallet.kg).toFixed(2), colX[2] + colW[2] - 2, y + 4.5, { align: 'right' });
-        y += 6;
-      }
-      y += 8;
+    function getProductName(code) {
+      const p = products.value.find(pr => String(pr.internal_reference) === String(code));
+      return p ? '[' + p.internal_reference + '] ' + p.name : code;
     }
 
-    const fileName = `Tally_${data.nopol || 'Sheet'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    function drawHeader() {
+      let y = mt;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text('Tally Sheet', ml, y + 1);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Customer : ' + String(data.customer), pw - mr, y, { align: 'right' });
+      y += 5;
+      doc.text('Checker  : ' + String(data.checker), pw - mr, y, { align: 'right' });
+      y += 5;
+      doc.text('NoPol    : ' + String(data.nopol), pw - mr, y, { align: 'right' });
+      y += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text('Printed On: ' + printedOn, ml, y);
+      y += 6;
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.4);
+      doc.line(ml, y, pw - mr, y);
+      y += 6;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text(data.noTally || '-', ml, y);
+      y += 4;
+      doc.setLineWidth(0.4);
+      doc.line(ml, y, pw - mr, y);
+      y += 4;
+      return y;
+    }
+
+    let y = drawHeader();
+
+    const colItemW = contentW * 0.55;
+    const colPalletW = contentW * 0.23;
+    const colKgW = contentW * 0.22;
+    const colX = [ml, ml + colItemW, ml + colItemW + colPalletW];
+    const headerH = 6;
+
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.3);
+
+    function drawTableHeader(cy) {
+      doc.setFillColor(235, 235, 235);
+      doc.rect(ml, cy, contentW, headerH, 'F');
+      doc.rect(ml, cy, contentW, headerH, 'S');
+      doc.rect(colX[1], cy, colPalletW, headerH, 'S');
+      doc.rect(colX[2], cy, colKgW, headerH, 'S');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('Item', colX[0] + 2, cy + 4.2);
+      doc.text('Pallet', colX[1] + colPalletW / 2, cy + 4.2, { align: 'center' });
+      doc.text('KG', colX[2] + colKgW - 2, cy + 4.2, { align: 'right' });
+      return cy + headerH;
+    }
+
+    y = drawTableHeader(y);
+
+    for (const item of data.items) {
+      const productName = getProductName(item.item);
+      const lines = doc.splitTextToSize(productName, colItemW - 4);
+      const textH = Math.max(5, lines.length * 3.5 + 1);
+
+      const palletGroups = new Map();
+      for (const p of item.pallets) {
+        if (!palletGroups.has(p.pallet)) palletGroups.set(p.pallet, []);
+        palletGroups.get(p.pallet).push(p);
+      }
+
+      for (const [palletNo, entries] of palletGroups) {
+        for (const entry of entries) {
+          if (y + textH > ph - 15) {
+            doc.line(ml, y, pw - mr, y);
+            doc.addPage();
+            y = mt;
+            y = drawTableHeader(y);
+          }
+
+          doc.rect(ml, y, contentW, textH, 'S');
+          doc.rect(colX[1], y, colPalletW, textH, 'S');
+          doc.rect(colX[2], y, colKgW, textH, 'S');
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7);
+          doc.text(lines, colX[0] + 2, y + 3.8);
+
+          doc.setFontSize(8);
+          doc.text(String(entry.pallet), colX[1] + colPalletW / 2, y + textH / 2 + 1, { align: 'center' });
+          doc.text(Number(entry.kg).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), colX[2] + colKgW - 2, y + textH / 2 + 1, { align: 'right' });
+
+          y += textH;
+        }
+
+        const subtotalKg = entries.reduce((s, e) => s + Number(e.kg), 0);
+        const sumH = 5;
+        if (y + sumH > ph - 15) {
+          doc.line(ml, y, pw - mr, y);
+          doc.addPage();
+          y = mt;
+          y = drawTableHeader(y);
+        }
+        doc.setFillColor(245, 245, 245);
+        doc.rect(ml, y, contentW, sumH, 'F');
+        doc.rect(ml, y, contentW, sumH, 'S');
+        doc.rect(colX[1], y, colPalletW, sumH, 'S');
+        doc.rect(colX[2], y, colKgW, sumH, 'S');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.text('Total Pallet ' + palletNo, colX[0] + 2, y + 3.5);
+        doc.setFontSize(8);
+        doc.text(Number(subtotalKg).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), colX[2] + colKgW - 2, y + 3.5, { align: 'right' });
+        y += sumH;
+      }
+    }
+
+    doc.line(ml, y, pw - mr, y);
+
+    const fileName = 'Tally_' + (data.noTally || data.nopol || 'Sheet') + '_' + now.toISOString().slice(0, 10) + '.pdf';
     doc.save(fileName);
   });
 }
