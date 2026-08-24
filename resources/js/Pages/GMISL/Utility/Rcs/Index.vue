@@ -472,6 +472,7 @@
         </div>
 
         <div class="mt-6 flex items-center justify-end gap-2">
+          <p v-if="expDateError" class="mr-auto text-xs font-medium text-rose-600">{{ expDateError }}</p>
           <button
             type="button"
             class="rounded bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-300"
@@ -972,6 +973,7 @@ const deletedEntryIds = ref([]);
 const itemWrapEl = ref(null);
 const itemSearch = ref('');
 const itemDropdownOpen = ref(false);
+const expDateError = ref('');
 
 const selectedItem = computed(
   () => filteredProducts.value.find((product) => product.internal_reference === tallyForm.value.item) || null
@@ -998,6 +1000,7 @@ watch(showTallyModal, (open) => {
   if (!open) {
     itemSearch.value = '';
     itemDropdownOpen.value = false;
+    expDateError.value = '';
   }
 });
 
@@ -1594,6 +1597,11 @@ function closeTallyModal() {
   }
   const unsaved = getUnsavedEntries();
   const hasDeletions = deletedEntryIds.value.length > 0;
+  if (unsaved.some((entry) => !entry.exp_date)) {
+    expDateError.value = 'Exp Date wajib diisi untuk setiap inputan KG sebelum menyimpan.';
+    return;
+  }
+  expDateError.value = '';
   if ((unsaved.length > 0 || hasDeletions) && selectedPo.value) {
     saving.value = true;
     router.post(
@@ -1604,6 +1612,7 @@ function closeTallyModal() {
           item: entry.item,
           pallet: entry.pallet,
           kg: entry.kg,
+          exp_date: entry.exp_date || null,
         })),
         deleted_ids: hasDeletions ? deletedEntryIds.value : [],
       },
@@ -1797,6 +1806,9 @@ function onExpDateChange() {
     palletEntries.value = updated;
     hasUnsaved.value = true;
   }
+  if (!getUnsavedEntries().some((entry) => !entry.exp_date)) {
+    expDateError.value = '';
+  }
 }
 
 function removeEntry(index) {
@@ -1829,6 +1841,11 @@ function saveEntries() {
   if ((unsaved.length === 0 && !hasDeletions) || !selectedPo.value || saving.value) {
     return;
   }
+  if (unsaved.some((entry) => !entry.exp_date)) {
+    expDateError.value = 'Exp Date wajib diisi untuk setiap inputan KG sebelum menyimpan.';
+    return;
+  }
+  expDateError.value = '';
   saving.value = true;
   router.post(
     '/gmisl/utility/rcs/tally',
@@ -1868,6 +1885,11 @@ async function finishTally() {
   const unsaved = getUnsavedEntries();
   const poId = selectedPo.value?.id;
 
+  if (unsaved.some((entry) => !entry.exp_date)) {
+    expDateError.value = 'Exp Date wajib diisi untuk setiap inputan KG sebelum menyimpan.';
+    return;
+  }
+
   summaryData.value = {
     po: selectedPo.value?.po || '-',
     customer: selectedPo.value?.customer?.name || '-',
@@ -1890,6 +1912,7 @@ async function finishTally() {
             item: entry.item,
             pallet: entry.pallet,
             kg: entry.kg,
+            exp_date: entry.exp_date || null,
           })),
         },
         {
