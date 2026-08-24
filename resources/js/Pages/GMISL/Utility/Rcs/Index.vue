@@ -352,20 +352,40 @@
         </div>
 
         <form @submit.prevent="addEntry" class="space-y-4">
-          <div>
+          <div ref="itemWrapEl" class="relative">
             <label class="mb-1 block bg-white text-sm font-medium text-slate-700" for="item">Item</label>
-            <select
+            <input
               id="item"
-              v-model="tallyForm.item"
-              required
+              type="text"
+              role="combobox"
+              :aria-expanded="itemDropdownOpen"
+              autocomplete="off"
+              :value="itemDisplayValue"
+              :placeholder="itemLocked ? '' : ''"
               :disabled="itemLocked"
               class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+              @focus="openItemDropdown"
+              @input="onItemSearchInput"
+              @keydown.escape.prevent="closeItemDropdown"
+            />
+            <div
+              v-if="itemDropdownOpen && !itemLocked"
+              class="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded border border-slate-300 bg-white shadow-lg"
             >
-              <option value="" disabled>Pilih Item</option>
-              <option v-for="product in filteredProducts" :key="product.id" :value="product.internal_reference">
+              <p v-if="searchableProducts.length === 0" class="px-3 py-2 text-sm text-slate-400">
+                Item tidak ditemukan.
+              </p>
+              <button
+                v-for="product in searchableProducts"
+                :key="product.id"
+                type="button"
+                class="block w-full px-3 py-2 text-left text-sm text-slate-900 hover:bg-indigo-50"
+                :class="tallyForm.item === product.internal_reference ? 'bg-indigo-50 font-semibold' : ''"
+                @click="chooseItem(product)"
+              >
                 {{ product.internal_reference }} - {{ product.name }}
-              </option>
-            </select>
+              </button>
+            </div>
           </div>
 
           <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
@@ -387,6 +407,7 @@
                 v-model="tallyForm.exp_date"
                 type="date"
                 class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                @input="onExpDateChange"
               />
             </div>
             <div class="flex-1">
@@ -772,7 +793,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -947,6 +968,80 @@ const currentPallet = ref(1);
 const tallyStates = ref({});
 const hasUnsaved = ref(false);
 const deletedEntryIds = ref([]);
+
+const itemWrapEl = ref(null);
+const itemSearch = ref('');
+const itemDropdownOpen = ref(false);
+
+const selectedItem = computed(
+  () => filteredProducts.value.find((product) => product.internal_reference === tallyForm.value.item) || null
+);
+
+const itemDisplayValue = computed(() => {
+  if (itemSearch.value !== '') {
+    return itemSearch.value;
+  }
+  return selectedItem.value ? `${selectedItem.value.internal_reference} - ${selectedItem.value.name}` : '';
+});
+
+const searchableProducts = computed(() => {
+  const query = itemSearch.value.trim().toLowerCase();
+  if (!query) {
+    return filteredProducts.value;
+  }
+  return filteredProducts.value.filter((product) =>
+    `${product.internal_reference} ${product.name}`.toLowerCase().includes(query)
+  );
+});
+
+watch(showTallyModal, (open) => {
+  if (!open) {
+    itemSearch.value = '';
+    itemDropdownOpen.value = false;
+  }
+});
+
+function openItemDropdown() {
+  if (itemLocked.value) {
+    return;
+  }
+  itemDropdownOpen.value = true;
+}
+
+function closeItemDropdown() {
+  itemDropdownOpen.value = false;
+  itemSearch.value = '';
+}
+
+function onItemSearchInput(event) {
+  if (itemLocked.value) {
+    return;
+  }
+  itemSearch.value = event.target.value;
+  itemDropdownOpen.value = true;
+}
+
+function chooseItem(product) {
+  tallyForm.value.item = product.internal_reference;
+  itemSearch.value = '';
+  itemDropdownOpen.value = false;
+}
+
+function onDocPointerDownItem(event) {
+  if (!itemDropdownOpen.value) {
+    return;
+  }
+  if (itemWrapEl.value && !itemWrapEl.value.contains(event.target)) {
+    itemDropdownOpen.value = false;
+    itemSearch.value = '';
+  }
+}
+
+document.addEventListener('pointerdown', onDocPointerDownItem);
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocPointerDownItem);
+});
 const expandedRows = reactive({});
 
 function formatDate(dateStr) {
@@ -1677,6 +1772,31 @@ function addEntry() {
   palletEntries.value = updated;
   tallyForm.value.kg = '';
   hasUnsaved.value = true;
+}
+
+function onExpDateChange() {
+  const expDate = tallyForm.value.exp_date || '';
+  const item = tallyForm.value.item;
+  if (!item) {
+    return;
+  }
+  const updated = { ...palletEntries.value };
+  let changed = false;
+  for (const palletKey of Object.keys(updated)) {
+    const pallet = Number(palletKey);
+    const hasPending = updated[pallet].some((entry) => entry._new && entry.item === item);
+    if (!hasPending) {
+      continue;
+    }
+    updated[pallet] = updated[pallet].map((entry) =>
+      entry._new && entry.item === item ? { ...entry, exp_date: expDate } : entry
+    );
+    changed = true;
+  }
+  if (changed) {
+    palletEntries.value = updated;
+    hasUnsaved.value = true;
+  }
 }
 
 function removeEntry(index) {
