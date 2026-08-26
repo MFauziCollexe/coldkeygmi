@@ -109,7 +109,7 @@ class AttendanceLogControllerTest extends TestCase
         );
 
         $this->assertSame('08:00:00', $schedule['start_time']);
-        $this->assertSame('13:00:00', $schedule['end_time']);
+        $this->assertSame('18:00:00', $schedule['end_time']);
     }
 
     public function test_resolve_roster_schedule_for_attendance_keeps_stored_schedule_for_unknown_shift_code(): void
@@ -125,11 +125,11 @@ class AttendanceLogControllerTest extends TestCase
             '25111732',
             'Memet Wibowo',
             '09:00:00',
-            '15:00:00'
+            '20:00:00'
         );
 
         $this->assertSame('09:00:00', $schedule['start_time']);
-        $this->assertSame('15:00:00', $schedule['end_time']);
+        $this->assertSame('20:00:00', $schedule['end_time']);
     }
 
     public function test_normalize_pin_preserves_letter_prefixes_to_avoid_employee_collision(): void

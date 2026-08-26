@@ -2122,7 +2122,7 @@ class AttendanceLogController extends Controller
                 $scheduledEnd = Carbon::parse($logDate . ' ' . $normalizedEndTime);
                 if ($this->isOvernightShift($normalizedStartTime, $normalizedEndTime)) {
                     $scheduledEnd->addDay();
-                    $minimumCheckoutEnd = $scheduledEnd->copy()->addHours(6);
+                    $minimumCheckoutEnd = $scheduledEnd->copy()->addHours(10);
                     if ($checkoutEnd->lessThan($minimumCheckoutEnd)) {
                         $checkoutEnd = $minimumCheckoutEnd;
                     }
@@ -3250,7 +3250,7 @@ class AttendanceLogController extends Controller
             return 8;
         }
 
-        return $date->isSaturday() ? 5 : 8;
+        return $date->isSaturday() ? 10 : 8;
     }
 
     private function normalizeSaturdayAttendanceRow(array $row): array
@@ -3282,12 +3282,12 @@ class AttendanceLogController extends Controller
             $endAt->addDay();
         }
 
-        if ($startAt->diffInMinutes($endAt) >= 300) {
+        if ($startAt->diffInMinutes($endAt) >= 600) {
             return $row;
         }
 
         $row['start_time'] = $startTime;
-        $row['end_time'] = $startAt->copy()->addHours(5)->format('H:i:s');
+        $row['end_time'] = $startAt->copy()->addHours(10)->format('H:i:s');
 
         return $row;
     }
@@ -3324,12 +3324,12 @@ class AttendanceLogController extends Controller
             $endAt->addDay();
         }
 
-        if ($startAt->diffInMinutes($endAt) >= 300) {
+        if ($startAt->diffInMinutes($endAt) >= 600) {
             return $schedule;
         }
 
         $schedule['start_time'] = $startTime;
-        $schedule['end_time'] = $startAt->copy()->addHours(5)->format('H:i:s');
+        $schedule['end_time'] = $startAt->copy()->addHours(10)->format('H:i:s');
 
         return $schedule;
     }
