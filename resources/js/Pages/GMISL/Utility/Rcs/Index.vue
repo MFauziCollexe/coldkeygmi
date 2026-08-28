@@ -338,7 +338,7 @@
       v-if="showTallyModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
     >
-      <div class="max-h-[90vh] w-full max-w-2xl -mt-24 overflow-hidden rounded-xl border border-slate-300 bg-white p-5 shadow-2xl sm:mt-0">
+      <div class="max-h-[90vh] w-[90%] max-w-2xl -mt-40 overflow-hidden rounded-xl border border-slate-300 bg-white p-5 shadow-2xl sm:mt-0 sm:w-full">
         <div class="mb-4 flex items-center justify-between gap-4">
           <h3 class="text-base font-semibold text-black">
             Add Tally
@@ -438,7 +438,7 @@
           <div v-if="currentEntries.length === 0" class="rounded-md border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">
             Belum ada inputan KG.
           </div>
-          <div v-else ref="entriesListRef" class="max-h-64 overflow-y-auto rounded-md border border-slate-200">
+          <div v-else ref="entriesListRef" class="max-h-36 overflow-y-auto rounded-md border border-slate-200 sm:max-h-64">
             <table class="w-full border-collapse text-sm">
               <thead class="sticky top-0">
                 <tr class="bg-slate-50 text-left text-slate-500">
@@ -478,11 +478,11 @@
           </div>
         </div>
 
-        <div class="mt-6 flex items-center justify-end gap-2">
+        <div class="mt-6 flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
           <p v-if="expDateError" class="mr-auto text-xs font-medium text-rose-600">{{ expDateError }}</p>
           <button
             type="button"
-            class="rounded bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-300"
+            class="rounded bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-300 sm:px-4 sm:py-2 sm:text-sm"
             @click="closeTallyModal"
           >
             Close
@@ -490,7 +490,7 @@
           <button
             type="button"
             :disabled="saving"
-            class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            class="rounded bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm"
             @click="finishTally"
           >
             {{ saving ? 'Menyimpan...' : 'Finish' }}
@@ -498,7 +498,7 @@
           <button
             type="button"
             :disabled="currentPallet <= 1"
-            class="rounded bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+            class="rounded bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm"
             @click="prevPallet"
           >
             Prev
@@ -506,7 +506,7 @@
           <button
             type="button"
             :disabled="isNextDisabled"
-            class="rounded bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            class="rounded bg-slate-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm"
             @click="nextPallet"
           >
             Next
@@ -514,7 +514,7 @@
           <button
             type="button"
             :disabled="!hasUnsaved || saving"
-            class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            class="rounded bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm"
             @click="saveEntries"
           >
             {{ saving ? 'Menyimpan...' : 'Save' }}
