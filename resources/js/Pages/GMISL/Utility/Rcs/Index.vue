@@ -87,7 +87,7 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="(tally, index) in tallies" :key="tally.id">
+            <template v-for="(tally, index) in sortedTallies" :key="tally.id">
               <tr
                 class="text-slate-800 hover:bg-slate-50 cursor-pointer"
                 @click="toggleRow('po-' + tally.id)"
@@ -338,7 +338,7 @@
       v-if="showTallyModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
     >
-      <div class="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl border border-slate-300 bg-white p-5 shadow-2xl">
+      <div class="max-h-[90vh] w-full max-w-2xl -mt-24 overflow-hidden rounded-xl border border-slate-300 bg-white p-5 shadow-2xl sm:mt-0">
         <div class="mb-4 flex items-center justify-between gap-4">
           <h3 class="text-base font-semibold text-black">
             Add Tally
@@ -973,6 +973,20 @@ const props = defineProps({
 
 const customers = computed(() => props.customers || []);
 const tallies = computed(() => props.tallies || []);
+
+const sortedTallies = computed(() => {
+  const list = props.tallies || [];
+  const priority = (poId) => {
+    const entries = props.tallyData[poId] || [];
+    if (entries.length === 0) return 0;
+    const hasFinish = entries.some((e) => e.is_finish);
+    const hasDraft = entries.some((e) => !e.is_finish);
+    if (hasFinish && hasDraft) return 2;
+    if (hasFinish) return 3;
+    return 1;
+  };
+  return [...list].sort((a, b) => priority(a.id) - priority(b.id));
+});
 const products = computed(() => props.products || []);
 const finishedPoIds = ref([...(props.finishedPoIds || [])]);
 const flashMessage = computed(() => props.flash?.success || '');
@@ -1127,15 +1141,17 @@ function getItemGroups(poId) {
     if (entry.startdate && (!g.startdate || entry.startdate < g.startdate)) g.startdate = entry.startdate;
     if (entry.enddate && (!g.enddate || entry.enddate > g.enddate)) g.enddate = entry.enddate;
   }
-  return Array.from(map.values()).map((g) => ({
-    item: g.item,
-    entries: g.entries,
-    palletCount: g.palletSet.size,
-    totalKg: g.totalKg,
-    isFinish: g.isFinish,
-    startdate: g.startdate,
-    enddate: g.enddate,
-  }));
+  return Array.from(map.values())
+    .map((g) => ({
+      item: g.item,
+      entries: g.entries,
+      palletCount: g.palletSet.size,
+      totalKg: g.totalKg,
+      isFinish: g.isFinish,
+      startdate: g.startdate,
+      enddate: g.enddate,
+    }))
+    .sort((a, b) => Number(a.isFinish) - Number(b.isFinish));
 }
 
 function isPoFinished(poId) {
@@ -1631,18 +1647,18 @@ function openTallyModal() {
       }
       palletEntries.value = pe;
       currentPallet.value = maxPallet + 1;
-      tallyForm.value = { item: checkedGroup.item, kg: '', exp_date: lastExpDate };
+      tallyForm.value = { item: checkedGroup.item, kg: '', exp_date: todayLocal() };
       itemLocked.value = true;
     } else {
       palletEntries.value = {};
       currentPallet.value = 1;
-      tallyForm.value = { item: checkedGroup ? checkedGroup.item : '', kg: '', exp_date: '' };
+      tallyForm.value = { item: checkedGroup ? checkedGroup.item : '', kg: '', exp_date: todayLocal() };
       itemLocked.value = false;
     }
   } else {
     palletEntries.value = {};
     currentPallet.value = 1;
-    tallyForm.value = { item: '', kg: '', exp_date: '' };
+    tallyForm.value = { item: '', kg: '', exp_date: todayLocal() };
     itemLocked.value = false;
   }
   hasUnsaved.value = false;
@@ -1878,19 +1894,23 @@ function onExpDateChange() {
   if (!item) {
     return;
   }
+  const palletKey = String(currentPallet.value);
   const updated = { ...palletEntries.value };
+  const list = updated[palletKey] ? [...updated[palletKey]] : [];
   let changed = false;
-  for (const palletKey of Object.keys(updated)) {
-    const pallet = Number(palletKey);
-    const hasPending = updated[pallet].some((entry) => entry._new && entry.item === item);
-    if (!hasPending) {
-      continue;
+  updated[palletKey] = list.map((entry) => {
+    if (entry.item !== item) {
+      return entry;
     }
-    updated[pallet] = updated[pallet].map((entry) =>
-      entry._new && entry.item === item ? { ...entry, exp_date: expDate } : entry
-    );
     changed = true;
-  }
+    if (entry._new) {
+      return { ...entry, exp_date: expDate };
+    }
+    if (entry.exp_date !== expDate) {
+      return { ...entry, exp_date: expDate, _edit: true };
+    }
+    return entry;
+  });
   if (changed) {
     palletEntries.value = updated;
     hasUnsaved.value = true;
@@ -1925,10 +1945,24 @@ function startEditEntry(index) {
   editingEntryIndex.value = index;
 }
 
+function todayLocal() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function syncExpDateForCurrentPallet() {
+  const entries = palletEntries.value[currentPallet.value] || [];
+  const savedDate = entries.find((e) => e.exp_date)?.exp_date || '';
+  tallyForm.value.exp_date = savedDate || todayLocal();
+}
+
 function nextPallet() {
   currentPallet.value += 1;
   tallyForm.value.kg = '';
   editingEntryIndex.value = null;
+  syncExpDateForCurrentPallet();
 }
 
 function prevPallet() {
@@ -1936,6 +1970,7 @@ function prevPallet() {
     currentPallet.value -= 1;
     tallyForm.value.kg = '';
     editingEntryIndex.value = null;
+    syncExpDateForCurrentPallet();
   }
 }
 
