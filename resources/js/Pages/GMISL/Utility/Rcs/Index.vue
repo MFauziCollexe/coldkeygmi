@@ -438,7 +438,7 @@
           <div v-if="currentEntries.length === 0" class="rounded-md border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">
             Belum ada inputan KG.
           </div>
-          <div v-else class="max-h-64 overflow-y-auto rounded-md border border-slate-200">
+          <div v-else ref="entriesListRef" class="max-h-64 overflow-y-auto rounded-md border border-slate-200">
             <table class="w-full border-collapse text-sm">
               <thead class="sticky top-0">
                 <tr class="bg-slate-50 text-left text-slate-500">
@@ -833,7 +833,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -1019,6 +1019,7 @@ const tallyForm = ref({
 });
 const palletEntries = ref({});
 const currentPallet = ref(1);
+const entriesListRef = ref(null);
 const tallyStates = ref({});
 const hasUnsaved = ref(false);
 const deletedEntryIds = ref([]);
@@ -1886,6 +1887,16 @@ function addEntry() {
   tallyForm.value.kg = '';
   editingEntryIndex.value = null;
   hasUnsaved.value = true;
+  scrollEntriesToBottom();
+}
+
+function scrollEntriesToBottom() {
+  nextTick(() => {
+    const el = entriesListRef.value;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  });
 }
 
 function onExpDateChange() {
