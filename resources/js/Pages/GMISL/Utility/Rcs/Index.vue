@@ -452,11 +452,18 @@
                   <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ index + 1 }}</td>
                   <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2">{{ Number(entry.kg).toFixed(2) }}</td>
                   <td class="whitespace-nowrap border-b border-slate-100 px-4 py-2 text-center">
-                    <button type="button" @click="removeEntry(index)" class="text-red-500 hover:text-red-700">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                      </svg>
-                    </button>
+                    <div class="flex items-center justify-center gap-2">
+                      <button type="button" title="Edit KG" @click="startEditEntry(index)" class="text-sky-500 hover:text-sky-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                      </button>
+                      <button type="button" title="Hapus" @click="removeEntry(index)" class="text-red-500 hover:text-red-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -738,6 +745,38 @@
         </div>
       </div>
     </div>
+    <!-- Modal Warning Multiple Tally Checked -->
+    <div
+      v-if="showMultiTallyWarn"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+    >
+      <div class="w-full max-w-sm overflow-hidden rounded-xl border border-slate-300 bg-white p-6 shadow-2xl">
+        <div class="mb-4 flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900">Hanya Boleh Satu Tally</h3>
+        </div>
+
+        <div class="mb-5 rounded-lg border border-red-200 bg-red-50 p-4">
+          <p class="text-sm text-slate-700">
+            Silahkan pilih salah satu tally, tidak boleh memilih 2 tally sekaligus.
+          </p>
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="button"
+            class="rounded bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            @click="showMultiTallyWarn = false"
+          >
+            Mengerti
+          </button>
+        </div>
+      </div>
+    </div>
     <!-- Modal Confirm Delete PO -->
     <div
       v-if="showDeletePoConfirm"
@@ -969,6 +1008,7 @@ const currentPallet = ref(1);
 const tallyStates = ref({});
 const hasUnsaved = ref(false);
 const deletedEntryIds = ref([]);
+const editingEntryIndex = ref(null);const currentFinishItem = ref(null);
 
 const itemWrapEl = ref(null);
 const itemSearch = ref('');
@@ -1533,7 +1573,20 @@ function getUnsavedEntries() {
   return all;
 }
 
+function getEditedEntries() {
+  const all = [];
+  for (const entries of Object.values(palletEntries.value)) {
+    for (const entry of entries) {
+      if (entry._edit) {
+        all.push(entry);
+      }
+    }
+  }
+  return all;
+}
+
 const showFinishMsg = ref(false);
+const showMultiTallyWarn = ref(false);
 const finishMsgData = ref({ po: '', item: '' });
 const showDraftMsg = ref(false);
 const draftMsgItems = ref([]);
@@ -1547,9 +1600,15 @@ function openTallyModal() {
   const checkedIndices = poChecked ? Object.keys(poChecked).filter((k) => poChecked[k]) : [];
   const hasCheckedItem = checkedIndices.length > 0;
 
+  if (checkedIndices.length > 1) {
+    showMultiTallyWarn.value = true;
+    return;
+  }
+
   if (hasCheckedItem) {
     const groups = getItemGroups(poId);
     const checkedGroup = groups[Number(checkedIndices[0])];
+    currentFinishItem.value = checkedGroup ? checkedGroup.item : null;
 
     if (checkedGroup && checkedGroup.isFinish) {
       finishMsgData.value = { po: selectedPo.value.po, item: checkedGroup.item };
@@ -1588,6 +1647,8 @@ function openTallyModal() {
   }
   hasUnsaved.value = false;
   deletedEntryIds.value = [];
+  currentFinishItem.value = null;
+  editingEntryIndex.value = null;
   showTallyModal.value = true;
 }
 
@@ -1596,13 +1657,14 @@ function closeTallyModal() {
     return;
   }
   const unsaved = getUnsavedEntries();
+  const edits = getEditedEntries();
   const hasDeletions = deletedEntryIds.value.length > 0;
   if (unsaved.some((entry) => !entry.exp_date)) {
     expDateError.value = 'Exp Date wajib diisi untuk setiap inputan KG sebelum menyimpan.';
     return;
   }
   expDateError.value = '';
-  if ((unsaved.length > 0 || hasDeletions) && selectedPo.value) {
+  if ((unsaved.length > 0 || edits.length > 0 || hasDeletions) && selectedPo.value) {
     saving.value = true;
     router.post(
       '/gmisl/utility/rcs/tally',
@@ -1611,6 +1673,11 @@ function closeTallyModal() {
         entries: unsaved.map((entry) => ({
           item: entry.item,
           pallet: entry.pallet,
+          kg: entry.kg,
+          exp_date: entry.exp_date || null,
+        })),
+        edits: edits.map((entry) => ({
+          id: entry.id,
           kg: entry.kg,
           exp_date: entry.exp_date || null,
         })),
@@ -1623,9 +1690,10 @@ function closeTallyModal() {
           deletedEntryIds.value = [];
           const updated = { ...palletEntries.value };
           for (const pallet of Object.keys(updated)) {
-            updated[pallet] = updated[pallet].map((e) => ({ ...e, _new: false }));
+            updated[pallet] = updated[pallet].map((e) => ({ ...e, _new: false, _edit: false }));
           }
           palletEntries.value = updated;
+          editingEntryIndex.value = null;
           showTallyModal.value = false;
         },
         onFinish: () => {
@@ -1635,6 +1703,7 @@ function closeTallyModal() {
     );
   } else {
     deletedEntryIds.value = [];
+    editingEntryIndex.value = null;
     showTallyModal.value = false;
   }
 }
@@ -1774,12 +1843,32 @@ function addEntry() {
   if (!updated[currentPallet.value]) {
     updated[currentPallet.value] = [];
   }
-  updated[currentPallet.value] = [
-    ...updated[currentPallet.value],
-    { item: item, pallet: currentPallet.value, kg: kg, exp_date: tallyForm.value.exp_date || '', _new: true },
-  ];
+  const list = [...updated[currentPallet.value]];
+  const editingIndex = editingEntryIndex.value;
+  if (editingIndex !== null && editingIndex >= 0 && editingIndex < list.length) {
+    const oldEntry = list[editingIndex];
+    const isPersisted = Boolean(oldEntry.id) && !oldEntry._new;
+    list[editingIndex] = isPersisted
+      ? {
+          ...oldEntry,
+          kg: kg,
+          exp_date: tallyForm.value.exp_date || oldEntry.exp_date || '',
+          _edit: true,
+        }
+      : {
+          item: oldEntry.item,
+          pallet: oldEntry.pallet,
+          kg: kg,
+          exp_date: tallyForm.value.exp_date || oldEntry.exp_date || '',
+          _new: true,
+        };
+  } else {
+    list.push({ item: item, pallet: currentPallet.value, kg: kg, exp_date: tallyForm.value.exp_date || '', _new: true });
+  }
+  updated[currentPallet.value] = list;
   palletEntries.value = updated;
   tallyForm.value.kg = '';
+  editingEntryIndex.value = null;
   hasUnsaved.value = true;
 }
 
@@ -1823,22 +1912,38 @@ function removeEntry(index) {
   hasUnsaved.value = true;
 }
 
+function startEditEntry(index) {
+  const entries = palletEntries.value[currentPallet.value] || [];
+  const target = entries[index];
+  if (!target) {
+    return;
+  }
+  tallyForm.value.kg = String(target.kg);
+  if (target.exp_date) {
+    tallyForm.value.exp_date = target.exp_date;
+  }
+  editingEntryIndex.value = index;
+}
+
 function nextPallet() {
   currentPallet.value += 1;
   tallyForm.value.kg = '';
+  editingEntryIndex.value = null;
 }
 
 function prevPallet() {
   if (currentPallet.value > 1) {
     currentPallet.value -= 1;
     tallyForm.value.kg = '';
+    editingEntryIndex.value = null;
   }
 }
 
 function saveEntries() {
   const unsaved = getUnsavedEntries();
+  const edits = getEditedEntries();
   const hasDeletions = deletedEntryIds.value.length > 0;
-  if ((unsaved.length === 0 && !hasDeletions) || !selectedPo.value || saving.value) {
+  if ((unsaved.length === 0 && edits.length === 0 && !hasDeletions) || !selectedPo.value || saving.value) {
     return;
   }
   if (unsaved.some((entry) => !entry.exp_date)) {
@@ -1857,6 +1962,11 @@ function saveEntries() {
         kg: entry.kg,
         exp_date: entry.exp_date || null,
       })),
+      edits: edits.map((entry) => ({
+        id: entry.id,
+        kg: entry.kg,
+        exp_date: entry.exp_date || null,
+      })),
       deleted_ids: hasDeletions ? deletedEntryIds.value : [],
     },
     {
@@ -1867,7 +1977,7 @@ function saveEntries() {
         deletedEntryIds.value = [];
         const updated = { ...palletEntries.value };
         for (const pallet of Object.keys(updated)) {
-          updated[pallet] = updated[pallet].map((e) => ({ ...e, _new: false }));
+          updated[pallet] = updated[pallet].map((e) => ({ ...e, _new: false, _edit: false }));
         }
         palletEntries.value = updated;
       },
@@ -1883,6 +1993,7 @@ async function finishTally() {
     return;
   }
   const unsaved = getUnsavedEntries();
+  const edits = getEditedEntries();
   const poId = selectedPo.value?.id;
 
   if (unsaved.some((entry) => !entry.exp_date)) {
@@ -1908,9 +2019,15 @@ async function finishTally() {
         {
           t_po_id: poId,
           is_finish: true,
+          item: currentFinishItem.value || tallyForm.value.item || undefined,
           entries: unsaved.map((entry) => ({
             item: entry.item,
             pallet: entry.pallet,
+            kg: entry.kg,
+            exp_date: entry.exp_date || null,
+          })),
+          edits: edits.map((entry) => ({
+            id: entry.id,
             kg: entry.kg,
             exp_date: entry.exp_date || null,
           })),
@@ -1928,6 +2045,7 @@ async function finishTally() {
 
   palletEntries.value = {};
   currentPallet.value = 1;
+  editingEntryIndex.value = null;
   if (poId) {
     delete tallyStates.value[poId];
   }

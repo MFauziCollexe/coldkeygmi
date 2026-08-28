@@ -99,17 +99,36 @@ class RcsController extends Controller
         $validated = $request->validate([
             't_po_id' => ['required', 'exists:t_po,id'],
             'is_finish' => ['nullable', 'boolean'],
+            'item' => ['nullable', 'string'],
             'entries' => ['nullable', 'array'],
             'entries.*.item' => ['required_with:entries', 'string'],
             'entries.*.pallet' => ['required_with:entries', 'integer', 'min:1'],
             'entries.*.exp_date' => ['nullable', 'date'],
             'entries.*.kg' => ['required_with:entries', 'numeric', 'min:0'],
+            'edits' => ['nullable', 'array'],
+            'edits.*.id' => ['required_with:edits', 'integer'],
+            'edits.*.exp_date' => ['nullable', 'date'],
+            'edits.*.kg' => ['required_with:edits', 'numeric', 'min:0'],
             'deleted_ids' => ['nullable', 'array'],
             'deleted_ids.*' => ['integer'],
         ]);
 
         $isFinish = !empty($validated['is_finish']) ? 1 : 0;
         $now = now();
+
+        if (!empty($validated['edits'])) {
+            foreach ($validated['edits'] as $edit) {
+                TTally::where('id', $edit['id'])
+                    ->where('t_po_id', $validated['t_po_id'])
+                    ->when(!$isFinish, fn ($q) => $q->where('is_finish', 0))
+                    ->update([
+                        'kg' => $edit['kg'],
+                        'exp_date' => $edit['exp_date'] ?? null,
+                        'is_finish' => $isFinish,
+                        'user_tally' => auth()->id(),
+                    ]);
+            }
+        }
 
         if (!empty($validated['deleted_ids'])) {
             TTally::whereIn('id', $validated['deleted_ids'])
@@ -157,6 +176,7 @@ class RcsController extends Controller
 
         if ($isFinish) {
             TTally::where('t_po_id', $validated['t_po_id'])
+                ->when(!empty($validated['item']), fn ($q) => $q->where('item', $validated['item']))
                 ->where('is_finish', 0)
                 ->update(['is_finish' => 1, 'enddate' => $now]);
         }
