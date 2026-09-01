@@ -3,6 +3,7 @@
 namespace Tests\Feature\LeavePermission;
 
 use App\Models\LeavePermission;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -105,5 +106,119 @@ class LeavePermissionWorkflowTest extends TestCase
         $response->assertSessionHasErrors('employee_id');
 
         $this->assertSame(0, LeavePermission::query()->count());
+    }
+
+    private function createCfoUser(): User
+    {
+        $finance = $this->createDepartment(['name' => 'Finance', 'code' => 'FIN']);
+        $cfoPosition = $this->createPosition($finance, [
+            'name' => 'Chief Financial Officer',
+            'code' => 'CFO',
+            'is_manager' => true,
+        ]);
+
+        return $this->createUser([
+            'department' => $finance,
+            'position' => $cfoPosition,
+        ], 'gmihr.attendance.leave_permission');
+    }
+
+    public function test_manager_request_is_approved_by_cfo_not_by_other_manager(): void
+    {
+        $department = $this->createDepartment(['name' => 'Operations', 'code' => 'OPS']);
+        $manager = $this->createManagerUser(
+            ['name' => 'Operations', 'code' => 'OPS'],
+            ['name' => 'Operations Manager', 'code' => 'OPS-MGR', 'is_manager' => true],
+            [],
+            'gmihr.attendance.leave_permission'
+        );
+        $this->createEmployee($manager, [
+            'department_id' => $department->id,
+            'name' => 'Manager Employee',
+        ]);
+
+        $storeResponse = $this
+            ->actingAs($manager)
+            ->post(route('leave-permission.store'), [
+                'employee_id' => $manager->employee->id,
+                'type' => 'cuti',
+                'start_date' => '2026-06-01',
+                'end_date' => '2026-06-03',
+                'reason' => 'Manager annual leave.',
+            ]);
+        $storeResponse->assertRedirect(route('leave-permission.index'));
+
+        $leavePermission = LeavePermission::query()->firstOrFail();
+        $this->assertSame($manager->id, $leavePermission->user_id);
+
+        $otherManager = $this->createManagerUser(
+            ['name' => 'Sales', 'code' => 'SLS'],
+            ['name' => 'Sales Manager', 'code' => 'SLS-MGR', 'is_manager' => true],
+            [],
+            'gmihr.attendance.leave_permission'
+        );
+
+        $rejectByManager = $this
+            ->actingAs($otherManager)
+            ->from(route('leave-permission.index'))
+            ->put(route('leave-permission.update', $leavePermission), [
+                'status' => 'approved',
+                'review_notes' => 'Approved by another manager.',
+            ]);
+        $rejectByManager->assertStatus(403);
+
+        $cfo = $this->createCfoUser();
+        $approveByCfo = $this
+            ->actingAs($cfo)
+            ->from(route('leave-permission.index'))
+            ->put(route('leave-permission.update', $leavePermission), [
+                'status' => 'approved',
+                'review_notes' => 'Approved by CFO.',
+            ]);
+        $approveByCfo->assertRedirect(route('leave-permission.index'));
+
+        $leavePermission->refresh();
+        $this->assertSame('approved', $leavePermission->status);
+        $this->assertSame($cfo->id, $leavePermission->reviewed_by);
+    }
+
+    public function test_manager_cannot_approve_their_own_request(): void
+    {
+        $department = $this->createDepartment(['name' => 'Operations', 'code' => 'OPS']);
+        $manager = $this->createManagerUser(
+            ['name' => 'Operations', 'code' => 'OPS'],
+            ['name' => 'Operations Manager', 'code' => 'OPS-MGR', 'is_manager' => true],
+            [],
+            'gmihr.attendance.leave_permission'
+        );
+        $this->createEmployee($manager, [
+            'department_id' => $department->id,
+            'name' => 'Manager Employee',
+        ]);
+
+        $storeResponse = $this
+            ->actingAs($manager)
+            ->post(route('leave-permission.store'), [
+                'employee_id' => $manager->employee->id,
+                'type' => 'izin',
+                'start_date' => '2026-07-01',
+                'end_date' => '2026-07-01',
+                'reason' => 'Manager personal errand.',
+            ]);
+        $storeResponse->assertRedirect(route('leave-permission.index'));
+
+        $leavePermission = LeavePermission::query()->firstOrFail();
+
+        $selfApprove = $this
+            ->actingAs($manager)
+            ->from(route('leave-permission.index'))
+            ->put(route('leave-permission.update', $leavePermission), [
+                'status' => 'approved',
+                'review_notes' => 'Self approval attempt.',
+            ]);
+        $selfApprove->assertStatus(403);
+
+        $leavePermission->refresh();
+        $this->assertSame('pending', $leavePermission->status);
     }
 }

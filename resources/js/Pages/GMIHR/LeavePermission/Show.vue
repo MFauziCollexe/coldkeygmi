@@ -113,8 +113,8 @@
           </div>
         </div>
 
-        <!-- Action buttons for manager/admin when status is pending -->
-        <div v-if="leavePermission.status === 'pending' && (isAdmin || isManager)" class="mt-8 pt-6 border-t border-slate-700">
+        <!-- Action buttons for reviewer (admin / dept manager / CFO) when status is pending -->
+        <div v-if="leavePermission.status === 'pending' && canReview" class="mt-8 pt-6 border-t border-slate-700">
           <h3 class="text-lg font-semibold mb-4">Tindakan</h3>
           <div class="flex flex-col gap-3 sm:flex-row">
             <button @click="rejectRequest" class="px-6 py-3 rounded bg-red-600 text-white hover:bg-red-700">
@@ -162,6 +162,8 @@ const props = defineProps({
   leavePermission: Object,
   isAdmin: Boolean,
   isManager: Boolean,
+  isCfo: Boolean,
+  canReview: Boolean,
   canEditLeavePermission: Boolean,
 });
 const previewImage = ref('');
