@@ -5,6 +5,7 @@ namespace Tests\Feature\LeavePermission;
 use App\Models\LeavePermission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class LeavePermissionWorkflowTest extends TestCase
@@ -220,5 +221,100 @@ class LeavePermissionWorkflowTest extends TestCase
 
         $leavePermission->refresh();
         $this->assertSame('pending', $leavePermission->status);
+    }
+
+    public function test_detail_hides_review_actions_for_manager_own_request(): void
+    {
+        $manager = $this->createManagerUser(
+            ['name' => 'Operations', 'code' => 'OPS'],
+            ['name' => 'Operations Manager', 'code' => 'OPS-MGR', 'is_manager' => true],
+            [],
+            'gmihr.attendance.leave_permission'
+        );
+        $employee = $this->createEmployee($manager);
+        $leavePermission = LeavePermission::create([
+            'user_id' => $manager->id,
+            'employee_id' => $employee->id,
+            'type' => 'cuti',
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-01',
+            'days' => 1,
+            'reason' => 'Manager own request.',
+            'status' => 'pending',
+        ]);
+
+        $this
+            ->actingAs($manager)
+            ->get(route('leave-permission.show', $leavePermission))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('GMIHR/LeavePermission/Show')
+                ->where('canReview', false)
+            );
+    }
+
+    public function test_detail_shows_review_actions_for_staff_request_under_manager(): void
+    {
+        $department = $this->createDepartment(['name' => 'Operations', 'code' => 'OPS']);
+        $requester = $this->createUser([
+            'department' => $department,
+        ], 'gmihr.attendance.leave_permission');
+        $employee = $this->createEmployee($requester);
+        $manager = $this->createManagerUser(
+            ['name' => 'Operations', 'code' => 'OPS'],
+            ['name' => 'Operations Manager', 'code' => 'OPS-MGR', 'is_manager' => true],
+            [],
+            'gmihr.attendance.leave_permission'
+        );
+        $leavePermission = LeavePermission::create([
+            'user_id' => $requester->id,
+            'employee_id' => $employee->id,
+            'type' => 'izin',
+            'start_date' => '2026-08-02',
+            'end_date' => '2026-08-02',
+            'days' => 1,
+            'reason' => 'Staff permission request.',
+            'status' => 'pending',
+        ]);
+
+        $this
+            ->actingAs($manager)
+            ->get(route('leave-permission.show', $leavePermission))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('GMIHR/LeavePermission/Show')
+                ->where('canReview', true)
+            );
+    }
+
+    public function test_detail_shows_review_actions_for_cfo_on_manager_request(): void
+    {
+        $manager = $this->createManagerUser(
+            ['name' => 'Operations', 'code' => 'OPS'],
+            ['name' => 'Operations Manager', 'code' => 'OPS-MGR', 'is_manager' => true],
+            [],
+            'gmihr.attendance.leave_permission'
+        );
+        $employee = $this->createEmployee($manager);
+        $leavePermission = LeavePermission::create([
+            'user_id' => $manager->id,
+            'employee_id' => $employee->id,
+            'type' => 'cuti',
+            'start_date' => '2026-08-03',
+            'end_date' => '2026-08-03',
+            'days' => 1,
+            'reason' => 'Manager request for CFO review.',
+            'status' => 'pending',
+        ]);
+        $cfo = $this->createCfoUser();
+
+        $this
+            ->actingAs($cfo)
+            ->get(route('leave-permission.show', $leavePermission))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('GMIHR/LeavePermission/Show')
+                ->where('canReview', true)
+            );
     }
 }
