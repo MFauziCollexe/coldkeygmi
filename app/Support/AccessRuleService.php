@@ -170,6 +170,22 @@ class AccessRuleService
         return (bool) $this->resolvePosition($user)?->is_manager;
     }
 
+    public function isCfo(User|int|null $user): bool
+    {
+        $position = $this->resolvePosition($user);
+        if (!$position) {
+            return false;
+        }
+
+        $code = strtoupper(trim((string) ($position->code ?? '')));
+        $name = strtoupper(trim((string) ($position->name ?? '')));
+
+        return $code === 'CFO'
+            || str_contains($code, '-CFO')
+            || str_contains($name, 'CHIEF FINANCIAL')
+            || $name === 'CFO';
+    }
+
     public function isSupervisor(User|int|null $user): bool
     {
         $position = $this->resolvePosition($user);

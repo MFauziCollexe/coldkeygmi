@@ -53,6 +53,14 @@ class LeavePermissionController extends Controller
     }
 
     /**
+     * Check if user holds the CFO position.
+     */
+    protected function isCfo($userId)
+    {
+        return $this->accessRules()->isCfo($userId);
+    }
+
+    /**
      * Check if user is a supervisor.
      *
      * This project currently doesn't have an explicit `is_supervisor` flag on positions,
@@ -82,11 +90,28 @@ class LeavePermissionController extends Controller
 
     /**
      * Check if a user can review (approve/reject) a leave permission.
-     * - Admin: can review all
-     * - Manager: only requests from visible departments
+     *
+     * Approval routing:
+     * - Requests submitted by a MANAGER are reviewed ONLY by the CFO position.
+     *   A manager can never review (approve/reject) their own request.
+     * - Requests submitted by a regular employee (staff) keep the previous flow:
+     *   admin reviews all, department manager reviews requests from their managed
+     *   departments.
      */
     protected function canReviewLeavePermission($userId, LeavePermission $leavePermission): bool
     {
+        $userId = (int) $userId;
+
+        if ($this->requesterIsManager($leavePermission)) {
+            // Manager requests: only the CFO may review, and never the requester themself.
+            if (!$this->isCfo($userId)) {
+                return false;
+            }
+
+            $requesterUserId = (int) $leavePermission->user_id;
+            return $requesterUserId > 0 && $requesterUserId !== $userId;
+        }
+
         $targetDeptId = $this->resolveLeavePermissionDepartmentId($leavePermission);
         if ($targetDeptId <= 0) {
             return false;
@@ -94,6 +119,19 @@ class LeavePermissionController extends Controller
 
         $visibleDeptIds = $this->getScopedLeavePermissionDepartmentIds($userId, 'review');
         return in_array($targetDeptId, $visibleDeptIds, true);
+    }
+
+    /**
+     * Determine whether the employee who submitted the request holds a manager position.
+     */
+    protected function requesterIsManager(LeavePermission $leavePermission): bool
+    {
+        $requesterUserId = (int) $leavePermission->user_id;
+        if ($requesterUserId <= 0) {
+            return false;
+        }
+
+        return $this->accessRules()->isManager($requesterUserId);
     }
 
     protected function resolveLeavePermissionDepartmentId(LeavePermission $leavePermission): int
@@ -151,6 +189,14 @@ class LeavePermissionController extends Controller
 
     protected function getLeavePermissionVisibleDepartmentIds($userId): array
     {
+        // CFO reviews manager requests across all departments, so grant full visibility.
+        if ($this->isCfo($userId)) {
+            return Department::query()
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
         return $this->getScopedLeavePermissionDepartmentIds($userId, 'view_list');
     }
 
@@ -319,10 +365,11 @@ class LeavePermissionController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $leavePermissions->getCollection()->transform(function ($item) {
+        $leavePermissions->getCollection()->transform(function ($item) use ($userId) {
             $item->attachments = $this->buildAttachmentFiles($item);
             $item->attachments_count = count($item->attachments);
             $item->image_url = $item->attachments[0]['url'] ?? null;
+            $item->can_review = $this->canReviewLeavePermission($userId, $item);
             return $item;
         });
 
@@ -337,6 +384,7 @@ class LeavePermissionController extends Controller
             'departments' => $departments,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
+            'isCfo' => $this->isCfo($userId),
             'canEditLeavePermission' => $this->canEditAnyLeavePermission($userId),
             'canDeleteLeavePermission' => $this->canDeleteAnyLeavePermission($userId),
         ]);
@@ -495,6 +543,8 @@ class LeavePermissionController extends Controller
             'leavePermission' => $leavePermission,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
+            'isCfo' => $this->isCfo($userId),
+            'canReview' => $this->canReviewLeavePermission($userId, $leavePermission),
             'canEditLeavePermission' => $this->canEditRequestData($userId, $leavePermission),
         ]);
     }
