@@ -1003,8 +1003,15 @@ const filteredProducts = computed(() => {
   if (!selectedPo.value) {
     return [];
   }
-  const customerId = selectedPo.value.customer_id;
-  return products.value.filter((product) => String(product.customer_id) === String(customerId));
+  const customerIds = [
+    selectedPo.value.customer_id,
+    selectedPo.value.customer?.customers_id_odoo,
+    selectedPo.value.customer?.id,
+  ]
+    .filter((id) => id !== null && id !== undefined && String(id) !== '')
+    .map((id) => String(id));
+
+  return products.value.filter((product) => customerIds.includes(String(product.customer_id)));
 });
 
 const showTallyModal = ref(false);
