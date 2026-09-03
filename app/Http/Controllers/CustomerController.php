@@ -71,6 +71,7 @@ class CustomerController extends Controller
         $processed = 0;
         $inserted = 0;
         $skipped = 0;
+        $skippedInvalid = 0;
         $chunk = [];
 
         foreach ($this->streamImportRows($file, $fields) as $row) {
@@ -80,6 +81,7 @@ class CustomerController extends Controller
                 $result = $this->insertImportChunk($chunk);
                 $inserted += $result['inserted'];
                 $skipped += $result['skipped'];
+                $skippedInvalid += $result['skipped_invalid'];
                 $chunk = [];
             }
         }
@@ -88,6 +90,7 @@ class CustomerController extends Controller
             $result = $this->insertImportChunk($chunk);
             $inserted += $result['inserted'];
             $skipped += $result['skipped'];
+            $skippedInvalid += $result['skipped_invalid'];
         }
 
         if ($processed === 0) {
@@ -97,7 +100,8 @@ class CustomerController extends Controller
         return response()->json([
             'inserted' => $inserted,
             'skipped' => $skipped,
-            'message' => sprintf('%d baris diproses: %d baru, %d dilewati karena customers_id_odoo sudah ada.', $processed, $inserted, $skipped),
+            'skipped_invalid' => $skippedInvalid,
+            'message' => sprintf('%d baris diproses: %d baru, %d dilewati karena customers_id_odoo sudah ada, %d dilewati karena Name kosong.', $processed, $inserted, $skipped, $skippedInvalid),
         ]);
     }
 
@@ -267,8 +271,14 @@ class CustomerController extends Controller
         $seenIds = [];
         $toInsert = [];
         $skipped = 0;
+        $skippedInvalid = 0;
 
         foreach ($chunk as $row) {
+            if ($row['name'] === null || trim((string) $row['name']) === '') {
+                $skippedInvalid++;
+                continue;
+            }
+
             $id = $row['customers_id_odoo'];
             if ($id !== null && $id !== '' && ($existingIds->has($id) || isset($seenIds[$id]))) {
                 $skipped++;
@@ -284,7 +294,7 @@ class CustomerController extends Controller
             Customer::insert($toInsert);
         }
 
-        return ['inserted' => count($toInsert), 'skipped' => $skipped];
+        return ['inserted' => count($toInsert), 'skipped' => $skipped, 'skipped_invalid' => $skippedInvalid];
     }
 
     private function getNormalizedHeadersFromFile(UploadedFile $file): array
