@@ -6,6 +6,7 @@ use App\Models\TProduct;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -57,25 +58,31 @@ class ProductsController extends Controller
             ], 422);
         }
 
-        $inserted = 0;
+        $totalProcessed = 0;
+        $insertedCount = 0;
+        $skippedCount = 0;
         $chunk = [];
         $chunkSize = 500;
 
         foreach ($this->streamParsedRows($file, $fields) as $row) {
-            $inserted++;
+            $totalProcessed++;
             $chunk[] = $row;
 
             if (count($chunk) >= $chunkSize) {
-                TProduct::insert($chunk);
+                $result = $this->upsertChunk($chunk);
+                $insertedCount += $result['inserted'];
+                $skippedCount += $result['skipped'];
                 $chunk = [];
             }
         }
 
         if (! empty($chunk)) {
-            TProduct::insert($chunk);
+            $result = $this->upsertChunk($chunk);
+            $insertedCount += $result['inserted'];
+            $skippedCount += $result['skipped'];
         }
 
-        if ($inserted === 0) {
+        if ($totalProcessed === 0) {
             return response()->json([
                 'message' => 'File tidak berisi data yang valid setelah parsing.',
                 'detected_headers' => $headerInfo['normalized'],
@@ -84,8 +91,9 @@ class ProductsController extends Controller
         }
 
         return response()->json([
-            'inserted' => $inserted,
-            'message' => sprintf('%d baris berhasil diimport ke Products.', $inserted),
+            'inserted' => $insertedCount,
+            'skipped' => $skippedCount,
+            'message' => sprintf('%d baris diproses: %d baru, %d dilewati karena products_id sudah ada.', $totalProcessed, $insertedCount, $skippedCount),
         ]);
     }
 
@@ -332,5 +340,55 @@ class ProductsController extends Controller
         }
 
         return $value;
+    }
+
+    private function upsertChunk(array $chunk): array
+    {
+        $inserted = 0;
+        $skipped = 0;
+
+        $withId = [];
+        $withoutId = [];
+
+        foreach ($chunk as $row) {
+            $pid = $row['products_id'] ?? null;
+            if ($pid !== null && trim((string) $pid) !== '') {
+                $withId[] = $row;
+            } else {
+                $withoutId[] = $row;
+            }
+        }
+
+        if (! empty($withoutId)) {
+            TProduct::insert($withoutId);
+            $inserted += count($withoutId);
+        }
+
+        if (! empty($withId)) {
+            $existingIds = TProduct::whereIn('products_id', array_column($withId, 'products_id'))
+                ->pluck('products_id')
+                ->flip();
+
+            $toInsert = [];
+            $seenIds = [];
+
+            foreach ($withId as $row) {
+                $productId = $row['products_id'];
+                if ($existingIds->has($productId) || isset($seenIds[$productId])) {
+                    $skipped++;
+                } else {
+                    $toInsert[] = $row;
+                    $seenIds[$productId] = true;
+                }
+            }
+
+            if (! empty($toInsert)) {
+                TProduct::insert($toInsert);
+                $inserted += count($toInsert);
+            }
+
+        }
+
+        return ['inserted' => $inserted, 'skipped' => $skipped];
     }
 }
