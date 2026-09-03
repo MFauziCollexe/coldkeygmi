@@ -481,6 +481,9 @@ Route::resource('master-data/department', DepartmentController::class)
 Route::resource('master-data/customer', CustomerController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.customer'])
     ->names('customers');
+Route::post('master-data/customer/import', [CustomerController::class, 'import'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.master_data.customer'])
+    ->name('customers.import');
 
 // Master Data - Products (route: /master-data/products)
 Route::get('master-data/products', [App\Http\Controllers\ProductsController::class, 'index'])

@@ -4,6 +4,10 @@
       <div class="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <h2 class="text-2xl font-bold">Customer</h2>
         <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <input ref="fileInput" type="file" accept=".csv,.xls,.xlsx" class="hidden" @change="handleFileSelect" />
+          <button type="button" class="bg-emerald-600 px-4 py-2 rounded text-white disabled:cursor-not-allowed disabled:opacity-60" :disabled="isUploadLoading" @click="triggerFileInput">
+            {{ isUploadLoading ? 'Memproses...' : 'Import Customer' }}
+          </button>
           <input v-model="filters.search" @input="onSearchInput" placeholder="Search customer..." class="px-3 py-2 rounded bg-slate-800 text-sm" />
           <select v-model="filters.customer_type" @change="fetch" class="px-3 py-2 rounded bg-slate-800 text-sm">
             <option value="">All Type</option>
@@ -12,6 +16,10 @@
           </select>
           <Link href="/master-data/customer/create" class="bg-indigo-600 px-4 py-2 rounded text-white">New Customer</Link>
         </div>
+      </div>
+
+      <div v-if="uploadMessage" :class="uploadMessage.type === 'success' ? 'mb-4 rounded border border-emerald-500 bg-emerald-900/40 p-3 text-sm text-emerald-300' : 'mb-4 rounded border border-rose-500 bg-rose-900/40 p-3 text-sm text-rose-300'">
+        {{ uploadMessage.text }}
       </div>
 
       <div class="bg-slate-800 rounded p-4">
@@ -88,7 +96,7 @@
 </template>
 
 <script setup>
-import { reactive, computed } from 'vue';
+import { reactive, computed, ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -106,6 +114,10 @@ const filters = reactive({
   customer_type: props.filters?.customer_type || '',
 });
 
+const fileInput = ref(null);
+const isUploadLoading = ref(false);
+const uploadMessage = ref(null);
+
 let searchTimer = null;
 function onSearchInput() {
   clearTimeout(searchTimer);
@@ -118,6 +130,48 @@ function fetch(page = 1) {
   if (filters.customer_type) params.customer_type = filters.customer_type;
   if (page > 1) params.page = page;
   router.get('/master-data/customer', params, { preserveState: true, preserveScroll: true });
+}
+
+function triggerFileInput() {
+  uploadMessage.value = null;
+  fileInput.value?.click();
+}
+
+async function handleFileSelect(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  if (!['csv', 'xls', 'xlsx'].includes(extension)) {
+    uploadMessage.value = { type: 'error', text: 'File harus berformat CSV atau Excel.' };
+    return;
+  }
+
+  isUploadLoading.value = true;
+  uploadMessage.value = null;
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await window.fetch('/master-data/customer/import', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        Accept: 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Gagal mengimport Customer.');
+    uploadMessage.value = { type: 'success', text: data.message || 'Import Customer berhasil.' };
+    router.reload({ only: ['customers'], preserveState: false, preserveScroll: true });
+  } catch (error) {
+    uploadMessage.value = { type: 'error', text: error.message || 'Terjadi kesalahan saat import Customer.' };
+  } finally {
+    isUploadLoading.value = false;
+  }
 }
 
 function next() {
