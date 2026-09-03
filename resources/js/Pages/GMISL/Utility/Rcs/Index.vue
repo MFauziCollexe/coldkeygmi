@@ -214,6 +214,16 @@
                             </td>
                           </tr>
                         </template>
+                        <tr class="bg-slate-100 font-bold text-slate-800">
+                          <td colspan="2" class="border-t border-slate-300 px-3 py-2 text-right">Total</td>
+                          <td class="border-t border-slate-300 px-3 py-2 text-right">
+                            {{ formatTallyNumber(getPoTotals(tally.id).totalKg) }}
+                          </td>
+                          <td class="border-t border-slate-300 px-3 py-2 text-center">
+                            {{ getPoTotals(tally.id).totalPallet }}
+                          </td>
+                          <td colspan="4" class="border-t border-slate-300 px-3 py-2"></td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -1138,6 +1148,29 @@ function isRowExpanded(key) {
 
 function getTallyEntries(poId) {
   return props.tallyData[poId] || [];
+}
+
+function getPoTotals(poId) {
+  const entries = getTallyEntries(poId);
+  const palletByItem = new Map();
+  let totalKg = 0;
+
+  for (const entry of entries) {
+    totalKg += Number(entry.kg) || 0;
+    if (!palletByItem.has(entry.item)) {
+      palletByItem.set(entry.item, new Set());
+    }
+    palletByItem.get(entry.item).add(String(entry.pallet));
+  }
+
+  return {
+    totalKg,
+    totalPallet: Array.from(palletByItem.values()).reduce((total, pallets) => total + pallets.size, 0),
+  };
+}
+
+function formatTallyNumber(value) {
+  return (Number(value) || 0).toFixed(2);
 }
 
 function getItemGroups(poId) {
