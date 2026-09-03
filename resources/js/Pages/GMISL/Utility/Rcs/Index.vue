@@ -1010,8 +1010,15 @@ const filteredProducts = computed(() => {
   ]
     .filter((id) => id !== null && id !== undefined && String(id) !== '')
     .map((id) => String(id));
+  const customerName = String(selectedPo.value.customer?.name || '').trim().toLowerCase();
 
-  return products.value.filter((product) => customerIds.includes(String(product.customer_id)));
+  return products.value.filter((product) => {
+    if (customerIds.includes(String(product.customer_id))) {
+      return true;
+    }
+
+    return customerName !== '' && String(product.customer || '').trim().toLowerCase() === customerName;
+  });
 });
 
 const showTallyModal = ref(false);

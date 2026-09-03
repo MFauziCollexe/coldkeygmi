@@ -42,7 +42,7 @@ class RcsController extends Controller
             ->whereNotNull('internal_reference')
             ->whereNotNull('name')
             ->orderBy('internal_reference')
-            ->get(['id', 'customer_id', 'internal_reference', 'name']);
+            ->get(['id', 'customer_id', 'customer', 'internal_reference', 'name']);
 
         $tallyMaxPallet = TTally::select('t_po_id', DB::raw('MAX(pallet) as max_pallet'))
             ->groupBy('t_po_id')
