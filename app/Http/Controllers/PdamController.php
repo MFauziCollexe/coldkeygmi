@@ -43,22 +43,22 @@ class PdamController extends Controller
         $now = now();
         $record = Pdam::firstOrNew(['tanggal' => $now->toDateString()]);
 
-        $fotoPath = $record->foto_path;
-        if ($request->hasFile('foto')) {
-            $fotoPath = $request->file('foto')->store('pdam', 'public');
-        }
-
         if ((int) $now->format('H') < 12) {
             $record->jam_1 = $now->format('H:i');
             $record->meter_1 = $validated['meter'];
             $reading = '1';
+            if ($request->hasFile('foto')) {
+                $record->foto_path_1 = $request->file('foto')->store('pdam', 'public');
+            }
         } else {
             $record->jam_2 = $now->format('H:i');
             $record->meter_2 = $validated['meter'];
             $reading = '2';
+            if ($request->hasFile('foto')) {
+                $record->foto_path_2 = $request->file('foto')->store('pdam', 'public');
+            }
         }
 
-        $record->foto_path = $fotoPath;
         $record->save();
 
         return back()->with('success', "Data PDAM (pembacaan {$reading}) berhasil disimpan.");

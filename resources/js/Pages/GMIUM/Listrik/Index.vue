@@ -68,7 +68,15 @@
                     <td v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-right">{{ formatNumber(r.total) }}</td>
                     <td v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-right">{{ formatNumber(r.kvarh) }}</td>
                     <td class="border border-black px-2 py-1 text-center">
-                      <a v-if="r.foto_url" :href="r.foto_url" target="_blank" rel="noopener">
+                      <div v-if="activeLokasi === 'GMI'" class="flex flex-wrap justify-center gap-1">
+                        <template v-for="(fu, i) in gmiPhotos(r)" :key="i">
+                          <a v-if="fu" :href="fu" target="_blank" rel="noopener">
+                            <img :src="fu" :alt="`Foto ${i + 1}`" class="h-10 w-10 rounded object-cover" />
+                          </a>
+                          <span v-else class="inline-block h-10 w-10 border border-dashed border-slate-300 text-xs leading-10 text-slate-300">-</span>
+                        </template>
+                      </div>
+                      <a v-else-if="r.foto_url" :href="r.foto_url" target="_blank" rel="noopener">
                         <img :src="r.foto_url" alt="Foto meter listrik" class="inline-block h-10 w-10 rounded object-cover" />
                       </a>
                       <span v-else class="text-slate-400">-</span>
@@ -138,52 +146,56 @@
             </div>
           </div>
 
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Foto Meter / Papan</label>
+          <div v-for="(pf, idx) in photoFields" :key="pf.key" class="rounded border border-slate-200 p-3">
+            <label class="mb-2 block text-sm font-medium text-slate-700">
+              {{ form.lokasi === 'GMI' ? `Foto ${idx + 1}` : 'Foto Meter / Papan' }}
+            </label>
             <input
-              ref="fotoCameraInput"
+              :ref="(el) => setPhotoInput(pf.key, 'camera', el)"
               type="file"
               accept="image/*"
               capture="environment"
               class="hidden"
-              @change="handleFotoChange"
+              @change="(e) => handlePhotoChange(pf.key, e)"
             />
             <input
-              ref="fotoGalleryInput"
+              :ref="(el) => setPhotoInput(pf.key, 'gallery', el)"
               type="file"
               accept="image/*"
               class="hidden"
-              @change="handleFotoChange"
+              @change="(e) => handlePhotoChange(pf.key, e)"
             />
             <div class="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500"
-                @click="triggerFotoCamera"
+                @click="triggerPhotoCamera(pf.key)"
               >
-                Ambil Foto
+                <span v-if="form.lokasi === 'GMI'">Ambil Foto {{ idx + 1 }}</span>
+                <span v-else>Ambil Foto</span>
               </button>
               <button
                 type="button"
                 class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-                @click="triggerFotoGallery"
+                @click="triggerPhotoGallery(pf.key)"
               >
                 Buka Galeri
               </button>
               <button
-                v-if="fotoPreview"
+                v-if="photoPreviews[pf.key]"
                 type="button"
                 class="rounded bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-300"
-                @click="clearFoto"
+                @click="clearPhotoSlot(pf.key)"
               >
                 Hapus
               </button>
             </div>
-            <div v-if="fotoPreview" class="mt-2">
-              <img :src="fotoPreview" alt="Pratinjau foto meter" class="h-32 w-32 rounded border border-slate-300 object-cover" />
+            <div v-if="photoPreviews[pf.key]" class="mt-2">
+              <img :src="photoPreviews[pf.key]" :alt="`Pratinjau foto ${idx + 1}`" class="h-32 w-32 rounded border border-slate-300 object-cover" />
             </div>
-            <p v-if="errors.foto" class="mt-1 text-xs text-red-600">{{ errors.foto }}</p>
+            <p v-if="errors[pf.key]" class="mt-1 text-xs text-red-600">{{ errors[pf.key] }}</p>
           </div>
+          <p v-if="errors.foto && photoFields.length === 1" class="mt-1 text-xs text-red-600">{{ errors.foto }}</p>
 
           <p class="rounded bg-slate-100 px-3 py-2 text-xs text-slate-600">
             Tanggal dan Jam akan terisi otomatis (waktu sekarang) saat tombol Simpan ditekan.
@@ -261,14 +273,35 @@ const formFields = computed(() => {
   return allFormFields;
 });
 const form = ref({ lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '' });
-const fotoCameraInput = ref(null);
-const fotoGalleryInput = ref(null);
-const fotoFile = ref(null);
-const fotoPreview = ref('');
+
+const photoFields = computed(() => {
+  if (form.value.lokasi === 'GMI') {
+    return [
+      { key: 'foto_1' },
+      { key: 'foto_2' },
+      { key: 'foto_3' },
+      { key: 'foto_4' },
+    ];
+  }
+  return [{ key: 'foto' }];
+});
+const photoInputs = ref({});
+const photoFiles = ref({});
+const photoPreviews = ref({});
+
+function setPhotoInput(key, type, el) {
+  if (!photoInputs.value[key]) photoInputs.value[key] = {};
+  photoInputs.value[key][type] = el;
+}
+
+function resetPhotos() {
+  photoFiles.value = {};
+  photoPreviews.value = {};
+}
 
 function openModal() {
   form.value = { lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '' };
-  clearFoto();
+  resetPhotos();
   showModal.value = true;
 }
 
@@ -276,15 +309,15 @@ function closeModal() {
   showModal.value = false;
 }
 
-function triggerFotoCamera() {
-  if (fotoCameraInput.value) fotoCameraInput.value.click();
+function triggerPhotoCamera(key) {
+  photoInputs.value[key]?.camera?.click();
 }
 
-function triggerFotoGallery() {
-  if (fotoGalleryInput.value) fotoGalleryInput.value.click();
+function triggerPhotoGallery(key) {
+  photoInputs.value[key]?.gallery?.click();
 }
 
-async function handleFotoChange(event) {
+async function handlePhotoChange(key, event) {
   const file = event.target.files?.[0];
   if (!file) return;
   if (!String(file.type || '').startsWith('image/')) {
@@ -294,19 +327,19 @@ async function handleFotoChange(event) {
   }
   try {
     const processed = await compressImageToMax(file);
-    fotoFile.value = processed;
-    fotoPreview.value = URL.createObjectURL(processed);
+    photoFiles.value[key] = processed;
+    photoPreviews.value[key] = URL.createObjectURL(processed);
   } catch (error) {
     alert(error?.message || 'Foto gagal diproses.');
-    clearFoto();
+    clearPhotoSlot(key);
   }
 }
 
-function clearFoto() {
-  fotoFile.value = null;
-  fotoPreview.value = '';
-  if (fotoCameraInput.value) fotoCameraInput.value.value = '';
-  if (fotoGalleryInput.value) fotoGalleryInput.value.value = '';
+function clearPhotoSlot(key) {
+  delete photoFiles.value[key];
+  delete photoPreviews.value[key];
+  if (photoInputs.value[key]?.camera) photoInputs.value[key].camera.value = '';
+  if (photoInputs.value[key]?.gallery) photoInputs.value[key].gallery.value = '';
 }
 
 function normalizeNumber(value) {
@@ -315,22 +348,25 @@ function normalizeNumber(value) {
 }
 
 function saveRecord() {
+  const payload = {
+    lokasi: form.value.lokasi,
+    lbp: normalizeNumber(form.value.lbp),
+    wbp: normalizeNumber(form.value.wbp),
+    total: normalizeNumber(form.value.total),
+    kvarh: normalizeNumber(form.value.kvarh) === '' ? null : normalizeNumber(form.value.kvarh),
+  };
+  for (const pf of photoFields.value) {
+    if (photoFiles.value[pf.key]) payload[pf.key] = photoFiles.value[pf.key];
+  }
   router.post(
     '/gmium/listrik',
-    {
-      lokasi: form.value.lokasi,
-      lbp: normalizeNumber(form.value.lbp),
-      wbp: normalizeNumber(form.value.wbp),
-      total: normalizeNumber(form.value.total),
-      kvarh: normalizeNumber(form.value.kvarh) === '' ? null : normalizeNumber(form.value.kvarh),
-      foto: fotoFile.value || undefined,
-    },
+    payload,
     {
       preserveScroll: true,
       onSuccess: () => {
         showModal.value = false;
         form.value = { lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '' };
-        clearFoto();
+        resetPhotos();
       },
     },
   );
@@ -357,5 +393,9 @@ function formatDate(d) {
 function formatNumber(v) {
   if (v === null || v === undefined || v === '') return '-';
   return Number(v).toLocaleString('id-ID', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
+
+function gmiPhotos(r) {
+  return [r?.foto_url, r?.foto_url_2, r?.foto_url_3, r?.foto_url_4];
 }
 </script>

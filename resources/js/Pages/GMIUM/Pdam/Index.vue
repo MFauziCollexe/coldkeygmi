@@ -35,7 +35,8 @@
                     <th class="border border-black px-2 py-1 text-center">Meter</th>
                     <th class="border border-black px-2 py-1 text-center">Jam</th>
                     <th class="border border-black px-2 py-1 text-center">Meter</th>
-                    <th class="border border-black px-2 py-1 text-center">Foto</th>
+                    <th class="border border-black px-2 py-1 text-center">Foto 1</th>
+                    <th class="border border-black px-2 py-1 text-center">Foto 2</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -47,14 +48,20 @@
                     <td class="border border-black px-2 py-1 text-center">{{ r.jam_2 || '-' }}</td>
                     <td class="border border-black px-2 py-1 text-right">{{ formatNumber(r.meter_2) }}</td>
                     <td class="border border-black px-2 py-1 text-center">
-                      <a v-if="r.foto_url" :href="r.foto_url" target="_blank" rel="noopener">
-                        <img :src="r.foto_url" alt="Foto meter PDAM" class="inline-block h-10 w-10 rounded object-cover" />
+                      <a v-if="r.foto_url_1" :href="r.foto_url_1" target="_blank" rel="noopener">
+                        <img :src="r.foto_url_1" alt="Foto meter PDAM 1" class="inline-block h-10 w-10 rounded object-cover" />
+                      </a>
+                      <span v-else class="text-slate-400">-</span>
+                    </td>
+                    <td class="border border-black px-2 py-1 text-center">
+                      <a v-if="r.foto_url_2" :href="r.foto_url_2" target="_blank" rel="noopener">
+                        <img :src="r.foto_url_2" alt="Foto meter PDAM 2" class="inline-block h-10 w-10 rounded object-cover" />
                       </a>
                       <span v-else class="text-slate-400">-</span>
                     </td>
                   </tr>
                   <tr v-if="records.data.length === 0">
-                    <td colspan="7" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
+                    <td colspan="8" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
                   </tr>
                 </tbody>
               </table>
@@ -148,7 +155,7 @@
           </div>
 
           <p class="rounded bg-slate-100 px-3 py-2 text-xs text-slate-600">
-            Jam dan Tanggal terisi otomatis sesuai waktu sekarang. Pengisian 06:00–12:00 masuk pembacaan 1, pengisian 12:00–20:00 masuk pembacaan 2.
+            Jam dan Tanggal terisi otomatis sesuai waktu sekarang. Pengisian 06:00–12:00 masuk pembacaan 1, pengisian 12:00–20:00 masuk pembacaan 2. Foto yang diambil akan tersimpan terpisah sesuai pembacaan (Foto 1 / Foto 2).
           </p>
 
           <div class="flex items-center justify-end gap-2">
