@@ -72,9 +72,13 @@ import {
   createSaranaPrasaranaEntry, createPatroliSecurityEntry, createSiteVisitHseEntry,
   createSiteVisitMaintenanceEntry, createGensetRunningEntry, createRunningGensetEntry,
   createKompresorHarianEntry, createChargerBateraiEntry, createChecklistBateraiEntry,
+  createUnitCoolerEntry,
+  rebuildUnitCoolerRows,
+  unitCoolerItems,
   createChecklistITEntry, createInspeksiLokerEntry, createCleaningOBEntry, formatMonthYearDisplay, formatDateTimeDisplay, formatDateDisplay,
   formatShortDateDisplay, getKotakP3KMonthLabel, getLocationBarcodeAliases,
   getPatroliSecurityBarcodeAliases, getSanitationAreaBarcodeAliases, kotakP3KMonths,
+  toPeriodValue,
 } from './checklistConfig'
 import { supportedTemplatesList, getTemplateComponent } from './composables/useChecklistRegistry'
 import { useScanner } from './composables/useScanner'
@@ -586,6 +590,46 @@ const currentTemplateProps = computed(() => {
     onRemovePhoto: photo.removeChecklistBateraiPhoto,
   }
 
+  if (tid === 'unit_cooler') return {
+    entry: entry.value,
+    rows: entry.value.form.rows || [],
+    activeRow: entry.value.form.rows?.find((row) => Number(row.day) === Number(entry.value.form.active_day)) || null,
+    approvedDays: (entry.value.form.approved_days || []).map(Number),
+    activeDay: Number(entry.value.form.active_day) || 1,
+    today: new Date().getDate(),
+    canApproveEntry: canApproveEntry.value,
+    note: entry.value.form.rows?.find((row) => Number(row.day) === Number(entry.value.form.active_day))?.note || '',
+    unitCoolerItems: unitCoolerItems,
+    onApprove: approveChecklist,
+    onUpdatePeriod: (period) => {
+      if (!entry.value || !period) return
+      entry.value.form.period = period
+      entry.value.form.rows = rebuildUnitCoolerRows(period, entry.value.form.rows || [])
+      entry.value.form.active_day = 1
+      entry.value.form.date_value = `${period}-01`
+    },
+    onCycleCell: (day, key) => {
+      if (!entry.value) return
+      const numDay = Number(day)
+      if (numDay !== new Date().getDate()) return
+      const approvedDays = Array.isArray(entry.value.form.approved_days) ? entry.value.form.approved_days.map(Number) : []
+      if (approvedDays.includes(numDay)) return
+      const rows = entry.value.form.rows || []
+      entry.value.form.rows = rows.map((row) => {
+        if (Number(row.day) !== numDay) return row
+        const current = String(row[key] || '')
+        return { ...row, [key]: current === 'yes' ? 'no' : current === 'no' ? '' : 'yes' }
+      })
+    },
+    onSetActiveDay: (day) => { entry.value.form.active_day = Number(day) || 1 },
+    onUpdateNote: (value) => {
+      const activeDay = Number(entry.value.form.active_day) || 1
+      entry.value.form.rows = (entry.value.form.rows || []).map((row) => (
+        Number(row.day) === activeDay ? { ...row, note: value } : row
+      ))
+    },
+  }
+
   if (tid === 'checklist_it') return {
     entry: entry.value,
     canApproveEntry: canApproveEntry,
@@ -701,6 +745,10 @@ function isChecklistBateraiRowComplete(row) {
     && Boolean(row?.cover_pelampung)
     && Boolean(row?.kebersihan_baterai)
     && Boolean(row?.voltage_dc)
+}
+
+function isUnitCoolerRowComplete(row) {
+  return unitCoolerItems.every(([key]) => Boolean(row?.[key]))
 }
 
 function hasChecklistBateraiNoAnswer(row) {
@@ -931,6 +979,20 @@ const canApproveEntry = computed(() => {
       && (!cleaningOB.cleaningOBValidation.value.hasNoAnswer || cleaningOB.cleaningOBValidation.value.hasRequiredNote)
   }
 
+  if (tid === 'unit_cooler') {
+    if (!canApproveCurrentTemplate.value) return false
+    const rows = Array.isArray(entry.value.form.rows) ? entry.value.form.rows : []
+    if (!rows.length) return false
+    const approvedDays = Array.isArray(entry.value.form.approved_days) ? entry.value.form.approved_days.map(Number) : []
+    const activeDay = Number(entry.value.form.active_day) || Number(rows[0]?.day) || 1
+    const activeRow = rows.find((row) => Number(row.day) === activeDay)
+    if (!activeRow || approvedDays.includes(activeDay)) return false
+    if (!isUnitCoolerRowComplete(activeRow)) return false
+    const hasNoAnswer = unitCoolerItems.some(([key]) => String(activeRow[key] || '') === 'no')
+    if (hasNoAnswer && !String(activeRow.note || '').trim()) return false
+    return true
+  }
+
   return canApproveCurrentTemplate.value
 })
 
@@ -999,6 +1061,24 @@ async function approveChecklist() {
     }
     entry.value.form.location_entries[locationId] = locationState
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
+    return
+  }
+
+  if (tid === 'unit_cooler') {
+    const approvedDays = Array.isArray(entry.value.form.approved_days) ? entry.value.form.approved_days.map(Number) : []
+    const rows = Array.isArray(entry.value.form.rows) ? entry.value.form.rows : []
+    const activeDay = Number(entry.value.form.active_day) || Number(rows[0]?.day) || 1
+    const activeRow = rows.find((row) => Number(row.day) === activeDay)
+    if (activeRow && !approvedDays.includes(activeDay) && isUnitCoolerRowComplete(activeRow)) {
+      const nextApprovedDays = [...new Set([...approvedDays, activeDay])].sort((a, b) => a - b)
+      entry.value.form.approved_days = nextApprovedDays
+      entry.value.form.approved = rows.length > 0 && nextApprovedDays.length >= rows.length
+      const nextPendingDay = rows.find((row) => !nextApprovedDays.includes(Number(row.day)))
+      entry.value.form.active_day = nextPendingDay ? Number(nextPendingDay.day) : activeDay
+    }
+    const savedApprovedDays = [...(entry.value.form.approved_days || [])].map(Number)
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
+    if (entry.value) entry.value.form.approved_days = savedApprovedDays
     return
   }
 
@@ -1167,6 +1247,14 @@ function findSameYearFireSafetyEntry(entries = []) {
   ) || null
 }
 
+function findSamePeriodUnitCoolerEntry(entries = []) {
+  const currentPeriod = toPeriodValue(new Date())
+  return (Array.isArray(entries) ? entries : []).find(
+    (savedEntry) => savedEntry?.template_id === 'unit_cooler'
+      && String(savedEntry?.form?.period || '').trim() === currentPeriod,
+  ) || null
+}
+
 function hydrateContinuableMonthlyEntry(savedEntry) {
   const hydratedEntry = hydrateChecklistEntry(savedEntry)
   if (!hydratedEntry?.form) return hydratedEntry
@@ -1176,6 +1264,25 @@ function hydrateContinuableMonthlyEntry(savedEntry) {
       ...hydratedEntry.form,
       active_month: getCurrentMonthlyChecklistMonthKey(new Date()),
       year: String(new Date().getFullYear()),
+    },
+  }
+}
+
+function hydrateContinuableUnitCoolerEntry(savedEntry) {
+  const hydratedEntry = hydrateChecklistEntry(savedEntry)
+  if (!hydratedEntry?.form) return hydratedEntry
+  const today = new Date().getDate()
+  const period = String(hydratedEntry.form.period || '').trim()
+  const approvedDays = Array.isArray(hydratedEntry.form.approved_days) ? hydratedEntry.form.approved_days.map(Number) : []
+  const rows = Array.isArray(hydratedEntry.form.rows) ? hydratedEntry.form.rows : []
+  const nextPendingDay = rows.find((row) => !approvedDays.includes(Number(row.day)))
+  const activeDay = !approvedDays.includes(today) ? today : (Number(nextPendingDay?.day) || today)
+  return {
+    ...hydratedEntry,
+    form: {
+      ...hydratedEntry.form,
+      active_day: activeDay,
+      date_value: period ? `${period}-${String(activeDay).padStart(2, '0')}` : hydratedEntry.form.date_value,
     },
   }
 }
@@ -1200,6 +1307,7 @@ function createEntryByTemplate(templateId, options = {}) {
     kompresor_harian: () => createKompresorHarianEntry(userName),
     charger_baterai: () => createChargerBateraiEntry(userName),
     checklist_baterai: () => createChecklistBateraiEntry(userName),
+    unit_cooler: () => continuableEntry ? hydrateContinuableUnitCoolerEntry(continuableEntry) : createUnitCoolerEntry(userName),
     checklist_it: () => createChecklistITEntry(userName),
     inspeksi_loker: () => createInspeksiLokerEntry(userName),
   }
@@ -1221,7 +1329,8 @@ function createInitialEntry() {
   const continuableWasteTransportEntry = selectedChecklist.value === 'pengangkutan_sampah_pt_sier' ? wasteTransport.findOpenWasteTransportEntry(props.existingEntries) : null
   const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(props.existingEntries) : null
   const continuableFireSafetyEntry = selectedChecklist.value === 'apar_smoke_detector_fire_alarm' ? findSameYearFireSafetyEntry(props.existingEntries) : null
-  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry })
+  const continuableUnitCoolerEntry = selectedChecklist.value === 'unit_cooler' ? findSamePeriodUnitCoolerEntry(props.existingEntries) : null
+  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry || continuableUnitCoolerEntry })
 }
 
 function refreshEntry() {
@@ -1235,7 +1344,8 @@ function refreshEntry() {
   const continuableWasteTransportEntry = selectedChecklist.value === 'pengangkutan_sampah_pt_sier' ? wasteTransport.findOpenWasteTransportEntry(knownChecklistEntries.value) : null
   const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(knownChecklistEntries.value) : null
   const continuableFireSafetyEntry = selectedChecklist.value === 'apar_smoke_detector_fire_alarm' ? findSameYearFireSafetyEntry(knownChecklistEntries.value) : null
-  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuablePatroliEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry })
+  const continuableUnitCoolerEntry = selectedChecklist.value === 'unit_cooler' ? findSamePeriodUnitCoolerEntry(knownChecklistEntries.value) : null
+  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuablePatroliEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry || continuableUnitCoolerEntry })
   if ((continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id) || (continuableKotakP3KEntry && entry.value?.id === continuableKotakP3KEntry.id) || (continuableFireSafetyEntry && entry.value?.id === continuableFireSafetyEntry.id) || (continuableSiteVisitHseEntry && entry.value?.id === continuableSiteVisitHseEntry.id) || (continuableSaranaPrasaranaEntry && entry.value?.id === continuableSaranaPrasaranaEntry.id) || (continuableWasteTransportEntry && entry.value?.id === continuableWasteTransportEntry.id)) syncCurrentEntryUrl(entry.value)
 }
 

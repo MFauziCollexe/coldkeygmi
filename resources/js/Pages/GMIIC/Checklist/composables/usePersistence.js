@@ -22,6 +22,7 @@ import {
     rebuildKompresorDailyRows,
     rebuildChargerBateraiRows,
     rebuildChecklistBateraiRows,
+    rebuildUnitCoolerRows,
     getMaintenanceVisitTypeMeta,
     getFireSafetyLocationOptions,
     getFireSafetyRecordKey,
@@ -534,6 +535,42 @@ function hydrateChecklistBateraiEntry(savedEntry) {
     };
 }
 
+function hydrateUnitCoolerEntry(savedEntry) {
+    if (savedEntry?.template_id !== "unit_cooler") return savedEntry;
+    const period =
+        String(savedEntry?.form?.period || "").trim() ||
+        toPeriodValue(new Date());
+    const [year] = period.split("-");
+    const rows = rebuildUnitCoolerRows(period, savedEntry?.form?.rows || []);
+    const activeDay =
+        Number(savedEntry?.form?.active_day) ||
+        Number(String(savedEntry?.form?.date_value || "").split("-")[2]) ||
+        Number(rows[0]?.day) ||
+        1;
+
+    return {
+        ...savedEntry,
+        form: {
+            ...savedEntry.form,
+            period,
+            year: String(savedEntry?.form?.year || "").trim() || year,
+            active_day: activeDay,
+            unit_cooler_no: String(savedEntry?.form?.unit_cooler_no || ""),
+            location: savedEntry?.form?.location || "GOLDEN MULTI INDOTAMA",
+            pic: savedEntry?.form?.pic || "User Login",
+            document_no: String(
+                savedEntry?.form?.document_no || "DF-GMI-MTC-10",
+            ),
+            approved: Boolean(savedEntry?.form?.approved),
+            approved_days: Array.isArray(savedEntry?.form?.approved_days)
+                ? savedEntry.form.approved_days
+                : [],
+            note: String(savedEntry?.form?.note || ""),
+            rows,
+        },
+    };
+}
+
 function hydrateChecklistITEntry(savedEntry) {
     if (savedEntry?.template_id !== "checklist_it") return savedEntry;
     return {
@@ -569,6 +606,7 @@ function hydrateChecklistEntry(savedEntry) {
         hydrateKompresorHarianEntry,
         hydrateChargerBateraiEntry,
         hydrateChecklistBateraiEntry,
+        hydrateUnitCoolerEntry,
         hydrateChecklistITEntry,
     ];
     hydrators.forEach((hydrate) => {

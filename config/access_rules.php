@@ -72,6 +72,7 @@ $templatePermissions = array_merge(
             'kompresor_harian',
             'charger_baterai',
             'checklist_baterai',
+            'unit_cooler',
         ],
         $mergeChecklistRules($itChecklistRules, $maintenanceChecklistRules)
     ),

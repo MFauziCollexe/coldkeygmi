@@ -292,7 +292,7 @@ class ChecklistEntryController extends Controller
     private function resolvePdfOrientation(array $entry): string
     {
         $landscapeTemplates = [
-            'kompresor_harian', 'charger_baterai', 'checklist_baterai',
+            'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler',
             'non_warehouse_sanitation', 'personal_hygiene_karyawan',
             'sarana_dan_prasarana',
         ];

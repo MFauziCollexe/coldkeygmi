@@ -1,4 +1,10 @@
-import { getDaysInPeriod, toPeriodValue, toDateInputValue, formatDateTimeDisplay, formatDateDisplay } from './date-utils';
+import {
+    getDaysInPeriod,
+    toPeriodValue,
+    toDateInputValue,
+    formatDateTimeDisplay,
+    formatDateDisplay,
+} from "./date-utils";
 
 export function createKompresorDailyRows(periodValue) {
     return getDaysInPeriod(periodValue).map((dayInfo) => ({
@@ -107,6 +113,61 @@ export function rebuildChecklistBateraiRows(periodValue, existingRows = []) {
     });
 }
 
+const unitCoolerItems = [
+    ["cs1_1", "CS1", "1"],
+    ["cs1_2", "CS1", "2"],
+    ["cs2_1", "CS2", "1"],
+    ["cs2_2", "CS2", "2"],
+    ["cs3_1", "CS3", "1"],
+    ["cs3_2", "CS3", "2"],
+    ["cs5_1", "CS5", "1"],
+    ["cs5_2", "CS5", "2"],
+    ["cs6_1", "CS6", "1"],
+    ["cs7_1", "CS7", "1"],
+    ["cs8_1", "CS8", "1"],
+    ["cs8_2", "CS8", "2"],
+    ["cs9_1", "CS9", "1"],
+    ["cs9_2", "CS9", "2"],
+    ["cs10_1", "CS10", "1"],
+    ["cs10_2", "CS10", "2"],
+    ["cs11_1", "CS11", "1"],
+    ["cs11_2", "CS11", "2"],
+    ["cs12_1", "CS12", "1"],
+    ["cs12_2", "CS12", "2"],
+    ["ante_room_1", "ANTE ROOM", "1"],
+    ["ante_room_2", "ANTE ROOM", "2"],
+    ["ante_room_3", "ANTE ROOM", "3"],
+    ["ante_room_4", "ANTE ROOM", "4"],
+    ["loading_1", "LOADING", "1"],
+    ["loading_2", "LOADING", "2"],
+];
+
+export { unitCoolerItems };
+
+export function createUnitCoolerRows(periodValue) {
+    return getDaysInPeriod(periodValue).map((dayInfo) => ({
+        day: dayInfo.day,
+        date: dayInfo.date,
+        note: "",
+        ...Object.fromEntries(unitCoolerItems.map(([key]) => [key, ""])),
+    }));
+}
+
+export function rebuildUnitCoolerRows(periodValue, existingRows = []) {
+    return createUnitCoolerRows(periodValue).map((row) => {
+        const matchedRow = existingRows.find(
+            (item) => Number(item.day) === Number(row.day),
+        );
+        return {
+            ...row,
+            note: matchedRow?.note || "",
+            ...Object.fromEntries(
+                unitCoolerItems.map(([key]) => [key, matchedRow?.[key] || ""]),
+            ),
+        };
+    });
+}
+
 export function createKompresorHarianEntry(userName) {
     const now = new Date();
     const period = toPeriodValue(now);
@@ -185,6 +246,32 @@ export function createChecklistBateraiEntry(userName) {
             approved_days: [],
             note: "",
             rows: createChecklistBateraiRows(period),
+        },
+    };
+}
+
+export function createUnitCoolerEntry(userName) {
+    const now = new Date();
+    const period = toPeriodValue(now);
+
+    return {
+        id: `unit_cooler-${Date.now()}`,
+        template_id: "unit_cooler",
+        name: "Unit Cooler",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            period,
+            date_value: toDateInputValue(now),
+            year: String(now.getFullYear()),
+            active_day: now.getDate(),
+            unit_cooler_no: "",
+            location: "GOLDEN MULTI INDOTAMA",
+            pic: userName || "User Login",
+            document_no: "DF-GMI-MTC-10",
+            approved: false,
+            approved_days: [],
+            note: "",
+            rows: createUnitCoolerRows(period),
         },
     };
 }
