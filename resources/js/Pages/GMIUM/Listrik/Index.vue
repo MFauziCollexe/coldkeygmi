@@ -146,56 +146,74 @@
             </div>
           </div>
 
-          <div v-for="(pf, idx) in photoFields" :key="pf.key" class="rounded border border-slate-200 p-3">
+          <div class="rounded border border-slate-200 p-3">
             <label class="mb-2 block text-sm font-medium text-slate-700">
-              {{ form.lokasi === 'GMI' ? `Foto ${idx + 1}` : 'Foto Meter / Papan' }}
+              Foto {{ form.lokasi === 'GMI' ? '' : 'Meter / Papan' }}
             </label>
             <input
-              :ref="(el) => setPhotoInput(pf.key, 'camera', el)"
+              ref="cameraInput"
               type="file"
               accept="image/*"
               capture="environment"
               class="hidden"
-              @change="(e) => handlePhotoChange(pf.key, e)"
+              @change="handlePhotoChange"
             />
             <input
-              :ref="(el) => setPhotoInput(pf.key, 'gallery', el)"
+              ref="galleryInput"
               type="file"
               accept="image/*"
               class="hidden"
-              @change="(e) => handlePhotoChange(pf.key, e)"
+              @change="handlePhotoChange"
             />
-            <div class="flex flex-wrap items-center gap-3">
+
+            <div v-if="photos.length" class="mb-3 grid grid-cols-4 gap-2">
+              <div
+                v-for="(photo, i) in photos"
+                :key="photo.preview"
+                class="relative"
+              >
+                <img
+                  :src="photo.preview"
+                  :alt="`Foto ${i + 1}`"
+                  class="h-20 w-20 rounded border border-slate-300 object-cover"
+                />
+                <button
+                  type="button"
+                  class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[11px] font-bold text-white shadow hover:bg-red-700"
+                  :aria-label="`Hapus foto ${i + 1}`"
+                  title="Hapus foto"
+                  @click="removePhoto(i)"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div v-if="photos.length < maxPhotos" class="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500"
-                @click="triggerPhotoCamera(pf.key)"
+                @click="triggerPhotoCamera"
               >
-                <span v-if="form.lokasi === 'GMI'">Ambil Foto {{ idx + 1 }}</span>
+                <span v-if="photos.length">+ Tambah Foto</span>
                 <span v-else>Ambil Foto</span>
               </button>
               <button
                 type="button"
                 class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-                @click="triggerPhotoGallery(pf.key)"
+                @click="triggerPhotoGallery"
               >
-                Buka Galeri
+                <span v-if="photos.length">+ Dari Galeri</span>
+                <span v-else>Buka Galeri</span>
               </button>
-              <button
-                v-if="photoPreviews[pf.key]"
-                type="button"
-                class="rounded bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-300"
-                @click="clearPhotoSlot(pf.key)"
-              >
-                Hapus
-              </button>
+              <span v-if="maxPhotos > 1" class="text-xs text-slate-500">{{ photos.length }} / {{ maxPhotos }} foto</span>
             </div>
-            <div v-if="photoPreviews[pf.key]" class="mt-2">
-              <img :src="photoPreviews[pf.key]" :alt="`Pratinjau foto ${idx + 1}`" class="h-32 w-32 rounded border border-slate-300 object-cover" />
-            </div>
-            <p v-if="errors[pf.key]" class="mt-1 text-xs text-red-600">{{ errors[pf.key] }}</p>
+            <p v-else class="text-xs text-slate-500">Maksimal {{ maxPhotos }} foto telah ditambahkan.</p>
+
+            <p v-if="errors.foto || errors.foto_1" class="mt-1 text-xs text-red-600">
+              {{ errors.foto || errors.foto_1 }}
+            </p>
           </div>
-          <p v-if="errors.foto && photoFields.length === 1" class="mt-1 text-xs text-red-600">{{ errors.foto }}</p>
 
           <p class="rounded bg-slate-100 px-3 py-2 text-xs text-slate-600">
             Tanggal dan Jam akan terisi otomatis (waktu sekarang) saat tombol Simpan ditekan.
@@ -274,29 +292,16 @@ const formFields = computed(() => {
 });
 const form = ref({ lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '' });
 
-const photoFields = computed(() => {
-  if (form.value.lokasi === 'GMI') {
-    return [
-      { key: 'foto_1' },
-      { key: 'foto_2' },
-      { key: 'foto_3' },
-      { key: 'foto_4' },
-    ];
-  }
-  return [{ key: 'foto' }];
-});
-const photoInputs = ref({});
-const photoFiles = ref({});
-const photoPreviews = ref({});
+const photos = ref([]);
+const cameraInput = ref(null);
+const galleryInput = ref(null);
 
-function setPhotoInput(key, type, el) {
-  if (!photoInputs.value[key]) photoInputs.value[key] = {};
-  photoInputs.value[key][type] = el;
-}
+const maxPhotos = computed(() => (form.value.lokasi === 'GMI' ? 4 : 1));
 
 function resetPhotos() {
-  photoFiles.value = {};
-  photoPreviews.value = {};
+  photos.value = [];
+  if (cameraInput.value) cameraInput.value.value = '';
+  if (galleryInput.value) galleryInput.value.value = '';
 }
 
 function openModal() {
@@ -309,37 +314,37 @@ function closeModal() {
   showModal.value = false;
 }
 
-function triggerPhotoCamera(key) {
-  photoInputs.value[key]?.camera?.click();
+function triggerPhotoCamera() {
+  cameraInput.value?.click();
 }
 
-function triggerPhotoGallery(key) {
-  photoInputs.value[key]?.gallery?.click();
+function triggerPhotoGallery() {
+  galleryInput.value?.click();
 }
 
-async function handlePhotoChange(key, event) {
+async function handlePhotoChange(event) {
   const file = event.target.files?.[0];
+  event.target.value = '';
   if (!file) return;
+  if (photos.value.length >= maxPhotos.value) {
+    alert(`Maksimal ${maxPhotos.value} foto per pencatatan.`);
+    return;
+  }
   if (!String(file.type || '').startsWith('image/')) {
     alert('File yang dipilih bukan gambar.');
-    event.target.value = '';
     return;
   }
   try {
     const processed = await compressImageToMax(file);
-    photoFiles.value[key] = processed;
-    photoPreviews.value[key] = URL.createObjectURL(processed);
+    photos.value.push({ file: processed, preview: URL.createObjectURL(processed) });
   } catch (error) {
     alert(error?.message || 'Foto gagal diproses.');
-    clearPhotoSlot(key);
   }
 }
 
-function clearPhotoSlot(key) {
-  delete photoFiles.value[key];
-  delete photoPreviews.value[key];
-  if (photoInputs.value[key]?.camera) photoInputs.value[key].camera.value = '';
-  if (photoInputs.value[key]?.gallery) photoInputs.value[key].gallery.value = '';
+function removePhoto(index) {
+  const removed = photos.value.splice(index, 1)[0];
+  if (removed?.preview) URL.revokeObjectURL(removed.preview);
 }
 
 function normalizeNumber(value) {
@@ -355,9 +360,13 @@ function saveRecord() {
     total: normalizeNumber(form.value.total),
     kvarh: normalizeNumber(form.value.kvarh) === '' ? null : normalizeNumber(form.value.kvarh),
   };
-  for (const pf of photoFields.value) {
-    if (photoFiles.value[pf.key]) payload[pf.key] = photoFiles.value[pf.key];
-  }
+  photos.value.forEach((photo, i) => {
+    if (form.value.lokasi === 'GMI') {
+      if (i < 4) payload[`foto_${i + 1}`] = photo.file;
+    } else if (i === 0) {
+      payload.foto = photo.file;
+    }
+  });
   router.post(
     '/gmium/listrik',
     payload,
