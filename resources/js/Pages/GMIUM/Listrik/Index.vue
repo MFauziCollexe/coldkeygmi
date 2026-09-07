@@ -56,6 +56,7 @@
                           <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">Total</th>
                           <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">Kvarh</th>
                           <th class="border border-black px-2 py-1 text-center">Foto</th>
+                          <th v-if="isIT" class="border border-black px-2 py-1 text-center">Aksi</th>
                         </tr>
                 </thead>
                 <tbody>
@@ -81,9 +82,18 @@
                       </a>
                       <span v-else class="text-slate-400">-</span>
                     </td>
+                    <td v-if="isIT" class="border border-black px-2 py-1 text-center">
+                      <button
+                        type="button"
+                        class="rounded bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-300"
+                        @click="openEdit(r)"
+                      >
+                        Edit
+                      </button>
+                    </td>
                   </tr>
                   <tr v-if="records.data.length === 0">
-                    <td :colspan="activeLokasi === 'GMI' ? 8 : 5" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
+                    <td :colspan="(activeLokasi === 'GMI' ? 8 : 5) + (isIT ? 1 : 0)" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
                   </tr>
                 </tbody>
               </table>
@@ -104,7 +114,7 @@
     >
       <div class="w-full max-w-md overflow-hidden rounded-xl border border-slate-300 bg-white p-5 shadow-2xl">
         <div class="mb-4 flex items-center justify-between gap-4">
-          <h3 class="text-base font-semibold text-black">Tambah Data Listrik</h3>
+          <h3 class="text-base font-semibold text-black">{{ editingId ? 'Edit Data Listrik' : 'Tambah Data Listrik' }}</h3>
           <button
             type="button"
             class="rounded bg-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-300"
@@ -143,6 +153,27 @@
                 />
               </div>
               <p v-if="errors[field.key]" class="mt-1 text-xs text-red-600">{{ errors[field.key] }}</p>
+            </div>
+          </div>
+
+          <div v-if="isIT" class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-700">Tanggal</label>
+              <input
+                v-model="form.tanggal"
+                type="date"
+                class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <p v-if="errors.tanggal" class="mt-1 text-xs text-red-600">{{ errors.tanggal }}</p>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-700">Jam</label>
+              <input
+                v-model="form.jam"
+                type="time"
+                class="w-full rounded border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <p v-if="errors.jam" class="mt-1 text-xs text-red-600">{{ errors.jam }}</p>
             </div>
           </div>
 
@@ -215,8 +246,11 @@
             </p>
           </div>
 
-          <p class="rounded bg-slate-100 px-3 py-2 text-xs text-slate-600">
+          <p v-if="!isIT" class="rounded bg-slate-100 px-3 py-2 text-xs text-slate-600">
             Tanggal dan Jam akan terisi otomatis (waktu sekarang) saat tombol Simpan ditekan.
+          </p>
+          <p v-else class="rounded bg-slate-100 px-3 py-2 text-xs text-slate-600">
+            Role IT dapat memilih Tanggal (termasuk tanggal lama / masa lalu atau setelah hari ini) dan Jam pencatatan.
           </p>
 
           <div class="flex items-center justify-end gap-2">
@@ -231,7 +265,7 @@
               type="submit"
               class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
             >
-              Simpan
+              {{ editingId ? 'Simpan Perubahan' : 'Simpan' }}
             </button>
           </div>
         </form>
@@ -248,9 +282,13 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { compressImageToMax } from '@/Utils/imageCompression';
 
-const props = defineProps({ records: Object, filters: Object });
+const props = defineProps({ records: Object, filters: Object, currentUser: Object });
 const records = computed(() => props.records || { data: [] });
 const errors = computed(() => usePage().props.errors || {});
+
+const isIT = computed(() =>
+  String(props.currentUser?.department_code || '').toUpperCase() === 'IT',
+);
 
 function currentMonth() {
   const now = new Date();
@@ -290,7 +328,8 @@ const formFields = computed(() => {
   }
   return allFormFields;
 });
-const form = ref({ lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '' });
+const form = ref({ lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '', tanggal: '', jam: '' });
+const editingId = ref(null);
 
 const photos = ref([]);
 const cameraInput = ref(null);
@@ -305,13 +344,30 @@ function resetPhotos() {
 }
 
 function openModal() {
-  form.value = { lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '' };
+  editingId.value = null;
+  form.value = { lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '', tanggal: '', jam: '' };
+  resetPhotos();
+  showModal.value = true;
+}
+
+function openEdit(record) {
+  editingId.value = record.id;
+  form.value = {
+    lokasi: record.lokasi,
+    lbp: record.lbp ?? '',
+    wbp: record.wbp ?? '',
+    total: record.total ?? '',
+    kvarh: record.kvarh ?? '',
+    tanggal: record.tanggal ?? '',
+    jam: record.jam ?? '',
+  };
   resetPhotos();
   showModal.value = true;
 }
 
 function closeModal() {
   showModal.value = false;
+  editingId.value = null;
 }
 
 function triggerPhotoCamera() {
@@ -360,6 +416,10 @@ function saveRecord() {
     total: normalizeNumber(form.value.total),
     kvarh: normalizeNumber(form.value.kvarh) === '' ? null : normalizeNumber(form.value.kvarh),
   };
+  if (isIT.value && form.value.tanggal) {
+    payload.tanggal = form.value.tanggal;
+    if (form.value.jam) payload.jam = form.value.jam;
+  }
   photos.value.forEach((photo, i) => {
     if (form.value.lokasi === 'GMI') {
       if (i < 4) payload[`foto_${i + 1}`] = photo.file;
@@ -367,18 +427,20 @@ function saveRecord() {
       payload.foto = photo.file;
     }
   });
-  router.post(
-    '/gmium/listrik',
-    payload,
-    {
-      preserveScroll: true,
-      onSuccess: () => {
-        showModal.value = false;
-        form.value = { lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '' };
-        resetPhotos();
-      },
+  const options = {
+    preserveScroll: true,
+    onSuccess: () => {
+      showModal.value = false;
+      editingId.value = null;
+      form.value = { lokasi: 'GMI', lbp: '', wbp: '', total: '', kvarh: '', tanggal: '', jam: '' };
+      resetPhotos();
     },
-  );
+  };
+  if (editingId.value) {
+    router.put(`/gmium/listrik/${editingId.value}`, payload, options);
+    return;
+  }
+  router.post('/gmium/listrik', payload, options);
 }
 
 function search() {

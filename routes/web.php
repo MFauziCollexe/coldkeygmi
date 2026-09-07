@@ -118,6 +118,11 @@ Route::post('gmium/listrik', [App\Http\Controllers\ListrikController::class, 'st
     ->middleware(['auth'])
     ->name('gmium.listrik.store');
 
+// Listrik update (IT role only - can edit past/future dates)
+Route::put('gmium/listrik/{listrik}', [App\Http\Controllers\ListrikController::class, 'update'])
+    ->middleware(['auth'])
+    ->name('gmium.listrik.update');
+
 // PDAM (GMIUM > Utility Management > PDAM)
 Route::get('gmisl/pdam', [App\Http\Controllers\PdamController::class, 'index'])
     ->middleware(['auth'])
