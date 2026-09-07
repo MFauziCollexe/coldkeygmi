@@ -359,7 +359,7 @@ function openEdit(record) {
     total: record.total ?? '',
     kvarh: record.kvarh ?? '',
     tanggal: record.tanggal ?? '',
-    jam: record.jam ?? '',
+    jam: (record.jam || '').slice(0, 5),
   };
   resetPhotos();
   showModal.value = true;
@@ -418,7 +418,7 @@ function saveRecord() {
   };
   if (isIT.value && form.value.tanggal) {
     payload.tanggal = form.value.tanggal;
-    if (form.value.jam) payload.jam = form.value.jam;
+    if (form.value.jam) payload.jam = form.value.jam.slice(0, 5);
   }
   photos.value.forEach((photo, i) => {
     if (form.value.lokasi === 'GMI') {
