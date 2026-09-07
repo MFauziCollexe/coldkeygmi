@@ -437,7 +437,7 @@ function saveRecord() {
     },
   };
   if (editingId.value) {
-    router.put(`/gmium/listrik/${editingId.value}`, payload, options);
+    router.post(`/gmium/listrik/${editingId.value}`, { ...payload, _method: 'put' }, options);
     return;
   }
   router.post('/gmium/listrik', payload, options);
