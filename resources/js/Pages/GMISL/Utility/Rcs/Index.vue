@@ -507,7 +507,7 @@
           </button>
           <button
             type="button"
-            :disabled="currentPallet <= 1"
+            :disabled="currentPallet <= 1 || navLocked"
             class="rounded bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm"
             @click="prevPallet"
           >
@@ -515,7 +515,7 @@
           </button>
           <button
             type="button"
-            :disabled="isNextDisabled"
+            :disabled="isNextDisabled || navLocked"
             class="rounded bg-slate-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm"
             @click="nextPallet"
           >
@@ -1624,6 +1624,29 @@ const summaryTotalKg = computed(() => {
 const isNextDisabled = computed(() => {
   return currentEntries.value.length === 0;
 });
+
+const pendingInput = computed(() => {
+  const idx = editingEntryIndex.value;
+  if (idx !== null) {
+    const entry = (palletEntries.value[currentPallet.value] || [])[idx];
+    if (entry) {
+      const formKg = String(tallyForm.value.kg);
+      const entryKg = entry.kg !== undefined && entry.kg !== null ? String(entry.kg) : '';
+      if (formKg !== entryKg) {
+        return true;
+      }
+      const formExp = tallyForm.value.exp_date || '';
+      const entryExp = entry.exp_date || '';
+      if (formExp && formExp !== entryExp) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return tallyForm.value.kg !== '';
+});
+
+const navLocked = computed(() => hasUnsaved.value || pendingInput.value);
 
 function getUnsavedEntries() {
   const all = [];

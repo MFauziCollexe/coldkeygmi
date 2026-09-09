@@ -234,6 +234,16 @@ class OvertimeController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        $overtimes->getCollection()->transform(function (Overtime $overtime) use ($userId) {
+            $deptId = (int) optional($overtime->employee)->department_id;
+            if ($deptId <= 0) {
+                $deptId = (int) optional($overtime->user)->department_id;
+            }
+            $overtime->can_approve = $this->isAdmin($userId)
+                || ($deptId > 0 && $this->canApproveDepartment($userId, $deptId));
+            return $overtime;
+        });
+
         // Get departments for filter (only visible ones)
         $departments = Department::whereIn('id', $visibleDeptIds)
             ->select('id', 'name')

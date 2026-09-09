@@ -120,7 +120,7 @@
           </div>
         </div>
 
-        <div v-if="overtime.status === 'pending' && (isAdmin || isManager)" class="mt-8 border-t border-slate-700 pt-6">
+        <div v-if="overtime.status === 'pending' && canEditDetails" class="mt-8 border-t border-slate-700 pt-6">
           <h3 class="mb-4 text-lg font-semibold">Tindakan</h3>
           <div class="flex flex-col gap-3 sm:flex-row">
             <button @click="rejectRequest" class="rounded bg-red-600 px-6 py-3 text-white hover:bg-red-700">

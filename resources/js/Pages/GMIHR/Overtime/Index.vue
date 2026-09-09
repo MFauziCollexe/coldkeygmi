@@ -335,7 +335,7 @@
           </div>
 
           <!-- Action buttons for manager/admin when status is pending -->
-          <div v-if="selectedItem?.status === 'pending' && (isAdmin || isManager)" class="mt-4 pt-4 border-t border-slate-700">
+          <div v-if="selectedItem?.status === 'pending' && selectedItem?.can_approve" class="mt-4 pt-4 border-t border-slate-700">
             <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button @click="rejectRequest(selectedItem)" class="px-4 py-2 rounded bg-red-600 text-white">
                 Tolak
