@@ -109,7 +109,7 @@ class AttendanceLogControllerTest extends TestCase
         );
 
         $this->assertSame('08:00:00', $schedule['start_time']);
-        $this->assertSame('18:00:00', $schedule['end_time']);
+        $this->assertSame('13:00:00', $schedule['end_time']);
     }
 
     public function test_resolve_roster_schedule_for_attendance_keeps_stored_schedule_for_unknown_shift_code(): void
