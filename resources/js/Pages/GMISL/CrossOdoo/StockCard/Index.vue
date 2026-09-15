@@ -83,6 +83,7 @@
           <thead>
             <tr class="bg-sky-100 text-slate-900">
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TANGGAL</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">LOT</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TRANSAKSI</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">EXPIRED</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY IN</th>
@@ -93,6 +94,7 @@
           <tbody>
             <tr class="bg-sky-50 text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(startDate) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900"></td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">Saldo Awal</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900"></td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900"></td>
@@ -100,7 +102,7 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(openingBalance) }}</td>
             </tr>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="6">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="7">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
@@ -111,6 +113,7 @@
               class="hover:bg-blue-50"
             >
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.lot || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.trans || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expired) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>

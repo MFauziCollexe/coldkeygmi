@@ -86,11 +86,16 @@ WITH params AS (
 opening AS (
     SELECT COALESCE(SUM(
         CASE
-            -- Jika asal dari luar dan tujuan ke internal -> POSITIF
-            WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sml.quantity
-            -- Jika asal dari internal dan tujuan ke luar -> NEGATIF
-            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN -sml.quantity
-            -- Untuk internal transfer -> 0
+            WHEN COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Receipts%'
+              OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Repack Inbound%'
+              OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Adjustment Inbound%'
+              OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Credit Note%' THEN sml.quantity
+
+            WHEN COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Delivery Orders%'
+              OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Return Receipts%'
+              OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Repack Outbound%'
+              OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Adjustment Outbound%' THEN -sml.quantity
+
             ELSE 0
         END
     ), 0) AS opening_balance
@@ -99,12 +104,12 @@ opening AS (
         ON pp.id = sm.product_id
     JOIN product_template pt
         ON pt.id = pp.product_tmpl_id
-    JOIN stock_location loc_src
-        ON loc_src.id = sm.location_id
-    JOIN stock_location loc_dest
-        ON loc_dest.id = sm.location_dest_id
     JOIN stock_move_line sml
         ON sml.move_id = sm.id
+    LEFT JOIN stock_picking sp
+        ON sp.id = sm.picking_id
+    LEFT JOIN stock_picking_type spt
+        ON COALESCE(sm.picking_type_id, sp.picking_type_id) = spt.id
     LEFT JOIN stock_lot sl
         ON sl.id = sml.lot_id
     JOIN res_partner r
@@ -126,17 +131,24 @@ opening AS (
 transaksi AS (
     SELECT
         sm.date,
+        sl.name                                         AS lot,
         sml.reference                                   AS trans,
         sl.expiration_date::date                        AS expired,
         SUM(
             CASE
-                WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sml.quantity
+                WHEN COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Receipts%'
+                  OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Repack Inbound%'
+                  OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Adjustment Inbound%'
+                  OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Credit Note%' THEN sml.quantity
                 ELSE 0::numeric
             END
         )                                               AS qty_in,
         SUM(
             CASE
-                WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN sml.quantity
+                WHEN COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Delivery Orders%'
+                  OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Return Receipts%'
+                  OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Repack Outbound%'
+                  OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Adjustment Outbound%' THEN sml.quantity
                 ELSE 0::numeric
             END
         )                                               AS qty_out
@@ -145,12 +157,12 @@ transaksi AS (
         ON pp.id = sm.product_id
     JOIN product_template pt
         ON pt.id = pp.product_tmpl_id
-    JOIN stock_location loc_src
-        ON loc_src.id = sm.location_id
-    JOIN stock_location loc_dest
-        ON loc_dest.id = sm.location_dest_id
     JOIN stock_move_line sml
         ON sml.move_id = sm.id
+    LEFT JOIN stock_picking sp
+        ON sp.id = sm.picking_id
+    LEFT JOIN stock_picking_type spt
+        ON COALESCE(sm.picking_type_id, sp.picking_type_id) = spt.id
     LEFT JOIN stock_lot sl
         ON sl.id = sml.lot_id
     JOIN res_partner r
@@ -159,6 +171,16 @@ transaksi AS (
     WHERE sm.state = 'done'
       AND sm.date::date BETWEEN p.date_from AND p.date_to
       AND r.name = p.customer_name
+      AND (
+          COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Receipts%'
+          OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Repack Inbound%'
+          OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Adjustment Inbound%'
+          OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Credit Note%'
+          OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Delivery Orders%'
+          OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Return Receipts%'
+          OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Repack Outbound%'
+          OR COALESCE(spt.name->>'en_US', spt.name->>'id_ID', spt.name::text) ILIKE '%Adjustment Outbound%'
+      )
       AND pt.id IN (
           SELECT id
           FROM product_template
@@ -179,6 +201,7 @@ transaksi AS (
 paged AS (
     SELECT
         t.date,
+        t.lot,
         t.trans,
         t.expired,
         t.qty_in,
@@ -217,6 +240,7 @@ SQL;
         $formattedRows = array_map(function ($row) {
             return [
                 'transaction_date' => $row->date,
+                'lot' => $row->lot,
                 'trans' => $row->trans,
                 'expired' => $row->expired,
                 'qty_in' => (float) $row->qty_in,
