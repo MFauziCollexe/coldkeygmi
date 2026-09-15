@@ -263,12 +263,10 @@ function onCustomerChange(e) {
   localCustomerId.value = Number(e.target.value) || null;
   const first = availableProducts.value[0];
   localProductId.value = first ? first.product_id : null;
-  reload(buildParams({ page: 1 }), ONLY_FILTER);
 }
 
 function onProductChange(e) {
   localProductId.value = Number(e.target.value) || null;
-  reload(buildParams({ page: 1 }), ONLY_FILTER);
 }
 
 function onDateChange() {
