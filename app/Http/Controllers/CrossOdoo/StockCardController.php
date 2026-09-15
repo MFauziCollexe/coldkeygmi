@@ -87,9 +87,9 @@ opening AS (
     SELECT COALESCE(SUM(
         CASE
             -- Jika asal dari luar dan tujuan ke internal -> POSITIF
-            WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sm.quantity
+            WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sml.quantity
             -- Jika asal dari internal dan tujuan ke luar -> NEGATIF
-            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN -sm.quantity
+            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN -sml.quantity
             -- Untuk internal transfer -> 0
             ELSE 0
         END
@@ -105,7 +105,7 @@ opening AS (
         ON loc_dest.id = sm.location_dest_id
     JOIN stock_move_line sml
         ON sml.move_id = sm.id
-    JOIN stock_lot sl
+    LEFT JOIN stock_lot sl
         ON sl.id = sml.lot_id
     JOIN res_partner r
         ON r.id = pt.x_studio_customer
@@ -125,18 +125,21 @@ opening AS (
 ),
 transaksi AS (
     SELECT
-        sm.id,
         sm.date,
-        COALESCE(NULLIF(sml.reference, ''), sp.name)  AS trans,
-        sl.expiration_date::date                       AS expired,
-        CASE
-            WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sm.quantity
-            ELSE 0::numeric
-        END                                           AS qty_in,
-        CASE
-            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN sm.quantity
-            ELSE 0::numeric
-        END                                           AS qty_out
+        sml.reference                                   AS trans,
+        sl.expiration_date::date                        AS expired,
+        SUM(
+            CASE
+                WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sml.quantity
+                ELSE 0::numeric
+            END
+        )                                               AS qty_in,
+        SUM(
+            CASE
+                WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN sml.quantity
+                ELSE 0::numeric
+            END
+        )                                               AS qty_out
     FROM stock_move sm
     JOIN product_product pp
         ON pp.id = sm.product_id
@@ -148,12 +151,10 @@ transaksi AS (
         ON loc_dest.id = sm.location_dest_id
     JOIN stock_move_line sml
         ON sml.move_id = sm.id
-    JOIN stock_lot sl
+    LEFT JOIN stock_lot sl
         ON sl.id = sml.lot_id
     JOIN res_partner r
         ON r.id = pt.x_studio_customer
-    LEFT JOIN stock_picking sp
-        ON sp.id = sml.picking_id
     CROSS JOIN params p
     WHERE sm.state = 'done'
       AND sm.date::date BETWEEN p.date_from AND p.date_to
@@ -167,10 +168,16 @@ transaksi AS (
               WHERE lang.value ILIKE p.product_name
           )
       )
+    GROUP BY
+        r.name,
+        pt.name->>'en_US',
+        sl.name,
+        sl.expiration_date,
+        sml.reference,
+        sm.date
 ),
 paged AS (
     SELECT
-        t.id,
         t.date,
         t.trans,
         t.expired,
@@ -178,7 +185,8 @@ paged AS (
         t.qty_out,
         o.opening_balance,
         o.opening_balance
-            + SUM(t.qty_in - t.qty_out) OVER (ORDER BY t.date, t.id ROWS UNBOUNDED PRECEDING) AS saldo
+            + SUM(t.qty_in - t.qty_out)
+              OVER (ORDER BY t.date, t.trans, t.expired ROWS UNBOUNDED PRECEDING) AS saldo
     FROM transaksi t
     CROSS JOIN opening o
 )
@@ -203,7 +211,7 @@ SQL;
         $countResult = DB::connection('pgsql')->selectOne($countQuery, $bindings);
         $totalRows = $countResult->total_count ?? 0;
 
-        $rowsQuery = "{$cteSql} SELECT * FROM paged ORDER BY date, id LIMIT ? OFFSET ?";
+        $rowsQuery = "{$cteSql} SELECT * FROM paged ORDER BY date, trans, expired LIMIT ? OFFSET ?";
         $rows = DB::connection('pgsql')->select($rowsQuery, array_merge($bindings, [$perPage, $offset]));
 
         $formattedRows = array_map(function ($row) {
