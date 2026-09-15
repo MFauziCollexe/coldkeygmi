@@ -82,23 +82,25 @@
         <table class="w-full border-collapse text-xs text-slate-900" style="table-layout: auto;">
           <thead>
             <tr class="bg-sky-100 text-slate-900">
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-center font-semibold">No</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">CUSTOMER</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NAMA BARANG</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TRANS</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TANGGAL</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">DONE_QTY</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">SRC_USAGE</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">DEST_USAGE</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">TOTAL_STOCK_MOVEMENT</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SALDO_AWAL</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY_IN</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY_OUT</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TRANSAKSI</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">EXPIRED</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY IN</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY OUT</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SALDO</th>
             </tr>
           </thead>
           <tbody>
+            <tr class="bg-sky-50 text-slate-900">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(startDate) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">Saldo Awal</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(openingBalance) }}</td>
+            </tr>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="12">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="6">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
@@ -108,30 +110,14 @@
               :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
               class="hover:bg-blue-50"
             >
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ (currentPage - 1) * perPage + index + 1 }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.customer || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.product_name || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.trans || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.done_qty) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.src_usage || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.dest_usage || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.total_movement) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.saldo_awal) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.trans || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expired) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_out) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.saldo) }}</td>
             </tr>
           </tbody>
-          <tfoot v-if="paginatedRows.length">
-            <tr class="bg-sky-50 font-semibold text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="7">Total Halaman</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalDone) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalMovement) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalSaldoAwal) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalIn) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOut) }}</td>
-            </tr>
-          </tfoot>
         </table>
       </div>
 
@@ -179,6 +165,7 @@ const props = defineProps({
   endDate:           { type: String,   default: '2026-12-31' },
   customerName:      { type: String,   default: 'Customer' },
   productName:       { type: String,   default: 'Product' },
+  openingBalance:    { type: Number,   default: 0 },
   currentPage:       { type: Number,   default: 1 },
   perPage:           { type: Number,   default: 25 },
   totalRows:         { type: Number,   default: 0 },
@@ -209,14 +196,6 @@ const visiblePages = computed(() => {
   pages.push(total);
   return pages;
 });
-
-function sumField(rows, field) { return rows.reduce((acc, r) => acc + (Number(r[field]) || 0), 0); }
-
-const pageTotalDone     = computed(() => sumField(paginatedRows.value, 'done_qty'));
-const pageTotalMovement = computed(() => sumField(paginatedRows.value, 'total_movement'));
-const pageTotalSaldoAwal= computed(() => sumField(paginatedRows.value, 'saldo_awal'));
-const pageTotalIn       = computed(() => sumField(paginatedRows.value, 'qty_in'));
-const pageTotalOut      = computed(() => sumField(paginatedRows.value, 'qty_out'));
 
 function formatDateShort(v) {
   if (!v) return '-';
@@ -255,7 +234,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','startDate','endDate','customerName','productName','currentPage','perPage','totalRows'];
+const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','startDate','endDate','customerName','productName','openingBalance','currentPage','perPage','totalRows'];
 
 function onCustomerChange(e) {
   localCustomerId.value = Number(e.target.value) || null;

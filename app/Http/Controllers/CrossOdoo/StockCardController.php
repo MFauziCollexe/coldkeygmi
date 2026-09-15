@@ -75,7 +75,7 @@ SQL;
         $page = max(1, (int) $request->query('page', 1));
         $perPage = 25;
 
-        $unionSql = <<<'SQL'
+        $cteSql = <<<'SQL'
 WITH params AS (
     SELECT
         ?::text AS customer_name,
@@ -83,16 +83,8 @@ WITH params AS (
         ?::date AS date_from,
         ?::date AS date_to
 ),
-saldo_awal AS (
-    SELECT
-        sm.id,
-        r.name                                        AS customer,
-        pt.name->>'en_US'                             AS namabarang,
-        sml.reference                                 AS trans,
-        sm.date,
-        sm.quantity                                   AS done_qty,
-        loc_src.usage                                 AS src_usage,
-        loc_dest.usage                                AS dest_usage,
+opening AS (
+    SELECT COALESCE(SUM(
         CASE
             -- Jika asal dari luar dan tujuan ke internal -> POSITIF
             WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sm.quantity
@@ -100,14 +92,8 @@ saldo_awal AS (
             WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN -sm.quantity
             -- Untuk internal transfer -> 0
             ELSE 0
-        END                                           AS total_stock_movement,
-        CASE
-            WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sml.quantity
-            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN -sml.quantity
-            ELSE 0
-        END                                           AS saldoawal,
-        0::numeric                                    AS qtyin,
-        0::numeric                                    AS qtyout
+        END
+    ), 0) AS opening_balance
     FROM stock_move sm
     JOIN product_product pp
         ON pp.id = sm.product_id
@@ -140,29 +126,21 @@ saldo_awal AS (
 transaksi AS (
     SELECT
         sm.id,
-        r.name                                        AS customer,
-        pt.name->>'en_US'                             AS namabarang,
-        sml.reference                                 AS trans,
         sm.date,
-        sm.quantity                                   AS done_qty,
-        loc_src.usage                                 AS src_usage,
-        loc_dest.usage                                AS dest_usage,
+        CASE
+            WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN 'GR'
+            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN 'DO'
+            ELSE 'TR'
+        END                                           AS trans,
+        sl.expiration_date::date                       AS expired,
         CASE
             WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sm.quantity
-            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN -sm.quantity
-            ELSE 0
-        END                                           AS total_stock_movement,
-        0::numeric                                    AS saldoawal,
+            ELSE 0::numeric
+        END                                           AS qty_in,
         CASE
-            -- Jika asal dari internal dan tujuan ke luar -> NEGATIF
-            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN -sm.quantity
-            ELSE 0
-        END                                           AS qtyin,
-        CASE
-            -- Jika asal dari luar dan tujuan ke internal -> POSITIF
-            WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sml.quantity
-            ELSE 0
-        END                                           AS qtyout
+            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN sm.quantity
+            ELSE 0::numeric
+        END                                           AS qty_out
     FROM stock_move sm
     JOIN product_product pp
         ON pp.id = sm.product_id
@@ -191,10 +169,21 @@ transaksi AS (
               WHERE lang.value ILIKE p.product_name
           )
       )
+),
+paged AS (
+    SELECT
+        t.id,
+        t.date,
+        t.trans,
+        t.expired,
+        t.qty_in,
+        t.qty_out,
+        o.opening_balance,
+        o.opening_balance
+            + SUM(t.qty_in - t.qty_out) OVER (ORDER BY t.date, t.id ROWS UNBOUNDED PRECEDING) AS saldo
+    FROM transaksi t
+    CROSS JOIN opening o
 )
-SELECT * FROM saldo_awal
-UNION ALL
-SELECT * FROM transaksi
 SQL;
 
         $offset = ($page - 1) * $perPage;
@@ -209,30 +198,28 @@ SQL;
 
         $bindings = [$selectedCustomerName, $productName, $startDate, $endDate];
 
-        $countQuery = "SELECT COUNT(*) AS total_count FROM ({$unionSql}) AS data";
+        $openingResult = DB::connection('pgsql')->selectOne("{$cteSql} SELECT opening_balance FROM opening", $bindings);
+        $openingBalance = (float) ($openingResult->opening_balance ?? 0);
+
+        $countQuery = "{$cteSql} SELECT COUNT(*) AS total_count FROM paged";
         $countResult = DB::connection('pgsql')->selectOne($countQuery, $bindings);
         $totalRows = $countResult->total_count ?? 0;
 
-        $rowsQuery = "SELECT * FROM ({$unionSql}) AS data ORDER BY data.date, data.id LIMIT ? OFFSET ?";
+        $rowsQuery = "{$cteSql} SELECT * FROM paged ORDER BY date, id LIMIT ? OFFSET ?";
         $rows = DB::connection('pgsql')->select($rowsQuery, array_merge($bindings, [$perPage, $offset]));
 
         $formattedRows = array_map(function ($row) {
             return [
-                'customer' => $row->customer,
-                'product_name' => $row->namabarang,
-                'trans' => $row->trans,
                 'transaction_date' => $row->date,
-                'done_qty' => (float) $row->done_qty,
-                'src_usage' => $row->src_usage,
-                'dest_usage' => $row->dest_usage,
-                'total_movement' => (float) $row->total_stock_movement,
-                'saldo_awal' => (float) $row->saldoawal,
-                'qty_in' => (float) $row->qtyin,
-                'qty_out' => (float) $row->qtyout,
+                'trans' => $row->trans,
+                'expired' => $row->expired,
+                'qty_in' => (float) $row->qty_in,
+                'qty_out' => (float) $row->qty_out,
+                'saldo' => (float) $row->saldo,
             ];
         }, $rows);
 
-        $customerName = $selectedCustomerName ?? $formattedRows[0]['customer'] ?? ($customers[0]['customer_name'] ?? null);
+        $customerName = $selectedCustomerName ?? ($customers[0]['customer_name'] ?? null);
 
         return Inertia::render('GMISL/CrossOdoo/StockCard/Index', [
             'rows' => $formattedRows,
@@ -244,6 +231,7 @@ SQL;
             'endDate' => $endDate,
             'customerName' => $customerName,
             'productName' => $productName,
+            'openingBalance' => $openingBalance,
             'currentPage' => $page,
             'perPage' => $perPage,
             'totalRows' => $totalRows,
