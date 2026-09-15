@@ -1,7 +1,6 @@
 <template>
   <AppLayout>
     <div class="p-4 md:p-6">
-      <!-- Header -->
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 class="text-2xl font-bold">Cross Odoo - Stock Card</h2>
@@ -17,21 +16,35 @@
         </div>
       </div>
 
-      <!-- Filters -->
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4">
+        <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-5">
           <input type="hidden" name="page" v-model.number="currentPage" />
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Owner</label>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_id">Customer</label>
             <select
-              id="owner_id"
-              name="owner_id"
+              id="customer_id"
+              name="customer_id"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="selectedOwnerId"
+              :value="selectedCustomerId"
               @change="submitFilters"
             >
-              <option v-for="owner in owners" :key="owner.owner_id" :value="owner.owner_id">
-                {{ owner.owner_name }}
+              <option v-for="customer in customers" :key="customer.customer_id" :value="customer.customer_id">
+                {{ customer.customer_name }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product</label>
+            <select
+              id="product_id"
+              name="product_id"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              :value="selectedProductId"
+              @change="submitFilters"
+            >
+              <option v-for="product in products" :key="product.product_id" :value="product.product_id">
+                {{ product.default_code ? product.default_code + ' - ' : '' }}{{ product.product_name }}
               </option>
             </select>
           </div>
@@ -61,7 +74,6 @@
           </div>
 
           <div class="flex items-end">
-            <input type="hidden" name="product_id" :value="targetProductId || ''" />
             <button
               type="submit"
               class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
@@ -72,33 +84,27 @@
         </form>
       </div>
 
-      <!-- Excel-like Table -->
       <div class="overflow-x-auto rounded border border-slate-600 bg-white">
         <table class="w-full border-collapse text-xs text-slate-900" style="table-layout: auto;">
           <thead>
             <tr class="bg-sky-100 text-slate-900">
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-center font-semibold">No</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TGL_TRAN</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_GUDANG</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_CUST</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NM_CUST</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_BRG</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NM_BRG</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_MOBIL</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_REFERENCE_1</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_REFERENCE_2</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_PO_SO</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NO_INVOICE</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KETERANGAN</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SD_AW</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">MUTASI_IN</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">MUTASI_OUT</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SALDO_AKHIR_QTY</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">CUSTOMER</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NAMA BARANG</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TRANS</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TANGGAL</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">DONE_QTY</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">SRC_USAGE</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">DEST_USAGE</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">TOTAL_STOCK_MOVEMENT</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SALDO_AWAL</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY_IN</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY_OUT</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="17">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="12">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
@@ -109,37 +115,32 @@
               class="hover:bg-blue-50"
             >
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ (currentPage - 1) * perPage + index + 1 }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.warehouse_code || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.customer_code || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.customer_name || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.product_code || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.customer || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.product_name || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.mobile_no || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.reference_1 || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.reference_2 || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.po_so || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.invoice_no || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.description || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.opening_qty) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.trans || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.done_qty) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.src_usage || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.dest_usage || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.total_movement) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.saldo_awal) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_out) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-semibold text-slate-900">{{ formatNumber(row.balance_qty) }}</td>
             </tr>
           </tbody>
           <tfoot v-if="paginatedRows.length">
             <tr class="bg-sky-50 font-semibold text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="13">Total Halaman</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOpening) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right" colspan="7">Total Halaman</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalDone) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalMovement) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalSaldoAwal) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalOut) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono">{{ formatNumber(pageTotalBalance) }}</td>
             </tr>
           </tfoot>
         </table>
       </div>
 
-      <!-- Pagination -->
       <div v-if="totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="text-sm text-slate-400">
           Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
@@ -208,11 +209,19 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
-  owners: {
+  customers: {
     type: Array,
     default: () => [],
   },
-  selectedOwnerId: {
+  products: {
+    type: Array,
+    default: () => [],
+  },
+  selectedCustomerId: {
+    type: [String, Number],
+    default: null,
+  },
+  selectedProductId: {
     type: [String, Number],
     default: null,
   },
@@ -223,10 +232,6 @@ const props = defineProps({
   endDate: {
     type: String,
     default: '2026-12-31',
-  },
-  targetProductId: {
-    type: [String, Number],
-    default: null,
   },
   customerName: {
     type: String,
@@ -250,21 +255,19 @@ const props = defineProps({
   },
 });
 
-const allRows = computed(() => props.rows || []);
-const owners = computed(() => props.owners || []);
-const selectedOwnerId = computed(() => props.selectedOwnerId);
-const startDate = computed(() => props.startDate);
-const endDate = computed(() => props.endDate);
-const targetProductId = computed(() => props.targetProductId);
+const customers = computed(() => props.customers || []);
+const products = computed(() => props.products || []);
+const totalRows = computed(() => Number(props.totalRows || 0));
 const customerLabel = computed(() => props.customerName || 'Customer');
 const productLabel = computed(() => props.productName || 'Product');
-const totalRows = computed(() => Number(props.totalRows || 0));
 
 const perPage = ref(props.perPage ?? 50);
 const currentPage = ref(props.currentPage ?? 1);
 
-const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / perPage.value)));
+const allRows = computed(() => props.rows || []);
 const paginatedRows = computed(() => allRows.value);
+
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / perPage.value)));
 
 const visiblePages = computed(() => {
   const total = totalPages.value;
@@ -286,41 +289,11 @@ function sumField(rows, field) {
   return rows.reduce((acc, row) => acc + (Number(row[field]) || 0), 0);
 }
 
+const pageTotalDone = computed(() => sumField(paginatedRows.value, 'done_qty'));
+const pageTotalMovement = computed(() => sumField(paginatedRows.value, 'total_movement'));
+const pageTotalSaldoAwal = computed(() => sumField(paginatedRows.value, 'saldo_awal'));
 const pageTotalIn = computed(() => sumField(paginatedRows.value, 'qty_in'));
 const pageTotalOut = computed(() => sumField(paginatedRows.value, 'qty_out'));
-const pageTotalOpening = computed(() => sumField(paginatedRows.value, 'opening_qty'));
-const pageTotalBalance = computed(() => sumField(paginatedRows.value, 'balance_qty'));
-const grandTotalIn = computed(() => sumField(allRows.value, 'qty_in'));
-const grandTotalOut = computed(() => sumField(allRows.value, 'qty_out'));
-const grandTotalOpening = computed(() => sumField(allRows.value, 'opening_qty'));
-const grandTotalBalance = computed(() => sumField(allRows.value, 'balance_qty'));
-
-const movementColors = {
-  'RECEIPT': 'bg-emerald-100 text-emerald-700',
-  'DELIVERY': 'bg-sky-100 text-sky-700',
-  'CUSTOMER RETURN': 'bg-amber-100 text-amber-700',
-  'VENDOR RETURN': 'bg-orange-100 text-orange-700',
-  'TRANSFER': 'bg-violet-100 text-violet-700',
-  'ADJUSTMENT IN': 'bg-teal-100 text-teal-700',
-  'ADJUSTMENT OUT': 'bg-rose-100 text-rose-700',
-};
-
-function movementClass(type) {
-  return movementColors[String(type || '').toUpperCase()] || 'bg-slate-100 text-slate-600';
-}
-
-function formatDate(value) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('id-ID', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 function formatDateShort(value) {
   if (!value) return '-';
@@ -330,6 +303,14 @@ function formatDateShort(value) {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+  });
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  return Number(value).toLocaleString('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   });
 }
 
@@ -355,12 +336,4 @@ function submitForm() {
 }
 
 const filterForm = ref(null);
-
-function formatNumber(value) {
-  if (value === null || value === undefined) return '-';
-  return Number(value).toLocaleString('id-ID', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
-}
 </script>
