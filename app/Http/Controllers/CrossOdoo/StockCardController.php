@@ -127,11 +127,7 @@ transaksi AS (
     SELECT
         sm.id,
         sm.date,
-        CASE
-            WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN 'GR'
-            WHEN loc_src.usage = 'internal' AND loc_dest.usage != 'internal' THEN 'DO'
-            ELSE 'TR'
-        END                                           AS trans,
+        COALESCE(NULLIF(sml.reference, ''), sp.name)  AS trans,
         sl.expiration_date::date                       AS expired,
         CASE
             WHEN loc_src.usage != 'internal' AND loc_dest.usage = 'internal' THEN sm.quantity
@@ -156,6 +152,8 @@ transaksi AS (
         ON sl.id = sml.lot_id
     JOIN res_partner r
         ON r.id = pt.x_studio_customer
+    LEFT JOIN stock_picking sp
+        ON sp.id = sml.picking_id
     CROSS JOIN params p
     WHERE sm.state = 'done'
       AND sm.date::date BETWEEN p.date_from AND p.date_to
