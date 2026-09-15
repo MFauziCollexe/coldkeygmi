@@ -23,7 +23,7 @@
             <select
               id="customer_id"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="selectedCustomerId"
+              :value="localCustomerId"
               @change="onCustomerChange"
             >
               <option v-for="customer in customers" :key="customer.customer_id" :value="customer.customer_id">
@@ -37,7 +37,7 @@
             <select
               id="product_id"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="selectedProductId"
+              :value="localProductId"
               @change="onProductChange"
             >
               <option v-for="product in availableProducts" :key="product.product_id" :value="product.product_id">
