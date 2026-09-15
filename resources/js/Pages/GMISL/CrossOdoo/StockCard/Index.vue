@@ -53,7 +53,6 @@
               type="date"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="startDate"
-              @change="onDateChange"
             />
           </div>
 
@@ -64,7 +63,6 @@
               type="date"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="endDate"
-              @change="onDateChange"
             />
           </div>
 
