@@ -6,9 +6,9 @@
           <h2 class="text-2xl font-bold">Cross Odoo - Stock Card</h2>
           <p class="text-sm text-slate-400">
             Menampilkan stock card Odoo untuk customer
-            <span class="font-semibold text-slate-200">{{ customerLabel }}</span>
+            <span class="font-semibold text-slate-200">{{ customerName }}</span>
             dan product
-            <span class="font-semibold text-slate-200">{{ productLabel }}</span>.
+            <span class="font-semibold text-slate-200">{{ productName }}</span>.
           </p>
         </div>
         <div class="text-sm text-slate-400">
@@ -17,16 +17,14 @@
       </div>
 
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-5">
-          <input type="hidden" name="page" v-model.number="currentPage" />
+        <div class="grid gap-3 sm:grid-cols-5">
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_id">Customer</label>
             <select
               id="customer_id"
-              name="customer_id"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="selectedCustomerId"
-              @change="submitFilters"
+              @change="onCustomerChange"
             >
               <option v-for="customer in customers" :key="customer.customer_id" :value="customer.customer_id">
                 {{ customer.customer_name }}
@@ -38,12 +36,11 @@
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product</label>
             <select
               id="product_id"
-              name="product_id"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="selectedProductId"
-              @change="submitFilters"
+              @change="onProductChange"
             >
-              <option v-for="product in products" :key="product.product_id" :value="product.product_id">
+              <option v-for="product in availableProducts" :key="product.product_id" :value="product.product_id">
                 {{ product.default_code ? product.default_code + ' - ' : '' }}{{ product.product_name }}
               </option>
             </select>
@@ -53,11 +50,10 @@
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="start_date">Start Date</label>
             <input
               id="start_date"
-              name="start_date"
               type="date"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="startDate"
-              @change="submitFilters"
+              @change="onDateChange"
             />
           </div>
 
@@ -65,23 +61,23 @@
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="end_date">End Date</label>
             <input
               id="end_date"
-              name="end_date"
               type="date"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               :value="endDate"
-              @change="submitFilters"
+              @change="onDateChange"
             />
           </div>
 
           <div class="flex items-end">
             <button
-              type="submit"
+              type="button"
               class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+              @click="applyFilters"
             >
               Apply filters
             </button>
           </div>
-        </form>
+        </div>
       </div>
 
       <div class="overflow-x-auto rounded border border-slate-600 bg-white">
@@ -146,52 +142,22 @@
           Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
         </div>
         <div class="flex items-center gap-1">
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === 1"
-            @click="changePage(1)"
-          >
+          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(1)">
             &laquo;
           </button>
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === 1"
-            @click="changePage(currentPage - 1)"
-          >
+          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
             &lsaquo;
           </button>
-
           <template v-for="page in visiblePages" :key="page">
             <span v-if="page === '...'" class="px-1.5 py-1 text-xs text-slate-500">...</span>
-            <button
-              v-else
-              type="button"
-              class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition"
-              :class="page === currentPage
-                ? 'border-indigo-500 bg-indigo-600 text-white'
-                : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'"
-              @click="changePage(page)"
-            >
+            <button v-else type="button" class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition" :class="page === currentPage ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'" @click="changePage(page)">
               {{ page }}
             </button>
           </template>
-
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === totalPages"
-            @click="changePage(currentPage + 1)"
-          >
+          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
             &rsaquo;
           </button>
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === totalPages"
-            @click="changePage(totalPages)"
-          >
+          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(totalPages)">
             &raquo;
           </button>
         </div>
@@ -201,139 +167,121 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
-  rows: {
-    type: Array,
-    default: () => [],
-  },
-  customers: {
-    type: Array,
-    default: () => [],
-  },
-  products: {
-    type: Array,
-    default: () => [],
-  },
-  selectedCustomerId: {
-    type: [String, Number],
-    default: null,
-  },
-  selectedProductId: {
-    type: [String, Number],
-    default: null,
-  },
-  startDate: {
-    type: String,
-    default: '2026-01-01',
-  },
-  endDate: {
-    type: String,
-    default: '2026-12-31',
-  },
-  customerName: {
-    type: String,
-    default: 'Customer',
-  },
-  productName: {
-    type: String,
-    default: 'Product',
-  },
-  currentPage: {
-    type: Number,
-    default: 1,
-  },
-  perPage: {
-    type: Number,
-    default: 50,
-  },
-  totalRows: {
-    type: Number,
-    default: 0,
-  },
+  rows:              { type: Array,    default: () => [] },
+  customers:         { type: Array,    default: () => [] },
+  products:          { type: Array,    default: () => [] },
+  selectedCustomerId:{ type: [String, Number], default: null },
+  selectedProductId: { type: [String, Number], default: null },
+  startDate:         { type: String,   default: '2026-01-01' },
+  endDate:           { type: String,   default: '2026-12-31' },
+  customerName:      { type: String,   default: 'Customer' },
+  productName:       { type: String,   default: 'Product' },
+  currentPage:       { type: Number,   default: 1 },
+  perPage:           { type: Number,   default: 25 },
+  totalRows:         { type: Number,   default: 0 },
 });
 
-const customers = computed(() => props.customers || []);
-const products = computed(() => props.products || []);
-const totalRows = computed(() => Number(props.totalRows || 0));
-const customerLabel = computed(() => props.customerName || 'Customer');
-const productLabel = computed(() => props.productName || 'Product');
-
-const perPage = ref(props.perPage ?? 50);
-const currentPage = ref(props.currentPage ?? 1);
-
-const allRows = computed(() => props.rows || []);
+const allRows       = computed(() => props.rows || []);
 const paginatedRows = computed(() => allRows.value);
+const totalPages    = computed(() => Math.max(1, Math.ceil(props.totalRows / props.perPage)));
+const startDate     = computed(() => props.startDate || '2026-01-01');
+const endDate       = computed(() => props.endDate || '2026-12-31');
 
-const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / perPage.value)));
+const availableProducts = computed(() => {
+  const cid = Number(localCustomerId.value ?? -1);
+  return (props.products || []).filter(p => Number(p.customer_id) === cid);
+});
+
+const localCustomerId = ref(props.selectedCustomerId);
+const localProductId  = ref(props.selectedProductId);
 
 const visiblePages = computed(() => {
   const total = totalPages.value;
-  const current = currentPage.value;
+  const cur   = props.currentPage;
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-
-  const pages = [];
-  pages.push(1);
-  if (current > 3) pages.push('...');
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-    pages.push(i);
-  }
-  if (current < total - 2) pages.push('...');
+  const pages = [1];
+  if (cur > 3) pages.push('...');
+  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i);
+  if (cur < total - 2) pages.push('...');
   pages.push(total);
   return pages;
 });
 
-function sumField(rows, field) {
-  return rows.reduce((acc, row) => acc + (Number(row[field]) || 0), 0);
-}
+function sumField(rows, field) { return rows.reduce((acc, r) => acc + (Number(r[field]) || 0), 0); }
 
-const pageTotalDone = computed(() => sumField(paginatedRows.value, 'done_qty'));
+const pageTotalDone     = computed(() => sumField(paginatedRows.value, 'done_qty'));
 const pageTotalMovement = computed(() => sumField(paginatedRows.value, 'total_movement'));
-const pageTotalSaldoAwal = computed(() => sumField(paginatedRows.value, 'saldo_awal'));
-const pageTotalIn = computed(() => sumField(paginatedRows.value, 'qty_in'));
-const pageTotalOut = computed(() => sumField(paginatedRows.value, 'qty_out'));
+const pageTotalSaldoAwal= computed(() => sumField(paginatedRows.value, 'saldo_awal'));
+const pageTotalIn       = computed(() => sumField(paginatedRows.value, 'qty_in'));
+const pageTotalOut      = computed(() => sumField(paginatedRows.value, 'qty_out'));
 
-function formatDateShort(value) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('id-ID', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+function formatDateShort(v) {
+  if (!v) return '-';
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString('id-ID', { year:'numeric', month:'2-digit', day:'2-digit' });
+}
+function formatNumber(v) {
+  if (v === null || v === undefined || v === '') return '-';
+  return Number(v).toLocaleString('id-ID', { minimumFractionDigits:0, maximumFractionDigits:2 });
+}
+
+function getDateValues() {
+  const sd = document.getElementById('start_date');
+  const ed = document.getElementById('end_date');
+  return {
+    start_date: sd?.value || props.startDate,
+    end_date:   ed?.value || props.endDate,
+  };
+}
+
+function buildParams(overrides = {}) {
+  return {
+    customer_id: localCustomerId.value ?? undefined,
+    product_id:  localProductId.value  ?? undefined,
+    ...getDateValues(),
+    page: props.currentPage,
+    ...overrides,
+  };
+}
+
+function reload(params, only) {
+  router.get('/gmisl/cross-odoo/stock-card', params, {
+    preserveState: true,
+    preserveScroll: true,
+    only,
   });
 }
 
-function formatNumber(value) {
-  if (value === null || value === undefined || value === '') return '-';
-  return Number(value).toLocaleString('id-ID', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','startDate','endDate','customerName','productName','currentPage','perPage','totalRows'];
+
+function onCustomerChange(e) {
+  localCustomerId.value = Number(e.target.value) || null;
+  const first = availableProducts.value[0];
+  localProductId.value = first ? first.product_id : null;
+  reload(buildParams({ page: 1 }), ONLY_FILTER);
 }
 
-function submitFilters() {
-  currentPage.value = 1;
-  submitForm();
+function onProductChange(e) {
+  localProductId.value = Number(e.target.value) || null;
+  reload(buildParams({ page: 1 }), ONLY_FILTER);
 }
 
-async function changePage(page) {
-  const safePage = Math.max(1, Math.min(page, totalPages.value));
-  if (safePage === currentPage.value) {
-    return;
-  }
-  currentPage.value = safePage;
-  await nextTick();
-  submitForm();
+function onDateChange() {
+  reload(buildParams({ page: 1 }), ONLY_FILTER);
 }
 
-function submitForm() {
-  if (filterForm.value) {
-    filterForm.value.submit();
-  }
+function applyFilters() {
+  onDateChange();
 }
 
-const filterForm = ref(null);
+function changePage(p) {
+  const safe = Math.max(1, Math.min(p, totalPages.value));
+  if (safe === props.currentPage) return;
+  reload(buildParams({ page: safe }), ONLY_FILTER);
+}
 </script>

@@ -37,35 +37,37 @@ SQL;
 SELECT DISTINCT
     pp.id AS product_id,
     pp.default_code,
-    pt.name->>'en_US' AS product_name
+    pt.name->>'en_US' AS product_name,
+    rp.id AS customer_id
 FROM product_product pp
 JOIN product_template pt
     ON pt.id = pp.product_tmpl_id
 JOIN res_partner rp
     ON rp.id = pt.x_studio_customer
-WHERE pt.x_studio_customer = ?
-ORDER BY pt.name->>'en_US';
+WHERE pt.x_studio_customer IS NOT NULL
+ORDER BY rp.name, pt.name->>'en_US';
 SQL;
 
-        $products = $selectedCustomerId !== null
-            ? DB::connection('pgsql')->select($productQuery, [$selectedCustomerId])
-            : [];
+        $products = DB::connection('pgsql')->select($productQuery);
         $products = array_map(fn ($product) => (array) $product, $products);
 
-        $selectedProductId = $request->input('product_id');
-        if ($selectedProductId !== null && $selectedProductId !== '') {
-            $selectedProductId = (int) $selectedProductId;
-        } else {
-            $selectedProductId = $products[0]['product_id'] ?? null;
-        }
+        $selectedCustomerProducts = array_values(array_filter(
+            $products,
+            fn ($product) => (int) $product['customer_id'] === $selectedCustomerId
+        ));
 
-        $productName = null;
-        foreach ($products as $product) {
-            if ((int) $product['product_id'] === $selectedProductId) {
-                $productName = $product['product_name'];
+        $requestedProductId = $request->input('product_id');
+        $requestedProduct = null;
+        foreach ($selectedCustomerProducts as $product) {
+            if ((int) $product['product_id'] === (int) $requestedProductId) {
+                $requestedProduct = $product;
                 break;
             }
         }
+
+        $selectedProduct = $requestedProduct ?? ($selectedCustomerProducts[0] ?? null);
+        $selectedProductId = $selectedProduct['product_id'] ?? null;
+        $productName = $selectedProduct['product_name'] ?? null;
 
         $startDate = $request->input('start_date', '2026-01-01');
         $endDate = $request->input('end_date', '2026-12-31');
