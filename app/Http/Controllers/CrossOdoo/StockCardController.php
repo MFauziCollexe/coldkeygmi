@@ -38,14 +38,15 @@ SELECT DISTINCT
     pp.id AS product_id,
     pp.default_code,
     pt.name->>'en_US' AS product_name,
-    rp.id AS customer_id
+    rp.id AS customer_id,
+    rp.name AS customer_name
 FROM product_product pp
 JOIN product_template pt
     ON pt.id = pp.product_tmpl_id
 JOIN res_partner rp
     ON rp.id = pt.x_studio_customer
 WHERE pt.x_studio_customer IS NOT NULL
-ORDER BY rp.name, pt.name->>'en_US';
+ORDER BY customer_name, product_name;
 SQL;
 
         $products = DB::connection('pgsql')->select($productQuery);
