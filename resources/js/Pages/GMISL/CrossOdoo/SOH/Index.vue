@@ -5,7 +5,10 @@
         <div>
           <h2 class="text-2xl font-bold">Cross Odoo - SOH</h2>
           <p class="text-sm text-slate-400">
-            Menampilkan stock on hand berdasarkan lokasi internal.
+            Menampilkan stock on hand untuk customer
+            <span class="font-semibold text-slate-200">{{ customerName }}</span>
+            dan product
+            <span class="font-semibold text-slate-200">{{ productName }}</span>.
           </p>
         </div>
         <div class="text-sm text-slate-400">
@@ -14,127 +17,131 @@
       </div>
 
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <form ref="filterForm" method="get" class="grid gap-3 sm:grid-cols-4">
-          <input type="hidden" name="page" v-model.number="currentPage" />
+        <div class="grid gap-3 sm:grid-cols-5">
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="owner_id">Nama Customer</label>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_id">Customer</label>
             <select
-              id="owner_id"
-              name="owner_id"
+              id="customer_id"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="selectedOwnerId"
-              @change="submitFilters"
+              :value="localCustomerId"
+              @change="onCustomerChange"
             >
-              <option v-for="owner in owners" :key="owner.owner_id" :value="owner.owner_id">
-                {{ owner.owner_name }}
+              <option v-for="customer in customers" :key="customer.customer_id" :value="customer.customer_id">
+                {{ customer.customer_name }}
               </option>
             </select>
           </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product</label>
+            <select
+              id="product_id"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              :value="localProductId"
+              @change="onProductChange"
+            >
+              <option v-for="product in availableProducts" :key="product.product_id" :value="product.product_id">
+                {{ product.default_code ? product.default_code + ' - ' : '' }}{{ product.product_name }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="start_date">Start Date</label>
+            <input
+              id="start_date"
+              type="date"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              :value="startDate"
+            />
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="end_date">End Date (Cut Off)</label>
+            <input
+              id="end_date"
+              type="date"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              :value="endDate"
+            />
+          </div>
+
           <div class="flex items-end">
             <button
-              type="submit"
+              type="button"
               class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+              @click="applyFilters"
             >
-              Apply
+              Apply filters
             </button>
           </div>
-        </form>
+        </div>
       </div>
 
       <div class="overflow-x-auto rounded border border-slate-600 bg-white">
         <table class="w-full border-collapse text-xs text-slate-900" style="table-layout: auto;">
           <thead>
             <tr class="bg-sky-100 text-slate-900">
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_GUDANG</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_CUST</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NM_CUST</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KD_BRG</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NM_BRG</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">LOT</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">EXP_DATE</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY_ON_HAND</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">RESERVED_QTY</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">AVAILABLE_QTY</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">UOM</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">LOCATION</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">IN_DATE</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Owner</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Location</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Destination package</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Koder barang</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Nama barang</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Expired</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SOH Available</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY KG</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Lot</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Nopol</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!rows.length">
-              <td colspan="13" class="border border-slate-300 px-2 py-6 text-center text-slate-400">Tidak ada data.</td>
+            <tr v-if="!paginatedRows.length">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="10">
+                Tidak ada data untuk filter yang dipilih.
+              </td>
             </tr>
-            <tr v-for="(row, index) in rows" :key="index" :class="index % 2 === 0 ? 'bg-white' : 'bg-slate-50'">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.KD_GUDANG || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.KD_CUST || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.NM_CUST || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.KD_BRG || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.NM_BRG || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.LOT || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.EXP_DATE || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.QTY_ON_HAND) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.RESERVED_QTY) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.AVAILABLE_QTY) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.UOM || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.LOCATION || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.IN_DATE || '-' }}</td>
+            <tr
+              v-for="(row, index) in paginatedRows"
+              :key="index"
+              :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
+              class="hover:bg-blue-50"
+            >
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Owner'] || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Location'] || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Destination package'] || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row['Koder barang'] || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Nama barang'] || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Expired'] || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['SOH Available']) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['QTY KG']) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Lot'] || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Nopol'] || '-' }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <!-- Pagination -->
       <div v-if="totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="text-sm text-slate-400">
           Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
         </div>
         <div class="flex items-center gap-1">
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === 1"
-            @click="changePage(1)"
-          >
+          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(1)">
             &laquo;
           </button>
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === 1"
-            @click="changePage(currentPage - 1)"
-          >
+          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
             &lsaquo;
           </button>
-
           <template v-for="page in visiblePages" :key="page">
             <span v-if="page === '...'" class="px-1.5 py-1 text-xs text-slate-500">...</span>
-            <button
-              v-else
-              type="button"
-              class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition"
-              :class="page === currentPage
-                ? 'border-indigo-500 bg-indigo-600 text-white'
-                : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'"
-              @click="changePage(page)"
-            >
+            <button v-else type="button" class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition" :class="page === currentPage ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'" @click="changePage(page)">
               {{ page }}
             </button>
           </template>
-
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === totalPages"
-            @click="changePage(currentPage + 1)"
-          >
+          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
             &rsaquo;
           </button>
-          <button
-            type="button"
-            class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="currentPage === totalPages"
-            @click="changePage(totalPages)"
-          >
+          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(totalPages)">
             &raquo;
           </button>
         </div>
@@ -144,92 +151,99 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
-  rows: {
-    type: Array,
-    default: () => [],
-  },
-  owners: {
-    type: Array,
-    default: () => [],
-  },
-  selectedOwnerId: {
-    type: [String, Number],
-    default: null,
-  },
-  currentPage: {
-    type: Number,
-    default: 1,
-  },
-  perPage: {
-    type: Number,
-    default: 50,
-  },
-  totalRows: {
-    type: Number,
-    default: 0,
-  },
+  rows:                { type: Array,    default: () => [] },
+  customers:           { type: Array,    default: () => [] },
+  products:            { type: Array,    default: () => [] },
+  selectedCustomerId:  { type: [String, Number], default: null },
+  selectedProductId:   { type: [String, Number], default: null },
+  customerName:        { type: String,   default: 'Customer' },
+  productName:         { type: String,   default: 'Product' },
+  startDate:           { type: String,   default: '2026-01-01' },
+  endDate:             { type: String,   default: '2026-12-31' },
+  currentPage:         { type: Number,   default: 1 },
+  perPage:             { type: Number,   default: 25 },
+  totalRows:           { type: Number,   default: 0 },
 });
 
-const owners = computed(() => props.owners || []);
-const selectedOwnerId = computed(() => props.selectedOwnerId);
-const totalRows = computed(() => Number(props.totalRows || 0));
+const paginatedRows   = computed(() => props.rows || []);
+const totalPages      = computed(() => Math.max(1, Math.ceil(props.totalRows / props.perPage)));
 
-const perPage = ref(props.perPage ?? 50);
-const currentPage = ref(props.currentPage ?? 1);
+const availableProducts = computed(() => {
+  const cid = Number(localCustomerId.value ?? -1);
+  return (props.products || []).filter(p => Number(p.customer_id) === cid);
+});
 
-const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / perPage.value)));
+const localCustomerId = ref(props.selectedCustomerId);
+const localProductId  = ref(props.selectedProductId);
 
 const visiblePages = computed(() => {
   const total = totalPages.value;
-  const current = currentPage.value;
+  const cur   = props.currentPage;
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-
-  const pages = [];
-  pages.push(1);
-  if (current > 3) pages.push('...');
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-    pages.push(i);
-  }
-  if (current < total - 2) pages.push('...');
+  const pages = [1];
+  if (cur > 3) pages.push('...');
+  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i);
+  if (cur < total - 2) pages.push('...');
   pages.push(total);
   return pages;
 });
 
-const filterForm = ref(null);
-
-function submitFilters() {
-  currentPage.value = 1;
-  submitForm();
+function formatNumber(v) {
+  if (v === null || v === undefined || v === '') return '-';
+  return Number(v).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-async function changePage(page) {
-  const safePage = Math.max(1, Math.min(page, totalPages.value));
-  if (safePage === currentPage.value) {
-    return;
-  }
-  currentPage.value = safePage;
-  await nextTick();
-  submitForm();
+function getDateValues() {
+  const sd = document.getElementById('start_date');
+  const ed = document.getElementById('end_date');
+  return {
+    start_date: sd?.value || props.startDate,
+    end_date:   ed?.value || props.endDate,
+  };
 }
 
-function submitForm() {
-  if (filterForm.value) {
-    filterForm.value.submit();
-  }
+function buildParams(overrides = {}) {
+  return {
+    customer_id: localCustomerId.value ?? undefined,
+    product_id:  localProductId.value  ?? undefined,
+    ...getDateValues(),
+    page: props.currentPage,
+    ...overrides,
+  };
 }
 
-const formatNumber = (value) => {
-  if (value == null || value === '') {
-    return '-';
-  }
-
-  return Number(value).toLocaleString('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+function reload(params, only) {
+  router.get('/gmisl/cross-odoo/soh', params, {
+    preserveState: true,
+    preserveScroll: true,
+    only,
   });
-};
+}
+
+const ONLY_FILTER = ['rows', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'startDate', 'endDate', 'currentPage', 'perPage', 'totalRows'];
+
+function onCustomerChange(e) {
+  localCustomerId.value = Number(e.target.value) || null;
+  const first = availableProducts.value[0];
+  localProductId.value = first ? first.product_id : null;
+}
+
+function onProductChange(e) {
+  localProductId.value = Number(e.target.value) || null;
+}
+
+function applyFilters() {
+  reload(buildParams({ page: 1 }), ONLY_FILTER);
+}
+
+function changePage(p) {
+  const safe = Math.max(1, Math.min(p, totalPages.value));
+  if (safe === props.currentPage) return;
+  reload(buildParams({ page: safe }), ONLY_FILTER);
+}
 </script>
