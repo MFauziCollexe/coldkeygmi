@@ -147,7 +147,17 @@ soh AS (
 
         pt.name->>'en_US'                  AS "Nama barang",
 
-        pc.complete_name                   AS "Preference",
+        (
+            SELECT sml_sub.reference
+            FROM stock_move_line sml_sub
+            JOIN stock_picking sp
+                ON sml_sub.picking_id = sp.id
+            WHERE sml_sub.product_id = sq.product_id
+              AND sml_sub.lot_id = sq.lot_id
+              AND sml_sub.reference IS NOT NULL
+            ORDER BY sml_sub.id DESC
+            LIMIT 1
+        )                                  AS "Preference",
 
         (
             SELECT sp.origin
@@ -197,9 +207,6 @@ soh AS (
     JOIN stock_location loc
         ON sq.location_id = loc.id
 
-    LEFT JOIN product_category pc
-        ON pt.categ_id = pc.id
-
     LEFT JOIN uom_uom uu
         ON pt.uom_id = uu.id
 
@@ -240,7 +247,6 @@ soh AS (
         sl.expiration_date,
         sl.name,
         uu.name,
-        pc.complete_name,
         sq.product_id,
         sq.lot_id,
         sq.ns_plate_number,
