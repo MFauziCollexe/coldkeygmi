@@ -17,7 +17,7 @@
       </div>
 
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <div class="grid gap-3 sm:grid-cols-5">
+        <div class="grid gap-3 sm:grid-cols-3">
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_id">Customer</label>
             <select
@@ -44,26 +44,6 @@
                 {{ product.default_code ? product.default_code + ' - ' : '' }}{{ product.product_name }}
               </option>
             </select>
-          </div>
-
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="start_date">Start Date</label>
-            <input
-              id="start_date"
-              type="date"
-              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="startDate"
-            />
-          </div>
-
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="end_date">End Date (Cut Off)</label>
-            <input
-              id="end_date"
-              type="date"
-              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="endDate"
-            />
           </div>
 
           <div class="flex items-end">
@@ -163,8 +143,6 @@ const props = defineProps({
   selectedProductId:   { type: [String, Number], default: null },
   customerName:        { type: String,   default: 'Customer' },
   productName:         { type: String,   default: 'Product' },
-  startDate:           { type: String,   default: '2026-01-01' },
-  endDate:             { type: String,   default: '2026-12-31' },
   currentPage:         { type: Number,   default: 1 },
   perPage:             { type: Number,   default: 25 },
   totalRows:           { type: Number,   default: 0 },
@@ -198,20 +176,10 @@ function formatNumber(v) {
   return Number(v).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-function getDateValues() {
-  const sd = document.getElementById('start_date');
-  const ed = document.getElementById('end_date');
-  return {
-    start_date: sd?.value || props.startDate,
-    end_date:   ed?.value || props.endDate,
-  };
-}
-
 function buildParams(overrides = {}) {
   return {
     customer_id: localCustomerId.value ?? undefined,
     product_id:  localProductId.value  ?? undefined,
-    ...getDateValues(),
     page: props.currentPage,
     ...overrides,
   };
@@ -225,7 +193,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'startDate', 'endDate', 'currentPage', 'perPage', 'totalRows'];
+const ONLY_FILTER = ['rows', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'currentPage', 'perPage', 'totalRows'];
 
 function onCustomerChange(e) {
   localCustomerId.value = Number(e.target.value) || null;

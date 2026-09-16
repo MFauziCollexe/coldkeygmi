@@ -93,8 +93,10 @@ SQL;
         }
         $selectedCustomerName = $selectedCustomerName ?? ($customers[0]['customer_name'] ?? null);
 
-        $startDate = $request->input('start_date', '2026-01-01');
-        $endDate = $request->input('end_date', '2026-12-31');
+        $endDate = $request->input('end_date');
+        if ($endDate === null || trim($endDate) === '') {
+            $endDate = date('Y-m-d');
+        }
         $page = max(1, (int) $request->query('page', 1));
         $perPage = 25;
 
@@ -103,7 +105,6 @@ WITH params AS (
     SELECT
         ?::text AS var_customer,
         ?::text AS var_productname,
-        ?::date AS var_tgl1,
         ?::date AS var_tgl2
 ),
 move_after_cutoff AS (
@@ -132,18 +133,6 @@ move_after_cutoff AS (
         COALESCE(sml.package_id, sml.result_package_id),
         sml.product_id,
         sml.lot_id
-),
-active_in_period AS (
-    SELECT DISTINCT
-        sml.product_id,
-        sml.lot_id,
-        COALESCE(sml.package_id, sml.result_package_id) AS package_id
-    FROM stock_move_line sml
-    JOIN stock_move sm
-        ON sml.move_id = sm.id
-    CROSS JOIN params p
-    WHERE sm.state = 'done'
-      AND CAST(sm.date AS date) BETWEEN p.var_tgl1 AND p.var_tgl2
 ),
 soh AS (
     SELECT
@@ -206,11 +195,6 @@ soh AS (
        AND sq.product_id = mac.product_id
        AND sq.lot_id IS NOT DISTINCT FROM mac.lot_id
 
-    INNER JOIN active_in_period aip
-        ON sq.product_id = aip.product_id
-       AND sq.lot_id IS NOT DISTINCT FROM aip.lot_id
-       AND sq.package_id IS NOT DISTINCT FROM aip.package_id
-
     CROSS JOIN params p
 
     WHERE loc.usage = 'internal'
@@ -242,7 +226,7 @@ soh AS (
 )
 SQL;
 
-        $bindings = [$selectedCustomerName, $productName, $startDate, $endDate];
+        $bindings = [$selectedCustomerName, $productName, $endDate];
 
         $countQuery = "{$cteSql} SELECT COUNT(*) AS total_count FROM soh";
         $countResult = DB::connection('pgsql')->selectOne($countQuery, $bindings);
@@ -262,8 +246,6 @@ SQL;
             'selectedProductId' => $selectedProductId,
             'customerName' => $selectedCustomerName,
             'productName' => $productName,
-            'startDate' => $startDate,
-            'endDate' => $endDate,
             'currentPage' => $page,
             'perPage' => $perPage,
             'totalRows' => (int) $totalRows,
