@@ -111,6 +111,14 @@ return [
                         'managed_departments',
                         'own_department',
                     ],
+                    'append_ids_if' => [
+                        [
+                            'if' => [
+                                ['type' => 'manager_in_department_codes', 'values' => ['OPS']],
+                            ],
+                            'department_codes' => ['IT'],
+                        ],
+                    ],
                 ],
                 'approve' => [
                     'all_if' => [
