@@ -143,15 +143,31 @@ soh AS (
 
         sqp.name                           AS "Destination package",
 
-        pt.default_code                    AS "Koder barang",
+        pt.default_code                    AS "Kode barang",
 
         pt.name->>'en_US'                  AS "Nama barang",
+
+        pc.complete_name                   AS "Preference",
+
+        (
+            SELECT sp.origin
+            FROM stock_move_line sml_sub
+            JOIN stock_picking sp
+                ON sml_sub.picking_id = sp.id
+            WHERE sml_sub.product_id = sq.product_id
+              AND sml_sub.lot_id = sq.lot_id
+              AND sp.origin IS NOT NULL
+            ORDER BY sml_sub.id DESC
+            LIMIT 1
+        )                                  AS "Source Document",
 
         TO_CHAR(sl.expiration_date, 'DD/MM/YYYY') AS "Expired",
 
         SUM(sq.quantity - COALESCE(mac.qty_post_cutoff, 0)) AS "SOH Available",
 
         SUM((sq.quantity - COALESCE(mac.qty_post_cutoff, 0)) * COALESCE(pt.weight, 1)) AS "QTY KG",
+
+        uu.name->>'en_US'                  AS "UOM",
 
         sl.name                            AS "Lot",
 
@@ -180,6 +196,12 @@ soh AS (
 
     JOIN stock_location loc
         ON sq.location_id = loc.id
+
+    LEFT JOIN product_category pc
+        ON pt.categ_id = pc.id
+
+    LEFT JOIN uom_uom uu
+        ON pt.uom_id = uu.id
 
     LEFT JOIN stock_lot sl
         ON sq.lot_id = sl.id
@@ -217,6 +239,8 @@ soh AS (
         pt.name->>'en_US',
         sl.expiration_date,
         sl.name,
+        uu.name,
+        pc.complete_name,
         sq.product_id,
         sq.lot_id,
         sq.ns_plate_number,
