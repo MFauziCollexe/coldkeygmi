@@ -150,12 +150,16 @@ soh AS (
         (
             SELECT sml_sub.reference
             FROM stock_move_line sml_sub
-            JOIN stock_picking sp
-                ON sml_sub.picking_id = sp.id
+            JOIN stock_location loc_src
+                ON sml_sub.location_id = loc_src.id
+            JOIN stock_location loc_dest
+                ON sml_sub.location_dest_id = loc_dest.id
             WHERE sml_sub.product_id = sq.product_id
-              AND sml_sub.lot_id = sq.lot_id
+              AND sml_sub.lot_id IS NOT DISTINCT FROM sq.lot_id
+              AND loc_src.usage != 'internal'
+              AND loc_dest.usage = 'internal'
               AND sml_sub.reference IS NOT NULL
-            ORDER BY sml_sub.id DESC
+            ORDER BY sml_sub.id ASC
             LIMIT 1
         )                                  AS "Preference",
 
