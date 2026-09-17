@@ -52,7 +52,7 @@
               id="start_date"
               type="date"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="startDate"
+              v-model="startDateInput"
             />
           </div>
 
@@ -62,7 +62,7 @@
               id="end_date"
               type="date"
               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="endDate"
+              v-model="endDateInput"
             />
           </div>
 
@@ -154,7 +154,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -164,8 +164,8 @@ const props = defineProps({
   products:          { type: Array,    default: () => [] },
   selectedCustomerId:{ type: [String, Number], default: null },
   selectedProductId: { type: [String, Number], default: null },
-  startDate:         { type: String,   default: '2026-01-01' },
-  endDate:           { type: String,   default: '2026-12-31' },
+  startDate:         { type: String,   default: '' },
+  endDate:           { type: String,   default: '' },
   customerName:      { type: String,   default: 'Customer' },
   productName:       { type: String,   default: 'Product' },
   openingBalance:    { type: Number,   default: 0 },
@@ -177,8 +177,25 @@ const props = defineProps({
 const allRows       = computed(() => props.rows || []);
 const paginatedRows = computed(() => allRows.value);
 const totalPages    = computed(() => Math.max(1, Math.ceil(props.totalRows / props.perPage)));
-const startDate     = computed(() => props.startDate || '2026-01-01');
-const endDate       = computed(() => props.endDate || '2026-12-31');
+function toYmd(date) {
+  const year  = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day   = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+const todayDate        = new Date();
+const defaultEndDate   = toYmd(todayDate);
+const defaultStartDate = toYmd(new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, todayDate.getDate()));
+
+const startDate     = computed(() => props.startDate || defaultStartDate);
+const endDate       = computed(() => props.endDate || defaultEndDate);
+
+const startDateInput = ref(startDate.value);
+const endDateInput   = ref(endDate.value);
+
+watch(() => props.startDate, (value) => { if (value) startDateInput.value = value; });
+watch(() => props.endDate,   (value) => { if (value) endDateInput.value   = value; });
 
 const availableProducts = computed(() => {
   const cid = Number(localCustomerId.value ?? -1);
@@ -211,11 +228,9 @@ function formatNumber(v) {
 }
 
 function getDateValues() {
-  const sd = document.getElementById('start_date');
-  const ed = document.getElementById('end_date');
   return {
-    start_date: sd?.value || props.startDate,
-    end_date:   ed?.value || props.endDate,
+    start_date: startDateInput.value || undefined,
+    end_date:   endDateInput.value   || undefined,
   };
 }
 

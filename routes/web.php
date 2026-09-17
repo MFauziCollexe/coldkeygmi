@@ -191,6 +191,12 @@ Route::get('gmisl/cross-odoo/soh', [App\Http\Controllers\CrossOdoo\StockOnHandCo
 Route::get('gmisl/cross-odoo/rekap-inbound', [App\Http\Controllers\CrossOdoo\RekapInboundController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.stock_card'])
     ->name('cross-odoo.rekap-inbound.index');
+Route::get('gmisl/cross-odoo/test', [App\Http\Controllers\CrossOdoo\TestController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.test'])
+    ->name('cross-odoo.test.index');
+Route::post('gmisl/cross-odoo/test/run', [App\Http\Controllers\CrossOdoo\TestController::class, 'run'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.test'])
+    ->name('cross-odoo.test.run');
 Route::get('gmisl/utility/stock-card/export', [App\Http\Controllers\StockCardController::class, 'export'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
     ->name('stock-card.export');

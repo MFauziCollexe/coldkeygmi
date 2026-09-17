@@ -41,4 +41,12 @@ return [
         'timeout' => env('OPENAI_TIMEOUT', 30),
     ],
 
+    'odoo' => [
+        'url' => env('ODOO_URL', 'http://localhost:8069'),
+        'db' => env('ODOO_DB'),
+        'username' => env('ODOO_USERNAME'),
+        'password' => env('ODOO_PASSWORD'),
+        'timeout' => env('ODOO_TIMEOUT', 30),
+    ],
+
 ];
