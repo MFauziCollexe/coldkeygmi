@@ -11,8 +11,17 @@
             <span class="font-semibold text-slate-200">{{ productName }}</span>.
           </p>
         </div>
-        <div class="text-sm text-slate-400">
-          Total: <span class="font-semibold text-slate-200">{{ totalRows }}</span> data
+        <div class="flex flex-col items-end gap-2">
+          <div class="text-sm text-slate-400">
+            Total: <span class="font-semibold text-slate-200">{{ totalRows }}</span> data
+          </div>
+          <a
+            :href="exportUrl"
+            data-inertia-ignore
+            class="inline-flex items-center justify-center rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"
+          >
+            Export
+          </a>
         </div>
       </div>
 
@@ -121,6 +130,14 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.saldo) }}</td>
             </tr>
           </tbody>
+          <tfoot>
+            <tr class="bg-slate-200 text-slate-900">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="4">TOTAL</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalIn) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalOut) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(finalSaldo) }}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
@@ -172,6 +189,9 @@ const props = defineProps({
   currentPage:       { type: Number,   default: 1 },
   perPage:           { type: Number,   default: 25 },
   totalRows:         { type: Number,   default: 0 },
+  totalIn:           { type: Number,   default: 0 },
+  totalOut:          { type: Number,   default: 0 },
+  finalSaldo:        { type: Number,   default: 0 },
 });
 
 const allRows       = computed(() => props.rows || []);
@@ -204,6 +224,15 @@ const availableProducts = computed(() => {
 
 const localCustomerId = ref(props.selectedCustomerId);
 const localProductId  = ref(props.selectedProductId);
+
+const exportUrl = computed(() => {
+  const params = new URLSearchParams();
+  if (localCustomerId.value !== null && localCustomerId.value !== undefined && localCustomerId.value !== '') params.set('customer_id', localCustomerId.value);
+  if (localProductId.value !== null && localProductId.value !== undefined && localProductId.value !== '') params.set('product_id', localProductId.value);
+  if (startDateInput.value) params.set('start_date', startDateInput.value);
+  if (endDateInput.value) params.set('end_date', endDateInput.value);
+  return `/gmisl/cross-odoo/stock-card/export?${params.toString()}`;
+});
 
 const visiblePages = computed(() => {
   const total = totalPages.value;
@@ -252,7 +281,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','startDate','endDate','customerName','productName','openingBalance','currentPage','perPage','totalRows'];
+const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','startDate','endDate','customerName','productName','openingBalance','currentPage','perPage','totalRows','totalIn','totalOut','finalSaldo'];
 
 function onCustomerChange(e) {
   localCustomerId.value = Number(e.target.value) || null;

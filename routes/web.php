@@ -167,6 +167,9 @@ Route::get('gmisl/utility/stock-card', [App\Http\Controllers\StockCardController
 Route::get('gmisl/cross-odoo/stock-card', [App\Http\Controllers\CrossOdoo\StockCardController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.stock_card'])
     ->name('stock-card.cross-odoo.index');
+Route::get('gmisl/cross-odoo/stock-card/export', [App\Http\Controllers\CrossOdoo\StockCardController::class, 'export'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.stock_card'])
+    ->name('stock-card.cross-odoo.export');
 Route::get('portal/odoo/stock-card', [App\Http\Controllers\Portal\Odoo\StockCardController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':portal.odoo.stock_card'])
     ->name('portal.odoo.stock-card.index');
@@ -188,6 +191,9 @@ Route::get('portal/odoo/rekap-outbound', [App\Http\Controllers\Portal\Odoo\Rekap
 Route::get('gmisl/cross-odoo/soh', [App\Http\Controllers\CrossOdoo\StockOnHandController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.stock_card'])
     ->name('cross-odoo.soh.index');
+Route::get('gmisl/cross-odoo/soh/export', [App\Http\Controllers\CrossOdoo\StockOnHandController::class, 'export'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.stock_card'])
+    ->name('cross-odoo.soh.export');
 Route::get('gmisl/cross-odoo/rekap-inbound', [App\Http\Controllers\CrossOdoo\RekapInboundController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.stock_card'])
     ->name('cross-odoo.rekap-inbound.index');

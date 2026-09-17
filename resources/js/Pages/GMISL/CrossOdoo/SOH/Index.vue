@@ -11,8 +11,17 @@
             <span class="font-semibold text-slate-200">{{ productName }}</span>.
           </p>
         </div>
-        <div class="text-sm text-slate-400">
-          Total: <span class="font-semibold text-slate-200">{{ totalRows }}</span> data
+        <div class="flex flex-col items-end gap-2">
+          <div class="text-sm text-slate-400">
+            Total: <span class="font-semibold text-slate-200">{{ totalRows }}</span> data
+          </div>
+          <a
+            :href="exportUrl"
+            data-inertia-ignore
+            class="inline-flex items-center justify-center rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"
+          >
+            Export
+          </a>
         </div>
       </div>
 
@@ -104,6 +113,14 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Nopol'] || '-' }}</td>
             </tr>
           </tbody>
+          <tfoot>
+            <tr class="bg-slate-200 text-slate-900">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="8">TOTAL</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalSoh) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalKg) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="3"></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
@@ -152,6 +169,8 @@ const props = defineProps({
   currentPage:         { type: Number,   default: 1 },
   perPage:             { type: Number,   default: 25 },
   totalRows:           { type: Number,   default: 0 },
+  totalSoh:            { type: Number,   default: 0 },
+  totalKg:             { type: Number,   default: 0 },
 });
 
 const paginatedRows   = computed(() => props.rows || []);
@@ -164,6 +183,13 @@ const availableProducts = computed(() => {
 
 const localCustomerId = ref(props.selectedCustomerId);
 const localProductId  = ref(props.selectedProductId);
+
+const exportUrl = computed(() => {
+  const params = new URLSearchParams();
+  if (localCustomerId.value !== null && localCustomerId.value !== undefined && localCustomerId.value !== '') params.set('customer_id', localCustomerId.value);
+  if (localProductId.value !== null && localProductId.value !== undefined && localProductId.value !== '') params.set('product_id', localProductId.value);
+  return `/gmisl/cross-odoo/soh/export?${params.toString()}`;
+});
 
 const visiblePages = computed(() => {
   const total = totalPages.value;
@@ -199,7 +225,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'currentPage', 'perPage', 'totalRows'];
+const ONLY_FILTER = ['rows', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'currentPage', 'perPage', 'totalRows', 'totalSoh', 'totalKg'];
 
 function onCustomerChange(e) {
   localCustomerId.value = Number(e.target.value) || null;

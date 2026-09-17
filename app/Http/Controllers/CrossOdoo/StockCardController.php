@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StockCardController extends Controller
 {
@@ -21,30 +24,11 @@ class StockCardController extends Controller
     {
         [$customers, $products] = $this->fetchCustomersAndProducts();
 
-        $selectedCustomerId = $request->input('customer_id');
-        if ($selectedCustomerId !== null && $selectedCustomerId !== '') {
-            $selectedCustomerId = (int) $selectedCustomerId;
-        } else {
-            $selectedCustomerId = $customers[0]['customer_id'] ?? null;
-        }
-
-        $selectedCustomerProducts = array_values(array_filter(
-            $products,
-            fn ($product) => (int) $product['customer_id'] === $selectedCustomerId
-        ));
-
-        $requestedProductId = $request->input('product_id');
-        $requestedProduct = null;
-        foreach ($selectedCustomerProducts as $product) {
-            if ((int) $product['product_id'] === (int) $requestedProductId) {
-                $requestedProduct = $product;
-                break;
-            }
-        }
-
-        $selectedProduct = $requestedProduct ?? ($selectedCustomerProducts[0] ?? null);
-        $selectedProductId = $selectedProduct['product_id'] ?? null;
-        $productName = $selectedProduct['product_name'] ?? null;
+        $selection = $this->resolveSelection($request, $customers, $products);
+        $selectedCustomerId = $selection['selectedCustomerId'];
+        $selectedProductId = $selection['selectedProductId'];
+        $customerName = $selection['customerName'];
+        $productName = $selection['productName'];
 
         $endDate = $request->input('end_date') ?: now()->toDateString();
         $startDate = $request->input('start_date') ?: Carbon::parse($endDate)->subMonth()->toDateString();
@@ -57,58 +41,35 @@ class StockCardController extends Controller
         $openingBalance = 0.0;
         $formattedRows = [];
         $totalRows = 0;
+        $totalIn = 0.0;
+        $totalOut = 0.0;
+        $finalSaldo = 0.0;
 
         if ($selectedProductId !== null) {
-            $odoo = new OdooXmlRpcService();
+            $odoo = new OdooXmlRpcService;
 
-            $variantIds = $this->productVariantIds($odoo, (int) $selectedProductId);
+            $computed = $this->computeAllRows($odoo, (int) $selectedProductId, $openingStartDate, $startDate, $endDate);
 
-            if ($variantIds !== []) {
-                $openingBalance = $this->fetchOpeningBalance($odoo, $variantIds, $openingStartDate, $startDate);
+            $allRows = $computed['allRows'];
+            $openingBalance = $computed['openingBalance'];
+            $totalIn = $computed['totalIn'];
+            $totalOut = $computed['totalOut'];
+            $finalSaldo = $computed['finalSaldo'];
+            $totalRows = count($allRows);
 
-                $groups = $this->fetchTransactionGroups($odoo, $variantIds, $startDate, $endDate);
-                if ($startDate < self::OPENING_BALANCE_START_DATE) {
-                    $neurusoftGroup = $this->fetchNeurusoftOpeningGroup($odoo, $variantIds, $endDate);
-                    if ($neurusoftGroup !== null) {
-                        $openingBalance += $neurusoftGroup['balance_delta'];
-                    }
-                }
-                $groups = $this->sortGroups($groups);
+            $offset = ($page - 1) * $perPage;
+            $pageRows = array_slice($allRows, $offset, $perPage);
 
-                $running = $openingBalance;
-                $allRows = [];
-                foreach ($groups as $group) {
-                    $running += $group['balance_delta'] ?? ($group['qty_in'] - $group['qty_out']);
-                    $group['saldo'] = $running;
-                    $allRows[] = $group;
-                }
-
-                $totalRows = count($allRows);
-
-                $offset = ($page - 1) * $perPage;
-                $pageRows = array_slice($allRows, $offset, $perPage);
-
-                $formattedRows = array_map(fn ($row) => [
-                    'transaction_date' => $row['date'],
-                    'lot' => $row['lot'],
-                    'trans' => $row['trans'],
-                    'expired' => $row['expired'],
-                    'qty_in' => $row['qty_in'] !== null ? (float) $row['qty_in'] : null,
-                    'qty_out' => $row['qty_out'] !== null ? (float) $row['qty_out'] : null,
-                    'saldo' => (float) $row['saldo'],
-                ], $pageRows);
-            }
+            $formattedRows = array_map(fn ($row) => [
+                'transaction_date' => $row['date'],
+                'lot' => $row['lot'],
+                'trans' => $row['trans'],
+                'expired' => $row['expired'],
+                'qty_in' => $row['qty_in'] !== null ? (float) $row['qty_in'] : null,
+                'qty_out' => $row['qty_out'] !== null ? (float) $row['qty_out'] : null,
+                'saldo' => (float) $row['saldo'],
+            ], $pageRows);
         }
-
-        $selectedCustomerName = null;
-        foreach ($customers as $customer) {
-            if ((int) $customer['customer_id'] === $selectedCustomerId) {
-                $selectedCustomerName = $customer['customer_name'];
-                break;
-            }
-        }
-
-        $customerName = $selectedCustomerName ?? ($customers[0]['customer_name'] ?? null);
 
         return Inertia::render('GMISL/CrossOdoo/StockCard/Index', [
             'rows' => $formattedRows,
@@ -124,7 +85,158 @@ class StockCardController extends Controller
             'currentPage' => $page,
             'perPage' => $perPage,
             'totalRows' => $totalRows,
+            'totalIn' => $totalIn,
+            'totalOut' => $totalOut,
+            'finalSaldo' => $finalSaldo,
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        [$customers, $products] = $this->fetchCustomersAndProducts();
+
+        $selection = $this->resolveSelection($request, $customers, $products);
+        $selectedProductId = $selection['selectedProductId'];
+
+        $endDate = $request->input('end_date') ?: now()->toDateString();
+        $startDate = $request->input('start_date') ?: Carbon::parse($endDate)->subMonth()->toDateString();
+        $openingStartDate = $startDate > self::OPENING_BALANCE_START_DATE
+            ? self::OPENING_BALANCE_START_DATE
+            : null;
+
+        $headers = ['TANGGAL', 'LOT', 'TRANSAKSI', 'EXPIRED', 'QTY IN', 'QTY OUT', 'SALDO'];
+        $data = [];
+
+        if ($selectedProductId !== null) {
+            $odoo = new OdooXmlRpcService;
+
+            $computed = $this->computeAllRows($odoo, (int) $selectedProductId, $openingStartDate, $startDate, $endDate);
+
+            $data[] = [$startDate, '-', 'Saldo Awal', '-', '', '', (float) $computed['openingBalance']];
+
+            foreach ($computed['allRows'] as $row) {
+                $data[] = [
+                    $row['date'],
+                    $row['lot'],
+                    $row['trans'],
+                    $row['expired'],
+                    $row['qty_in'] !== null ? (float) $row['qty_in'] : '',
+                    $row['qty_out'] !== null ? (float) $row['qty_out'] : '',
+                    (float) $row['saldo'],
+                ];
+            }
+        }
+
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->fromArray($data, null, 'A2');
+
+        $safePart = $selection['productName'] ?? 'product';
+        $safePart = preg_replace('/[^A-Za-z0-9\-_]+/', '_', (string) $safePart);
+        $filename = 'stock_card_'.($safePart !== '' ? $safePart : 'product').'_'.now()->format('Ymd_His').'.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $filename, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $customers
+     * @param  array<int, array<string, mixed>>  $products
+     * @return array{selectedCustomerId: int|null, selectedProductId: int|null, customerName: string|null, productName: string|null}
+     */
+    private function resolveSelection(Request $request, array $customers, array $products): array
+    {
+        $selectedCustomerId = $request->input('customer_id');
+        if ($selectedCustomerId !== null && $selectedCustomerId !== '') {
+            $selectedCustomerId = (int) $selectedCustomerId;
+        } else {
+            $selectedCustomerId = $customers[0]['customer_id'] ?? null;
+        }
+
+        $selectedCustomerProducts = array_values(array_filter(
+            $products,
+            fn ($product) => (int) $product['customer_id'] === (int) $selectedCustomerId
+        ));
+
+        $requestedProductId = $request->input('product_id');
+        $requestedProduct = null;
+        foreach ($selectedCustomerProducts as $product) {
+            if ((int) $product['product_id'] === (int) $requestedProductId) {
+                $requestedProduct = $product;
+                break;
+            }
+        }
+
+        $selectedProduct = $requestedProduct ?? ($selectedCustomerProducts[0] ?? null);
+        $selectedProductId = $selectedProduct['product_id'] ?? null;
+        $productName = $selectedProduct['product_name'] ?? null;
+
+        $selectedCustomerName = null;
+        foreach ($customers as $customer) {
+            if ((int) $customer['customer_id'] === (int) $selectedCustomerId) {
+                $selectedCustomerName = $customer['customer_name'];
+                break;
+            }
+        }
+        $customerName = $selectedCustomerName ?? ($customers[0]['customer_name'] ?? null);
+
+        return [
+            'selectedCustomerId' => $selectedCustomerId,
+            'selectedProductId' => $selectedProductId,
+            'customerName' => $customerName,
+            'productName' => $productName,
+        ];
+    }
+
+    /**
+     * @return array{allRows: array<int, array<string, mixed>>, openingBalance: float, totalIn: float, totalOut: float, finalSaldo: float}
+     */
+    private function computeAllRows(OdooXmlRpcService $odoo, int $selectedProductId, ?string $openingStartDate, string $startDate, string $endDate): array
+    {
+        $openingBalance = 0.0;
+        $totalIn = 0.0;
+        $totalOut = 0.0;
+        $finalSaldo = 0.0;
+        $allRows = [];
+
+        $variantIds = $this->productVariantIds($odoo, $selectedProductId);
+
+        if ($variantIds !== []) {
+            $openingBalance = $this->fetchOpeningBalance($odoo, $variantIds, $openingStartDate, $startDate);
+
+            $groups = $this->fetchTransactionGroups($odoo, $variantIds, $startDate, $endDate);
+            if ($startDate < self::OPENING_BALANCE_START_DATE) {
+                $neurusoftGroup = $this->fetchNeurusoftOpeningGroup($odoo, $variantIds, $endDate);
+                if ($neurusoftGroup !== null) {
+                    $openingBalance += $neurusoftGroup['balance_delta'];
+                }
+            }
+            $groups = $this->sortGroups($groups);
+
+            $running = $openingBalance;
+            foreach ($groups as $group) {
+                $running += $group['balance_delta'] ?? ($group['qty_in'] - $group['qty_out']);
+                $group['saldo'] = $running;
+                $allRows[] = $group;
+            }
+
+            foreach ($allRows as $allRow) {
+                $totalIn += (float) ($allRow['qty_in'] ?? 0);
+                $totalOut += (float) ($allRow['qty_out'] ?? 0);
+            }
+            $finalSaldo = $running;
+        }
+
+        return [
+            'allRows' => $allRows,
+            'openingBalance' => $openingBalance,
+            'totalIn' => $totalIn,
+            'totalOut' => $totalOut,
+            'finalSaldo' => $finalSaldo,
+        ];
     }
 
     /**
@@ -134,7 +246,7 @@ class StockCardController extends Controller
      */
     private function fetchCustomersAndProducts(): array
     {
-        $odoo = new OdooXmlRpcService();
+        $odoo = new OdooXmlRpcService;
 
         $templates = $odoo->searchRead(
             'product.template',
@@ -150,7 +262,7 @@ class StockCardController extends Controller
         foreach ($templates as $template) {
             $customer = $template['x_studio_customer'] ?? null;
 
-            if (!is_array($customer) || count($customer) < 2) {
+            if (! is_array($customer) || count($customer) < 2) {
                 continue;
             }
 
@@ -176,8 +288,8 @@ class StockCardController extends Controller
 
         usort($products, function ($a, $b) {
             return strcmp(
-                $a['customer_name'] . '|' . $a['product_name'],
-                $b['customer_name'] . '|' . $b['product_name'],
+                $a['customer_name'].'|'.$a['product_name'],
+                $b['customer_name'].'|'.$b['product_name'],
             );
         });
 
@@ -207,16 +319,15 @@ class StockCardController extends Controller
         array $variantIds,
         ?string $openingStartDate,
         string $startDate,
-    ): float
-    {
+    ): float {
         $domain = [
             ['state', '=', 'done'],
             ['product_id', 'in', $variantIds],
-            ['date', '<', $startDate . ' 00:00:00'],
+            ['date', '<', $startDate.' 00:00:00'],
         ];
 
         if ($openingStartDate !== null) {
-            $domain[] = ['date', '>=', $openingStartDate . ' 00:00:00'];
+            $domain[] = ['date', '>=', $openingStartDate.' 00:00:00'];
         }
 
         $lines = $odoo->searchRead(
@@ -256,8 +367,8 @@ class StockCardController extends Controller
             [
                 ['state', '=', 'done'],
                 ['product_id', 'in', $variantIds],
-                ['date', '>=', self::OPENING_BALANCE_START_DATE . ' 00:00:00'],
-                ['date', '<=', $endDate . ' 23:59:59'],
+                ['date', '>=', self::OPENING_BALANCE_START_DATE.' 00:00:00'],
+                ['date', '<=', $endDate.' 23:59:59'],
             ],
         );
 
@@ -270,7 +381,7 @@ class StockCardController extends Controller
                 ? strtoupper((string) $line['reference'])
                 : '';
 
-            if (!$this->isNeurusoftOpeningMovement($reference)) {
+            if (! $this->isNeurusoftOpeningMovement($reference)) {
                 continue;
             }
 
@@ -285,7 +396,7 @@ class StockCardController extends Controller
             }
         }
 
-        if (!$found) {
+        if (! $found) {
             return null;
         }
 
@@ -320,8 +431,8 @@ class StockCardController extends Controller
             [
                 ['state', '=', 'done'],
                 ['product_id', 'in', $variantIds],
-                ['date', '>=', $startDate . ' 00:00:00'],
-                ['date', '<=', $endDate . ' 23:59:59'],
+                ['date', '>=', $startDate.' 00:00:00'],
+                ['date', '<=', $endDate.' 23:59:59'],
             ],
         );
 
@@ -363,7 +474,7 @@ class StockCardController extends Controller
                 continue;
             }
 
-            if (!$inbound && !$outbound) {
+            if (! $inbound && ! $outbound) {
                 continue;
             }
 
@@ -374,9 +485,9 @@ class StockCardController extends Controller
             $expiredRaw = $lotId !== null ? ($expirations[$lotId] ?? null) : null;
             $expired = $expiredRaw !== null ? substr($expiredRaw, 0, 10) : null;
 
-            $key = $date . '|' . ($lot ?? '') . '|' . ($trans ?? '') . '|' . ($expiredRaw ?? '');
+            $key = $date.'|'.($lot ?? '').'|'.($trans ?? '').'|'.($expiredRaw ?? '');
 
-            if (!isset($groups[$key])) {
+            if (! isset($groups[$key])) {
                 $groups[$key] = [
                     'date' => $date,
                     'lot' => $lot,
@@ -540,7 +651,7 @@ class StockCardController extends Controller
      */
     private function pickingTypeLabel($pickingType): ?string
     {
-        if (!is_array($pickingType) || !isset($pickingType[1])) {
+        if (! is_array($pickingType) || ! isset($pickingType[1])) {
             return null;
         }
 
