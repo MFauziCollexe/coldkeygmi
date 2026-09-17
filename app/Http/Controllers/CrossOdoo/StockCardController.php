@@ -48,7 +48,9 @@ class StockCardController extends Controller
 
         $endDate = $request->input('end_date') ?: now()->toDateString();
         $startDate = $request->input('start_date') ?: Carbon::parse($endDate)->subMonth()->toDateString();
-        $openingStartDate = self::OPENING_BALANCE_START_DATE;
+        $openingStartDate = $startDate > self::OPENING_BALANCE_START_DATE
+            ? self::OPENING_BALANCE_START_DATE
+            : null;
         $page = max(1, (int) $request->query('page', 1));
         $perPage = 25;
 
