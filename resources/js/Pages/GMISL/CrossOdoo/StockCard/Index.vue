@@ -94,11 +94,11 @@
           <tbody>
             <tr class="bg-sky-50 text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(startDate) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">Saldo Awal</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900"></td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900"></td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">-</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(openingBalance) }}</td>
             </tr>
             <tr v-if="!paginatedRows.length">

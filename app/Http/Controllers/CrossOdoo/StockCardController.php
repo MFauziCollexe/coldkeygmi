@@ -11,6 +11,8 @@ use Inertia\Response;
 
 class StockCardController extends Controller
 {
+    private const OPENING_BALANCE_START_DATE = '2026-08-17';
+
     private const IN_PATTERNS = ['RECEIPTS', 'REPACK INBOUND', 'ADJUSTMENT INBOUND', 'CREDIT NOTE'];
 
     private const OUT_PATTERNS = ['DELIVERY ORDERS', 'RETURN RECEIPTS', 'REPACK OUTBOUND', 'ADJUSTMENT OUTBOUND'];
@@ -46,7 +48,7 @@ class StockCardController extends Controller
 
         $endDate = $request->input('end_date') ?: now()->toDateString();
         $startDate = $request->input('start_date') ?: Carbon::parse($endDate)->subMonth()->toDateString();
-        $openingStartDate = '2026-08-17';
+        $openingStartDate = self::OPENING_BALANCE_START_DATE;
         $page = max(1, (int) $request->query('page', 1));
         $perPage = 25;
 
@@ -63,12 +65,18 @@ class StockCardController extends Controller
                 $openingBalance = $this->fetchOpeningBalance($odoo, $variantIds, $openingStartDate, $startDate);
 
                 $groups = $this->fetchTransactionGroups($odoo, $variantIds, $startDate, $endDate);
+                if ($startDate < self::OPENING_BALANCE_START_DATE) {
+                    $neurusoftGroup = $this->fetchNeurusoftOpeningGroup($odoo, $variantIds, $endDate);
+                    if ($neurusoftGroup !== null) {
+                        $openingBalance += $neurusoftGroup['balance_delta'];
+                    }
+                }
                 $groups = $this->sortGroups($groups);
 
                 $running = $openingBalance;
                 $allRows = [];
                 foreach ($groups as $group) {
-                    $running += $group['qty_in'] - $group['qty_out'];
+                    $running += $group['balance_delta'] ?? ($group['qty_in'] - $group['qty_out']);
                     $group['saldo'] = $running;
                     $allRows[] = $group;
                 }
@@ -83,8 +91,8 @@ class StockCardController extends Controller
                     'lot' => $row['lot'],
                     'trans' => $row['trans'],
                     'expired' => $row['expired'],
-                    'qty_in' => (float) $row['qty_in'],
-                    'qty_out' => (float) $row['qty_out'],
+                    'qty_in' => $row['qty_in'] !== null ? (float) $row['qty_in'] : null,
+                    'qty_out' => $row['qty_out'] !== null ? (float) $row['qty_out'] : null,
                     'saldo' => (float) $row['saldo'],
                 ], $pageRows);
             }
@@ -211,28 +219,90 @@ class StockCardController extends Controller
 
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['quantity', 'picking_type_id'],
+            ['quantity', 'picking_type_id', 'location_id', 'location_dest_id'],
             null,
             $domain,
         );
 
+        $locationUsages = $this->fetchLocationUsages($odoo, $lines);
+
         $balance = 0.0;
 
         foreach ($lines as $line) {
-            $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
+            $direction = $this->movementDirection($line, $locationUsages);
 
-            if ($label === null) {
-                continue;
-            }
-
-            if ($this->isInboundLabel($label)) {
+            if ($direction === 'in') {
                 $balance += (float) $line['quantity'];
-            } elseif ($this->isOutboundLabel($label)) {
+            } elseif ($direction === 'out') {
                 $balance -= (float) $line['quantity'];
             }
         }
 
         return $balance;
+    }
+
+    /**
+     * @param  array<int, int>  $variantIds
+     * @return array<string, mixed>|null
+     */
+    private function fetchNeurusoftOpeningGroup(OdooXmlRpcService $odoo, array $variantIds, string $endDate): ?array
+    {
+        $lines = $odoo->searchRead(
+            'stock.move.line',
+            ['date', 'quantity', 'reference', 'picking_type_id', 'location_id', 'location_dest_id'],
+            null,
+            [
+                ['state', '=', 'done'],
+                ['product_id', 'in', $variantIds],
+                ['date', '>=', self::OPENING_BALANCE_START_DATE . ' 00:00:00'],
+                ['date', '<=', $endDate . ' 23:59:59'],
+            ],
+        );
+
+        $locationUsages = $this->fetchLocationUsages($odoo, $lines);
+        $balanceDelta = 0.0;
+        $found = false;
+
+        foreach ($lines as $line) {
+            $reference = ($line['reference'] ?? false) !== false
+                ? strtoupper((string) $line['reference'])
+                : '';
+
+            if (!$this->isNeurusoftOpeningMovement($reference)) {
+                continue;
+            }
+
+            $found = true;
+            $direction = $this->movementDirection($line, $locationUsages);
+            $quantity = (float) $line['quantity'];
+
+            if ($direction === 'in') {
+                $balanceDelta += $quantity;
+            } elseif ($direction === 'out') {
+                $balanceDelta -= $quantity;
+            }
+        }
+
+        if (!$found) {
+            return null;
+        }
+
+        return [
+            'date' => self::OPENING_BALANCE_START_DATE,
+            'lot' => null,
+            'trans' => 'SALDO AWAL NEUROSOFT',
+            'expired' => null,
+            'qty_in' => null,
+            'qty_out' => null,
+            'balance_delta' => $balanceDelta,
+        ];
+    }
+
+    private function isNeurusoftOpeningMovement(string $reference): bool
+    {
+        return str_contains($reference, 'PRODUCT QUANTITY UPDATED')
+            || str_contains($reference, 'UPDATE QTY KILOGRAM')
+            || str_contains($reference, 'UPDATE KILOGRAM STOK AWAL');
     }
 
     /**
@@ -243,7 +313,7 @@ class StockCardController extends Controller
     {
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['date', 'quantity', 'lot_id', 'reference', 'picking_type_id'],
+            ['date', 'quantity', 'lot_id', 'reference', 'picking_type_id', 'location_id', 'location_dest_id'],
             null,
             [
                 ['state', '=', 'done'],
@@ -257,6 +327,8 @@ class StockCardController extends Controller
             return [];
         }
 
+        $locationUsages = $this->fetchLocationUsages($odoo, $lines);
+
         $lotIds = [];
         foreach ($lines as $line) {
             if (is_array($line['lot_id'] ?? null)) {
@@ -267,22 +339,32 @@ class StockCardController extends Controller
         $expirations = $this->fetchLotExpirations($odoo, array_keys($lotIds));
 
         $groups = [];
-
         foreach ($lines as $line) {
+            $date = (string) ($line['date'] ?? '');
             $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
+            $reference = ($line['reference'] ?? false) !== false
+                ? strtoupper((string) $line['reference'])
+                : '';
+            $isAdjustment = ($label !== null && str_contains($label, 'ADJUSTMENT'))
+                || str_contains($reference, 'ADJS')
+                || str_contains($reference, 'ADJUSTMENT');
 
-            if ($label === null) {
+            if (str_contains($reference, 'PRODUCT QUANTITY CONFIRMED')) {
                 continue;
             }
 
-            $inbound = $this->isInboundLabel($label);
-            $outbound = $this->isOutboundLabel($label);
+            $direction = $this->movementDirection($line, $locationUsages);
+            $inbound = $direction === 'in';
+            $outbound = $direction === 'out';
+
+            if ($isAdjustment || $this->isNeurusoftOpeningMovement($reference)) {
+                continue;
+            }
 
             if (!$inbound && !$outbound) {
                 continue;
             }
 
-            $date = (string) ($line['date'] ?? '');
             $lotRef = $line['lot_id'] ?? false;
             $lot = is_array($lotRef) ? (string) $lotRef[1] : null;
             $lotId = is_array($lotRef) ? (int) $lotRef[0] : null;
@@ -314,6 +396,79 @@ class StockCardController extends Controller
         }
 
         return array_values($groups);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $lines
+     * @return array<int, string>
+     */
+    private function fetchLocationUsages(OdooXmlRpcService $odoo, array $lines): array
+    {
+        $locationIds = [];
+
+        foreach ($lines as $line) {
+            foreach (['location_id', 'location_dest_id'] as $field) {
+                $location = $line[$field] ?? false;
+
+                if (is_array($location) && isset($location[0])) {
+                    $locationIds[(int) $location[0]] = true;
+                }
+            }
+        }
+
+        if ($locationIds === []) {
+            return [];
+        }
+
+        $locations = $odoo->searchRead(
+            'stock.location',
+            ['id', 'usage'],
+            null,
+            [['id', 'in', array_keys($locationIds)]],
+        );
+
+        $usages = [];
+        foreach ($locations as $location) {
+            $usages[(int) $location['id']] = (string) ($location['usage'] ?? '');
+        }
+
+        return $usages;
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     * @param  array<int, string>  $locationUsages
+     */
+    private function movementDirection(array $line, array $locationUsages): ?string
+    {
+        $source = $line['location_id'] ?? false;
+        $destination = $line['location_dest_id'] ?? false;
+        $sourceUsage = is_array($source) ? ($locationUsages[(int) ($source[0] ?? 0)] ?? null) : null;
+        $destinationUsage = is_array($destination) ? ($locationUsages[(int) ($destination[0] ?? 0)] ?? null) : null;
+
+        if ($sourceUsage !== null && $destinationUsage !== null) {
+            if ($sourceUsage !== 'internal' && $destinationUsage === 'internal') {
+                return 'in';
+            }
+
+            if ($sourceUsage === 'internal' && $destinationUsage !== 'internal') {
+                return 'out';
+            }
+
+            return null;
+        }
+
+        $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
+
+        if ($label !== null && $this->isInboundLabel($label)) {
+            return 'in';
+        }
+
+        if ($label !== null && $this->isOutboundLabel($label)) {
+            return 'out';
+        }
+
+        return null;
     }
 
     /**
