@@ -3,9 +3,9 @@
     <div class="p-4 md:p-6">
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 class="text-2xl font-bold">Cross Odoo - Rekap Inbound</h2>
+          <h2 class="text-2xl font-bold">Cross Odoo - Rekap Outbound</h2>
           <p class="text-sm text-slate-400">
-            Menampilkan rekap inbound Odoo untuk customer
+            Menampilkan rekap outbound Odoo untuk customer
             <span class="font-semibold text-slate-200">{{ customerName }}</span>
             dan product
             <span class="font-semibold text-slate-200">{{ productName }}</span>.
@@ -230,7 +230,7 @@ const exportUrl = computed(() => {
   if (localProductId.value !== null && localProductId.value !== undefined && localProductId.value !== '') params.set('product_id', localProductId.value);
   if (startDateInput.value) params.set('start_date', startDateInput.value);
   if (endDateInput.value) params.set('end_date', endDateInput.value);
-  return `/gmisl/cross-odoo/rekap-inbound/export?${params.toString()}`;
+  return `/gmisl/cross-odoo/rekap-outbound/export?${params.toString()}`;
 });
 
 const visiblePages = computed(() => {
@@ -267,7 +267,7 @@ function buildParams(overrides = {}) {
 }
 
 function reload(params, only) {
-  router.get('/gmisl/cross-odoo/rekap-inbound', params, {
+  router.get('/gmisl/cross-odoo/rekap-outbound', params, {
     preserveState: true,
     preserveScroll: true,
     only,

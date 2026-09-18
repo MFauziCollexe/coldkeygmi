@@ -12,7 +12,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class RekapInboundController extends Controller
+class RekapOutboundController extends Controller
 {
     public function index(Request $request): Response
     {
@@ -53,7 +53,7 @@ class RekapInboundController extends Controller
             $rows = array_slice($allRows, $offset, $perPage);
         }
 
-        return Inertia::render('GMISL/CrossOdoo/RekapInbound/Index', [
+        return Inertia::render('GMISL/CrossOdoo/RekapOutbound/Index', [
             'rows' => $rows,
             'customers' => $customers,
             'products' => $products,
@@ -116,7 +116,7 @@ class RekapInboundController extends Controller
 
         $safePart = $selection['productName'] ?? 'product';
         $safePart = preg_replace('/[^A-Za-z0-9\-_]+/', '_', (string) $safePart);
-        $filename = 'rekap_inbound_'.($safePart !== '' ? $safePart : 'product').'_'.now()->format('Ymd_His').'.xlsx';
+        $filename = 'rekap_outbound_'.($safePart !== '' ? $safePart : 'product').'_'.now()->format('Ymd_His').'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
@@ -259,7 +259,7 @@ class RekapInboundController extends Controller
             ['date', '>=', $startDate.' 00:00:00'],
             ['date', '<=', $endDate.' 23:59:59'],
             ['picking_id', '!=', false],
-            ['picking_id.picking_type_id.code', '=', 'incoming'],
+            ['picking_id.picking_type_id.code', '=', 'outgoing'],
         ];
 
         if ($customerId !== null) {

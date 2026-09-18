@@ -439,16 +439,6 @@ return [
                 ],
             ],
         ],
-        'portal.odoo.stock_card' => [
-            'abilities' => [
-                'import' => $itChecklistRules,
-            ],
-        ],
-        'portal.odoo.soh' => [
-            'abilities' => [
-                'import' => $itChecklistRules,
-            ],
-        ],
         'utility.rcs' => [
             'abilities' => [
                 'add_po' => [
