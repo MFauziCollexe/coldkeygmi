@@ -7,7 +7,8 @@
       :disabled="disabled"
       :required="required"
       :class="[
-        'w-full pl-3 pr-10 py-2 bg-slate-800 text-slate-100 border border-slate-700 focus:outline-none',
+        'w-full pl-3 pr-10 py-2 border focus:outline-none',
+        variant === 'light' ? 'bg-white text-slate-900 border-slate-300' : 'bg-slate-800 text-slate-100 border-slate-700',
         open ? (openUp ? 'rounded-b rounded-t-none' : 'rounded-t rounded-b-none') : 'rounded',
         inputClass,
       ]"
@@ -18,7 +19,8 @@
       type="button"
       :disabled="disabled"
       :class="[
-        'absolute right-0 top-0 h-full w-10 border-l border-r border-y border-slate-700 text-sm leading-none flex items-center justify-center bg-slate-800 text-slate-100',
+        'absolute right-0 top-0 h-full w-10 border-l border-r border-y text-sm leading-none flex items-center justify-center',
+        variant === 'light' ? 'bg-white text-slate-500 border-slate-300' : 'bg-slate-800 text-slate-100 border-slate-700',
         open ? (openUp ? 'rounded-br-none rounded-tr' : 'rounded-tr-none rounded-br') : 'rounded-r',
         buttonClass,
       ]"
@@ -31,15 +33,25 @@
       ref="menuRef"
       v-if="open"
       :class="[
-        'absolute z-20 left-0 right-0 max-h-52 overflow-auto border border-slate-700 bg-slate-800',
+        'absolute z-20 left-0 right-0 max-h-52 overflow-auto border',
+        variant === 'light'
+          ? 'bg-white text-slate-900 border-slate-300 shadow-lg'
+          : 'bg-slate-800 border-slate-700',
         openUp
           ? 'bottom-full rounded-t border-b-0'
           : 'top-full rounded-b border-t-0',
+        menuClass,
       ]"
     >
       <button
         type="button"
-        class="w-full text-left px-3 py-2 text-sm hover:bg-slate-800 border-b border-slate-800"
+        :class="[
+          'w-full text-left px-3 py-2 text-sm border-b',
+          variant === 'light'
+            ? 'hover:bg-indigo-50 border-slate-200 text-slate-900'
+            : 'hover:bg-slate-700 border-slate-800 text-slate-100',
+          optionClass,
+        ]"
         @click="clearSelection"
       >
         {{ emptyLabel }}
@@ -48,7 +60,13 @@
         v-for="option in filteredOptions"
         :key="String(getOptionValue(option))"
         type="button"
-        class="w-full text-left px-3 py-2 text-sm hover:bg-slate-800 border-b border-slate-800 last:border-b-0"
+        :class="[
+          'w-full text-left px-3 py-2 text-sm border-b last:border-b-0',
+          variant === 'light'
+            ? 'hover:bg-indigo-50 border-slate-200 text-slate-900'
+            : 'hover:bg-slate-700 border-slate-800 text-slate-100',
+          optionClass,
+        ]"
         @click="selectOption(option)"
       >
         {{ getOptionLabel(option) }}
@@ -58,7 +76,10 @@
       </div>
       <div
         v-else-if="matchCount > filteredOptions.length"
-        class="px-3 py-2 text-[11px] text-slate-400 border-t border-slate-700"
+        :class="[
+          'px-3 py-2 text-[11px] text-slate-400 border-t',
+          variant === 'light' ? 'border-slate-200' : 'border-slate-700',
+        ]"
       >
         Menampilkan {{ filteredOptions.length }} dari {{ matchCount }} data. Ketik untuk mempersempit.
       </div>
@@ -107,6 +128,18 @@ const props = defineProps({
     default: '',
   },
   buttonClass: {
+    type: String,
+    default: '',
+  },
+  variant: {
+    type: String,
+    default: 'dark',
+  },
+  menuClass: {
+    type: String,
+    default: '',
+  },
+  optionClass: {
     type: String,
     default: '',
   },

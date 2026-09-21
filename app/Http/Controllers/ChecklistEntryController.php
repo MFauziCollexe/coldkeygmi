@@ -259,11 +259,231 @@ class ChecklistEntryController extends Controller
         $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $templateName) ?: 'checklist';
         $downloadName = $safeName . '_' . $entryCode . '.pdf';
 
-        try {
-            $html = view('pdf.checklist', [
-                'entry' => $entry,
-            ])->render();
+        return $this->streamPdf(
+            view('pdf.checklist', ['entry' => $entry])->render(),
+            $downloadName,
+            $this->resolvePdfOrientation($entry)
+        );
+    }
 
+    public function downloadTemplatePdf(Request $request)
+    {
+        $data = $request->validate([
+            'template' => ['required', 'string', 'in:jadwal_cleaning_ob'],
+            'sections' => ['required', 'array', 'min:1'],
+        ]);
+
+        $templateId = (string) $data['template'];
+        $this->authorizeChecklistTemplate($request->user(), $templateId, 'view');
+
+        $entry = [
+            'template_id' => $templateId,
+            'name' => 'Jadwal Cleaning OB',
+            'form' => [
+                'document_no' => 'FRM.HSE.15.02',
+                'rev' => '00',
+                'effective_date' => '22 Desember 2025',
+                'date_value' => '',
+                'sections' => $data['sections'],
+                'area_notes' => [],
+                'area_photo_paths' => [],
+                'area_photo_urls' => [],
+                'area_photo_names' => [],
+            ],
+        ];
+
+        return $this->streamPdf(
+            view('pdf.checklist', ['entry' => $entry])->render(),
+            'Template_Jadwal_Cleaning_OB.pdf',
+            $this->resolvePdfOrientation($entry)
+        );
+    }
+
+    public function savedEntries(Request $request): JsonResponse
+    {
+        $start = $this->parseOptionalDateFilter($request, 'start');
+        $end = $this->parseOptionalDateFilter($request, 'end');
+        $template = $this->parseOptionalTemplateFilter($request);
+
+        $entries = $this->getSavedChecklistEntries($request->user(), 500)
+            ->filter(fn (array $entry) => $this->withinDateRange($entry, $start, $end))
+            ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
+            ->values()
+            ->map(function (array $entry) {
+                $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+
+                return [
+                    'id' => $entry['id'],
+                    'template_id' => (string) ($entry['template_id'] ?? ''),
+                    'name' => (string) ($entry['name'] ?? 'Checklist'),
+                    'date' => (string) ($form['date'] ?? $form['date_value'] ?? $form['period'] ?? '-'),
+                    'pic' => (string) ($form['pic'] ?? '-'),
+                    'approved' => (bool) ($form['approved'] ?? false),
+                    'approved_at' => $entry['approved_at'] ?? null,
+                    'created_at' => $entry['created_at'] ?? null,
+                ];
+            })
+            ->all();
+
+        return response()->json([
+            'entries' => $entries,
+        ]);
+    }
+
+    public function downloadRangePdf(Request $request)
+    {
+        set_time_limit(300);
+        ini_set('memory_limit', '512M');
+
+        $data = $request->validate([
+            'start' => ['required', 'date_format:Y-m-d'],
+            'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+        ]);
+
+        $start = $data['start'];
+        $end = $data['end'];
+        $template = $this->parseOptionalTemplateFilter($request);
+
+        $entries = $this->getSavedChecklistEntries($request->user(), 2000)
+            ->filter(fn (array $entry) => $this->withinDateRange($entry, $start, $end))
+            ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
+            ->values()
+            ->all();
+
+        if (count($entries) === 0) {
+            return response()->json(['message' => 'Tidak ada checklist tersimpan pada rentang tanggal tersebut.'], 422);
+        }
+
+        $orientation = collect($entries)->contains(
+            fn (array $entry) => $this->resolvePdfOrientation($entry) === 'landscape'
+        ) ? 'landscape' : 'portrait';
+
+        $nameSuffix = $template !== null ? '_' . preg_replace('/[^A-Za-z0-9._-]+/', '_', $template) : '';
+
+        return $this->streamPdf(
+            view('pdf.checklist_batch', [
+                'entries' => $entries,
+                'start' => $start,
+                'end' => $end,
+            ])->render(),
+            'Checklist' . $nameSuffix . '_' . $start . '_sd_' . $end . '.pdf',
+            $orientation
+        );
+    }
+
+    private function parseOptionalTemplateFilter(Request $request): ?string
+    {
+        $value = trim((string) $request->query('template', ''));
+        return $value === '' ? null : $value;
+    }
+
+    private function getSavedChecklistEntries($user = null, ?int $limit = 500): \Illuminate\Support\Collection
+    {
+        $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
+
+        $headers = ChecklistHeader::query()
+            ->with('template:id,code,module')
+            ->whereHas('template', fn ($query) => $query->where('module', self::CHECKLIST_MODULE))
+            ->when(
+                !empty($allowedTemplateIds),
+                fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds)),
+                fn ($query) => $query->whereRaw('1 = 0')
+            )
+            ->orderByDesc('updated_at')
+            ->limit($limit)
+            ->get();
+
+        return collect($headers)
+            ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
+            ->filter(fn ($entry) => is_array($entry) && !empty($entry))
+            ->values();
+    }
+
+    private function parseOptionalDateFilter(Request $request, string $key): ?string
+    {
+        $value = trim((string) $request->query($key, ''));
+        if ($value === '') {
+            return null;
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) || !strtotime($value)) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function withinDateRange(array $entry, ?string $start, ?string $end): bool
+    {
+        if ($start === null && $end === null) {
+            return true;
+        }
+
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $iso = $this->resolveEntryIsoDate($form);
+
+        if ($iso !== null) {
+            if ($start !== null && $iso < $start) {
+                return false;
+            }
+            if ($end !== null && $iso > $end) {
+                return false;
+            }
+            return true;
+        }
+
+        $period = trim((string) ($form['period'] ?? ''));
+        if ($period !== '' && preg_match('/^\d{4}-\d{2}$/', $period)) {
+            $startMonth = $start !== null ? substr($start, 0, 7) : null;
+            $endMonth = $end !== null ? substr($end, 0, 7) : null;
+            if (($startMonth === null || $period >= $startMonth) && ($endMonth === null || $period <= $endMonth)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function resolveEntryIsoDate(array $form): ?string
+    {
+        $dateValue = trim((string) ($form['date_value'] ?? ''));
+        if ($dateValue !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateValue) && strtotime($dateValue)) {
+            return $dateValue;
+        }
+
+        $date = trim((string) ($form['date'] ?? ''));
+        if ($date !== '') {
+            $parsed = $this->parseChecklistDisplayDate($date);
+            if ($parsed !== null) {
+                return $parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private function parseChecklistDisplayDate(string $date): ?string
+    {
+        $monthNames = [
+            'Januari' => '01', 'Februari' => '02', 'Maret' => '03', 'April' => '04',
+            'Mei' => '05', 'Juni' => '06', 'Juli' => '07', 'Agustus' => '08',
+            'September' => '09', 'Oktober' => '10', 'November' => '11', 'Desember' => '12',
+        ];
+
+        if (preg_match('/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/', trim($date), $matches)) {
+            $month = $monthNames[ucfirst($matches[2])] ?? null;
+            if ($month !== null) {
+                $day = str_pad((string) (int) $matches[1], 2, '0', STR_PAD_LEFT);
+                return sprintf('%s-%s-%s', $matches[3], $month, $day);
+            }
+        }
+
+        return null;
+    }
+
+    private function streamPdf(string $html, string $downloadName, string $orientation)
+    {
+        try {
             $options = new Options();
             $options->set('isHtml5ParserEnabled', true);
             $options->set('isRemoteEnabled', false);
@@ -273,7 +493,7 @@ class ChecklistEntryController extends Controller
             $options->set('fontCache', $this->ensureDompdfWorkDir('fonts'));
 
             $dompdf = new Dompdf($options);
-            $dompdf->setPaper('A4', $this->resolvePdfOrientation($entry));
+            $dompdf->setPaper('A4', $orientation);
             $dompdf->loadHtml($html, 'UTF-8');
             $dompdf->render();
 

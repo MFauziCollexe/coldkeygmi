@@ -29,30 +29,36 @@
         <div class="grid gap-3 sm:grid-cols-5">
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_id">Customer</label>
-            <select
+            <SearchableSelect
               id="customer_id"
-              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="localCustomerId"
-              @change="onCustomerChange"
-            >
-              <option v-for="customer in customers" :key="customer.customer_id" :value="customer.customer_id">
-                {{ customer.customer_name }}
-              </option>
-            </select>
+              v-model="localCustomerId"
+              variant="light"
+              :options="customerOptions"
+              option-value="customer_id"
+              option-label="label"
+              placeholder="Ketik untuk mencari customer..."
+              empty-label="Pilih customer"
+              input-class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+              button-class="border-l border-slate-300"
+              @update:modelValue="onCustomerChange"
+            />
           </div>
 
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product</label>
-            <select
+            <SearchableSelect
               id="product_id"
-              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              :value="localProductId"
-              @change="onProductChange"
-            >
-              <option v-for="product in availableProducts" :key="product.product_id" :value="product.product_id">
-                {{ product.default_code ? product.default_code + ' - ' : '' }}{{ product.product_name }}
-              </option>
-            </select>
+              v-model="localProductId"
+              variant="light"
+              :options="availableProducts"
+              option-value="product_id"
+              option-label="label"
+              placeholder="Ketik untuk mencari product..."
+              empty-label="Pilih product"
+              input-class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+              button-class="border-l border-slate-300"
+              @update:modelValue="onProductChange"
+            />
           </div>
 
           <div>
@@ -92,8 +98,8 @@
           <thead>
             <tr class="bg-sky-100 text-slate-900">
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TANGGAL</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">LOT</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TRANSAKSI</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">SOURCE DOCUMENTS</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">EXPIRED</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY IN</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY OUT</th>
@@ -103,8 +109,8 @@
           <tbody>
             <tr class="bg-sky-50 text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(startDate) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">Saldo Awal</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
@@ -122,8 +128,8 @@
               class="hover:bg-blue-50"
             >
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.lot || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.trans || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.source_document || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expired) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_out) }}</td>
@@ -174,6 +180,7 @@
 import { computed, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 const props = defineProps({
   rows:              { type: Array,    default: () => [] },
@@ -217,9 +224,15 @@ const endDateInput   = ref(endDate.value);
 watch(() => props.startDate, (value) => { if (value) startDateInput.value = value; });
 watch(() => props.endDate,   (value) => { if (value) endDateInput.value   = value; });
 
+const customerOptions = computed(() =>
+  (props.customers || []).map(c => ({ customer_id: c.customer_id, label: c.customer_name }))
+);
+
 const availableProducts = computed(() => {
   const cid = Number(localCustomerId.value ?? -1);
-  return (props.products || []).filter(p => Number(p.customer_id) === cid);
+  return (props.products || [])
+    .filter(p => Number(p.customer_id) === cid)
+    .map(p => ({ product_id: p.product_id, label: (p.default_code ? p.default_code + ' - ' : '') + p.product_name }));
 });
 
 const localCustomerId = ref(props.selectedCustomerId);
@@ -283,14 +296,14 @@ function reload(params, only) {
 
 const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','startDate','endDate','customerName','productName','openingBalance','currentPage','perPage','totalRows','totalIn','totalOut','finalSaldo'];
 
-function onCustomerChange(e) {
-  localCustomerId.value = Number(e.target.value) || null;
+function onCustomerChange(value) {
+  localCustomerId.value = value || null;
   const first = availableProducts.value[0];
   localProductId.value = first ? first.product_id : null;
 }
 
-function onProductChange(e) {
-  localProductId.value = Number(e.target.value) || null;
+function onProductChange(value) {
+  localProductId.value = value || null;
 }
 
 function onDateChange() {

@@ -300,6 +300,12 @@ Route::delete('gmiic/checklist/entries', [App\Http\Controllers\ChecklistEntryCon
 Route::get('gmiic/checklist/{entryCode}/pdf', [App\Http\Controllers\ChecklistEntryController::class, 'downloadPdf'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.pdf');
+Route::get('gmiic/checklist/entries/saved-list', [App\Http\Controllers\ChecklistEntryController::class, 'savedEntries'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.entries.saved-list');
+Route::get('gmiic/checklist/entries/download-range', [App\Http\Controllers\ChecklistEntryController::class, 'downloadRangePdf'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.entries.download-range');
 Route::post('gmiic/checklist/patroli-security/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadPatroliSecurityPhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.patroli-security.photo');

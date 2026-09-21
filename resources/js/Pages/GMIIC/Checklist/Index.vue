@@ -28,6 +28,14 @@
 
           <button
             type="button"
+            class="rounded px-4 py-2 text-sm font-semibold transition bg-slate-700 text-white hover:bg-slate-600"
+            @click="openTemplateDownloadModal"
+          >
+            Download
+          </button>
+
+          <button
+            type="button"
             class="rounded px-4 py-2 text-sm font-semibold transition"
             :class="canOpenCreatePage
               ? 'bg-indigo-600 text-white hover:bg-indigo-500'
@@ -184,6 +192,76 @@
           </button>
         </div>
       </div>
+
+      <div
+        v-if="showTemplateModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 sm:p-4"
+        @click.self="showTemplateModal = false"
+      >
+        <div class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+          <div class="flex flex-shrink-0 items-center justify-between border-b border-slate-700 bg-slate-800 px-4 py-3">
+            <h3 class="truncate font-semibold text-slate-100">Download Checklist</h3>
+            <button @click="closeTemplateDownloadModal" class="ml-2 flex-shrink-0 text-slate-400 hover:text-white">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-3 sm:p-4">
+            <p class="mb-3 rounded bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
+              Pilih rentang tanggal, lalu unduh semua checklist tersimpan dalam satu PDF.
+            </p>
+
+            <div class="mb-3">
+              <label class="mb-1 block text-sm text-slate-300">Template</label>
+              <select
+                v-model="downloadTemplateId"
+                class="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-sm text-slate-100"
+              >
+                <option value="">Semua Template</option>
+                <option v-for="option in availableChecklistOptions" :key="option.id" :value="option.id">
+                  {{ option.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+              <label class="text-sm text-slate-300">
+                Dari
+                <input
+                  v-model="downloadStartDate"
+                  type="date"
+                  class="ml-2 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100"
+                />
+              </label>
+              <label class="text-sm text-slate-300">
+                Sampai
+                <input
+                  v-model="downloadEndDate"
+                  type="date"
+                  class="ml-2 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100"
+                />
+              </label>
+
+              <button
+                class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="rangeDownloading || !downloadStartDate || !downloadEndDate"
+                @click="downloadRangePdf"
+              >
+                {{ rangeDownloading ? 'Menyiapkan PDF...' : 'Download Semua (1 PDF)' }}
+              </button>
+            </div>
+
+            <div
+              v-if="templateDownloadError"
+              class="mt-3 rounded border border-rose-500 bg-rose-900/30 px-3 py-2 text-sm text-rose-300"
+            >
+              {{ templateDownloadError }}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -203,6 +281,12 @@ const selectedChecklist = ref(page.props.selectedChecklist || '');
 const selectedDate = ref(page.props.selectedDate || toDateInputValue(new Date()));
 const checklistEntries = computed(() => page.props.entries?.data || []);
 const selectedEntryIds = ref([]);
+const showTemplateModal = ref(false);
+const templateDownloadError = ref('');
+const downloadStartDate = ref('');
+const downloadEndDate = ref('');
+const downloadTemplateId = ref('');
+const rangeDownloading = ref(false);
 const supportedTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler', 'checklist_it', 'inspeksi_loker', 'jadwal_cleaning_ob'];
 const dailyApprovedTemplates = ['kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler'];
 const monthlyChecklistTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
@@ -326,6 +410,65 @@ async function toggleQrBypass() {
     window.location.reload();
   } catch (error) {
     window.alert(error?.response?.data?.message || 'Status QR bypass gagal diperbarui.');
+  }
+}
+
+function openTemplateDownloadModal() {
+  templateDownloadError.value = '';
+  downloadStartDate.value = selectedDate.value || toDateInputValue(new Date());
+  downloadEndDate.value = selectedDate.value || toDateInputValue(new Date());
+  downloadTemplateId.value = '';
+  showTemplateModal.value = true;
+}
+
+function closeTemplateDownloadModal() {
+  showTemplateModal.value = false;
+}
+
+async function downloadRangePdf() {
+  if (!downloadStartDate.value || !downloadEndDate.value) {
+    return;
+  }
+
+  rangeDownloading.value = true;
+  templateDownloadError.value = '';
+
+  try {
+    const response = await axios.get('/gmiic/checklist/entries/download-range', {
+      params: {
+        start: downloadStartDate.value,
+        end: downloadEndDate.value,
+        template: downloadTemplateId.value || undefined,
+      },
+      responseType: 'blob',
+    });
+
+    const blob = response.data;
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const templateSuffix = downloadTemplateId.value ? `_${downloadTemplateId.value}` : '';
+    link.download = `Checklist${templateSuffix}_${downloadStartDate.value}_sd_${downloadEndDate.value}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    let message = 'Gagal mengunduh PDF. Silakan coba lagi.';
+    if (error?.response?.data) {
+      try {
+        const text = await error.response.data.text();
+        const parsed = JSON.parse(text);
+        if (parsed?.message) {
+          message = parsed.message;
+        }
+      } catch (e) {
+        // abaikan, pakai pesan default
+      }
+    }
+    templateDownloadError.value = message;
+  } finally {
+    rangeDownloading.value = false;
   }
 }
 

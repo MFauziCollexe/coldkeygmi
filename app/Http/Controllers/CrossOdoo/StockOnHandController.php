@@ -356,6 +356,8 @@ class StockOnHandController extends Controller
     }
 
     /**
+     * Ambil kuantitas stock dari lokasi internal dan transit (usage internal/transit).
+     *
      * @param  array<int, int>  $variantIds
      * @return array<int, array<string, mixed>>
      */
@@ -366,7 +368,7 @@ class StockOnHandController extends Controller
             ['id', 'product_id', 'lot_id', 'location_id', 'package_id', 'quantity', 'owner_id', 'ns_plate_number'],
             null,
             [
-                ['location_id.usage', '=', 'internal'],
+                ['location_id.usage', 'in', ['internal', 'transit']],
                 ['quantity', '>', 0],
                 ['product_id', 'in', $variantIds],
                 '|',
@@ -435,8 +437,8 @@ class StockOnHandController extends Controller
     }
 
     /**
-     * Ambil reference inbound pertama, origin picking terakhir, dan plat nomor
-     * kendaraan untuk setiap kombinasi (product, lot).
+     * Ambil reference inbound pertama, origin picking inbound terakhir, dan plat
+     * nomor kendaraan untuk setiap kombinasi (product, lot).
      *
      * @param  array<int, int>  $variantIds
      * @return array<string, array<string, array<string, string>>>
@@ -495,7 +497,7 @@ class StockOnHandController extends Controller
             $origin = $pickingId !== null ? ($pickingMap[$pickingId]['origin'] ?? null) : null;
             $plate = $pickingId !== null ? ($pickingMap[$pickingId]['plate'] ?? null) : null;
 
-            if ($origin !== null && $origin !== '' && (! isset($sourceDocs[$key]) || $id > $sourceDocs[$key]['id'])) {
+            if ($direction === 'in' && $origin !== null && $origin !== '' && (! isset($sourceDocs[$key]) || $id > $sourceDocs[$key]['id'])) {
                 $sourceDocs[$key] = ['id' => $id, 'value' => $origin];
             }
 

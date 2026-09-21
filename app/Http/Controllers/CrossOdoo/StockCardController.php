@@ -62,8 +62,8 @@ class StockCardController extends Controller
 
             $formattedRows = array_map(fn ($row) => [
                 'transaction_date' => $row['date'],
-                'lot' => $row['lot'],
                 'trans' => $row['trans'],
+                'source_document' => $row['source_document'],
                 'expired' => $row['expired'],
                 'qty_in' => $row['qty_in'] !== null ? (float) $row['qty_in'] : null,
                 'qty_out' => $row['qty_out'] !== null ? (float) $row['qty_out'] : null,
@@ -104,7 +104,7 @@ class StockCardController extends Controller
             ? self::OPENING_BALANCE_START_DATE
             : null;
 
-        $headers = ['TANGGAL', 'LOT', 'TRANSAKSI', 'EXPIRED', 'QTY IN', 'QTY OUT', 'SALDO'];
+        $headers = ['TANGGAL', 'TRANSAKSI', 'SOURCE DOCUMENTS', 'EXPIRED', 'QTY IN', 'QTY OUT', 'SALDO'];
         $data = [];
 
         if ($selectedProductId !== null) {
@@ -112,13 +112,13 @@ class StockCardController extends Controller
 
             $computed = $this->computeAllRows($odoo, (int) $selectedProductId, $openingStartDate, $startDate, $endDate);
 
-            $data[] = [$startDate, '-', 'Saldo Awal', '-', '', '', (float) $computed['openingBalance']];
+            $data[] = [$startDate, 'Saldo Awal', '-', '-', '', '', (float) $computed['openingBalance']];
 
             foreach ($computed['allRows'] as $row) {
                 $data[] = [
                     $row['date'],
-                    $row['lot'],
                     $row['trans'],
+                    $row['source_document'],
                     $row['expired'],
                     $row['qty_in'] !== null ? (float) $row['qty_in'] : '',
                     $row['qty_out'] !== null ? (float) $row['qty_out'] : '',
@@ -402,8 +402,8 @@ class StockCardController extends Controller
 
         return [
             'date' => self::OPENING_BALANCE_START_DATE,
-            'lot' => null,
             'trans' => 'SALDO AWAL NEUROSOFT',
+            'source_document' => null,
             'expired' => null,
             'qty_in' => null,
             'qty_out' => null,
@@ -426,7 +426,7 @@ class StockCardController extends Controller
     {
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['date', 'quantity', 'lot_id', 'reference', 'picking_type_id', 'location_id', 'location_dest_id'],
+            ['date', 'quantity', 'lot_id', 'reference', 'picking_type_id', 'picking_id', 'location_id', 'location_dest_id'],
             null,
             [
                 ['state', '=', 'done'],
@@ -443,13 +443,20 @@ class StockCardController extends Controller
         $locationUsages = $this->fetchLocationUsages($odoo, $lines);
 
         $lotIds = [];
+        $pickingIds = [];
         foreach ($lines as $line) {
             if (is_array($line['lot_id'] ?? null)) {
                 $lotIds[(int) $line['lot_id'][0]] = true;
             }
+
+            $picking = $line['picking_id'] ?? false;
+            if (is_array($picking) && isset($picking[0])) {
+                $pickingIds[(int) $picking[0]] = true;
+            }
         }
 
         $expirations = $this->fetchLotExpirations($odoo, array_keys($lotIds));
+        $origins = $this->fetchPickingOrigins($odoo, array_keys($pickingIds));
 
         $groups = [];
         foreach ($lines as $line) {
@@ -479,21 +486,24 @@ class StockCardController extends Controller
             }
 
             $lotRef = $line['lot_id'] ?? false;
-            $lot = is_array($lotRef) ? (string) $lotRef[1] : null;
             $lotId = is_array($lotRef) ? (int) $lotRef[0] : null;
             $trans = ($line['reference'] ?? false) !== false ? (string) $line['reference'] : null;
             $expiredRaw = $lotId !== null ? ($expirations[$lotId] ?? null) : null;
             $expired = $expiredRaw !== null ? substr($expiredRaw, 0, 10) : null;
 
-            $key = $date.'|'.($lot ?? '').'|'.($trans ?? '').'|'.($expiredRaw ?? '');
+            $picking = $line['picking_id'] ?? false;
+            $pickingId = is_array($picking) ? (int) $picking[0] : null;
+            $source = $pickingId !== null ? ($origins[$pickingId] ?? null) : null;
+
+            $key = $date.'|'.($trans ?? '').'|'.($expiredRaw ?? '').'|'.($source ?? '');
 
             if (! isset($groups[$key])) {
                 $groups[$key] = [
                     'date' => $date,
-                    'lot' => $lot,
                     'trans' => $trans,
                     'expired' => $expired,
                     'expired_raw' => $expiredRaw,
+                    'source_document' => $source,
                     'qty_in' => 0.0,
                     'qty_out' => 0.0,
                 ];
@@ -608,6 +618,36 @@ class StockCardController extends Controller
 
             $map[(int) $lot['id']] = ($expiration !== false && $expiration !== null && $expiration !== '')
                 ? (string) $expiration
+                : null;
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  array<int, int>  $pickingIds
+     * @return array<int, string|null>
+     */
+    private function fetchPickingOrigins(OdooXmlRpcService $odoo, array $pickingIds): array
+    {
+        if ($pickingIds === []) {
+            return [];
+        }
+
+        $pickings = $odoo->searchRead(
+            'stock.picking',
+            ['id', 'origin'],
+            null,
+            [['id', 'in', $pickingIds]],
+        );
+
+        $map = [];
+
+        foreach ($pickings as $picking) {
+            $origin = $picking['origin'] ?? false;
+
+            $map[(int) $picking['id']] = ($origin !== false && $origin !== null && $origin !== '')
+                ? (string) $origin
                 : null;
         }
 
