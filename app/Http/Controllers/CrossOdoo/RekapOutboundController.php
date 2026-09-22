@@ -36,6 +36,7 @@ class RekapOutboundController extends Controller
         $rows = [];
         $totalRows = 0;
         $totalQty = 0.0;
+        $totalQtyKg = 0.0;
         $allRows = [];
 
         if ($selectedProductId !== null) {
@@ -46,6 +47,7 @@ class RekapOutboundController extends Controller
 
             foreach ($allRows as $allRow) {
                 $totalQty += (float) ($allRow['qty'] ?? 0);
+                $totalQtyKg += (float) ($allRow['qty_kg'] ?? 0);
             }
 
             $page = min($page, max(1, (int) ceil($totalRows / $perPage)));
@@ -67,6 +69,7 @@ class RekapOutboundController extends Controller
             'perPage' => $perPage,
             'totalRows' => $totalRows,
             'totalQty' => $totalQty,
+            'totalQtyKg' => $totalQtyKg,
         ]);
     }
 
@@ -84,7 +87,7 @@ class RekapOutboundController extends Controller
             $startDate = Carbon::parse($endDate)->startOfMonth()->toDateString();
         }
 
-        $headers = ['NO', 'TANGGAL', 'KD CUSTOMER', 'NM CUSTOMER', 'NO DELIVERY', 'SOURCE DOCUMENTS', 'NO MOBIL', 'KD BARANG', 'NM BARANG', 'QTY', 'UOM', 'EXPIRED DATE', 'LOT'];
+        $headers = ['NO', 'TANGGAL', 'KD CUSTOMER', 'NM CUSTOMER', 'NO DELIVERY', 'SOURCE DOCUMENTS', 'NO MOBIL', 'KD BARANG', 'NM BARANG', 'QTY', 'QTY KG', 'UOM', 'EXPIRED DATE', 'LOT'];
         $data = [];
 
         if ($selectedProductId !== null) {
@@ -102,6 +105,7 @@ class RekapOutboundController extends Controller
                     $row['kd_barang'],
                     $row['nm_barang'],
                     (float) $row['qty'],
+                    (float) $row['qty_kg'],
                     $row['uom'],
                     $row['expired_date'],
                     $row['lot'],
@@ -268,7 +272,7 @@ class RekapOutboundController extends Controller
 
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['id', 'date', 'quantity', 'product_id', 'lot_id', 'owner_id', 'picking_id', 'product_uom_id'],
+            ['id', 'date', 'quantity', 'ns_actual_weight', 'product_id', 'lot_id', 'owner_id', 'picking_id', 'product_uom_id'],
             null,
             $domain,
         );
@@ -346,11 +350,39 @@ class RekapOutboundController extends Controller
                 'kd_barang' => $productInfo['default_code'] ?? null,
                 'nm_barang' => $productInfo['name'] ?? null,
                 'qty' => (float) ($line['quantity'] ?? 0),
+                'qty_kg' => (float) ($line['ns_actual_weight'] ?? 0),
                 'uom' => $uomId !== null ? ($uoms[$uomId] ?? null) : null,
                 'expired_date' => $expired,
                 'lot' => $lotInfo['name'] ?? null,
             ];
         }
+
+        $groupedRows = [];
+        foreach ($rows as $row) {
+            $groupKey = json_encode([
+                $row['tanggal'],
+                $row['kd_customer'],
+                $row['nm_customer'],
+                $row['no_delivery'],
+                $row['source_documents'],
+                $row['no_mobil'],
+                $row['kd_barang'],
+                $row['nm_barang'],
+                $row['uom'],
+                $row['expired_date'],
+                $row['lot'],
+            ]);
+
+            if (! isset($groupedRows[$groupKey])) {
+                $groupedRows[$groupKey] = $row;
+                continue;
+            }
+
+            $groupedRows[$groupKey]['qty'] += $row['qty'];
+            $groupedRows[$groupKey]['qty_kg'] += $row['qty_kg'];
+        }
+
+        $rows = array_values($groupedRows);
 
         usort($rows, function ($a, $b) {
             return strcmp((string) $a['tanggal'], (string) $b['tanggal'])

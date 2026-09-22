@@ -26,13 +26,14 @@
       </div>
 
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <div class="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_id">Customer</label>
+        <div class="grid gap-3">
+          <div class="flex items-center gap-3">
+            <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_id">Customer :</label>
             <SearchableSelect
               id="customer_id"
               v-model="localCustomerId"
               variant="light"
+              class="min-w-0 flex-1"
               :options="customerOptions"
               option-value="customer_id"
               option-label="label"
@@ -44,12 +45,13 @@
             />
           </div>
 
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product</label>
+          <div class="flex items-center gap-3">
+            <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product :</label>
             <SearchableSelect
               id="product_id"
               v-model="localProductId"
               variant="light"
+              class="min-w-0 flex-1"
               :options="availableProducts"
               option-value="product_id"
               option-label="label"
@@ -67,7 +69,7 @@
               class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
               @click="applyFilters"
             >
-              Apply filters
+              Apply filter
             </button>
           </div>
         </div>
@@ -86,6 +88,7 @@
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Source Document</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Expired</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SOH Available</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY SOH (KG)</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY KG</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">UOM</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Lot</th>
@@ -94,7 +97,7 @@
           </thead>
           <tbody>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="13">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="14">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
@@ -113,6 +116,7 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Source Document'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Expired'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['SOH Available']) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['Qty SOH']) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['QTY KG']) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['UOM'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Lot'] || '-' }}</td>
@@ -123,6 +127,7 @@
             <tr class="bg-slate-200 text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="8">TOTAL</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalSoh) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalQtySoh) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalKg) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="3"></td>
             </tr>
@@ -177,6 +182,7 @@ const props = defineProps({
   perPage:             { type: Number,   default: 25 },
   totalRows:           { type: Number,   default: 0 },
   totalSoh:            { type: Number,   default: 0 },
+  totalQtySoh:         { type: Number,   default: 0 },
   totalKg:             { type: Number,   default: 0 },
 });
 
@@ -238,7 +244,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'currentPage', 'perPage', 'totalRows', 'totalSoh', 'totalKg'];
+const ONLY_FILTER = ['rows', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'currentPage', 'perPage', 'totalRows', 'totalSoh', 'totalQtySoh', 'totalKg'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;

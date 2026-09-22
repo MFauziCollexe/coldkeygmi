@@ -44,6 +44,10 @@ class StockCardController extends Controller
         $totalIn = 0.0;
         $totalOut = 0.0;
         $finalSaldo = 0.0;
+        $openingBalanceKg = 0.0;
+        $totalInKg = 0.0;
+        $totalOutKg = 0.0;
+        $finalSaldoKg = 0.0;
 
         if ($selectedProductId !== null) {
             $odoo = new OdooXmlRpcService;
@@ -52,9 +56,13 @@ class StockCardController extends Controller
 
             $allRows = $computed['allRows'];
             $openingBalance = $computed['openingBalance'];
+            $openingBalanceKg = $computed['openingBalanceKg'];
             $totalIn = $computed['totalIn'];
             $totalOut = $computed['totalOut'];
             $finalSaldo = $computed['finalSaldo'];
+            $totalInKg = $computed['totalInKg'];
+            $totalOutKg = $computed['totalOutKg'];
+            $finalSaldoKg = $computed['finalSaldoKg'];
             $totalRows = count($allRows);
 
             $offset = ($page - 1) * $perPage;
@@ -68,6 +76,9 @@ class StockCardController extends Controller
                 'qty_in' => $row['qty_in'] !== null ? (float) $row['qty_in'] : null,
                 'qty_out' => $row['qty_out'] !== null ? (float) $row['qty_out'] : null,
                 'saldo' => (float) $row['saldo'],
+                'qty_in_kg' => $row['qty_in_kg'] !== null ? (float) $row['qty_in_kg'] : null,
+                'qty_out_kg' => $row['qty_out_kg'] !== null ? (float) $row['qty_out_kg'] : null,
+                'saldo_kg' => (float) $row['saldo_kg'],
             ], $pageRows);
         }
 
@@ -82,12 +93,16 @@ class StockCardController extends Controller
             'customerName' => $customerName,
             'productName' => $productName,
             'openingBalance' => $openingBalance,
+            'openingBalanceKg' => $openingBalanceKg,
             'currentPage' => $page,
             'perPage' => $perPage,
             'totalRows' => $totalRows,
             'totalIn' => $totalIn,
             'totalOut' => $totalOut,
             'finalSaldo' => $finalSaldo,
+            'totalInKg' => $totalInKg,
+            'totalOutKg' => $totalOutKg,
+            'finalSaldoKg' => $finalSaldoKg,
         ]);
     }
 
@@ -104,7 +119,7 @@ class StockCardController extends Controller
             ? self::OPENING_BALANCE_START_DATE
             : null;
 
-        $headers = ['TANGGAL', 'TRANSAKSI', 'SOURCE DOCUMENTS', 'EXPIRED', 'QTY IN', 'QTY OUT', 'SALDO'];
+        $headers = ['TANGGAL', 'TRANSAKSI', 'SOURCE DOCUMENTS', 'EXPIRED', 'QTY IN', 'QTY OUT', 'SALDO', 'QTY IN KG', 'QTY OUT KG', 'SALDO KG'];
         $data = [];
 
         if ($selectedProductId !== null) {
@@ -112,7 +127,7 @@ class StockCardController extends Controller
 
             $computed = $this->computeAllRows($odoo, (int) $selectedProductId, $openingStartDate, $startDate, $endDate);
 
-            $data[] = [$startDate, 'Saldo Awal', '-', '-', '', '', (float) $computed['openingBalance']];
+            $data[] = [$startDate, 'Saldo Awal', '-', '-', '', '', '', '', (float) $computed['openingBalance'], (float) $computed['openingBalanceKg']];
 
             foreach ($computed['allRows'] as $row) {
                 $data[] = [
@@ -123,6 +138,9 @@ class StockCardController extends Controller
                     $row['qty_in'] !== null ? (float) $row['qty_in'] : '',
                     $row['qty_out'] !== null ? (float) $row['qty_out'] : '',
                     (float) $row['saldo'],
+                    $row['qty_in_kg'] !== null ? (float) $row['qty_in_kg'] : '',
+                    $row['qty_out_kg'] !== null ? (float) $row['qty_out_kg'] : '',
+                    (float) $row['saldo_kg'],
                 ];
             }
         }
@@ -192,7 +210,7 @@ class StockCardController extends Controller
     }
 
     /**
-     * @return array{allRows: array<int, array<string, mixed>>, openingBalance: float, totalIn: float, totalOut: float, finalSaldo: float}
+    * @return array{allRows: array<int, array<string, mixed>>, openingBalance: float, openingBalanceKg: float, totalIn: float, totalOut: float, finalSaldo: float, totalInKg: float, totalOutKg: float, finalSaldoKg: float}
      */
     private function computeAllRows(OdooXmlRpcService $odoo, int $selectedProductId, ?string $openingStartDate, string $startDate, string $endDate): array
     {
@@ -200,42 +218,59 @@ class StockCardController extends Controller
         $totalIn = 0.0;
         $totalOut = 0.0;
         $finalSaldo = 0.0;
+        $openingBalanceKg = 0.0;
+        $totalInKg = 0.0;
+        $totalOutKg = 0.0;
+        $finalSaldoKg = 0.0;
         $allRows = [];
 
         $variantIds = $this->productVariantIds($odoo, $selectedProductId);
 
         if ($variantIds !== []) {
-            $openingBalance = $this->fetchOpeningBalance($odoo, $variantIds, $openingStartDate, $startDate);
+            $opening = $this->fetchOpeningBalance($odoo, $variantIds, $openingStartDate, $startDate);
+            $openingBalance = $opening['quantity'];
+            $openingBalanceKg = $opening['weight'];
 
             $groups = $this->fetchTransactionGroups($odoo, $variantIds, $startDate, $endDate);
             if ($startDate < self::OPENING_BALANCE_START_DATE) {
                 $neurusoftGroup = $this->fetchNeurusoftOpeningGroup($odoo, $variantIds, $endDate);
                 if ($neurusoftGroup !== null) {
                     $openingBalance += $neurusoftGroup['balance_delta'];
+                    $openingBalanceKg += $neurusoftGroup['balance_delta_kg'];
                 }
             }
             $groups = $this->sortGroups($groups);
 
             $running = $openingBalance;
+            $runningKg = $openingBalanceKg;
             foreach ($groups as $group) {
                 $running += $group['balance_delta'] ?? ($group['qty_in'] - $group['qty_out']);
+                $runningKg += $group['balance_delta_kg'] ?? ($group['qty_in_kg'] - $group['qty_out_kg']);
                 $group['saldo'] = $running;
+                $group['saldo_kg'] = $runningKg;
                 $allRows[] = $group;
             }
 
             foreach ($allRows as $allRow) {
                 $totalIn += (float) ($allRow['qty_in'] ?? 0);
                 $totalOut += (float) ($allRow['qty_out'] ?? 0);
+                $totalInKg += (float) ($allRow['qty_in_kg'] ?? 0);
+                $totalOutKg += (float) ($allRow['qty_out_kg'] ?? 0);
             }
             $finalSaldo = $running;
+            $finalSaldoKg = $runningKg;
         }
 
         return [
             'allRows' => $allRows,
             'openingBalance' => $openingBalance,
+            'openingBalanceKg' => $openingBalanceKg,
             'totalIn' => $totalIn,
             'totalOut' => $totalOut,
             'finalSaldo' => $finalSaldo,
+            'totalInKg' => $totalInKg,
+            'totalOutKg' => $totalOutKg,
+            'finalSaldoKg' => $finalSaldoKg,
         ];
     }
 
@@ -319,7 +354,7 @@ class StockCardController extends Controller
         array $variantIds,
         ?string $openingStartDate,
         string $startDate,
-    ): float {
+    ): array {
         $domain = [
             ['state', '=', 'done'],
             ['product_id', 'in', $variantIds],
@@ -332,7 +367,7 @@ class StockCardController extends Controller
 
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['quantity', 'picking_type_id', 'location_id', 'location_dest_id'],
+            ['quantity', 'ns_actual_weight', 'picking_type_id', 'location_id', 'location_dest_id'],
             null,
             $domain,
         );
@@ -340,18 +375,21 @@ class StockCardController extends Controller
         $locationUsages = $this->fetchLocationUsages($odoo, $lines);
 
         $balance = 0.0;
+        $weightBalance = 0.0;
 
         foreach ($lines as $line) {
             $direction = $this->movementDirection($line, $locationUsages);
 
             if ($direction === 'in') {
                 $balance += (float) $line['quantity'];
+                $weightBalance += (float) ($line['ns_actual_weight'] ?? 0);
             } elseif ($direction === 'out') {
                 $balance -= (float) $line['quantity'];
+                $weightBalance -= (float) ($line['ns_actual_weight'] ?? 0);
             }
         }
 
-        return $balance;
+        return ['quantity' => $balance, 'weight' => $weightBalance];
     }
 
     /**
@@ -374,6 +412,7 @@ class StockCardController extends Controller
 
         $locationUsages = $this->fetchLocationUsages($odoo, $lines);
         $balanceDelta = 0.0;
+        $balanceDeltaKg = 0.0;
         $found = false;
 
         foreach ($lines as $line) {
@@ -388,11 +427,14 @@ class StockCardController extends Controller
             $found = true;
             $direction = $this->movementDirection($line, $locationUsages);
             $quantity = (float) $line['quantity'];
+            $weight = (float) ($line['ns_actual_weight'] ?? 0);
 
             if ($direction === 'in') {
                 $balanceDelta += $quantity;
+                $balanceDeltaKg += $weight;
             } elseif ($direction === 'out') {
                 $balanceDelta -= $quantity;
+                $balanceDeltaKg -= $weight;
             }
         }
 
@@ -408,6 +450,7 @@ class StockCardController extends Controller
             'qty_in' => null,
             'qty_out' => null,
             'balance_delta' => $balanceDelta,
+            'balance_delta_kg' => $balanceDeltaKg,
         ];
     }
 
@@ -426,7 +469,7 @@ class StockCardController extends Controller
     {
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['date', 'quantity', 'lot_id', 'reference', 'picking_type_id', 'picking_id', 'location_id', 'location_dest_id'],
+            ['date', 'quantity', 'ns_actual_weight', 'lot_id', 'reference', 'picking_type_id', 'picking_id', 'location_id', 'location_dest_id'],
             null,
             [
                 ['state', '=', 'done'],
@@ -506,15 +549,20 @@ class StockCardController extends Controller
                     'source_document' => $source,
                     'qty_in' => 0.0,
                     'qty_out' => 0.0,
+                    'qty_in_kg' => 0.0,
+                    'qty_out_kg' => 0.0,
                 ];
             }
 
+            $actualWeight = (float) ($line['ns_actual_weight'] ?? 0);
             if ($inbound) {
                 $groups[$key]['qty_in'] += (float) $line['quantity'];
+                $groups[$key]['qty_in_kg'] += $actualWeight;
             }
 
             if ($outbound) {
                 $groups[$key]['qty_out'] += (float) $line['quantity'];
+                $groups[$key]['qty_out_kg'] += $actualWeight;
             }
         }
 

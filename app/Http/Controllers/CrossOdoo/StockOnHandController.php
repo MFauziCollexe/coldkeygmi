@@ -37,6 +37,7 @@ class StockOnHandController extends Controller
         $rows = [];
         $totalRows = 0;
         $totalSoh = 0.0;
+        $totalQtySoh = 0.0;
         $totalKg = 0.0;
 
         if ($selectedProductId !== null) {
@@ -47,6 +48,7 @@ class StockOnHandController extends Controller
             $totalRows = count($grouped);
             foreach ($grouped as $groupedRow) {
                 $totalSoh += (float) $groupedRow['SOH Available'];
+                $totalQtySoh += (float) $groupedRow['Qty SOH'];
                 $totalKg += (float) $groupedRow['QTY KG'];
             }
             $page = min($page, max(1, (int) ceil($totalRows / $perPage)));
@@ -66,6 +68,7 @@ class StockOnHandController extends Controller
             'perPage' => $perPage,
             'totalRows' => $totalRows,
             'totalSoh' => $totalSoh,
+            'totalQtySoh' => $totalQtySoh,
             'totalKg' => $totalKg,
         ]);
     }
@@ -91,6 +94,7 @@ class StockOnHandController extends Controller
             'Source Document',
             'Expired',
             'SOH Available',
+            'Qty SOH (KG)',
             'QTY KG',
             'UOM',
             'Lot',
@@ -114,6 +118,7 @@ class StockOnHandController extends Controller
                     $row['Source Document'],
                     $row['Expired'],
                     (float) $row['SOH Available'],
+                    (float) $row['Qty SOH'],
                     (float) $row['QTY KG'],
                     $row['UOM'],
                     $row['Lot'],
@@ -365,7 +370,7 @@ class StockOnHandController extends Controller
     {
         return $odoo->searchRead(
             'stock.quant',
-            ['id', 'product_id', 'lot_id', 'location_id', 'package_id', 'quantity', 'owner_id', 'ns_plate_number'],
+            ['id', 'product_id', 'lot_id', 'location_id', 'package_id', 'quantity', 'ns_weight', 'owner_id', 'ns_plate_number'],
             null,
             [
                 ['location_id.usage', 'in', ['internal', 'transit']],
@@ -814,6 +819,7 @@ class StockOnHandController extends Controller
                     'Source Document' => $history['sourceDocs'][$lotKey] ?? null,
                     'Expired' => $expired,
                     'SOH Available' => 0.0,
+                    'Qty SOH' => 0.0,
                     'QTY KG' => 0.0,
                     'UOM' => $template['uom'],
                     'Lot' => $lotName,
@@ -822,6 +828,7 @@ class StockOnHandController extends Controller
             }
 
             $groups[$groupKey]['SOH Available'] += $adjusted;
+            $groups[$groupKey]['Qty SOH'] += (float) ($quant['ns_weight'] ?? 0.0);
             $groups[$groupKey]['QTY KG'] += $adjusted * (float) $template['weight'];
         }
 

@@ -26,13 +26,14 @@
       </div>
 
       <div class="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
-        <div class="grid gap-3 sm:grid-cols-5">
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_id">Customer</label>
+        <div class="grid gap-3">
+          <div class="flex items-center gap-3">
+            <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="customer_id">Customer :</label>
             <SearchableSelect
               id="customer_id"
               v-model="localCustomerId"
               variant="light"
+              class="min-w-0 flex-1"
               :options="customerOptions"
               option-value="customer_id"
               option-label="label"
@@ -44,12 +45,13 @@
             />
           </div>
 
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product</label>
+          <div class="flex items-center gap-3">
+            <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product :</label>
             <SearchableSelect
               id="product_id"
               v-model="localProductId"
               variant="light"
+              class="min-w-0 flex-1"
               :options="availableProducts"
               option-value="product_id"
               option-label="label"
@@ -61,34 +63,35 @@
             />
           </div>
 
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="start_date">Start Date</label>
+          <div class="flex gap-3">
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+            <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="start_date">Start Date :</label>
             <input
               id="start_date"
               type="date"
-              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              class="min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               v-model="startDateInput"
             />
-          </div>
+            </div>
 
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600" for="end_date">End Date</label>
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+            <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="end_date">End Date :</label>
             <input
               id="end_date"
               type="date"
-              class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              class="min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               v-model="endDateInput"
             />
-          </div>
-
-          <div class="flex items-end">
+            </div>
+            <div class="flex w-36 shrink-0 items-end">
             <button
               type="button"
               class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
               @click="applyFilters"
             >
-              Apply filters
+              Apply filter
             </button>
+            </div>
           </div>
         </div>
       </div>
@@ -104,6 +107,9 @@
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY IN</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY OUT</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SALDO</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY IN KG</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY OUT KG</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SALDO KG</th>
             </tr>
           </thead>
           <tbody>
@@ -115,9 +121,12 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(openingBalance) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(openingBalanceKg) }}</td>
             </tr>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="7">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="10">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
@@ -134,6 +143,9 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_out) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.saldo) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in_kg) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_out_kg) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.saldo_kg) }}</td>
             </tr>
           </tbody>
           <tfoot>
@@ -142,6 +154,9 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalOut) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(finalSaldo) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalInKg) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalOutKg) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(finalSaldoKg) }}</td>
             </tr>
           </tfoot>
         </table>
@@ -193,12 +208,16 @@ const props = defineProps({
   customerName:      { type: String,   default: 'Customer' },
   productName:       { type: String,   default: 'Product' },
   openingBalance:    { type: Number,   default: 0 },
+  openingBalanceKg:  { type: Number,   default: 0 },
   currentPage:       { type: Number,   default: 1 },
   perPage:           { type: Number,   default: 25 },
   totalRows:         { type: Number,   default: 0 },
   totalIn:           { type: Number,   default: 0 },
   totalOut:          { type: Number,   default: 0 },
   finalSaldo:        { type: Number,   default: 0 },
+  totalInKg:         { type: Number,   default: 0 },
+  totalOutKg:        { type: Number,   default: 0 },
+  finalSaldoKg:      { type: Number,   default: 0 },
 });
 
 const allRows       = computed(() => props.rows || []);
@@ -294,7 +313,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','startDate','endDate','customerName','productName','openingBalance','currentPage','perPage','totalRows','totalIn','totalOut','finalSaldo'];
+const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','startDate','endDate','customerName','productName','openingBalance','openingBalanceKg','currentPage','perPage','totalRows','totalIn','totalInKg','totalOut','totalOutKg','finalSaldo','finalSaldoKg'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;
