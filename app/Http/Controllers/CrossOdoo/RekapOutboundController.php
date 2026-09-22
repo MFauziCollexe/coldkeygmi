@@ -14,6 +14,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RekapOutboundController extends Controller
 {
+    private const IN_PATTERNS = ['RECEIPTS', 'REPACK INBOUND', 'ADJUSTMENT INBOUND', 'CREDIT NOTE'];
+
+    private const OUT_PATTERNS = ['DELIVERY ORDERS', 'RETURN RECEIPTS', 'REPACK OUTBOUND', 'ADJUSTMENT OUTBOUND'];
+
     public function index(Request $request): Response
     {
         [$customers, $products] = $this->fetchCustomersAndProducts();
@@ -262,17 +266,11 @@ class RekapOutboundController extends Controller
             ['product_id', 'in', $variantIds],
             ['date', '>=', $startDate.' 00:00:00'],
             ['date', '<=', $endDate.' 23:59:59'],
-            ['picking_id', '!=', false],
-            ['picking_id.picking_type_id.code', '=', 'outgoing'],
         ];
-
-        if ($customerId !== null) {
-            $domain[] = ['owner_id', '=', $customerId];
-        }
 
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['id', 'date', 'quantity', 'ns_actual_weight', 'product_id', 'lot_id', 'owner_id', 'picking_id', 'product_uom_id'],
+            ['id', 'date', 'quantity', 'ns_actual_weight', 'product_id', 'lot_id', 'owner_id', 'picking_id', 'product_uom_id', 'reference', 'picking_type_id', 'location_id', 'location_dest_id'],
             null,
             $domain,
         );
@@ -280,6 +278,8 @@ class RekapOutboundController extends Controller
         if ($lines === []) {
             return [];
         }
+
+        $locationUsages = $this->fetchLocationUsages($odoo, $lines);
 
         $pickingIds = [];
         $lotIds = [];
@@ -315,6 +315,32 @@ class RekapOutboundController extends Controller
         $rows = [];
 
         foreach ($lines as $line) {
+            $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
+            $reference = ($line['reference'] ?? false) !== false
+                ? strtoupper((string) $line['reference'])
+                : '';
+            $isAdjustment = ($label !== null && str_contains($label, 'ADJUSTMENT'))
+                || str_contains($reference, 'ADJS')
+                || str_contains($reference, 'ADJUSTMENT');
+
+            if (str_contains($reference, 'PRODUCT QUANTITY CONFIRMED')) {
+                continue;
+            }
+
+            if ($this->isWeightAdjustmentMovement($reference)) {
+                continue;
+            }
+
+            $direction = $this->movementDirection($line, $locationUsages);
+
+            if ($isAdjustment || $this->isNeurusoftOpeningMovement($reference)) {
+                continue;
+            }
+
+            if ($direction !== 'out') {
+                continue;
+            }
+
             $picking = $line['picking_id'] ?? false;
             $pickingId = is_array($picking) ? (int) $picking[0] : null;
             $pickingInfo = $pickingId !== null ? ($pickings[$pickingId] ?? null) : null;
@@ -350,7 +376,7 @@ class RekapOutboundController extends Controller
                 'kd_barang' => $productInfo['default_code'] ?? null,
                 'nm_barang' => $productInfo['name'] ?? null,
                 'qty' => (float) ($line['quantity'] ?? 0),
-                'qty_kg' => (float) ($line['ns_actual_weight'] ?? 0),
+                'qty_kg' => abs((float) ($line['ns_actual_weight'] ?? 0)),
                 'uom' => $uomId !== null ? ($uoms[$uomId] ?? null) : null,
                 'expired_date' => $expired,
                 'lot' => $lotInfo['name'] ?? null,
@@ -368,7 +394,6 @@ class RekapOutboundController extends Controller
                 $row['no_mobil'],
                 $row['kd_barang'],
                 $row['nm_barang'],
-                $row['uom'],
                 $row['expired_date'],
                 $row['lot'],
             ]);
@@ -565,5 +590,132 @@ class RekapOutboundController extends Controller
         }
 
         return $map;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $lines
+     * @return array<int, string>
+     */
+    private function fetchLocationUsages(OdooXmlRpcService $odoo, array $lines): array
+    {
+        $locationIds = [];
+
+        foreach ($lines as $line) {
+            foreach (['location_id', 'location_dest_id'] as $field) {
+                $location = $line[$field] ?? false;
+
+                if (is_array($location) && isset($location[0])) {
+                    $locationIds[(int) $location[0]] = true;
+                }
+            }
+        }
+
+        if ($locationIds === []) {
+            return [];
+        }
+
+        $locations = $odoo->searchRead(
+            'stock.location',
+            ['id', 'usage'],
+            null,
+            [['id', 'in', array_keys($locationIds)]],
+        );
+
+        $usages = [];
+        foreach ($locations as $location) {
+            $usages[(int) $location['id']] = (string) ($location['usage'] ?? '');
+        }
+
+        return $usages;
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     * @param  array<int, string>  $locationUsages
+     */
+    private function movementDirection(array $line, array $locationUsages): ?string
+    {
+        $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
+
+        if ($label !== null && $this->isInboundLabel($label)) {
+            return 'in';
+        }
+
+        if ($label !== null && $this->isOutboundLabel($label)) {
+            return 'out';
+        }
+
+        $source = $line['location_id'] ?? false;
+        $destination = $line['location_dest_id'] ?? false;
+        $sourceUsage = is_array($source) ? ($locationUsages[(int) ($source[0] ?? 0)] ?? null) : null;
+        $destinationUsage = is_array($destination) ? ($locationUsages[(int) ($destination[0] ?? 0)] ?? null) : null;
+
+        if ($sourceUsage !== null && $destinationUsage !== null) {
+            if ($sourceUsage !== 'internal' && $destinationUsage === 'internal') {
+                return 'in';
+            }
+
+            if ($sourceUsage === 'internal' && $destinationUsage !== 'internal') {
+                return 'out';
+            }
+
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  mixed  $pickingType  Hasil many2one Odoo: [id, name] atau false.
+     */
+    private function pickingTypeLabel($pickingType): ?string
+    {
+        if (! is_array($pickingType) || ! isset($pickingType[1])) {
+            return null;
+        }
+
+        $name = trim((string) $pickingType[1]);
+        $colon = strrpos($name, ':');
+
+        if ($colon !== false) {
+            $name = trim(substr($name, $colon + 1));
+        }
+
+        return strtoupper($name);
+    }
+
+    private function isInboundLabel(string $label): bool
+    {
+        foreach (self::IN_PATTERNS as $pattern) {
+            if (str_contains($label, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isOutboundLabel(string $label): bool
+    {
+        foreach (self::OUT_PATTERNS as $pattern) {
+            if (str_contains($label, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isNeurusoftOpeningMovement(string $reference): bool
+    {
+        return str_contains($reference, 'PRODUCT QUANTITY UPDATED')
+            || str_contains($reference, 'UPDATE QTY KILOGRAM')
+            || str_contains($reference, 'UPDATE KILOGRAM STOK AWAL');
+    }
+
+    private function isWeightAdjustmentMovement(string $reference): bool
+    {
+        return str_contains($reference, 'UPDATE KILOGRAM NON STANDARD')
+            || str_contains($reference, 'ADJUST WEIGHT KILOGRAM STANDARD');
     }
 }
