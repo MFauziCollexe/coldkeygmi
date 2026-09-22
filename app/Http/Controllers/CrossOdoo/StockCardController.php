@@ -52,7 +52,7 @@ class StockCardController extends Controller
         if ($selectedProductId !== null) {
             $odoo = new OdooXmlRpcService;
 
-            $computed = $this->computeAllRows($odoo, (int) $selectedProductId, $openingStartDate, $startDate, $endDate);
+            $computed = $this->computeAllRows($odoo, (int) $selectedProductId, (int) $selectedCustomerId, $openingStartDate, $startDate, $endDate);
 
             $allRows = $computed['allRows'];
             $openingBalance = $computed['openingBalance'];
@@ -70,9 +70,10 @@ class StockCardController extends Controller
 
             $formattedRows = array_map(fn ($row) => [
                 'transaction_date' => $row['date'],
+                'operation_type' => $row['operation_type'],
                 'trans' => $row['trans'],
                 'source_document' => $row['source_document'],
-                'expired' => $row['expired'],
+                'nopol' => $row['nopol'],
                 'qty_in' => $row['qty_in'] !== null ? (float) $row['qty_in'] : null,
                 'qty_out' => $row['qty_out'] !== null ? (float) $row['qty_out'] : null,
                 'saldo' => (float) $row['saldo'],
@@ -112,6 +113,7 @@ class StockCardController extends Controller
 
         $selection = $this->resolveSelection($request, $customers, $products);
         $selectedProductId = $selection['selectedProductId'];
+        $selectedCustomerId = $selection['selectedCustomerId'];
 
         $endDate = $request->input('end_date') ?: now()->toDateString();
         $startDate = $request->input('start_date') ?: Carbon::parse($endDate)->subMonth()->toDateString();
@@ -119,22 +121,23 @@ class StockCardController extends Controller
             ? self::OPENING_BALANCE_START_DATE
             : null;
 
-        $headers = ['TANGGAL', 'TRANSAKSI', 'SOURCE DOCUMENTS', 'EXPIRED', 'QTY IN', 'QTY OUT', 'SALDO', 'QTY IN KG', 'QTY OUT KG', 'SALDO KG'];
+        $headers = ['TANGGAL', 'OPERATION TYPE', 'TRANSAKSI', 'SOURCE DOCUMENTS', 'NOPOL', 'QTY IN', 'QTY OUT', 'SALDO', 'QTY IN KG', 'QTY OUT KG', 'SALDO KG'];
         $data = [];
 
         if ($selectedProductId !== null) {
             $odoo = new OdooXmlRpcService;
 
-            $computed = $this->computeAllRows($odoo, (int) $selectedProductId, $openingStartDate, $startDate, $endDate);
+            $computed = $this->computeAllRows($odoo, (int) $selectedProductId, (int) $selectedCustomerId, $openingStartDate, $startDate, $endDate);
 
-            $data[] = [$startDate, 'Saldo Awal', '-', '-', '', '', '', '', (float) $computed['openingBalance'], (float) $computed['openingBalanceKg']];
+            $data[] = [$startDate, '-', 'Saldo Awal', '-', '-', '', '', '', '', (float) $computed['openingBalance'], (float) $computed['openingBalanceKg']];
 
             foreach ($computed['allRows'] as $row) {
                 $data[] = [
                     $row['date'],
+                    $row['operation_type'],
                     $row['trans'],
                     $row['source_document'],
-                    $row['expired'],
+                    $row['nopol'],
                     $row['qty_in'] !== null ? (float) $row['qty_in'] : '',
                     $row['qty_out'] !== null ? (float) $row['qty_out'] : '',
                     (float) $row['saldo'],
@@ -212,7 +215,7 @@ class StockCardController extends Controller
     /**
     * @return array{allRows: array<int, array<string, mixed>>, openingBalance: float, openingBalanceKg: float, totalIn: float, totalOut: float, finalSaldo: float, totalInKg: float, totalOutKg: float, finalSaldoKg: float}
      */
-    private function computeAllRows(OdooXmlRpcService $odoo, int $selectedProductId, ?string $openingStartDate, string $startDate, string $endDate): array
+    private function computeAllRows(OdooXmlRpcService $odoo, int $selectedProductId, int $customerId, ?string $openingStartDate, string $startDate, string $endDate): array
     {
         $openingBalance = 0.0;
         $totalIn = 0.0;
@@ -227,42 +230,38 @@ class StockCardController extends Controller
         $variantIds = $this->productVariantIds($odoo, $selectedProductId);
 
         if ($variantIds !== []) {
-            $productWeights = $this->fetchProductWeights($odoo, $variantIds);
-            $productWeight = (float) reset($productWeights);
             $opening = $this->fetchOpeningBalance($odoo, $variantIds, $openingStartDate, $startDate);
             $openingBalance = $opening['quantity'];
-            $openingBalanceKg = $productWeight > 0
-                ? $openingBalance * $productWeight
-                : $opening['weight'];
 
             $groups = $this->fetchTransactionGroups($odoo, $variantIds, $startDate, $endDate);
             if ($startDate < self::OPENING_BALANCE_START_DATE) {
                 $neurusoftGroup = $this->fetchNeurusoftOpeningGroup($odoo, $variantIds, $endDate);
                 if ($neurusoftGroup !== null) {
                     $openingBalance += $neurusoftGroup['balance_delta'];
-                    $openingBalanceKg += $neurusoftGroup['balance_delta_kg'];
                 }
             }
             $groups = $this->sortGroups($groups);
+
+            foreach ($groups as $group) {
+                $totalIn += (float) ($group['qty_in'] ?? 0);
+                $totalOut += (float) ($group['qty_out'] ?? 0);
+                $totalInKg += (float) ($group['qty_in_kg'] ?? 0);
+                $totalOutKg += (float) ($group['qty_out_kg'] ?? 0);
+            }
+
+            $sohWeightKg = $this->fetchSohWeightKg($odoo, $variantIds, $customerId);
+            $openingBalanceKg = $sohWeightKg - ($totalInKg - $totalOutKg);
 
             $running = $openingBalance;
             $runningKg = $openingBalanceKg;
             foreach ($groups as $group) {
                 $running += $group['balance_delta'] ?? ($group['qty_in'] - $group['qty_out']);
-                $runningKg = $productWeight > 0
-                    ? $running * $productWeight
-                    : $runningKg + ($group['balance_delta_kg'] ?? ($group['qty_in_kg'] - $group['qty_out_kg']));
+                $runningKg += $group['balance_delta_kg'] ?? ($group['qty_in_kg'] - $group['qty_out_kg']);
                 $group['saldo'] = $running;
                 $group['saldo_kg'] = $runningKg;
                 $allRows[] = $group;
             }
 
-            foreach ($allRows as $allRow) {
-                $totalIn += (float) ($allRow['qty_in'] ?? 0);
-                $totalOut += (float) ($allRow['qty_out'] ?? 0);
-                $totalInKg += (float) ($allRow['qty_in_kg'] ?? 0);
-                $totalOutKg += (float) ($allRow['qty_out_kg'] ?? 0);
-            }
             $finalSaldo = $running;
             $finalSaldoKg = $runningKg;
         }
@@ -421,6 +420,36 @@ class StockCardController extends Controller
     }
 
     /**
+     * Bobot on-hand (KG) dari stock.quant (field ns_weight), logika sama
+     * dengan kolom QTY SOH (KG) pada modul SOH.
+     *
+     * @param  array<int, int>  $variantIds
+     */
+    private function fetchSohWeightKg(OdooXmlRpcService $odoo, array $variantIds, int $customerId): float
+    {
+        $quants = $odoo->searchRead(
+            'stock.quant',
+            ['ns_weight'],
+            null,
+            [
+                ['location_id.usage', 'in', ['internal', 'transit']],
+                ['quantity', '>', 0],
+                ['product_id', 'in', $variantIds],
+                '|',
+                ['owner_id', '=', false],
+                ['owner_id', '=', $customerId],
+            ],
+        );
+
+        $total = 0.0;
+        foreach ($quants as $quant) {
+            $total += (float) ($quant['ns_weight'] ?? 0.0);
+        }
+
+        return $total;
+    }
+
+    /**
      * @param  array<string, mixed>  $line
      * @param  array<int, float>  $productWeights
      */
@@ -550,7 +579,7 @@ class StockCardController extends Controller
         }
 
         $expirations = $this->fetchLotExpirations($odoo, array_keys($lotIds));
-        $origins = $this->fetchPickingOrigins($odoo, array_keys($pickingIds));
+        $pickingInfos = $this->fetchPickingInfos($odoo, array_keys($pickingIds));
 
         $groups = [];
         foreach ($lines as $line) {
@@ -591,22 +620,30 @@ class StockCardController extends Controller
 
             $picking = $line['picking_id'] ?? false;
             $pickingId = is_array($picking) ? (int) $picking[0] : null;
-            $source = $pickingId !== null ? ($origins[$pickingId] ?? null) : null;
+            $pickingInfo = $pickingId !== null ? ($pickingInfos[$pickingId] ?? null) : null;
+            $source = $pickingInfo !== null ? $pickingInfo['origin'] : null;
+            $plate = $pickingInfo !== null ? $pickingInfo['plate'] : null;
 
             $key = $date.'|'.($trans ?? '').'|'.($expiredRaw ?? '').'|'.($source ?? '');
 
             if (! isset($groups[$key])) {
                 $groups[$key] = [
                     'date' => $date,
+                    'operation_type' => $label,
                     'trans' => $trans,
                     'expired' => $expired,
                     'expired_raw' => $expiredRaw,
                     'source_document' => $source,
+                    'nopol' => null,
                     'qty_in' => 0.0,
                     'qty_out' => 0.0,
                     'qty_in_kg' => 0.0,
                     'qty_out_kg' => 0.0,
                 ];
+            }
+
+            if ($groups[$key]['nopol'] === null && $plate !== null && $plate !== '') {
+                $groups[$key]['nopol'] = $plate;
             }
 
             $actualWeight = abs((float) ($line['ns_actual_weight'] ?? 0));
@@ -729,9 +766,9 @@ class StockCardController extends Controller
 
     /**
      * @param  array<int, int>  $pickingIds
-     * @return array<int, string|null>
+     * @return array<int, array{origin: string|null, plate: string|null}>
      */
-    private function fetchPickingOrigins(OdooXmlRpcService $odoo, array $pickingIds): array
+    private function fetchPickingInfos(OdooXmlRpcService $odoo, array $pickingIds): array
     {
         if ($pickingIds === []) {
             return [];
@@ -739,7 +776,7 @@ class StockCardController extends Controller
 
         $pickings = $odoo->searchRead(
             'stock.picking',
-            ['id', 'origin'],
+            ['id', 'origin', 'x_studio_no_kendaraan'],
             null,
             [['id', 'in', $pickingIds]],
         );
@@ -748,10 +785,16 @@ class StockCardController extends Controller
 
         foreach ($pickings as $picking) {
             $origin = $picking['origin'] ?? false;
+            $plate = $picking['x_studio_no_kendaraan'] ?? false;
 
-            $map[(int) $picking['id']] = ($origin !== false && $origin !== null && $origin !== '')
-                ? (string) $origin
-                : null;
+            $map[(int) $picking['id']] = [
+                'origin' => ($origin !== false && $origin !== null && $origin !== '')
+                    ? (string) $origin
+                    : null,
+                'plate' => ($plate !== false && $plate !== null && $plate !== '')
+                    ? (string) $plate
+                    : null,
+            ];
         }
 
         return $map;
@@ -798,7 +841,14 @@ class StockCardController extends Controller
             return null;
         }
 
-        return strtoupper((string) $pickingType[1]);
+        $name = trim((string) $pickingType[1]);
+        $colon = strrpos($name, ':');
+
+        if ($colon !== false) {
+            $name = trim(substr($name, $colon + 1));
+        }
+
+        return strtoupper($name);
     }
 
     private function isInboundLabel(string $label): bool

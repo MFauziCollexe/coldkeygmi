@@ -106,9 +106,10 @@
           <thead>
             <tr class="bg-sky-100 text-slate-900">
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TANGGAL</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">OPERATION TYPE</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">TRANSAKSI</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">SOURCE DOCUMENTS</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">EXPIRED</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">NOPOL</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY IN</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY OUT</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">SALDO</th>
@@ -123,6 +124,7 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">Saldo Awal</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">-</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">-</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(openingBalance) }}</td>
@@ -131,7 +133,7 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(openingBalanceKg) }}</td>
             </tr>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="10">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="11">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
@@ -142,9 +144,10 @@
               class="hover:bg-blue-50"
             >
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.operation_type || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.trans || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.source_document || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expired) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nopol || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_in) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_out) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.saldo) }}</td>
@@ -155,7 +158,7 @@
           </tbody>
           <tfoot>
             <tr class="bg-slate-200 text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="4">TOTAL</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="5">TOTAL</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalOut) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(finalSaldo) }}</td>
