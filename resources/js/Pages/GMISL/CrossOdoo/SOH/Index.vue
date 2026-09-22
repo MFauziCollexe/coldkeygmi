@@ -33,7 +33,8 @@
               id="customer_id"
               v-model="localCustomerId"
               variant="light"
-              class="min-w-0 flex-1"
+              class="min-w-0 w-full sm:w-72"
+              style="width: calc(70% - 208px)"
               :options="customerOptions"
               option-value="customer_id"
               option-label="label"
@@ -51,7 +52,8 @@
               id="product_id"
               v-model="localProductId"
               variant="light"
-              class="min-w-0 flex-1"
+              class="min-w-0 flex-none"
+              style="width: calc(100% - 280px)"
               :options="availableProducts"
               option-value="product_id"
               option-label="label"
@@ -61,12 +63,9 @@
               button-class="border-l border-slate-300"
               @update:modelValue="onProductChange"
             />
-          </div>
-
-          <div class="flex items-end">
             <button
               type="button"
-              class="inline-flex w-full justify-center rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+              class="inline-flex items-center justify-center rounded bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
               @click="applyFilters"
             >
               Apply filter
@@ -87,10 +86,10 @@
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Preference</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Source Document</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Expired</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Available</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY SOH (KG)</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Stock On Hand</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Qty Reserve</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">On Hand Available</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Stock On Hand Available</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY SOH (KG)</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">UOM</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Lot</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Nopol</th>
@@ -98,7 +97,7 @@
           </thead>
           <tbody>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="14">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="15">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
@@ -117,9 +116,9 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Source Document'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Expired'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['SOH Available']) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['Qty SOH']) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['Qty Reserve']) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['On Hand Available']) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['Qty SOH']) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['UOM'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Lot'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Nopol'] || '-' }}</td>
@@ -128,11 +127,11 @@
           <tfoot>
             <tr class="bg-slate-200 text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="8">TOTAL</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalSoh) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalQtySoh) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalSoh) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalReserve) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalOnHandAvailable) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="2"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalQtySoh) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="3"></td>
             </tr>
           </tfoot>
         </table>
