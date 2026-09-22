@@ -38,7 +38,8 @@ class StockOnHandController extends Controller
         $totalRows = 0;
         $totalSoh = 0.0;
         $totalQtySoh = 0.0;
-        $totalKg = 0.0;
+        $totalReserve = 0.0;
+        $totalQtyAvailable = 0.0;
 
         if ($selectedProductId !== null) {
             $odoo = new OdooXmlRpcService;
@@ -49,7 +50,8 @@ class StockOnHandController extends Controller
             foreach ($grouped as $groupedRow) {
                 $totalSoh += (float) $groupedRow['SOH Available'];
                 $totalQtySoh += (float) $groupedRow['Qty SOH'];
-                $totalKg += (float) $groupedRow['QTY KG'];
+                $totalReserve += (float) $groupedRow['Qty Reserve'];
+                $totalQtyAvailable += (float) $groupedRow['On Hand Available'];
             }
             $page = min($page, max(1, (int) ceil($totalRows / $perPage)));
             $offset = ($page - 1) * $perPage;
@@ -69,7 +71,8 @@ class StockOnHandController extends Controller
             'totalRows' => $totalRows,
             'totalSoh' => $totalSoh,
             'totalQtySoh' => $totalQtySoh,
-            'totalKg' => $totalKg,
+            'totalReserve' => $totalReserve,
+            'totalOnHandAvailable' => $totalQtyAvailable,
         ]);
     }
 
@@ -93,9 +96,10 @@ class StockOnHandController extends Controller
             'Preference',
             'Source Document',
             'Expired',
-            'SOH Available',
+            'Available',
             'Qty SOH (KG)',
-            'QTY KG',
+            'Qty Reserve',
+            'On Hand Available',
             'UOM',
             'Lot',
             'Nopol',
@@ -119,7 +123,8 @@ class StockOnHandController extends Controller
                     $row['Expired'],
                     (float) $row['SOH Available'],
                     (float) $row['Qty SOH'],
-                    (float) $row['QTY KG'],
+                    (float) $row['Qty Reserve'],
+                    (float) $row['On Hand Available'],
                     $row['UOM'],
                     $row['Lot'],
                     $row['Nopol'],
@@ -370,7 +375,7 @@ class StockOnHandController extends Controller
     {
         return $odoo->searchRead(
             'stock.quant',
-            ['id', 'product_id', 'lot_id', 'location_id', 'package_id', 'quantity', 'ns_weight', 'owner_id', 'ns_plate_number'],
+            ['id', 'product_id', 'lot_id', 'location_id', 'package_id', 'quantity', 'reserved_quantity', 'ns_weight', 'owner_id', 'ns_plate_number'],
             null,
             [
                 ['location_id.usage', 'in', ['internal', 'transit']],
@@ -820,7 +825,7 @@ class StockOnHandController extends Controller
                     'Expired' => $expired,
                     'SOH Available' => 0.0,
                     'Qty SOH' => 0.0,
-                    'QTY KG' => 0.0,
+                    'Qty Reserve' => 0.0,
                     'UOM' => $template['uom'],
                     'Lot' => $lotName,
                     'Nopol' => $nopol,
@@ -829,10 +834,16 @@ class StockOnHandController extends Controller
 
             $groups[$groupKey]['SOH Available'] += $adjusted;
             $groups[$groupKey]['Qty SOH'] += (float) ($quant['ns_weight'] ?? 0.0);
-            $groups[$groupKey]['QTY KG'] += $adjusted * (float) $template['weight'];
+            $groups[$groupKey]['Qty Reserve'] += (float) ($quant['reserved_quantity'] ?? 0.0);
         }
 
         $groups = array_filter($groups, fn ($group) => (float) $group['SOH Available'] > 0);
+
+        foreach ($groups as &$group) {
+            $group['On Hand Available'] = (float) $group['SOH Available'] - (float) $group['Qty Reserve'];
+        }
+
+        unset($group);
 
         uasort($groups, function ($a, $b) {
             $aname = (string) ($a['Destination package'] ?? '');
