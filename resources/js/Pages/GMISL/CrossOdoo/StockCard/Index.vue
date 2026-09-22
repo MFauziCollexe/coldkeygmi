@@ -33,7 +33,8 @@
               id="customer_id"
               v-model="localCustomerId"
               variant="light"
-              class="min-w-0 flex-1"
+              class="min-w-0 w-full sm:w-72"
+              style="width: calc(70% - 208px)"
               :options="customerOptions"
               option-value="customer_id"
               option-label="label"
@@ -51,7 +52,8 @@
               id="product_id"
               v-model="localProductId"
               variant="light"
-              class="min-w-0 flex-1"
+              class="min-w-0 flex-none"
+              style="width: calc(100% - 280px)"
               :options="availableProducts"
               option-value="product_id"
               option-label="label"
@@ -69,7 +71,10 @@
             <input
               id="start_date"
               type="date"
-              class="min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              class="min-w-0 flex-1 rounded border border-slate-300 
+              bg-white px-3 py-2 text-sm text-slate-900 shadow-sm 
+              focus:border-sky-500 focus:outline-none focus:ring-1
+              focus:ring-sky-500"
               v-model="startDateInput"
             />
             </div>

@@ -227,9 +227,13 @@ class StockCardController extends Controller
         $variantIds = $this->productVariantIds($odoo, $selectedProductId);
 
         if ($variantIds !== []) {
+            $productWeights = $this->fetchProductWeights($odoo, $variantIds);
+            $productWeight = (float) reset($productWeights);
             $opening = $this->fetchOpeningBalance($odoo, $variantIds, $openingStartDate, $startDate);
             $openingBalance = $opening['quantity'];
-            $openingBalanceKg = $opening['weight'];
+            $openingBalanceKg = $productWeight > 0
+                ? $openingBalance * $productWeight
+                : $opening['weight'];
 
             $groups = $this->fetchTransactionGroups($odoo, $variantIds, $startDate, $endDate);
             if ($startDate < self::OPENING_BALANCE_START_DATE) {
@@ -245,7 +249,9 @@ class StockCardController extends Controller
             $runningKg = $openingBalanceKg;
             foreach ($groups as $group) {
                 $running += $group['balance_delta'] ?? ($group['qty_in'] - $group['qty_out']);
-                $runningKg += $group['balance_delta_kg'] ?? ($group['qty_in_kg'] - $group['qty_out_kg']);
+                $runningKg = $productWeight > 0
+                    ? $running * $productWeight
+                    : $runningKg + ($group['balance_delta_kg'] ?? ($group['qty_in_kg'] - $group['qty_out_kg']));
                 $group['saldo'] = $running;
                 $group['saldo_kg'] = $runningKg;
                 $allRows[] = $group;
@@ -367,12 +373,13 @@ class StockCardController extends Controller
 
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['quantity', 'ns_actual_weight', 'picking_type_id', 'location_id', 'location_dest_id'],
+            ['quantity', 'product_id', 'ns_actual_weight', 'picking_type_id', 'location_id', 'location_dest_id'],
             null,
             $domain,
         );
 
         $locationUsages = $this->fetchLocationUsages($odoo, $lines);
+        $productWeights = $this->fetchProductWeights($odoo, $variantIds);
 
         $balance = 0.0;
         $weightBalance = 0.0;
@@ -382,14 +389,52 @@ class StockCardController extends Controller
 
             if ($direction === 'in') {
                 $balance += (float) $line['quantity'];
-                $weightBalance += (float) ($line['ns_actual_weight'] ?? 0);
+                $weightBalance += $this->lineWeightKg($line, $productWeights);
             } elseif ($direction === 'out') {
                 $balance -= (float) $line['quantity'];
-                $weightBalance -= (float) ($line['ns_actual_weight'] ?? 0);
+                $weightBalance -= $this->lineWeightKg($line, $productWeights);
             }
         }
 
         return ['quantity' => $balance, 'weight' => $weightBalance];
+    }
+
+    /**
+     * @param  array<int, int>  $variantIds
+     * @return array<int, float>
+     */
+    private function fetchProductWeights(OdooXmlRpcService $odoo, array $variantIds): array
+    {
+        $products = $odoo->searchRead(
+            'product.product',
+            ['id', 'weight'],
+            null,
+            [['id', 'in', $variantIds]],
+        );
+
+        $weights = [];
+        foreach ($products as $product) {
+            $weights[(int) $product['id']] = (float) ($product['weight'] ?? 0);
+        }
+
+        return $weights;
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     * @param  array<int, float>  $productWeights
+     */
+    private function lineWeightKg(array $line, array $productWeights): float
+    {
+        $product = $line['product_id'] ?? false;
+        $productId = is_array($product) ? (int) ($product[0] ?? 0) : 0;
+        $productWeight = $productWeights[$productId] ?? 0.0;
+
+        if ($productWeight > 0) {
+            return abs((float) ($line['quantity'] ?? 0)) * $productWeight;
+        }
+
+        return abs((float) ($line['ns_actual_weight'] ?? 0));
     }
 
     /**
@@ -427,7 +472,7 @@ class StockCardController extends Controller
             $found = true;
             $direction = $this->movementDirection($line, $locationUsages);
             $quantity = (float) $line['quantity'];
-            $weight = (float) ($line['ns_actual_weight'] ?? 0);
+            $weight = abs((float) ($line['ns_actual_weight'] ?? 0));
 
             if ($direction === 'in') {
                 $balanceDelta += $quantity;
@@ -459,6 +504,12 @@ class StockCardController extends Controller
         return str_contains($reference, 'PRODUCT QUANTITY UPDATED')
             || str_contains($reference, 'UPDATE QTY KILOGRAM')
             || str_contains($reference, 'UPDATE KILOGRAM STOK AWAL');
+    }
+
+    private function isWeightAdjustmentMovement(string $reference): bool
+    {
+        return str_contains($reference, 'UPDATE KILOGRAM NON STANDARD')
+            || str_contains($reference, 'ADJUST WEIGHT KILOGRAM STANDARD');
     }
 
     /**
@@ -516,6 +567,10 @@ class StockCardController extends Controller
                 continue;
             }
 
+            if ($this->isWeightAdjustmentMovement($reference)) {
+                continue;
+            }
+
             $direction = $this->movementDirection($line, $locationUsages);
             $inbound = $direction === 'in';
             $outbound = $direction === 'out';
@@ -554,7 +609,7 @@ class StockCardController extends Controller
                 ];
             }
 
-            $actualWeight = (float) ($line['ns_actual_weight'] ?? 0);
+            $actualWeight = abs((float) ($line['ns_actual_weight'] ?? 0));
             if ($inbound) {
                 $groups[$key]['qty_in'] += (float) $line['quantity'];
                 $groups[$key]['qty_in_kg'] += $actualWeight;
@@ -612,6 +667,16 @@ class StockCardController extends Controller
      */
     private function movementDirection(array $line, array $locationUsages): ?string
     {
+        $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
+
+        if ($label !== null && $this->isInboundLabel($label)) {
+            return 'in';
+        }
+
+        if ($label !== null && $this->isOutboundLabel($label)) {
+            return 'out';
+        }
+
         $source = $line['location_id'] ?? false;
         $destination = $line['location_dest_id'] ?? false;
         $sourceUsage = is_array($source) ? ($locationUsages[(int) ($source[0] ?? 0)] ?? null) : null;
@@ -627,16 +692,6 @@ class StockCardController extends Controller
             }
 
             return null;
-        }
-
-        $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
-
-        if ($label !== null && $this->isInboundLabel($label)) {
-            return 'in';
-        }
-
-        if ($label !== null && $this->isOutboundLabel($label)) {
-            return 'out';
         }
 
         return null;
