@@ -20,6 +20,8 @@ class StockOnHandController extends Controller
 
     private const OUT_PATTERNS = ['DELIVERY ORDERS', 'RETURN RECEIPTS', 'REPACK OUTBOUND', 'ADJUSTMENT OUTBOUND'];
 
+    private const EXCLUDE_PATTERNS = ['INTERNAL TRANSFER', 'PICKING', 'PUTAWAY'];
+
     public function index(Request $request): Response
     {
         [$customers, $products] = $this->fetchCustomersAndProducts();
@@ -667,6 +669,7 @@ class StockOnHandController extends Controller
             ['id', 'usage'],
             null,
             [['id', 'in', array_keys($locationIds)]],
+            ['active_test' => false],
         );
 
         $usages = [];
@@ -683,6 +686,12 @@ class StockOnHandController extends Controller
      */
     private function movementDirection(array $line, array $locationUsages): ?string
     {
+        $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
+
+        if ($label !== null && $this->isExcludedLabel($label)) {
+            return null;
+        }
+
         $source = $line['location_id'] ?? false;
         $destination = $line['location_dest_id'] ?? false;
         $sourceUsage = is_array($source) ? ($locationUsages[(int) ($source[0] ?? 0)] ?? null) : null;
@@ -699,8 +708,6 @@ class StockOnHandController extends Controller
 
             return null;
         }
-
-        $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
 
         if ($label !== null && $this->isInboundLabel($label)) {
             return 'in';
@@ -739,6 +746,17 @@ class StockOnHandController extends Controller
     private function isOutboundLabel(string $label): bool
     {
         foreach (self::OUT_PATTERNS as $pattern) {
+            if (str_contains($label, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isExcludedLabel(string $label): bool
+    {
+        foreach (self::EXCLUDE_PATTERNS as $pattern) {
             if (str_contains($label, $pattern)) {
                 return true;
             }

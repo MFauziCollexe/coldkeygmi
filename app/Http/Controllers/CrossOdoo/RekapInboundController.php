@@ -18,6 +18,8 @@ class RekapInboundController extends Controller
 
     private const OUT_PATTERNS = ['DELIVERY ORDERS', 'RETURN RECEIPTS', 'REPACK OUTBOUND', 'ADJUSTMENT OUTBOUND'];
 
+    private const EXCLUDE_PATTERNS = ['INTERNAL TRANSFER', 'PICKING', 'PUTAWAY'];
+
     public function index(Request $request): Response
     {
         [$customers, $products] = $this->fetchCustomersAndProducts();
@@ -28,11 +30,12 @@ class RekapInboundController extends Controller
         $customerName = $selection['customerName'];
         $productName = $selection['productName'];
 
-        $endDate = $request->input('end_date') ?: now()->toDateString();
-        $startDate = $request->input('start_date') ?: now()->startOfMonth()->toDateString();
-        if ($startDate > $endDate) {
-            $startDate = Carbon::parse($endDate)->startOfMonth()->toDateString();
+        $period = $request->input('period');
+        if (! is_string($period) || ! preg_match('/^\d{4}-\d{2}$/', $period)) {
+            $period = now()->format('Y-m');
         }
+        $startDate = $period.'-01';
+        $endDate = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = 25;
@@ -42,21 +45,30 @@ class RekapInboundController extends Controller
         $totalQty = 0.0;
         $totalQtyKg = 0.0;
         $allRows = [];
+        $allItems = $selectedProductId === null;
 
-        if ($selectedProductId !== null) {
+        if ($selectedCustomerId !== null) {
             $odoo = new OdooXmlRpcService;
 
-            $allRows = $this->computeRows($odoo, (int) $selectedProductId, $selectedCustomerId, $startDate, $endDate);
-            $totalRows = count($allRows);
+            $allRows = $this->buildAllRows($odoo, $selectedProductId, (int) $selectedCustomerId, $products, $startDate, $endDate);
 
             foreach ($allRows as $allRow) {
+                if (! empty($allRow['is_subtotal'])) {
+                    continue;
+                }
                 $totalQty += (float) ($allRow['qty'] ?? 0);
                 $totalQtyKg += (float) ($allRow['qty_kg'] ?? 0);
             }
 
-            $page = min($page, max(1, (int) ceil($totalRows / $perPage)));
-            $offset = ($page - 1) * $perPage;
-            $rows = array_slice($allRows, $offset, $perPage);
+            $totalRows = count($allRows);
+
+            if ($allItems) {
+                $rows = $allRows;
+            } else {
+                $page = min($page, max(1, (int) ceil($totalRows / $perPage)));
+                $offset = ($page - 1) * $perPage;
+                $rows = array_slice($allRows, $offset, $perPage);
+            }
         }
 
         return Inertia::render('GMISL/CrossOdoo/RekapInbound/Index', [
@@ -67,8 +79,10 @@ class RekapInboundController extends Controller
             'selectedProductId' => $selectedProductId,
             'customerName' => $customerName,
             'productName' => $productName,
+            'period' => $period,
             'startDate' => $startDate,
             'endDate' => $endDate,
+            'allItems' => $allItems,
             'currentPage' => $page,
             'perPage' => $perPage,
             'totalRows' => $totalRows,
@@ -85,21 +99,44 @@ class RekapInboundController extends Controller
         $selectedCustomerId = $selection['selectedCustomerId'];
         $selectedProductId = $selection['selectedProductId'];
 
-        $endDate = $request->input('end_date') ?: now()->toDateString();
-        $startDate = $request->input('start_date') ?: now()->startOfMonth()->toDateString();
-        if ($startDate > $endDate) {
-            $startDate = Carbon::parse($endDate)->startOfMonth()->toDateString();
+        $period = $request->input('period');
+        if (! is_string($period) || ! preg_match('/^\d{4}-\d{2}$/', $period)) {
+            $period = now()->format('Y-m');
         }
+        $startDate = $period.'-01';
+        $endDate = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
 
         $headers = ['NO', 'TANGGAL', 'KD CUSTOMER', 'NM CUSTOMER', 'NO DELIVERY', 'SOURCE DOCUMENTS', 'NO MOBIL', 'KD BARANG', 'NM BARANG', 'QTY', 'QTY KG', 'UOM', 'EXPIRED DATE', 'LOT'];
         $data = [];
 
-        if ($selectedProductId !== null) {
+        if ($selectedCustomerId !== null) {
             $odoo = new OdooXmlRpcService;
 
-            foreach (array_values($this->computeRows($odoo, (int) $selectedProductId, $selectedCustomerId, $startDate, $endDate)) as $index => $row) {
+            $no = 0;
+            foreach ($this->buildAllRows($odoo, $selectedProductId, (int) $selectedCustomerId, $products, $startDate, $endDate) as $row) {
+                if (! empty($row['is_subtotal'])) {
+                    $data[] = [
+                        '',
+                        '-',
+                        '-',
+                        '-',
+                        '-',
+                        '-',
+                        '-',
+                        $row['kd_barang'],
+                        $row['nm_barang'],
+                        (float) $row['qty'],
+                        (float) $row['qty_kg'],
+                        '-',
+                        '-',
+                        '-',
+                    ];
+                    continue;
+                }
+
+                $no++;
                 $data[] = [
-                    $index + 1,
+                    $no,
                     $row['tanggal'],
                     $row['kd_customer'],
                     $row['nm_customer'],
@@ -152,17 +189,20 @@ class RekapInboundController extends Controller
         ));
 
         $requestedProductId = $request->input('product_id');
-        $requestedProduct = null;
-        foreach ($selectedCustomerProducts as $product) {
-            if ((int) $product['product_id'] === (int) $requestedProductId) {
-                $requestedProduct = $product;
-                break;
+        $selectedProduct = null;
+        if ($requestedProductId !== null && $requestedProductId !== '') {
+            foreach ($selectedCustomerProducts as $product) {
+                if ((int) $product['product_id'] === (int) $requestedProductId) {
+                    $selectedProduct = $product;
+                    break;
+                }
             }
         }
 
-        $selectedProduct = $requestedProduct ?? ($selectedCustomerProducts[0] ?? null);
         $selectedProductId = $selectedProduct['product_id'] ?? null;
-        $productName = $selectedProduct['product_name'] ?? null;
+        $productName = $selectedProductId !== null
+            ? ($selectedProduct['product_name'] ?? null)
+            : 'All Item';
 
         $selectedCustomerName = null;
         foreach ($customers as $customer) {
@@ -315,13 +355,9 @@ class RekapInboundController extends Controller
         $rows = [];
 
         foreach ($lines as $line) {
-            $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
             $reference = ($line['reference'] ?? false) !== false
                 ? strtoupper((string) $line['reference'])
                 : '';
-            $isAdjustment = ($label !== null && str_contains($label, 'ADJUSTMENT'))
-                || str_contains($reference, 'ADJS')
-                || str_contains($reference, 'ADJUSTMENT');
 
             if (str_contains($reference, 'PRODUCT QUANTITY CONFIRMED')) {
                 continue;
@@ -333,7 +369,7 @@ class RekapInboundController extends Controller
 
             $direction = $this->movementDirection($line, $locationUsages);
 
-            if ($isAdjustment || $this->isNeurusoftOpeningMovement($reference)) {
+            if ($this->isNeurusoftOpeningMovement($reference)) {
                 continue;
             }
 
@@ -414,6 +450,93 @@ class RekapInboundController extends Controller
                 ?: strcmp((string) $a['no_delivery'], (string) $b['no_delivery'])
                 ?: strcmp((string) $a['kd_barang'], (string) $b['kd_barang']);
         });
+
+        return $rows;
+    }
+
+    /**
+     * Ambil ID template seluruh product milik customer tertentu.
+     *
+     * @param  array<int, array<string, mixed>>  $products
+     * @return array<int, int>
+     */
+    private function productTemplateIds(int $selectedCustomerId, array $products): array
+    {
+        $templateIds = [];
+        foreach ($products as $product) {
+            if ((int) $product['customer_id'] === $selectedCustomerId) {
+                $templateIds[] = (int) $product['product_id'];
+            }
+        }
+
+        return $templateIds;
+    }
+
+    /**
+     * Hitung baris untuk satu product terpilih.
+     * Jika null (All Item), kelompokkan seluruh product customer per item
+     * (urut per item, lalu diakhiri baris subtotal QTY & QTY KG per item).
+     *
+     * @param  array<int, array<string, mixed>>  $products
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildAllRows(
+        OdooXmlRpcService $odoo,
+        ?int $selectedProductId,
+        int $selectedCustomerId,
+        array $products,
+        string $startDate,
+        string $endDate,
+    ): array {
+        if ($selectedProductId !== null) {
+            return $this->computeRows($odoo, $selectedProductId, $selectedCustomerId, $startDate, $endDate);
+        }
+
+        $byItem = [];
+        foreach ($this->productTemplateIds($selectedCustomerId, $products) as $templateId) {
+            foreach ($this->computeRows($odoo, $templateId, $selectedCustomerId, $startDate, $endDate) as $row) {
+                $key = (string) ($row['kd_barang'] ?? '').'|'.(string) ($row['nm_barang'] ?? '');
+                $byItem[$key][] = $row;
+            }
+        }
+
+        $keys = array_keys($byItem);
+        usort($keys, fn ($a, $b) => strcmp($a, $b));
+
+        $rows = [];
+        foreach ($keys as $key) {
+            $items = $byItem[$key];
+            usort($items, function ($a, $b) {
+                return strcmp((string) $a['tanggal'], (string) $b['tanggal'])
+                    ?: strcmp((string) $a['no_delivery'], (string) $b['no_delivery']);
+            });
+
+            $qty = 0.0;
+            $qtyKg = 0.0;
+            foreach ($items as $item) {
+                $qty += (float) $item['qty'];
+                $qtyKg += (float) $item['qty_kg'];
+                $rows[] = $item;
+            }
+
+            $first = $items[0];
+            $rows[] = [
+                'tanggal' => null,
+                'kd_customer' => null,
+                'nm_customer' => null,
+                'no_delivery' => null,
+                'source_documents' => null,
+                'no_mobil' => null,
+                'kd_barang' => $first['kd_barang'],
+                'nm_barang' => $first['nm_barang'],
+                'qty' => $qty,
+                'qty_kg' => $qtyKg,
+                'uom' => null,
+                'expired_date' => null,
+                'lot' => null,
+                'is_subtotal' => true,
+            ];
+        }
 
         return $rows;
     }
@@ -619,6 +742,7 @@ class RekapInboundController extends Controller
             ['id', 'usage'],
             null,
             [['id', 'in', array_keys($locationIds)]],
+            ['active_test' => false],
         );
 
         $usages = [];
@@ -636,6 +760,10 @@ class RekapInboundController extends Controller
     private function movementDirection(array $line, array $locationUsages): ?string
     {
         $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
+
+        if ($label !== null && $this->isExcludedLabel($label)) {
+            return null;
+        }
 
         if ($label !== null && $this->isInboundLabel($label)) {
             return 'in';
@@ -706,11 +834,23 @@ class RekapInboundController extends Controller
         return false;
     }
 
+    private function isExcludedLabel(string $label): bool
+    {
+        foreach (self::EXCLUDE_PATTERNS as $pattern) {
+            if (str_contains($label, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function isNeurusoftOpeningMovement(string $reference): bool
     {
         return str_contains($reference, 'PRODUCT QUANTITY UPDATED')
             || str_contains($reference, 'UPDATE QTY KILOGRAM')
-            || str_contains($reference, 'UPDATE KILOGRAM STOK AWAL');
+            || str_contains($reference, 'UPDATE KILOGRAM STOK AWAL')
+            || str_contains($reference, 'SALDO AWAL');
     }
 
     private function isWeightAdjustmentMovement(string $reference): bool

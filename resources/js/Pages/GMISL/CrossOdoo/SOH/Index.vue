@@ -110,15 +110,15 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Owner'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Location'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Destination package'] || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row['Kode barang'] || '-' }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Kode barang'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Nama barang'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Preference'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Source Document'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Expired'] || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['SOH Available']) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['Qty Reserve']) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['On Hand Available']) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row['Qty SOH']) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row['SOH Available']) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row['Qty Reserve']) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row['On Hand Available']) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row['Qty SOH']) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['UOM'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Lot'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Nopol'] || '-' }}</td>
@@ -127,10 +127,10 @@
           <tfoot>
             <tr class="bg-slate-200 text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="8">TOTAL</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalSoh) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalReserve) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalOnHandAvailable) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalQtySoh) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-bold text-slate-900">{{ formatNumber(totalSoh) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalReserve) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalOnHandAvailable) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalQtySoh) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="3"></td>
             </tr>
           </tfoot>

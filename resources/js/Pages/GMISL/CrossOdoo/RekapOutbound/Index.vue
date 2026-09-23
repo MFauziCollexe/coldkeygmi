@@ -67,24 +67,15 @@
 
           <div class="flex gap-3">
             <div class="flex min-w-0 flex-1 items-center gap-3">
-            <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="start_date">Start Date :</label>
+            <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="period">Periode :</label>
             <input
-              id="start_date"
-              type="date"
+              id="period"
+              type="month"
               class="min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              v-model="startDateInput"
+              v-model="periodInput"
             />
             </div>
 
-            <div class="flex min-w-0 flex-1 items-center gap-3">
-            <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="end_date">End Date :</label>
-            <input
-              id="end_date"
-              type="date"
-              class="min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              v-model="endDateInput"
-            />
-            </div>
             <div class="flex w-36 shrink-0 items-end">
             <button
               type="button"
@@ -124,40 +115,47 @@
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
-            <tr
-              v-for="(row, index) in paginatedRows"
-              :key="index"
-              :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
-              class="hover:bg-blue-50"
-            >
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center font-mono text-slate-900">{{ rowNo(index) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.tanggal) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_customer || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_customer || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_delivery || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.source_documents || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_mobil || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-900">{{ row.kd_barang || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_barang || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-mono text-slate-900">{{ formatNumber(row.qty_kg) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.uom || '-' }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expired_date) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.lot || '-' }}</td>
-            </tr>
+            <template v-for="(row, index) in paginatedRows" :key="index">
+              <tr v-if="row.is_subtotal && allItems" class="bg-slate-200 text-slate-900">
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-bold" colspan="9">SUBTOTAL - {{ row.nm_barang }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(row.qty) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(row.qty_kg) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="3"></td>
+              </tr>
+              <tr
+                v-else
+                :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
+                class="hover:bg-blue-50"
+              >
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ allItems ? row.__no : rowNo(index) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.tanggal) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_customer || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_customer || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_delivery || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.source_documents || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.no_mobil || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_barang || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_barang || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row.qty) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row.qty_kg) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.uom || '-' }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expired_date) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.lot || '-' }}</td>
+              </tr>
+            </template>
           </tbody>
           <tfoot>
             <tr class="bg-slate-200 text-slate-900">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="9">TOTAL</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalQty) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-mono font-bold text-slate-900">{{ formatNumber(totalQtyKg) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalQty) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalQtyKg) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="3"></td>
             </tr>
           </tfoot>
         </table>
       </div>
 
-      <div v-if="totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div v-if="!allItems && totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="text-sm text-slate-400">
           Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
         </div>
@@ -200,8 +198,10 @@ const props = defineProps({
   selectedProductId:  { type: [String, Number], default: null },
   customerName:       { type: String,   default: 'Customer' },
   productName:        { type: String,   default: 'Product' },
+  allItems:           { type: Boolean,  default: false },
   startDate:          { type: String,   default: '' },
   endDate:            { type: String,   default: '' },
+  period:             { type: String,   default: '' },
   currentPage:        { type: Number,   default: 1 },
   perPage:            { type: Number,   default: 25 },
   totalRows:          { type: Number,   default: 0 },
@@ -209,25 +209,12 @@ const props = defineProps({
   totalQtyKg:         { type: Number,   default: 0 },
 });
 
-function toYmd(date) {
-  const year  = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day   = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+const todayDate    = new Date();
+const defaultPeriod = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}`;
 
-const todayDate        = new Date();
-const defaultEndDate   = toYmd(todayDate);
-const defaultStartDate = toYmd(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
+const periodInput = ref(props.period || defaultPeriod);
 
-const startDate = computed(() => props.startDate || defaultStartDate);
-const endDate   = computed(() => props.endDate || defaultEndDate);
-
-const startDateInput = ref(startDate.value);
-const endDateInput   = ref(endDate.value);
-
-watch(() => props.startDate, (value) => { if (value) startDateInput.value = value; });
-watch(() => props.endDate,   (value) => { if (value) endDateInput.value   = value; });
+watch(() => props.period, (value) => { if (value) periodInput.value = value; });
 
 const customerOptions = computed(() =>
   (props.customers || []).map(c => ({ customer_id: c.customer_id, label: c.customer_name }))
@@ -235,23 +222,27 @@ const customerOptions = computed(() =>
 
 const availableProducts = computed(() => {
   const cid = Number(localCustomerId.value ?? -1);
-  return (props.products || [])
+  const list = (props.products || [])
     .filter(p => Number(p.customer_id) === cid)
     .map(p => ({ product_id: p.product_id, label: (p.default_code ? p.default_code + ' - ' : '') + p.product_name }));
+  return [{ product_id: 0, label: 'All Item' }, ...list];
 });
 
 const localCustomerId = ref(props.selectedCustomerId);
-const localProductId  = ref(props.selectedProductId);
+const localProductId  = ref(props.selectedProductId ?? 0);
 
-const paginatedRows = computed(() => props.rows || []);
+const paginatedRows = computed(() => {
+  if (!props.allItems) return props.rows || [];
+  let no = 0;
+  return (props.rows || []).map(row => (row.is_subtotal ? row : { ...row, __no: ++no }));
+});
 const totalPages    = computed(() => Math.max(1, Math.ceil(props.totalRows / props.perPage)));
 
 const exportUrl = computed(() => {
   const params = new URLSearchParams();
   if (localCustomerId.value !== null && localCustomerId.value !== undefined && localCustomerId.value !== '') params.set('customer_id', localCustomerId.value);
-  if (localProductId.value !== null && localProductId.value !== undefined && localProductId.value !== '') params.set('product_id', localProductId.value);
-  if (startDateInput.value) params.set('start_date', startDateInput.value);
-  if (endDateInput.value) params.set('end_date', endDateInput.value);
+  if (Number(localProductId.value) > 0) params.set('product_id', localProductId.value);
+  if (periodInput.value) params.set('period', periodInput.value);
   return `/gmisl/cross-odoo/rekap-outbound/export?${params.toString()}`;
 });
 
@@ -280,9 +271,8 @@ function formatNumber(v) {
 function buildParams(overrides = {}) {
   return {
     customer_id: localCustomerId.value ?? undefined,
-    product_id:  localProductId.value  ?? undefined,
-    start_date:  startDateInput.value  || undefined,
-    end_date:    endDateInput.value    || undefined,
+    product_id:  Number(localProductId.value) > 0 ? localProductId.value : undefined,
+    period:      periodInput.value     || undefined,
     page: props.currentPage,
     ...overrides,
   };
@@ -296,12 +286,11 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','customerName','productName','startDate','endDate','currentPage','perPage','totalRows','totalQty','totalQtyKg'];
+const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','customerName','productName','period','allItems','currentPage','perPage','totalRows','totalQty','totalQtyKg'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;
-  const first = availableProducts.value[0];
-  localProductId.value = first ? first.product_id : null;
+  localProductId.value = 0;
 }
 
 function onProductChange(value) {
