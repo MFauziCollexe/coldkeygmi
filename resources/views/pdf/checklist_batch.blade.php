@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Checklist {{ $period ?? (isset($start) ? $start.' s/d '.$end : '') }}</title>
+    <title>Checklist {{ $period ?? (isset($start) ? $start.' s/d '.$end : '') }}{{ !empty($week) ? ' - Minggu '.$week.' ('.$start.' s/d '.$end.')' : '' }}</title>
     @include('pdf.checklist-styles')
 </head>
 <body>

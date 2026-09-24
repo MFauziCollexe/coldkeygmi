@@ -337,12 +337,26 @@ class ChecklistEntryController extends Controller
 
         $data = $request->validate([
             'period' => ['required', 'date_format:Y-m'],
+            'week' => ['required', 'integer', 'min:1', 'max:5'],
         ]);
 
         $period = $data['period'];
-        $start = $period.'-01';
-        $end = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
+        $week = (int) $data['week'];
         $template = $this->parseOptionalTemplateFilter($request);
+
+        $monthStart = Carbon::parse($period.'-01');
+        $maxWeeks = (int) ceil($monthStart->daysInMonth / 7);
+
+        if ($week > $maxWeeks) {
+            return response()->json([
+                'message' => "Minggu {$week} tidak berlaku di periode {$period}. Bulan ini hanya memiliki {$maxWeeks} minggu.",
+            ], 422);
+        }
+
+        $startDay = ($week - 1) * 7 + 1;
+        $endDay = min($week * 7, $monthStart->daysInMonth);
+        $start = $monthStart->copy()->day($startDay)->toDateString();
+        $end = $monthStart->copy()->day($endDay)->toDateString();
 
         $entries = $this->getSavedChecklistEntries($request->user(), 2000)
             ->filter(fn (array $entry) => $this->withinDateRange($entry, $start, $end))
@@ -351,7 +365,7 @@ class ChecklistEntryController extends Controller
             ->all();
 
         if (count($entries) === 0) {
-            return response()->json(['message' => 'Tidak ada checklist tersimpan pada periode tersebut.'], 422);
+            return response()->json(['message' => 'Tidak ada checklist tersimpan pada minggu periode tersebut.'], 422);
         }
 
         $orientation = collect($entries)->contains(
@@ -364,8 +378,11 @@ class ChecklistEntryController extends Controller
             view('pdf.checklist_batch', [
                 'entries' => $entries,
                 'period' => $period,
+                'week' => $week,
+                'start' => $start,
+                'end' => $end,
             ])->render(),
-            'Checklist' . $nameSuffix . '_' . $period . '.pdf',
+            'Checklist' . $nameSuffix . '_' . $period . '_minggu' . $week . '.pdf',
             $orientation
         );
     }
@@ -400,11 +417,14 @@ class ChecklistEntryController extends Controller
         $headers = ChecklistHeader::query()
             ->with('template:id,code,module')
             ->whereIn('id', $ids)
-            ->orderByDesc('updated_at')
-            ->limit($limit)
             ->get();
 
-        return collect($headers)
+        $headersById = $headers->keyBy('id');
+
+        return $ids
+            ->map(fn ($id) => $headersById->get($id))
+            ->filter()
+            ->values()
             ->map(fn (ChecklistHeader $header) => $this->extractEntryFromHeader($header))
             ->filter(fn ($entry) => is_array($entry) && !empty($entry))
             ->values();

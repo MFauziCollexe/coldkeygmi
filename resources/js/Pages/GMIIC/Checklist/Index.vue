@@ -210,7 +210,7 @@
 
           <div class="flex-1 overflow-y-auto p-3 sm:p-4">
             <p class="mb-3 rounded bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-              Pilih periode, lalu unduh semua checklist tersimpan dalam satu PDF.
+              Pilih bulan dan minggu, lalu unduh checklist tersimpan dalam satu PDF.
             </p>
 
             <div class="mb-3">
@@ -219,7 +219,6 @@
                 v-model="downloadTemplateId"
                 class="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-sm text-slate-100"
               >
-                <option value="">Semua Template</option>
                 <option v-for="option in availableChecklistOptions" :key="option.id" :value="option.id">
                   {{ option.name }}
                 </option>
@@ -228,7 +227,7 @@
 
             <div class="mb-3 flex flex-wrap items-center gap-2">
               <label class="text-sm text-slate-300">
-                Periode
+                Bulan/Tahun
                 <input
                   v-model="downloadPeriod"
                   type="month"
@@ -236,9 +235,21 @@
                 />
               </label>
 
+              <label class="text-sm text-slate-300">
+                Minggu
+                <select
+                  v-model="downloadWeek"
+                  class="ml-2 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100"
+                >
+                  <option v-for="option in downloadWeekOptions" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+              </label>
+
               <button
                 class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="rangeDownloading || !downloadPeriod"
+                :disabled="rangeDownloading || !downloadPeriod || !downloadWeek"
                 @click="downloadRangePdf"
               >
                 {{ rangeDownloading ? 'Menyiapkan PDF...' : 'Download Semua (1 PDF)' }}
@@ -276,6 +287,7 @@ const selectedEntryIds = ref([]);
 const showTemplateModal = ref(false);
 const templateDownloadError = ref('');
 const downloadPeriod = ref('');
+const downloadWeek = ref(1);
 const downloadTemplateId = ref('');
 const rangeDownloading = ref(false);
 const supportedTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler', 'checklist_it', 'inspeksi_loker', 'jadwal_cleaning_ob'];
@@ -290,6 +302,27 @@ const availableChecklistOptions = computed(() => {
   return checklistOptions.filter((option) => Boolean(checklistTemplatePermissions.value?.[option.id]?.view));
 });
 const canDeleteChecklistEntries = computed(() => Boolean(checklistAbilities.value.delete_entries));
+
+const downloadWeekOptions = computed(() => {
+  const period = downloadPeriod.value;
+  if (!period) {
+    return [];
+  }
+
+  const [year, month] = period.split('-').map(Number);
+  if (!year || !month) {
+    return [];
+  }
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const maxWeek = Math.max(1, Math.ceil(daysInMonth / 7));
+
+  return Array.from({ length: maxWeek }, (_, index) => {
+    const start = index * 7 + 1;
+    const end = Math.min((index + 1) * 7, daysInMonth);
+    return { value: index + 1, label: `Minggu ${index + 1} (${start}-${end})` };
+  });
+});
 
 const canOpenCreatePage = computed(() => {
   return selectedChecklist.value
@@ -365,6 +398,13 @@ watch(selectedDate, () => {
   navigateChecklist({ page: 1 });
 });
 
+watch(downloadPeriod, () => {
+  const validWeeks = downloadWeekOptions.value.length;
+  if (validWeeks && (downloadWeek.value < 1 || downloadWeek.value > validWeeks)) {
+    downloadWeek.value = 1;
+  }
+});
+
 function goToPage(page) {
   navigateChecklist({ page: Number(page || 1) });
 }
@@ -407,7 +447,8 @@ async function toggleQrBypass() {
 function openTemplateDownloadModal() {
   templateDownloadError.value = '';
   downloadPeriod.value = (selectedDate.value || toDateInputValue(new Date())).slice(0, 7);
-  downloadTemplateId.value = '';
+  downloadWeek.value = 1;
+  downloadTemplateId.value = availableChecklistOptions.value[0]?.id ?? '';
   showTemplateModal.value = true;
 }
 
@@ -416,7 +457,7 @@ function closeTemplateDownloadModal() {
 }
 
 async function downloadRangePdf() {
-  if (!downloadPeriod.value) {
+  if (!downloadPeriod.value || !downloadWeek.value) {
     return;
   }
 
@@ -427,6 +468,7 @@ async function downloadRangePdf() {
     const response = await axios.get('/gmiic/checklist/entries/download-range', {
       params: {
         period: downloadPeriod.value,
+        week: downloadWeek.value,
         template: downloadTemplateId.value || undefined,
       },
       responseType: 'blob',
@@ -437,7 +479,7 @@ async function downloadRangePdf() {
     const link = document.createElement('a');
     link.href = url;
     const templateSuffix = downloadTemplateId.value ? `_${downloadTemplateId.value}` : '';
-    link.download = `Checklist${templateSuffix}_${downloadPeriod.value}.pdf`;
+    link.download = `Checklist${templateSuffix}_${downloadPeriod.value}_minggu${downloadWeek.value}.pdf`;
     document.body.appendChild(link);
     link.click();
     link.remove();
