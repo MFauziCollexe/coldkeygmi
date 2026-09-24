@@ -30,7 +30,7 @@ class OdooXmlRpcService
 
         $this->encoder = new Encoder();
         $this->uid = $this->authenticate($username);
-        $this->objectClient = new Client($this->url . '/xmlrpc/2/object');
+        $this->objectClient = $this->createClient('/xmlrpc/2/object');
     }
 
     public function uid(): int
@@ -106,7 +106,7 @@ class OdooXmlRpcService
 
     private function authenticate(string $username): int
     {
-        $client = new Client($this->url . '/xmlrpc/2/common');
+        $client = $this->createClient('/xmlrpc/2/common');
 
         $response = $client->send(new XmlRpcRequest('authenticate', [
             new Value($this->db, 'string'),
@@ -130,5 +130,23 @@ class OdooXmlRpcService
         }
 
         return $uid;
+    }
+
+    private function createClient(string $endpoint): Client
+    {
+        $client = new Client($this->url . $endpoint);
+        $verifySsl = (bool) config('services.odoo.verify_ssl', true);
+        $options = [
+            Client::OPT_TIMEOUT => (int) config('services.odoo.timeout', 30),
+            Client::OPT_VERIFY_PEER => $verifySsl,
+            Client::OPT_VERIFY_HOST => $verifySsl ? 2 : 0,
+        ];
+        $caCert = config('services.odoo.ca_cert');
+
+        if (is_string($caCert) && $caCert !== '') {
+            $options[Client::OPT_CA_CERT] = $caCert;
+        }
+
+        return $client->setOptions($options);
     }
 }

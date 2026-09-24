@@ -47,6 +47,8 @@ return [
         'username' => env('ODOO_USERNAME'),
         'password' => env('ODOO_PASSWORD'),
         'timeout' => env('ODOO_TIMEOUT', 30),
+        'ca_cert' => env('ODOO_CA_CERT'),
+        'verify_ssl' => env('ODOO_VERIFY_SSL', true),
     ],
 
 ];
