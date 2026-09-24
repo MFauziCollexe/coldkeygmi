@@ -404,7 +404,7 @@ class ChecklistEntryController extends Controller
             ->map(fn (array $entry) => [
                 'template_id' => (string) ($entry['template_id'] ?? ''),
                 'template_name' => (string) ($entry['name'] ?? ''),
-                'date' => $this->resolvePreviewDate($entry),
+                'date' => $this->resolvePreviewDate($entry, $period),
                 'user' => (string) ($entry['user'] ?? ''),
                 'status' => $this->resolveHeaderStatus($entry),
             ])
@@ -420,7 +420,7 @@ class ChecklistEntryController extends Controller
         ]);
     }
 
-    private function resolvePreviewDate(array $entry): string
+    private function resolvePreviewDate(array $entry, ?string $periodKey = null): string
     {
         $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
 
@@ -437,6 +437,21 @@ class ChecklistEntryController extends Controller
         $period = trim((string) ($form['period'] ?? ''));
         if ($period !== '') {
             return $period;
+        }
+
+        $monthKeys = $this->coveredMonthKeys($form);
+        if (!empty($monthKeys) && $periodKey !== null && preg_match('/^\d{4}-\d{2}$/', $periodKey)) {
+            $monthNo = (int) substr($periodKey, 5, 2);
+            $monthKey = $this->monthNumberToKey($monthNo);
+            if ($monthKey !== null && in_array(strtolower($monthKey), array_map('strtolower', $monthKeys), true)) {
+                $checkDates = is_array($form['monthly_check_dates'] ?? null) ? $form['monthly_check_dates'] : [];
+                $checkDate = trim((string) ($checkDates[$monthKey] ?? ''));
+                if ($checkDate !== '') {
+                    return $checkDate;
+                }
+
+                return $this->indonesianMonthName($monthNo).' '.substr($periodKey, 0, 4);
+            }
         }
 
         return '';
@@ -525,9 +540,31 @@ class ChecklistEntryController extends Controller
         }
 
         $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
-        $iso = $this->resolveEntryIsoDate($form);
+        $startMonth = $start !== null ? substr($start, 0, 7) : null;
+        $endMonth = $end !== null ? substr($end, 0, 7) : null;
 
+        $dayLists = $this->entryDayLists($form);
+        if (!empty($dayLists) && $start !== null && $end !== null && substr($start, 0, 8) === substr($end, 0, 8)) {
+            $startDay = (int) substr($start, 8, 2);
+            $endDay = (int) substr($end, 8, 2);
+
+            foreach ($dayLists as $day) {
+                if ($day >= $startDay && $day <= $endDay) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        $iso = $this->resolveEntryIsoDate($form);
         if ($iso !== null) {
+            if ($startMonth !== null && substr($iso, 0, 7) < $startMonth) {
+                return false;
+            }
+            if ($endMonth !== null && substr($iso, 0, 7) > $endMonth) {
+                return false;
+            }
             if ($start !== null && $iso < $start) {
                 return false;
             }
@@ -537,16 +574,116 @@ class ChecklistEntryController extends Controller
             return true;
         }
 
+        $monthKeys = $this->coveredMonthKeys($form);
+        if (!empty($monthKeys) && $startMonth !== null && $endMonth !== null) {
+            $startYear = (int) substr($startMonth, 0, 4);
+            $checkDates = is_array($form['monthly_check_dates'] ?? null) ? $form['monthly_check_dates'] : [];
+
+            foreach ($monthKeys as $monthKey) {
+                $monthNo = $this->monthKeyToNumber($monthKey);
+                if ($monthNo === null) {
+                    continue;
+                }
+
+                $entryYm = sprintf('%04d-%02d', $startYear, $monthNo);
+                if (($startMonth !== null && $entryYm < $startMonth) || ($endMonth !== null && $entryYm > $endMonth)) {
+                    continue;
+                }
+
+                $checkDate = trim((string) ($checkDates[$monthKey] ?? ''));
+                if ($checkDate !== '') {
+                    $checkIso = $this->parseChecklistDisplayDate($checkDate);
+                    if ($checkIso === null) {
+                        continue;
+                    }
+                    if ($start !== null && $checkIso < $start) {
+                        continue;
+                    }
+                    if ($end !== null && $checkIso > $end) {
+                        continue;
+                    }
+                    return true;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
         $period = trim((string) ($form['period'] ?? ''));
         if ($period !== '' && preg_match('/^\d{4}-\d{2}$/', $period)) {
-            $startMonth = $start !== null ? substr($start, 0, 7) : null;
-            $endMonth = $end !== null ? substr($end, 0, 7) : null;
             if (($startMonth === null || $period >= $startMonth) && ($endMonth === null || $period <= $endMonth)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private function entryDayLists(array $form): array
+    {
+        $days = array_merge(
+            is_array($form['approved_days'] ?? null) ? $form['approved_days'] : [],
+            is_array($form['submitted_days'] ?? null) ? $form['submitted_days'] : []
+        );
+
+        $byArea = is_array($form['approved_days_by_area'] ?? null) ? $form['approved_days_by_area'] : [];
+        foreach ($byArea as $areaDays) {
+            if (is_array($areaDays)) {
+                $days = array_merge($days, $areaDays);
+            }
+        }
+
+        $result = [];
+        foreach ($days as $day) {
+            $day = (int) $day;
+            if ($day >= 1 && $day <= 31) {
+                $result[$day] = true;
+            }
+        }
+
+        return array_keys($result);
+    }
+
+    private function monthKeyToNumber(string $key): ?int
+    {
+        $months = [
+            'jan' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4, 'may' => 5, 'jun' => 6,
+            'jul' => 7, 'aug' => 8, 'sep' => 9, 'oct' => 10, 'nov' => 11, 'dec' => 12,
+        ];
+
+        return $months[strtolower(trim($key))] ?? null;
+    }
+
+    private function monthNumberToKey(int $monthNo): ?string
+    {
+        $keys = [
+            1 => 'jan', 2 => 'feb', 3 => 'mar', 4 => 'apr', 5 => 'may', 6 => 'jun',
+            7 => 'jul', 8 => 'aug', 9 => 'sep', 10 => 'oct', 11 => 'nov', 12 => 'dec',
+        ];
+
+        return $keys[$monthNo] ?? null;
+    }
+
+    private function indonesianMonthName(int $monthNo): string
+    {
+        $names = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
+            7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+
+        return $names[$monthNo] ?? (string) $monthNo;
+    }
+
+    private function coveredMonthKeys(array $form): array
+    {
+        $keys = array_merge(
+            is_array($form['approved_months'] ?? null) ? $form['approved_months'] : [],
+            is_array($form['submitted_months'] ?? null) ? $form['submitted_months'] : []
+        );
+
+        return array_values(array_unique(array_map('strval', $keys)));
     }
 
     private function resolveEntryIsoDate(array $form): ?string
