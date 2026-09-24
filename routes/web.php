@@ -306,6 +306,9 @@ Route::get('gmiic/checklist/entries/saved-list', [App\Http\Controllers\Checklist
 Route::get('gmiic/checklist/entries/download-range', [App\Http\Controllers\ChecklistEntryController::class, 'downloadRangePdf'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.entries.download-range');
+Route::get('gmiic/checklist/entries/preview', [App\Http\Controllers\ChecklistEntryController::class, 'preview'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.entries.preview');
 Route::post('gmiic/checklist/patroli-security/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadPatroliSecurityPhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.patroli-security.photo');

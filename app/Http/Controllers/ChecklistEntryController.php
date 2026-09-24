@@ -344,19 +344,18 @@ class ChecklistEntryController extends Controller
         $week = (int) $data['week'];
         $template = $this->parseOptionalTemplateFilter($request);
 
-        $monthStart = Carbon::parse($period.'-01');
-        $maxWeeks = (int) ceil($monthStart->daysInMonth / 7);
+        $range = $this->parseWeekRange($period, $week);
 
-        if ($week > $maxWeeks) {
+        if ($range === null) {
+            $monthStart = Carbon::parse($period.'-01');
+            $maxWeeks = (int) ceil($monthStart->daysInMonth / 7);
             return response()->json([
                 'message' => "Minggu {$week} tidak berlaku di periode {$period}. Bulan ini hanya memiliki {$maxWeeks} minggu.",
             ], 422);
         }
 
-        $startDay = ($week - 1) * 7 + 1;
-        $endDay = min($week * 7, $monthStart->daysInMonth);
-        $start = $monthStart->copy()->day($startDay)->toDateString();
-        $end = $monthStart->copy()->day($endDay)->toDateString();
+        $start = $range['start'];
+        $end = $range['end'];
 
         $entries = $this->getSavedChecklistEntries($request->user(), 2000)
             ->filter(fn (array $entry) => $this->withinDateRange($entry, $start, $end))
@@ -387,10 +386,84 @@ class ChecklistEntryController extends Controller
         );
     }
 
+    public function preview(Request $request)
+    {
+        $data = $request->validate([
+            'period' => ['required', 'date_format:Y-m'],
+        ]);
+
+        $period = $data['period'];
+        $template = $this->parseOptionalTemplateFilter($request);
+
+        $start = $period.'-01';
+        $end = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
+
+        $entries = $this->getSavedChecklistEntries($request->user(), 2000)
+            ->filter(fn (array $entry) => $this->withinDateRange($entry, $start, $end))
+            ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
+            ->map(fn (array $entry) => [
+                'template_id' => (string) ($entry['template_id'] ?? ''),
+                'template_name' => (string) ($entry['name'] ?? ''),
+                'date' => $this->resolvePreviewDate($entry),
+                'user' => (string) ($entry['user'] ?? ''),
+                'status' => $this->resolveHeaderStatus($entry),
+            ])
+            ->sortBy('date')
+            ->values()
+            ->all();
+
+        return response()->json([
+            'period' => $period,
+            'start' => $start,
+            'end' => $end,
+            'entries' => $entries,
+        ]);
+    }
+
+    private function resolvePreviewDate(array $entry): string
+    {
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+
+        $iso = $this->resolveEntryIsoDate($form);
+        if ($iso !== null) {
+            return $iso;
+        }
+
+        $date = trim((string) ($form['date'] ?? ''));
+        if ($date !== '') {
+            return $date;
+        }
+
+        $period = trim((string) ($form['period'] ?? ''));
+        if ($period !== '') {
+            return $period;
+        }
+
+        return '';
+    }
+
     private function parseOptionalTemplateFilter(Request $request): ?string
     {
         $value = trim((string) $request->query('template', ''));
         return $value === '' ? null : $value;
+    }
+
+    private function parseWeekRange(string $period, int $week): ?array
+    {
+        $monthStart = Carbon::parse($period.'-01');
+        $maxWeeks = (int) ceil($monthStart->daysInMonth / 7);
+
+        if ($week < 1 || $week > $maxWeeks) {
+            return null;
+        }
+
+        $startDay = ($week - 1) * 7 + 1;
+        $endDay = min($week * 7, $monthStart->daysInMonth);
+
+        return [
+            'start' => $monthStart->copy()->day($startDay)->toDateString(),
+            'end' => $monthStart->copy()->day($endDay)->toDateString(),
+        ];
     }
 
     private function getSavedChecklistEntries($user = null, ?int $limit = 500): \Illuminate\Support\Collection
@@ -416,6 +489,7 @@ class ChecklistEntryController extends Controller
 
         $headers = ChecklistHeader::query()
             ->with('template:id,code,module')
+            ->with('creator:id,account,name')
             ->whereIn('id', $ids)
             ->get();
 
@@ -920,6 +994,7 @@ class ChecklistEntryController extends Controller
         $entry['form'] = is_array($entry['form'] ?? null) ? $entry['form'] : [];
         $entry['created_at'] = $header->created_at?->format('H.i');
         $entry['approved_at'] = $header->approved_at?->format('H.i');
+        $entry['user'] = $header->creator?->name ?? $header->creator?->account ?? '';
 
         return $entry;
     }

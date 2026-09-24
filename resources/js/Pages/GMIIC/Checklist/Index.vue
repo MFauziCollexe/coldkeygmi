@@ -210,7 +210,7 @@
 
           <div class="flex-1 overflow-y-auto p-3 sm:p-4">
             <p class="mb-3 rounded bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-              Pilih bulan dan minggu, lalu unduh checklist tersimpan dalam satu PDF.
+              Pilih bulan dan minggu untuk download; klik Cek untuk melihat seluruh data pada bulan tersebut.
             </p>
 
             <div class="mb-3">
@@ -248,12 +248,57 @@
               </label>
 
               <button
+                class="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="previewLoading || !downloadPeriod"
+                @click="checkDownloadPreview"
+              >
+                {{ previewLoading ? 'Memeriksa...' : 'Cek' }}
+              </button>
+
+              <button
                 class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="rangeDownloading || !downloadPeriod || !downloadWeek"
                 @click="downloadRangePdf"
               >
-                {{ rangeDownloading ? 'Menyiapkan PDF...' : 'Download Semua (1 PDF)' }}
+                {{ rangeDownloading ? 'Menyiapkan PDF...' : 'Download' }}
               </button>
+            </div>
+
+            <div v-if="previewChecked || previewLoading" class="mt-3 rounded border border-slate-700 bg-slate-800/50 p-3">
+              <p v-if="previewLoading" class="text-sm text-slate-400">Memeriksa data...</p>
+              <template v-else>
+                <p class="mb-2 text-sm text-slate-300">
+                  Ditemukan
+                  <span class="font-semibold text-emerald-300">{{ previewResults.length }}</span>
+                  checklist pada bulan {{ downloadPeriod }}.
+                </p>
+                <p
+                  v-if="!previewResults.length"
+                  class="rounded bg-slate-900/60 px-3 py-2 text-sm text-amber-300"
+                >
+                  Tidak ada checklist tersimpan pada bulan tersebut.
+                </p>
+                <ul
+                  v-else
+                  class="max-h-56 overflow-y-auto rounded bg-slate-900/60 p-2 text-sm"
+                >
+                  <li
+                    v-for="(item, index) in previewResults"
+                    :key="index"
+                    class="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b border-slate-800 py-1.5 last:border-0"
+                  >
+                    <span class="truncate text-slate-200">{{ item.template_name }}</span>
+                    <span class="text-slate-400">{{ item.user }}</span>
+                    <span class="text-slate-400">{{ item.date }}</span>
+                    <span
+                      class="rounded px-1.5 py-0.5 text-xs"
+                      :class="previewStatusClass(item.status)"
+                    >
+                      {{ previewStatusLabel(item.status) }}
+                    </span>
+                  </li>
+                </ul>
+              </template>
             </div>
 
             <div
@@ -290,6 +335,9 @@ const downloadPeriod = ref('');
 const downloadWeek = ref(1);
 const downloadTemplateId = ref('');
 const rangeDownloading = ref(false);
+const previewResults = ref([]);
+const previewChecked = ref(false);
+const previewLoading = ref(false);
 const supportedTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler', 'checklist_it', 'inspeksi_loker', 'jadwal_cleaning_ob'];
 const dailyApprovedTemplates = ['kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler'];
 const monthlyChecklistTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
@@ -405,6 +453,11 @@ watch(downloadPeriod, () => {
   }
 });
 
+watch([downloadPeriod, downloadTemplateId], () => {
+  previewChecked.value = false;
+  previewResults.value = [];
+});
+
 function goToPage(page) {
   navigateChecklist({ page: Number(page || 1) });
 }
@@ -449,11 +502,45 @@ function openTemplateDownloadModal() {
   downloadPeriod.value = (selectedDate.value || toDateInputValue(new Date())).slice(0, 7);
   downloadWeek.value = 1;
   downloadTemplateId.value = availableChecklistOptions.value[0]?.id ?? '';
+  previewChecked.value = false;
+  previewResults.value = [];
   showTemplateModal.value = true;
 }
 
 function closeTemplateDownloadModal() {
   showTemplateModal.value = false;
+}
+
+async function checkDownloadPreview() {
+  if (!downloadPeriod.value) {
+    return;
+  }
+
+  previewLoading.value = true;
+  previewChecked.value = false;
+  previewResults.value = [];
+  templateDownloadError.value = '';
+
+  try {
+    const response = await axios.get('/gmiic/checklist/entries/preview', {
+      params: {
+        period: downloadPeriod.value,
+        template: downloadTemplateId.value || undefined,
+      },
+    });
+
+    previewResults.value = response.data?.entries || [];
+    previewChecked.value = true;
+  } catch (error) {
+    let message = 'Gagal memeriksa data. Silakan coba lagi.';
+    if (error?.response?.data?.message) {
+      message = error.response.data.message;
+    }
+    templateDownloadError.value = message;
+    previewChecked.value = false;
+  } finally {
+    previewLoading.value = false;
+  }
 }
 
 async function downloadRangePdf() {
@@ -636,6 +723,27 @@ function getChecklistStatusClass(entry) {
   }
 
   return 'bg-amber-600 text-white';
+}
+
+function previewStatusLabel(code) {
+  const map = {
+    approved: 'Approved',
+    draft: 'Draft',
+    waiting_hse: 'Waiting HSE',
+    waiting_manager: 'Waiting Manager',
+    generated: 'Generated',
+  };
+  return map[code] || 'Draft';
+}
+
+function previewStatusClass(code) {
+  const map = {
+    approved: 'bg-emerald-600 text-white',
+    waiting_hse: 'bg-sky-600 text-white',
+    waiting_manager: 'bg-sky-600 text-white',
+    generated: 'bg-indigo-600 text-white',
+  };
+  return map[code] || 'bg-amber-600 text-white';
 }
 
 function toDateInputValue(date) {
