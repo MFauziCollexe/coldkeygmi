@@ -115,22 +115,6 @@ class RekapOutboundController extends Controller
             $no = 0;
             foreach ($this->buildAllRows($odoo, $selectedProductId, (int) $selectedCustomerId, $products, $startDate, $endDate) as $row) {
                 if (! empty($row['is_subtotal'])) {
-                    $data[] = [
-                        '',
-                        '-',
-                        '-',
-                        '-',
-                        '-',
-                        '-',
-                        '-',
-                        $row['kd_barang'],
-                        $row['nm_barang'],
-                        (float) $row['qty'],
-                        (float) $row['qty_kg'],
-                        '-',
-                        '-',
-                        '-',
-                    ];
                     continue;
                 }
 

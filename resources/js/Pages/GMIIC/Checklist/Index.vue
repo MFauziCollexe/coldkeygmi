@@ -210,7 +210,7 @@
 
           <div class="flex-1 overflow-y-auto p-3 sm:p-4">
             <p class="mb-3 rounded bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-              Pilih rentang tanggal, lalu unduh semua checklist tersimpan dalam satu PDF.
+              Pilih periode, lalu unduh semua checklist tersimpan dalam satu PDF.
             </p>
 
             <div class="mb-3">
@@ -228,25 +228,17 @@
 
             <div class="mb-3 flex flex-wrap items-center gap-2">
               <label class="text-sm text-slate-300">
-                Dari
+                Periode
                 <input
-                  v-model="downloadStartDate"
-                  type="date"
-                  class="ml-2 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100"
-                />
-              </label>
-              <label class="text-sm text-slate-300">
-                Sampai
-                <input
-                  v-model="downloadEndDate"
-                  type="date"
+                  v-model="downloadPeriod"
+                  type="month"
                   class="ml-2 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100"
                 />
               </label>
 
               <button
                 class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="rangeDownloading || !downloadStartDate || !downloadEndDate"
+                :disabled="rangeDownloading || !downloadPeriod"
                 @click="downloadRangePdf"
               >
                 {{ rangeDownloading ? 'Menyiapkan PDF...' : 'Download Semua (1 PDF)' }}
@@ -283,8 +275,7 @@ const checklistEntries = computed(() => page.props.entries?.data || []);
 const selectedEntryIds = ref([]);
 const showTemplateModal = ref(false);
 const templateDownloadError = ref('');
-const downloadStartDate = ref('');
-const downloadEndDate = ref('');
+const downloadPeriod = ref('');
 const downloadTemplateId = ref('');
 const rangeDownloading = ref(false);
 const supportedTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler', 'checklist_it', 'inspeksi_loker', 'jadwal_cleaning_ob'];
@@ -415,8 +406,7 @@ async function toggleQrBypass() {
 
 function openTemplateDownloadModal() {
   templateDownloadError.value = '';
-  downloadStartDate.value = selectedDate.value || toDateInputValue(new Date());
-  downloadEndDate.value = selectedDate.value || toDateInputValue(new Date());
+  downloadPeriod.value = (selectedDate.value || toDateInputValue(new Date())).slice(0, 7);
   downloadTemplateId.value = '';
   showTemplateModal.value = true;
 }
@@ -426,7 +416,7 @@ function closeTemplateDownloadModal() {
 }
 
 async function downloadRangePdf() {
-  if (!downloadStartDate.value || !downloadEndDate.value) {
+  if (!downloadPeriod.value) {
     return;
   }
 
@@ -436,8 +426,7 @@ async function downloadRangePdf() {
   try {
     const response = await axios.get('/gmiic/checklist/entries/download-range', {
       params: {
-        start: downloadStartDate.value,
-        end: downloadEndDate.value,
+        period: downloadPeriod.value,
         template: downloadTemplateId.value || undefined,
       },
       responseType: 'blob',
@@ -448,7 +437,7 @@ async function downloadRangePdf() {
     const link = document.createElement('a');
     link.href = url;
     const templateSuffix = downloadTemplateId.value ? `_${downloadTemplateId.value}` : '';
-    link.download = `Checklist${templateSuffix}_${downloadStartDate.value}_sd_${downloadEndDate.value}.pdf`;
+    link.download = `Checklist${templateSuffix}_${downloadPeriod.value}.pdf`;
     document.body.appendChild(link);
     link.click();
     link.remove();

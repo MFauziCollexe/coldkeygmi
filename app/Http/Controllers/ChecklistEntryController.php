@@ -336,12 +336,12 @@ class ChecklistEntryController extends Controller
         ini_set('memory_limit', '512M');
 
         $data = $request->validate([
-            'start' => ['required', 'date_format:Y-m-d'],
-            'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+            'period' => ['required', 'date_format:Y-m'],
         ]);
 
-        $start = $data['start'];
-        $end = $data['end'];
+        $period = $data['period'];
+        $start = $period.'-01';
+        $end = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
         $template = $this->parseOptionalTemplateFilter($request);
 
         $entries = $this->getSavedChecklistEntries($request->user(), 2000)
@@ -351,7 +351,7 @@ class ChecklistEntryController extends Controller
             ->all();
 
         if (count($entries) === 0) {
-            return response()->json(['message' => 'Tidak ada checklist tersimpan pada rentang tanggal tersebut.'], 422);
+            return response()->json(['message' => 'Tidak ada checklist tersimpan pada periode tersebut.'], 422);
         }
 
         $orientation = collect($entries)->contains(
@@ -363,10 +363,9 @@ class ChecklistEntryController extends Controller
         return $this->streamPdf(
             view('pdf.checklist_batch', [
                 'entries' => $entries,
-                'start' => $start,
-                'end' => $end,
+                'period' => $period,
             ])->render(),
-            'Checklist' . $nameSuffix . '_' . $start . '_sd_' . $end . '.pdf',
+            'Checklist' . $nameSuffix . '_' . $period . '.pdf',
             $orientation
         );
     }

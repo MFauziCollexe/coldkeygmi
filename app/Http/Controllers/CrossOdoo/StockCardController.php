@@ -172,6 +172,10 @@ class StockCardController extends Controller
                 }
             } else {
                 foreach ($result['rows'] as $row) {
+                    if (! empty($row['item_subtotal'])) {
+                        continue;
+                    }
+
                     $data[] = [
                         $row['date'] ?? '-',
                         $row['operation_type'] ?? '-',
