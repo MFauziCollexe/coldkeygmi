@@ -380,14 +380,26 @@ class ChecklistEntryController extends Controller
     {
         $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
 
-        $headers = ChecklistHeader::query()
-            ->with('template:id,code,module')
-            ->whereHas('template', fn ($query) => $query->where('module', self::CHECKLIST_MODULE))
+        $baseQuery = fn ($query) => $query
+            ->whereHas('template', fn ($templateQuery) => $templateQuery->where('module', self::CHECKLIST_MODULE))
             ->when(
-                !empty($allowedTemplateIds),
+                ! empty($allowedTemplateIds),
                 fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds)),
                 fn ($query) => $query->whereRaw('1 = 0')
-            )
+            );
+
+        $ids = $baseQuery(ChecklistHeader::query())
+            ->orderByDesc('updated_at')
+            ->limit($limit)
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        $headers = ChecklistHeader::query()
+            ->with('template:id,code,module')
+            ->whereIn('id', $ids)
             ->orderByDesc('updated_at')
             ->limit($limit)
             ->get();
