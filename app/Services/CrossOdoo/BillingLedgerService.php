@@ -132,7 +132,7 @@ class BillingLedgerService
 
         $locationMap = $this->fetchLocationMap($odoo, $lines);
         $pickingTypes = $this->fetchPickingTypes($odoo, $lines);
-        $lineDetails = $this->fetchLineDetails($odoo, $lines, $templateId, $customerId);
+        $lineDetails = $this->fetchLineDetails($odoo, $lines, $templateId, $customerId, $pickingTypes);
         $opening = [];
         $openingDetails = [];
         $latestDetailsByLocation = [];
@@ -256,6 +256,7 @@ class BillingLedgerService
                         'Out' => $movement['out'],
                         'Saldo Akhir' => $closingBalance,
                         'Owner' => $this->aggregateDetailValues($rowDetails, 'Owner'),
+                        'Transaksi' => $this->aggregateDetailValues($rowDetails, 'Transaksi'),
                         'Destination package' => $this->aggregateDetailValues($rowDetails, 'Destination package'),
                         'Kode barang' => $this->aggregateDetailValues($rowDetails, 'Kode barang'),
                         'Nama barang' => $this->aggregateDetailValues($rowDetails, 'Nama barang'),
@@ -338,7 +339,7 @@ class BillingLedgerService
     }
 
     /** @param array<int, array<string, mixed>> $lines */
-    private function fetchLineDetails(OdooXmlRpcService $odoo, array $lines, int $templateId, int $customerId): array
+    private function fetchLineDetails(OdooXmlRpcService $odoo, array $lines, int $templateId, int $customerId, array $pickingTypes): array
     {
         $pickingIds = [];
         $lotIds = [];
@@ -392,11 +393,14 @@ class BillingLedgerService
             $owner = $line['owner_id'] ?? false;
             $picking = $line['picking_id'] ?? false;
             $lot = $line['lot_id'] ?? false;
+            $pickingType = $line['picking_type_id'] ?? false;
             $destinationPackage = $line['result_package_id'] ?? ($line['package_id'] ?? false);
             $lotId = is_array($lot) && isset($lot[0]) ? (int) $lot[0] : null;
             $pickingId = is_array($picking) && isset($picking[0]) ? (int) $picking[0] : null;
+            $pickingTypeId = is_array($pickingType) && isset($pickingType[0]) ? (int) $pickingType[0] : null;
             $details[(int) ($line['id'] ?? 0)] = [
                 'Owner' => is_array($owner) ? ($owner[1] ?? null) : $defaultOwner,
+                'Transaksi' => $pickingTypeId !== null ? ($pickingTypes[$pickingTypeId]['name'] ?? null) : null,
                 'Destination package' => is_array($destinationPackage) ? ($destinationPackage[1] ?? null) : null,
                 'Kode barang' => $defaultCode,
                 'Nama barang' => $productName,
@@ -438,7 +442,10 @@ class BillingLedgerService
             }
             return 'out';
         }
-        if ($code === 'internal' || $sequence === 'INT' || str_contains($name, 'INTERNAL')) {
+        if ($code === 'internal'
+            || in_array($sequence, ['INT', 'JOIN'], true)
+            || str_contains($name, 'INTERNAL')
+            || str_contains($name, 'JOIN PALLET')) {
             return 'internal';
         }
         return null;

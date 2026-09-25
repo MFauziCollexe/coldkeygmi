@@ -147,14 +147,14 @@ function formatNumber(value) {
   });
 }
 
-function formatDetailDate(row = {}) {
+function formatDetailDates(row = {}) {
   const times = Array.isArray(row.Times) ? row.Times : [];
   const formatted = times.map((value) => {
     const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
     return match ? `${match[3]}/${match[2]}/${match[1].slice(-2)} ${match[4]}:${match[5]}` : String(value);
   });
 
-  return formatted.length ? formatted.join(', ') : `${row.Date || '-'} 00:00`;
+  return formatted.length ? formatted : [`${row.Date || '-'} 00:00`];
 }
 
 function toggleDate(date) {
@@ -204,6 +204,7 @@ function toggleDate(date) {
             <tr class="bg-sky-100 text-slate-900">
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Date</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Owner</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Transaksi</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Location</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Destination package</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Kode barang</th>
@@ -218,14 +219,14 @@ function toggleDate(date) {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!rows.length"><td colspan="13" class="border border-slate-300 px-2 py-6 text-center text-slate-400">Tidak ada data untuk filter yang dipilih.</td></tr>
+            <tr v-if="!rows.length"><td colspan="14" class="border border-slate-300 px-2 py-6 text-center text-slate-400">Tidak ada data untuk filter yang dipilih.</td></tr>
             <template v-for="group in groupedRows" :key="group.date">
               <tr class="cursor-pointer bg-sky-50 text-slate-900 hover:bg-sky-100" @click="toggleDate(group.date)">
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold">
                   <span class="mr-2 inline-block w-4 text-center">{{ expandedDates.has(group.date) ? '-' : '+' }}</span>
                   {{ group.date }}
                 </td>
-                <td colspan="8" class="border border-slate-300 px-2 py-1.5 font-semibold">Detail ({{ group.rows.length }} lokasi)</td>
+                <td colspan="9" class="border border-slate-300 px-2 py-1.5 font-semibold">Detail ({{ group.rows.length }} lokasi)</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.opening) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.in) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.out) }}</td>
@@ -235,6 +236,7 @@ function toggleDate(date) {
                 <tr class="bg-slate-100 text-slate-700">
                   <td class="border border-slate-300 px-2 py-1.5"></td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Owner</td>
+                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Transaksi</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Location</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Destination package</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Kode barang</td>
@@ -248,8 +250,11 @@ function toggleDate(date) {
                   <td class="border border-slate-300 px-2 py-1.5 text-right font-semibold">Saldo Akhir</td>
                 </tr>
                 <tr v-for="(row, index) in group.rows" :key="`${group.date}-${row.Location}-${index}`" class="bg-white hover:bg-blue-50">
-                  <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5">{{ formatDetailDate(row) }}</td>
+                  <td class="border border-slate-300 px-2 py-1.5">
+                    <div v-for="timestamp in formatDetailDates(row)" :key="timestamp">{{ timestamp }}</div>
+                  </td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row.Owner || '-' }}</td>
+                  <td class="border border-slate-300 px-2 py-1.5">{{ row.Transaksi || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row.Location }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row['Destination package'] || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row['Kode barang'] || '-' }}</td>
