@@ -147,10 +147,10 @@ class BillingLedgerService
             $details = $lineDetails[(int) ($line['id'] ?? 0)] ?? [];
             if ($details !== []) {
                 if ($source !== null) {
-                    $latestDetailsByLocation[$source] = [$details];
+                    $latestDetailsByLocation[$source] ??= [$details];
                 }
                 if ($destination !== null) {
-                    $latestDetailsByLocation[$destination] = [$details];
+                    $latestDetailsByLocation[$destination] ??= [$details];
                 }
             }
             $movement = $this->classify($line, $pickingTypes);
@@ -177,18 +177,6 @@ class BillingLedgerService
                 continue;
             }
             if ($date > $endDate) {
-                continue;
-            }
-
-            if ($movement === 'internal') {
-                $this->applySilentInternalMovement(
-                    $daily,
-                    $date,
-                    $source,
-                    $destination,
-                    $quantity,
-                    $details,
-                );
                 continue;
             }
 
@@ -221,10 +209,10 @@ class BillingLedgerService
                 }
                 $normalized = $this->locationGroup($reference, $locationMap);
                 if ($normalized !== null) {
-                    $historicalDetailsByLocation[$normalized] = [$details];
+                    $historicalDetailsByLocation[$normalized] ??= [$details];
                 }
                 if (isset($reference[1]) && $reference[1] !== '') {
-                    $historicalDetailsByLocation[(string) $reference[1]] = [$details];
+                    $historicalDetailsByLocation[(string) $reference[1]] ??= [$details];
                 }
             }
         }
@@ -235,18 +223,15 @@ class BillingLedgerService
             $dateMovements = $daily[$dateKey] ?? [];
             $summary = [
                 'opening' => array_sum($running),
-                'in' => array_sum(array_map(fn ($movement) => (float) ($movement['in'] ?? 0.0), $dateMovements)),
-                'out' => array_sum(array_map(fn ($movement) => (float) ($movement['out'] ?? 0.0), $dateMovements)),
+                'in' => array_sum(array_map(fn ($movement) => (float) ($movement['billing_in'] ?? 0.0), $dateMovements)),
+                'out' => array_sum(array_map(fn ($movement) => (float) ($movement['billing_out'] ?? 0.0), $dateMovements)),
                 'closing' => 0.0,
             ];
             $dateRows = [];
-            $hasVisibleDateMovement = array_reduce(
+            $hasCustomerOutbound = array_sum(array_map(
+                fn ($movement) => (float) ($movement['billing_out'] ?? 0.0),
                 $dateMovements,
-                fn (bool $visible, array $movement): bool => $visible
-                    || (float) ($movement['in'] ?? 0.0) !== 0.0
-                    || (float) ($movement['out'] ?? 0.0) !== 0.0,
-                false,
-            );
+            )) > 0.0;
             $locations = array_values(array_unique(array_merge(
                 array_keys($running),
                 array_keys($dateMovements),
@@ -259,13 +244,41 @@ class BillingLedgerService
                 );
                 $closingBalance = $openingBalance + $movement['balance'];
                 $hasMovement = $movement['in'] != 0.0 || $movement['out'] != 0.0;
-                $hasCarryForward = ! $hasVisibleDateMovement && $closingBalance != 0.0;
+                $hasCarryForward = ! $hasMovement && $closingBalance != 0.0;
                 $rowDetails = $movement['details'] !== []
                     ? $movement['details']
                     : ($runningDetails[$location] ?? ($historicalDetailsByLocation[$location] ?? []));
+                if ($hasCustomerOutbound && ! $this->isOutputLocation($location)) {
+                    $running[$location] = $closingBalance;
+                    continue;
+                }
                 if (! $this->isBufferLocation($location) && $hasMovement) {
                     $transactionBalance = $openingBalance;
                     usort($movement['transactions'], fn ($left, $right) => strcmp($left['time'], $right['time']));
+                    if ($hasCustomerOutbound && $this->isOutputLocation($location)) {
+                        $totalIn = array_sum(array_column($movement['transactions'], 'in'));
+                        $totalOut = array_sum(array_column($movement['transactions'], 'out'));
+                        $allDetails = [];
+                        $times = [];
+                        foreach ($movement['transactions'] as $transaction) {
+                            $times[] = $transaction['time'];
+                            if (($transaction['details'] ?? []) !== []) {
+                                $allDetails[] = $transaction['details'];
+                            }
+                        }
+                        $dateRows[] = $this->makeLedgerRow(
+                            $dateKey,
+                            array_values(array_unique($times)),
+                            $openingBalance,
+                            $location,
+                            $totalIn,
+                            $totalOut,
+                            $closingBalance,
+                            $allDetails !== [] ? $allDetails : $rowDetails,
+                        );
+                        $running[$location] = $closingBalance;
+                        continue;
+                    }
                     foreach ($movement['transactions'] as $transaction) {
                         $transactionOpening = $transactionBalance;
                         $transactionClosing = $transactionOpening + $transaction['in'] - $transaction['out'];
@@ -297,7 +310,7 @@ class BillingLedgerService
                     );
                 }
                 if ($movement['details'] !== []) {
-                    $runningDetails[$location] = $movement['details'];
+                    $runningDetails[$location] ??= $movement['details'];
                 }
                 $running[$location] = $closingBalance;
             }
@@ -494,24 +507,24 @@ class BillingLedgerService
         if ($movement === 'in' && $destination !== null) {
             $balances[$destination] = ($balances[$destination] ?? 0.0) + $quantity;
             if ($details !== []) {
-                $balanceDetails[$destination] = [$details];
+                $balanceDetails[$destination] ??= [$details];
             }
         } elseif ($movement === 'out' && $source !== null) {
             $balances[$source] = ($balances[$source] ?? 0.0) - $quantity;
             if ($details !== []) {
-                $balanceDetails[$source] = [$details];
+                $balanceDetails[$source] ??= [$details];
             }
         } elseif ($movement === 'internal') {
             if ($source !== null) {
                 $balances[$source] = ($balances[$source] ?? 0.0) - $quantity;
                 if ($details !== []) {
-                    $balanceDetails[$source] = [$details];
+                    $balanceDetails[$source] ??= [$details];
                 }
             }
             if ($destination !== null) {
                 $balances[$destination] = ($balances[$destination] ?? 0.0) + $quantity;
                 if ($details !== []) {
-                    $balanceDetails[$destination] = [$details];
+                    $balanceDetails[$destination] ??= [$details];
                 }
             }
         }
@@ -522,6 +535,7 @@ class BillingLedgerService
         if ($movement === 'in' && $destination !== null) {
             $daily[$date][$destination]['balance'] = ($daily[$date][$destination]['balance'] ?? 0.0) + $quantity;
             $daily[$date][$destination]['details'][] = $details;
+            $daily[$date][$destination]['billing_in'] = ($daily[$date][$destination]['billing_in'] ?? 0.0) + $quantity;
             if (! $this->isBufferLocation($destination)) {
                 $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
                 $daily[$date][$destination]['times'][] = $time;
@@ -530,6 +544,7 @@ class BillingLedgerService
         } elseif ($movement === 'out' && $source !== null) {
             $daily[$date][$source]['balance'] = ($daily[$date][$source]['balance'] ?? 0.0) - $quantity;
             $daily[$date][$source]['details'][] = $details;
+            $daily[$date][$source]['billing_out'] = ($daily[$date][$source]['billing_out'] ?? 0.0) + $quantity;
             $daily[$date][$source]['out'] = ($daily[$date][$source]['out'] ?? 0.0) + $quantity;
             $daily[$date][$source]['times'][] = $time;
             $daily[$date][$source]['transactions'][] = ['time' => $time, 'in' => 0.0, 'out' => $quantity, 'details' => $details];
@@ -552,7 +567,6 @@ class BillingLedgerService
                     $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
                     $daily[$date][$destination]['times'][] = $time;
                 }
-                $daily[$date][$destination]['transactions'][] = ['time' => $time, 'in' => $quantity, 'out' => 0.0, 'details' => $details];
             }
         }
     }
@@ -627,5 +641,13 @@ class BillingLedgerService
         $leaf = (string) end($parts);
 
         return $leaf === 'input';
+    }
+
+    private function isOutputLocation(string $location): bool
+    {
+        $parts = preg_split('/\s*\/\s*/', strtolower(trim($location)));
+        $leaf = (string) end($parts);
+
+        return $leaf === 'output';
     }
 }
