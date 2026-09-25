@@ -96,6 +96,13 @@ export const sidebarMenuConfig = [
                         route: "/gmisl/cross-odoo/rekap-outbound",
                         module_key: "gmisl.cross_odoo.rekap_outbound",
                     },
+                    {
+                        id: "cross-odoo-billing",
+                        label: "Billing",
+                        icon: "FileText",
+                        route: "/gmisl/cross-odoo/billing",
+                        module_key: "gmisl.cross_odoo.billing",
+                    },
                 ],
             },
             {

@@ -41,6 +41,7 @@ export default [
             { key: "gmisl.cross_odoo.soh", label: "SOH" },
             { key: "gmisl.cross_odoo.rekap_inbound", label: "Rekap Inbound" },
             { key: "gmisl.cross_odoo.rekap_outbound", label: "Rekap Outbound" },
+            { key: "gmisl.cross_odoo.billing", label: "Billing" },
         ],
     },
     {

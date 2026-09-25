@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
+use setasign\Fpdi\Fpdi;
 
 class ChecklistEntryController extends Controller
 {
@@ -260,7 +261,7 @@ class ChecklistEntryController extends Controller
         $downloadName = $safeName . '_' . $entryCode . '.pdf';
 
         return $this->streamPdf(
-            view('pdf.checklist', ['entry' => $entry])->render(),
+            view('pdf.checklist', ['entry' => $this->normalizePdfEntry($entry)])->render(),
             $downloadName,
             $this->resolvePdfOrientation($entry)
         );
@@ -373,16 +374,16 @@ class ChecklistEntryController extends Controller
 
         $nameSuffix = $template !== null ? '_' . preg_replace('/[^A-Za-z0-9._-]+/', '_', $template) : '';
 
-        return $this->streamPdf(
-            view('pdf.checklist_batch', [
-                'entries' => $entries,
+        return $this->streamPdfBatch(
+            $entries,
+            'Checklist' . $nameSuffix . '_' . $period . '_minggu' . $week . '.pdf',
+            $orientation,
+            [
                 'period' => $period,
                 'week' => $week,
                 'start' => $start,
                 'end' => $end,
-            ])->render(),
-            'Checklist' . $nameSuffix . '_' . $period . '_minggu' . $week . '.pdf',
-            $orientation
+            ]
         );
     }
 
@@ -545,16 +546,19 @@ class ChecklistEntryController extends Controller
 
         $dayLists = $this->entryDayLists($form);
         if (!empty($dayLists) && $start !== null && $end !== null && substr($start, 0, 8) === substr($end, 0, 8)) {
-            $startDay = (int) substr($start, 8, 2);
-            $endDay = (int) substr($end, 8, 2);
+            $entryMonth = $this->resolveEntryMonth($form);
+            if ($entryMonth === null || $entryMonth === $startMonth) {
+                $startDay = (int) substr($start, 8, 2);
+                $endDay = (int) substr($end, 8, 2);
 
-            foreach ($dayLists as $day) {
-                if ($day >= $startDay && $day <= $endDay) {
-                    return true;
+                foreach ($dayLists as $day) {
+                    if ($day >= $startDay && $day <= $endDay) {
+                        return true;
+                    }
                 }
-            }
 
-            return false;
+                return false;
+            }
         }
 
         $iso = $this->resolveEntryIsoDate($form);
@@ -585,24 +589,23 @@ class ChecklistEntryController extends Controller
                     continue;
                 }
 
-                $entryYm = sprintf('%04d-%02d', $startYear, $monthNo);
-                if (($startMonth !== null && $entryYm < $startMonth) || ($endMonth !== null && $entryYm > $endMonth)) {
-                    continue;
-                }
-
                 $checkDate = trim((string) ($checkDates[$monthKey] ?? ''));
                 if ($checkDate !== '') {
                     $checkIso = $this->parseChecklistDisplayDate($checkDate);
-                    if ($checkIso === null) {
-                        continue;
+                    if ($checkIso !== null) {
+                        if ($start !== null && $checkIso < $start) {
+                            continue;
+                        }
+                        if ($end !== null && $checkIso > $end) {
+                            continue;
+                        }
+                        return true;
                     }
-                    if ($start !== null && $checkIso < $start) {
-                        continue;
-                    }
-                    if ($end !== null && $checkIso > $end) {
-                        continue;
-                    }
-                    return true;
+                }
+
+                $entryYm = sprintf('%04d-%02d', $startYear, $monthNo);
+                if (($startMonth !== null && $entryYm < $startMonth) || ($endMonth !== null && $entryYm > $endMonth)) {
+                    continue;
                 }
 
                 return true;
@@ -704,6 +707,29 @@ class ChecklistEntryController extends Controller
         return null;
     }
 
+    private function resolveEntryMonth(array $form): ?string
+    {
+        $dateValue = trim((string) ($form['date_value'] ?? ''));
+        if ($dateValue !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateValue) && strtotime($dateValue)) {
+            return substr($dateValue, 0, 7);
+        }
+
+        $date = trim((string) ($form['date'] ?? ''));
+        if ($date !== '') {
+            $parsed = $this->parseChecklistDisplayDate($date);
+            if ($parsed !== null) {
+                return substr($parsed, 0, 7);
+            }
+        }
+
+        $period = trim((string) ($form['period'] ?? ''));
+        if ($period !== '' && preg_match('/^\d{4}-\d{2}$/', $period)) {
+            return $period;
+        }
+
+        return null;
+    }
+
     private function parseChecklistDisplayDate(string $date): ?string
     {
         $monthNames = [
@@ -726,29 +752,119 @@ class ChecklistEntryController extends Controller
     private function streamPdf(string $html, string $downloadName, string $orientation)
     {
         try {
-            $options = new Options();
-            $options->set('isHtml5ParserEnabled', true);
-            $options->set('isRemoteEnabled', false);
-            $options->set('defaultFont', 'DejaVu Sans');
-            $options->set('tempDir', $this->ensureDompdfWorkDir('temp'));
-            $options->set('fontDir', $this->ensureDompdfWorkDir('fonts'));
-            $options->set('fontCache', $this->ensureDompdfWorkDir('fonts'));
-
-            $dompdf = new Dompdf($options);
-            $dompdf->setPaper('A4', $orientation);
-            $dompdf->loadHtml($html, 'UTF-8');
-            $dompdf->render();
-
-            return response($dompdf->output(), 200, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'attachment; filename="' . $downloadName . '"',
-                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-                'Pragma' => 'no-cache',
-                'Expires' => '0',
-            ]);
+            return $this->pdfAttachmentResponse(
+                $this->renderPdf($html, $orientation),
+                $downloadName
+            );
         } catch (\Throwable $e) {
             abort(500, 'Gagal menghasilkan PDF: ' . $e->getMessage());
         }
+    }
+
+    private function streamPdfBatch(array $entries, string $downloadName, string $orientation, array $viewData)
+    {
+        set_time_limit(900);
+        ini_set('memory_limit', '1G');
+
+        $tempDir = $this->ensureDompdfWorkDir('batch');
+        $chunkBytes = 12 * 1024 * 1024;
+        $chunks = [];
+        $buffer = [];
+        $bufferBytes = 0;
+
+        foreach ($entries as $entry) {
+            $normalizedEntry = $this->normalizePdfEntry($entry);
+            $html = view('pdf.checklist', ['entry' => $normalizedEntry])->render();
+            $bytes = strlen($html);
+
+            if ($bufferBytes > 0 && $bufferBytes + $bytes > $chunkBytes) {
+                $chunks[] = $buffer;
+                $buffer = [];
+                $bufferBytes = 0;
+            }
+
+            $buffer[] = ['entry' => $normalizedEntry, 'html' => $html, 'bytes' => $bytes];
+            $bufferBytes += $bytes;
+        }
+
+        if ($buffer !== []) {
+            $chunks[] = $buffer;
+        }
+
+        $tempFiles = [];
+        $prefix = 'batch_' . uniqid('', true) . '_';
+
+        try {
+            foreach ($chunks as $index => $chunk) {
+                $chunkHtml = view('pdf.checklist_batch', array_merge($viewData, [
+                    'entries' => array_column($chunk, 'entry'),
+                ]))->render();
+
+                $path = $tempDir . DIRECTORY_SEPARATOR . $prefix . $index . '.pdf';
+                file_put_contents($path, $this->renderPdf($chunkHtml, $orientation));
+                $tempFiles[] = $path;
+            }
+
+            return $this->pdfAttachmentResponse(
+                $this->mergePdfFiles($tempFiles),
+                $downloadName
+            );
+        } finally {
+            foreach ($tempFiles as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+        }
+    }
+
+    private function renderPdf(string $html, string $orientation): string
+    {
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', false);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('tempDir', $this->ensureDompdfWorkDir('temp'));
+        $options->set('fontDir', $this->ensureDompdfWorkDir('fonts'));
+        $options->set('fontCache', $this->ensureDompdfWorkDir('fonts'));
+
+        $dompdf = new Dompdf($options);
+        $dompdf->setPaper('A4', $orientation);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->render();
+
+        return $dompdf->output();
+    }
+
+    private function mergePdfFiles(array $files): string
+    {
+        $pdf = new Fpdi();
+
+        foreach ($files as $file) {
+            $pageCount = $pdf->setSourceFile($file);
+
+            for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+                $template = $pdf->importPage($pageNo);
+                $size = $pdf->getTemplateSize($template);
+                $orientation = ($size['orientation'] ?? ($size['width'] > $size['height'] ? 'L' : 'P')) === 'L' ? 'L' : 'P';
+
+                $pdf->AddPage($orientation, [$size['width'], $size['height']]);
+                $pdf->useTemplate($template, 0, 0, $size['width'], $size['height']);
+            }
+        }
+
+        return $pdf->Output('S');
+    }
+
+    private function pdfAttachmentResponse(string $content, string $downloadName)
+    {
+        return response($content, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $downloadName . '"',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
     }
 
     private function resolvePdfOrientation(array $entry): string
@@ -1134,6 +1250,40 @@ class ChecklistEntryController extends Controller
         $entry['user'] = $header->creator?->name ?? $header->creator?->account ?? '';
 
         return $entry;
+    }
+
+    private function normalizePdfEntry(array $entry): array
+    {
+        $entry['form'] = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $entry['form'] = $this->normalizePdfValue($entry['form']);
+
+        return $entry;
+    }
+
+    private function normalizePdfValue(mixed $value, ?string $key = null): mixed
+    {
+        if (is_array($value)) {
+            $normalized = [];
+            foreach ($value as $childKey => $childValue) {
+                $normalized[$childKey] = $key === 'days'
+                    ? $this->normalizePdfValue($childValue, 'status')
+                    : $this->normalizePdfValue($childValue, (string) $childKey);
+            }
+
+            return $normalized;
+        }
+
+        if ($key === 'status' || $key === 'days') {
+            if ($value === true || $value === 1 || $value === '1' || in_array(strtolower(trim((string) $value)), ['yes', 'true', 'checked', 'check', 'ok', 'pass', 'valid'], true)) {
+                return 'yes';
+            }
+
+            if ($value === false || $value === 0 || $value === '0' || in_array(strtolower(trim((string) $value)), ['no', 'false', 'unchecked', 'cross', 'fail', 'invalid'], true)) {
+                return 'no';
+            }
+        }
+
+        return $value;
     }
 
     private function normalizeEntryPayload(array $entry): array

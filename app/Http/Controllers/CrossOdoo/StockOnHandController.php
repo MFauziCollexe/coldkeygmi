@@ -154,7 +154,7 @@ class StockOnHandController extends Controller
      * @param  array<int, array<string, mixed>>  $products
      * @return array{selectedCustomerId: int|null, selectedProductId: int|null, customerName: string|null, productName: string|null}
      */
-    private function resolveSelection(Request $request, array $customers, array $products): array
+    protected function resolveSelection(Request $request, array $customers, array $products): array
     {
         $selectedCustomerId = $request->input('customer_id');
         if ($selectedCustomerId !== null && $selectedCustomerId !== '') {
@@ -201,7 +201,7 @@ class StockOnHandController extends Controller
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function computeGroupedRows(OdooXmlRpcService $odoo, int $selectedProductId, int $selectedCustomerId, string $endDate, ?string $customerName): array
+    protected function computeGroupedRows(OdooXmlRpcService $odoo, int $selectedProductId, int $selectedCustomerId, string $endDate, ?string $customerName): array
     {
         $variantIds = $this->productVariantIds($odoo, $selectedProductId);
 
@@ -252,6 +252,7 @@ class StockOnHandController extends Controller
             $packageInfos,
             $history,
             $customerName,
+            $endDate,
         );
     }
 
@@ -260,7 +261,7 @@ class StockOnHandController extends Controller
      *
      * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
      */
-    private function fetchCustomersAndProducts(): array
+    protected function fetchCustomersAndProducts(): array
     {
         $odoo = new OdooXmlRpcService;
 
@@ -784,6 +785,7 @@ class StockOnHandController extends Controller
         array $packages,
         array $history,
         ?string $customerName,
+        string $endDate,
     ): array {
         $groups = [];
 
@@ -833,6 +835,7 @@ class StockOnHandController extends Controller
 
             if (! isset($groups[$groupKey])) {
                 $groups[$groupKey] = [
+                    'Date' => $endDate,
                     'Owner' => $ownerName ?? $customerName ?? '-',
                     'Location' => $locationName,
                     'Destination package' => $packageName,

@@ -24,6 +24,7 @@ return [
                 ['key' => 'gmisl.cross_odoo.soh', 'label' => 'SOH'],
                 ['key' => 'gmisl.cross_odoo.rekap_inbound', 'label' => 'Rekap Inbound'],
                 ['key' => 'gmisl.cross_odoo.rekap_outbound', 'label' => 'Rekap Outbound'],
+                ['key' => 'gmisl.cross_odoo.billing', 'label' => 'Billing'],
             ]],
             ['key' => 'gmisl.tools', 'label' => 'Tools', 'children' => [
                 ['key' => 'tools.compress_pdf', 'label' => 'Compress PDF'],

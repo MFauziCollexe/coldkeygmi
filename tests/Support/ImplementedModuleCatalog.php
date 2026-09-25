@@ -18,6 +18,7 @@ class ImplementedModuleCatalog
             'utility.stock_card' => ['label' => 'Stock Card', 'uri' => '/gmisl/utility/stock-card'],
             'utility.rcs' => ['label' => 'Tally', 'uri' => '/gmisl/utility/rcs'],
             'gmisl.cross_odoo.stock_card' => ['label' => 'Cross Odoo Stock Card', 'uri' => '/gmisl/cross-odoo/stock-card'],
+            'gmisl.cross_odoo.billing' => ['label' => 'Billing', 'uri' => '/gmisl/cross-odoo/billing'],
             'tools.compress_pdf' => ['label' => 'Compress PDF', 'uri' => '/gmisl/tools/compress-pdf'],
             'tools.merge_pdf' => ['label' => 'Merge PDF', 'uri' => '/gmisl/tools/merge-pdf'],
             'tools.split_pdf' => ['label' => 'Split PDF', 'uri' => '/gmisl/tools/split-pdf'],

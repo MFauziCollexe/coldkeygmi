@@ -17,12 +17,6 @@
 </table>
 
 @php
-    $areaOptions = [
-        ['id' => 'lantai_1', 'name' => 'Lantai 1 Dalam'],
-        ['id' => 'lantai_2', 'name' => 'Lantai 2 Office'],
-        ['id' => 'lantai_1_depan', 'name' => 'Lantai 1 Depan'],
-        ['id' => 'lantai_1_belakang', 'name' => 'Lantai 1 Belakang'],
-    ];
     $rowsByArea = $form['rows_by_area'] ?? [];
     $areaScansByDay = $form['area_scans_by_day'] ?? [];
     $days = $form['days'] ?? range(1, 31);
@@ -30,12 +24,12 @@
     $approvedDays = $form['approved_days'] ?? [];
 @endphp
 
-@foreach($areaOptions as $area)
+@foreach($rowsByArea as $areaId => $areaRows)
     @php
-        $areaRows = $rowsByArea[$area['id']] ?? [];
+        $areaName = (string) ($areaRows[0]['area_name'] ?? $areaRows[0]['area'] ?? $areaId);
     @endphp
-    @if(!empty($areaRows))
-        <div class="section-title">{{ $area['name'] }}</div>
+    @if(is_array($areaRows) && !empty($areaRows))
+        <div class="section-title">{{ $areaName }}</div>
         <table>
             <thead>
                 <tr>

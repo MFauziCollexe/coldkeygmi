@@ -3,7 +3,7 @@
     <div class="p-4 md:p-6">
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 class="text-2xl font-bold">Cross Odoo - SOH</h2>
+          <h2 class="text-2xl font-bold">{{ pageTitle }}</h2>
           <p class="text-sm text-slate-400">
             Menampilkan stock on hand untuk customer
             <span class="font-semibold text-slate-200">{{ customerName }}</span>
@@ -78,6 +78,7 @@
         <table class="w-full border-collapse text-xs text-slate-900" style="table-layout: auto;">
           <thead>
             <tr class="bg-sky-100 text-slate-900">
+              <th v-if="showDate" class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Date</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Owner</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Location</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Destination package</th>
@@ -97,7 +98,7 @@
           </thead>
           <tbody>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="15">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" :colspan="showDate ? 16 : 15">
                 Tidak ada data untuk filter yang dipilih.
               </td>
             </tr>
@@ -107,6 +108,7 @@
               :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
               class="hover:bg-blue-50"
             >
+              <td v-if="showDate" class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Date'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Owner'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Location'] || '-' }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row['Destination package'] || '-' }}</td>
@@ -126,7 +128,7 @@
           </tbody>
           <tfoot>
             <tr class="bg-slate-200 text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="8">TOTAL</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" :colspan="showDate ? 9 : 8">TOTAL</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right font-bold text-slate-900">{{ formatNumber(totalSoh) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalReserve) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalOnHandAvailable) }}</td>
@@ -173,6 +175,9 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 const props = defineProps({
+  pageTitle:            { type: String,   default: 'Cross Odoo - SOH' },
+  basePath:             { type: String,   default: '/gmisl/cross-odoo/soh' },
+  showDate:             { type: Boolean,  default: false },
   rows:                { type: Array,    default: () => [] },
   customers:           { type: Array,    default: () => [] },
   products:            { type: Array,    default: () => [] },
@@ -210,7 +215,7 @@ const exportUrl = computed(() => {
   const params = new URLSearchParams();
   if (localCustomerId.value !== null && localCustomerId.value !== undefined && localCustomerId.value !== '') params.set('customer_id', localCustomerId.value);
   if (localProductId.value !== null && localProductId.value !== undefined && localProductId.value !== '') params.set('product_id', localProductId.value);
-  return `/gmisl/cross-odoo/soh/export?${params.toString()}`;
+  return `${props.basePath}/export?${params.toString()}`;
 });
 
 const visiblePages = computed(() => {
@@ -240,7 +245,7 @@ function buildParams(overrides = {}) {
 }
 
 function reload(params, only) {
-  router.get('/gmisl/cross-odoo/soh', params, {
+  router.get(props.basePath, params, {
     preserveState: true,
     preserveScroll: true,
     only,

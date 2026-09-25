@@ -188,6 +188,9 @@ Route::get('gmisl/cross-odoo/rekap-outbound', [App\Http\Controllers\CrossOdoo\Re
 Route::get('gmisl/cross-odoo/rekap-outbound/export', [App\Http\Controllers\CrossOdoo\RekapOutboundController::class, 'export'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.rekap_outbound'])
     ->name('cross-odoo.rekap-outbound.export');
+Route::get('gmisl/cross-odoo/billing', [App\Http\Controllers\CrossOdoo\BillingController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.billing'])
+    ->name('cross-odoo.billing.index');
 Route::get('gmisl/utility/stock-card/export', [App\Http\Controllers\StockCardController::class, 'export'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':utility.stock_card'])
     ->name('stock-card.export');
