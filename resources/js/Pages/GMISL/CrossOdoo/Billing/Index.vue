@@ -53,6 +53,15 @@ const productOptions = computed(() => {
     }));
 });
 
+const exportUrl = computed(() => {
+  const params = new URLSearchParams();
+  if (localCustomerId.value) params.set('customer_id', localCustomerId.value);
+  if (localProductId.value) params.set('product_id', localProductId.value);
+  if (startDateInput.value) params.set('start_date', startDateInput.value);
+  if (endDateInput.value) params.set('end_date', endDateInput.value);
+  return `/gmisl/cross-odoo/billing/export?${params.toString()}`;
+});
+
 const groupedRows = computed(() => {
   const groups = new Map();
 
@@ -176,8 +185,13 @@ function toggleDate(date) {
           <h2 class="text-2xl font-bold">Cross Odoo - Billing</h2>
           <p class="text-sm text-slate-400">Daily stock movement ledger per location.</p>
         </div>
-        <div class="text-sm text-slate-400">
-          Total: <span class="font-semibold text-slate-200">{{ totalRows }}</span> data
+        <div class="flex flex-col items-end gap-2">
+          <div class="text-sm text-slate-400">
+            Total: <span class="font-semibold text-slate-200">{{ totalRows }}</span> data
+          </div>
+          <a :href="exportUrl" data-inertia-ignore class="inline-flex items-center justify-center rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">
+            Export
+          </a>
         </div>
       </div>
 
