@@ -89,7 +89,10 @@ const groupedRows = computed(() => {
     }
   });
 
-  return Array.from(groups.values());
+  return Array.from(groups.values()).map((group) => ({
+    ...group,
+    locationCount: new Set(group.rows.map((row) => row.Location)).size,
+  }));
 });
 
 function onCustomerChange(value) {
@@ -205,13 +208,13 @@ function toggleDate(date) {
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Date</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Owner</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Transaksi</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Location</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Destination package</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Kode barang</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Nama barang</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Preference</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Source Document</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Expired</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Location</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">To</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Saldo Awal</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">IN</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">OUT</th>
@@ -226,7 +229,7 @@ function toggleDate(date) {
                   <span class="mr-2 inline-block w-4 text-center">{{ expandedDates.has(group.date) ? '-' : '+' }}</span>
                   {{ group.date }}
                 </td>
-                <td colspan="9" class="border border-slate-300 px-2 py-1.5 font-semibold">Detail ({{ group.rows.length }} lokasi)</td>
+                <td colspan="9" class="border border-slate-300 px-2 py-1.5 font-semibold">Detail ({{ group.locationCount }} Location)</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.opening) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.in) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.out) }}</td>
@@ -237,13 +240,13 @@ function toggleDate(date) {
                   <td class="border border-slate-300 px-2 py-1.5"></td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Owner</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Transaksi</td>
-                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Location</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Destination package</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Kode barang</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Nama barang</td>
-                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Preference</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Source Document</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Expired</td>
+                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Location</td>
+                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">To</td>
                   <td class="border border-slate-300 px-2 py-1.5 text-right font-semibold">Saldo Awal</td>
                   <td class="border border-slate-300 px-2 py-1.5 text-right font-semibold">IN</td>
                   <td class="border border-slate-300 px-2 py-1.5 text-right font-semibold">OUT</td>
@@ -255,13 +258,13 @@ function toggleDate(date) {
                   </td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row.Owner || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row.Transaksi || '-' }}</td>
-                  <td class="border border-slate-300 px-2 py-1.5">{{ row.Location }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row['Destination package'] || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row['Kode barang'] || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row['Nama barang'] || '-' }}</td>
-                  <td class="border border-slate-300 px-2 py-1.5">{{ row.Preference || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row['Source Document'] || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row.Expired || '-' }}</td>
+                  <td class="border border-slate-300 px-2 py-1.5">{{ row.Location || '-' }}</td>
+                  <td class="border border-slate-300 px-2 py-1.5">{{ row.To || '-' }}</td>
                   <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(row['Saldo Awal']) }}</td>
                   <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(row.In) }}</td>
                   <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(row.Out) }}</td>

@@ -132,7 +132,7 @@ class BillingLedgerService
 
         $locationMap = $this->fetchLocationMap($odoo, $lines);
         $pickingTypes = $this->fetchPickingTypes($odoo, $lines);
-        $lineDetails = $this->fetchLineDetails($odoo, $lines, $templateId, $customerId, $pickingTypes);
+        $lineDetails = $this->fetchLineDetails($odoo, $lines, $templateId, $customerId, $pickingTypes, $locationMap);
         $opening = [];
         $openingDetails = [];
         $latestDetailsByLocation = [];
@@ -177,6 +177,18 @@ class BillingLedgerService
                 continue;
             }
             if ($date > $endDate) {
+                continue;
+            }
+
+            if ($movement === 'internal') {
+                $this->applySilentInternalMovement(
+                    $daily,
+                    $date,
+                    $source,
+                    $destination,
+                    $quantity,
+                    $details,
+                );
                 continue;
             }
 
@@ -228,7 +240,13 @@ class BillingLedgerService
                 'closing' => 0.0,
             ];
             $dateRows = [];
-            $hasDateMovement = $dateMovements !== [];
+            $hasVisibleDateMovement = array_reduce(
+                $dateMovements,
+                fn (bool $visible, array $movement): bool => $visible
+                    || (float) ($movement['in'] ?? 0.0) !== 0.0
+                    || (float) ($movement['out'] ?? 0.0) !== 0.0,
+                false,
+            );
             $locations = array_values(array_unique(array_merge(
                 array_keys($running),
                 array_keys($dateMovements),
@@ -236,34 +254,47 @@ class BillingLedgerService
             foreach ($locations as $location) {
                 $openingBalance = (float) ($running[$location] ?? 0.0);
                 $movement = array_merge(
-                    ['in' => 0.0, 'out' => 0.0, 'internal' => 0.0, 'balance' => 0.0, 'details' => []],
+                    ['in' => 0.0, 'out' => 0.0, 'internal' => 0.0, 'balance' => 0.0, 'details' => [], 'transactions' => []],
                     $dateMovements[$location] ?? [],
                 );
                 $closingBalance = $openingBalance + $movement['balance'];
                 $hasMovement = $movement['in'] != 0.0 || $movement['out'] != 0.0;
-                $hasCarryForward = ! $hasDateMovement && ($openingBalance != 0.0 || $closingBalance != 0.0);
+                $hasCarryForward = ! $hasVisibleDateMovement && $closingBalance != 0.0;
                 $rowDetails = $movement['details'] !== []
                     ? $movement['details']
                     : ($runningDetails[$location] ?? ($historicalDetailsByLocation[$location] ?? []));
-                if (! $this->isBufferLocation($location)
-                    && ($hasMovement || $hasCarryForward)) {
-                    $dateRows[] = [
-                        'Date' => $dateKey,
-                        'Times' => array_values(array_unique($movement['times'] ?? [])),
-                        'Saldo Awal' => $openingBalance,
-                        'Location' => $location,
-                        'In' => $movement['in'],
-                        'Out' => $movement['out'],
-                        'Saldo Akhir' => $closingBalance,
-                        'Owner' => $this->aggregateDetailValues($rowDetails, 'Owner'),
-                        'Transaksi' => $this->aggregateDetailValues($rowDetails, 'Transaksi'),
-                        'Destination package' => $this->aggregateDetailValues($rowDetails, 'Destination package'),
-                        'Kode barang' => $this->aggregateDetailValues($rowDetails, 'Kode barang'),
-                        'Nama barang' => $this->aggregateDetailValues($rowDetails, 'Nama barang'),
-                        'Preference' => $this->aggregateDetailValues($rowDetails, 'Preference'),
-                        'Source Document' => $this->aggregateDetailValues($rowDetails, 'Source Document'),
-                        'Expired' => $this->aggregateDetailValues($rowDetails, 'Expired'),
-                    ];
+                if (! $this->isBufferLocation($location) && $hasMovement) {
+                    $transactionBalance = $openingBalance;
+                    usort($movement['transactions'], fn ($left, $right) => strcmp($left['time'], $right['time']));
+                    foreach ($movement['transactions'] as $transaction) {
+                        $transactionOpening = $transactionBalance;
+                        $transactionClosing = $transactionOpening + $transaction['in'] - $transaction['out'];
+                        $transactionDetails = ($transaction['details'] ?? []) !== []
+                            ? [$transaction['details']]
+                            : $rowDetails;
+                        $dateRows[] = $this->makeLedgerRow(
+                            $dateKey,
+                            [$transaction['time']],
+                            $transactionOpening,
+                            $location,
+                            $transaction['in'],
+                            $transaction['out'],
+                            $transactionClosing,
+                            $transactionDetails,
+                        );
+                        $transactionBalance = $transactionClosing;
+                    }
+                } elseif (! $this->isBufferLocation($location) && $hasCarryForward) {
+                    $dateRows[] = $this->makeLedgerRow(
+                        $dateKey,
+                        [],
+                        $openingBalance,
+                        $location,
+                        0.0,
+                        0.0,
+                        $closingBalance,
+                        $rowDetails,
+                    );
                 }
                 if ($movement['details'] !== []) {
                     $runningDetails[$location] = $movement['details'];
@@ -339,7 +370,7 @@ class BillingLedgerService
     }
 
     /** @param array<int, array<string, mixed>> $lines */
-    private function fetchLineDetails(OdooXmlRpcService $odoo, array $lines, int $templateId, int $customerId, array $pickingTypes): array
+    private function fetchLineDetails(OdooXmlRpcService $odoo, array $lines, int $templateId, int $customerId, array $pickingTypes, array $locationMap): array
     {
         $pickingIds = [];
         $lotIds = [];
@@ -395,6 +426,7 @@ class BillingLedgerService
             $lot = $line['lot_id'] ?? false;
             $pickingType = $line['picking_type_id'] ?? false;
             $destinationPackage = $line['result_package_id'] ?? ($line['package_id'] ?? false);
+            $destination = $line['location_dest_id'] ?? false;
             $lotId = is_array($lot) && isset($lot[0]) ? (int) $lot[0] : null;
             $pickingId = is_array($picking) && isset($picking[0]) ? (int) $picking[0] : null;
             $pickingTypeId = is_array($pickingType) && isset($pickingType[0]) ? (int) $pickingType[0] : null;
@@ -404,9 +436,11 @@ class BillingLedgerService
                 'Destination package' => is_array($destinationPackage) ? ($destinationPackage[1] ?? null) : null,
                 'Kode barang' => $defaultCode,
                 'Nama barang' => $productName,
-                'Preference' => ($line['reference'] ?? false) ?: null,
                 'Source Document' => $pickingId !== null ? ($pickingMap[$pickingId] ?? null) : null,
                 'Expired' => $lotId !== null ? ($lotMap[$lotId] ?? null) : null,
+                'To' => is_array($destination) && isset($destination[0])
+                    ? ($locationMap[(int) $destination[0]]['complete_name'] ?? ($destination[1] ?? null))
+                    : null,
             ];
         }
 
@@ -428,18 +462,13 @@ class BillingLedgerService
             return 'in';
         }
         if ($sequence === 'PICK' || str_contains($name, 'PICKING')) {
-            return 'out';
+            return 'internal';
         }
         if ($code === 'outgoing'
             || $sequence === 'DO'
             || in_array($sequence, ['OUT', 'OUTGOING'], true)
             || str_contains($name, 'DELIVERY')
             || str_contains($name, 'OUTBOUND')) {
-            $source = $line['location_id'] ?? false;
-            $sourceName = is_array($source) ? strtoupper((string) ($source[1] ?? '')) : '';
-            if (str_contains($sourceName, 'OUTPUT')) {
-                return null;
-            }
             return 'out';
         }
         if ($code === 'internal'
@@ -497,11 +526,13 @@ class BillingLedgerService
                 $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
                 $daily[$date][$destination]['times'][] = $time;
             }
+            $daily[$date][$destination]['transactions'][] = ['time' => $time, 'in' => $quantity, 'out' => 0.0, 'details' => $details];
         } elseif ($movement === 'out' && $source !== null) {
             $daily[$date][$source]['balance'] = ($daily[$date][$source]['balance'] ?? 0.0) - $quantity;
             $daily[$date][$source]['details'][] = $details;
             $daily[$date][$source]['out'] = ($daily[$date][$source]['out'] ?? 0.0) + $quantity;
             $daily[$date][$source]['times'][] = $time;
+            $daily[$date][$source]['transactions'][] = ['time' => $time, 'in' => 0.0, 'out' => $quantity, 'details' => $details];
         } elseif ($movement === 'internal') {
             if ($source !== null) {
                 $daily[$date][$source]['balance'] = ($daily[$date][$source]['balance'] ?? 0.0) - $quantity;
@@ -511,6 +542,7 @@ class BillingLedgerService
                     $daily[$date][$source]['out'] = ($daily[$date][$source]['out'] ?? 0.0) + $quantity;
                     $daily[$date][$source]['times'][] = $time;
                 }
+                $daily[$date][$source]['transactions'][] = ['time' => $time, 'in' => 0.0, 'out' => $quantity, 'details' => $details];
             }
             if ($destination !== null) {
                 $daily[$date][$destination]['balance'] = ($daily[$date][$destination]['balance'] ?? 0.0) + $quantity;
@@ -520,6 +552,29 @@ class BillingLedgerService
                     $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
                     $daily[$date][$destination]['times'][] = $time;
                 }
+                $daily[$date][$destination]['transactions'][] = ['time' => $time, 'in' => $quantity, 'out' => 0.0, 'details' => $details];
+            }
+        }
+    }
+
+    private function applySilentInternalMovement(
+        array &$daily,
+        string $date,
+        ?string $source,
+        ?string $destination,
+        float $quantity,
+        array $details,
+    ): void {
+        if ($source !== null) {
+            $daily[$date][$source]['balance'] = ($daily[$date][$source]['balance'] ?? 0.0) - $quantity;
+            if ($details !== []) {
+                $daily[$date][$source]['details'][] = $details;
+            }
+        }
+        if ($destination !== null) {
+            $daily[$date][$destination]['balance'] = ($daily[$date][$destination]['balance'] ?? 0.0) + $quantity;
+            if ($details !== []) {
+                $daily[$date][$destination]['details'][] = $details;
             }
         }
     }
@@ -535,6 +590,35 @@ class BillingLedgerService
         }
 
         return $values === [] ? null : implode(', ', $values);
+    }
+
+    private function makeLedgerRow(
+        string $date,
+        array $times,
+        float $opening,
+        string $location,
+        float $in,
+        float $out,
+        float $closing,
+        array $details,
+    ): array {
+        return [
+            'Date' => $date,
+            'Times' => $times,
+            'Saldo Awal' => $opening,
+            'Location' => $location,
+            'In' => $in,
+            'Out' => $out,
+            'Saldo Akhir' => $closing,
+            'Owner' => $this->aggregateDetailValues($details, 'Owner'),
+            'Transaksi' => $this->aggregateDetailValues($details, 'Transaksi'),
+            'Destination package' => $this->aggregateDetailValues($details, 'Destination package'),
+            'Kode barang' => $this->aggregateDetailValues($details, 'Kode barang'),
+            'Nama barang' => $this->aggregateDetailValues($details, 'Nama barang'),
+            'Source Document' => $this->aggregateDetailValues($details, 'Source Document'),
+            'Expired' => $this->aggregateDetailValues($details, 'Expired'),
+            'To' => $this->aggregateDetailValues($details, 'To'),
+        ];
     }
 
     private function isBufferLocation(string $location): bool
