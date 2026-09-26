@@ -1839,10 +1839,8 @@ function getDisplayExpected(row) {
 async function openCorrectionSwal(row) {
   const firstDefault = formatTimeOnly(row.first_scan) !== '-' ? formatTimeOnly(row.first_scan) : '';
   const lastDefault = formatTimeOnly(row.last_scan) !== '-' ? formatTimeOnly(row.last_scan) : '';
-  const noteDefault = row.correction?.note || '';
   const safeFirst = escapeHtmlValue(firstDefault);
   const safeLast = escapeHtmlValue(lastDefault);
-  const safeNote = escapeHtmlValue(noteDefault);
 
   const result = await Swal.fire({
     title: `Koreksi ${row.name || '-'} (${row.pin || '-'})`,
@@ -1852,8 +1850,6 @@ async function openCorrectionSwal(row) {
         <input id="swal-first-time" type="time" class="swal2-input" style="margin:0;height:40px" value="${safeFirst}">
         <label style="font-size:12px;color:#94a3b8">Scan Pulang (HH:mm)</label>
         <input id="swal-last-time" type="time" class="swal2-input" style="margin:0;height:40px" value="${safeLast}">
-        <label style="font-size:12px;color:#94a3b8">Catatan</label>
-        <input id="swal-note" type="text" class="swal2-input" style="margin:0;height:40px" value="${safeNote}">
       </div>
     `,
     showCancelButton: true,
@@ -1862,12 +1858,11 @@ async function openCorrectionSwal(row) {
     preConfirm: () => {
       const first = normalizePromptTime(document.getElementById('swal-first-time')?.value || '');
       const last = normalizePromptTime(document.getElementById('swal-last-time')?.value || '');
-      const note = String(document.getElementById('swal-note')?.value || '').trim();
       if (!first && !last) {
         Swal.showValidationMessage('Isi minimal salah satu jam koreksi.');
         return false;
       }
-      return { first, last, note };
+      return { first, last };
     },
   });
 
@@ -1880,7 +1875,6 @@ async function openCorrectionSwal(row) {
     end_time: row.end_time || null,
     corrected_first_time: result.value.first,
     corrected_last_time: result.value.last,
-    note: result.value.note || null,
   }, {
     preserveScroll: true,
     onSuccess: () => {
@@ -1975,7 +1969,6 @@ function applyLocalCorrection(targetRow, payload) {
     status: 'approved',
     first_scan: firstScan,
     last_scan: lastScan,
-    note: payload.note || null,
     rejection_reason: null,
   };
 
