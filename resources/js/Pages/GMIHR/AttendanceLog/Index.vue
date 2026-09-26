@@ -148,7 +148,6 @@
                 </th>
                 <th class="text-left py-2 pr-3">Absensi</th>
                 <th class="text-left py-2 pr-3">Terlambat</th>
-                <th v-if="canViewCorrectionTotals" class="text-left py-2">Koreksi</th>
               </tr>
             </thead>
             <tbody>
@@ -164,15 +163,10 @@
                       {{ group.totalTerlambat }}
                     </span>
                   </td>
-                  <td v-if="canViewCorrectionTotals" class="py-2">
-                    <span class="inline-flex min-w-[2rem] justify-center px-2 py-0.5 rounded-md text-xs font-semibold border bg-indigo-500/20 text-indigo-200 border-indigo-400/40">
-                      {{ group.totalKoreksi }}
-                    </span>
-                  </td>
                 </tr>
 
                 <tr v-if="isGroupExpanded(group.key)" class="border-b border-slate-700/50 bg-slate-900/30">
-                  <td :colspan="canViewCorrectionTotals ? 8 : 7" class="py-3">
+                  <td colspan="6" class="py-3">
                     <div class="overflow-auto">
                       <table class="w-full text-sm">
                         <thead class="border-b border-slate-700 text-slate-400">
@@ -318,7 +312,7 @@
               </div>
             </button>
 
-            <div :class="canViewCorrectionTotals ? 'mt-4 grid grid-cols-3 gap-2 text-center text-sm' : 'mt-4 grid grid-cols-2 gap-2 text-center text-sm'">
+            <div class="mt-4 grid grid-cols-2 gap-2 text-center text-sm">
               <div class="rounded-lg border border-slate-700 bg-slate-800/80 p-2">
                 <div class="text-[11px] text-slate-400">Absensi</div>
                 <div class="font-semibold text-white">{{ group.totalAbsensi }}</div>
@@ -326,10 +320,6 @@
               <div class="rounded-lg border border-amber-400/30 bg-amber-500/10 p-2">
                 <div class="text-[11px] text-amber-200">Terlambat</div>
                 <div class="font-semibold text-amber-100">{{ group.totalTerlambat }}</div>
-              </div>
-              <div v-if="canViewCorrectionTotals" class="rounded-lg border border-indigo-400/30 bg-indigo-500/10 p-2">
-                <div class="text-[11px] text-indigo-200">Koreksi</div>
-                <div class="font-semibold text-indigo-100">{{ group.totalKoreksi }}</div>
               </div>
             </div>
 
@@ -722,10 +712,6 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  canViewCorrectionTotals: {
-    type: Boolean,
-    default: false,
-  },
   lateToleranceMinutes: {
     type: Number,
     default: 10,
@@ -769,7 +755,6 @@ watch(
 );
 
 const canManageCorrections = props.canManageCorrections === true;
-const canViewCorrectionTotals = props.canViewCorrectionTotals === true;
 const currentUser = computed(() => page.props.auth?.user || {});
 const isCurrentUserItDepartment = computed(() => {
   const departmentCode = String(
@@ -1043,7 +1028,6 @@ const allEmployeeGroups = computed(() => {
         totalTerlambat: 0,
         totalAbsen: 0,
         totalLain: 0,
-        totalKoreksi: 0,
         rows: [],
       });
     }
@@ -1059,10 +1043,6 @@ const allEmployeeGroups = computed(() => {
       item.totalAbsen += 1;
     } else if (expected === 'tidak scan masuk' || expected === 'tidak scan pulang' || expected === 'cek lagi') {
       item.totalLain += 1;
-    }
-
-    if (row?.correction) {
-      item.totalKoreksi += 1;
     }
   }
 
@@ -1839,8 +1819,10 @@ function getDisplayExpected(row) {
 async function openCorrectionSwal(row) {
   const firstDefault = formatTimeOnly(row.first_scan) !== '-' ? formatTimeOnly(row.first_scan) : '';
   const lastDefault = formatTimeOnly(row.last_scan) !== '-' ? formatTimeOnly(row.last_scan) : '';
+  const noteDefault = row.correction?.note || '';
   const safeFirst = escapeHtmlValue(firstDefault);
   const safeLast = escapeHtmlValue(lastDefault);
+  const safeNote = escapeHtmlValue(noteDefault);
 
   const result = await Swal.fire({
     title: `Koreksi ${row.name || '-'} (${row.pin || '-'})`,
@@ -1850,6 +1832,8 @@ async function openCorrectionSwal(row) {
         <input id="swal-first-time" type="time" class="swal2-input" style="margin:0;height:40px" value="${safeFirst}">
         <label style="font-size:12px;color:#94a3b8">Scan Pulang (HH:mm)</label>
         <input id="swal-last-time" type="time" class="swal2-input" style="margin:0;height:40px" value="${safeLast}">
+        <label style="font-size:12px;color:#94a3b8">Catatan</label>
+        <input id="swal-note" type="text" class="swal2-input" style="margin:0;height:40px" value="${safeNote}">
       </div>
     `,
     showCancelButton: true,
@@ -1858,11 +1842,12 @@ async function openCorrectionSwal(row) {
     preConfirm: () => {
       const first = normalizePromptTime(document.getElementById('swal-first-time')?.value || '');
       const last = normalizePromptTime(document.getElementById('swal-last-time')?.value || '');
+      const note = String(document.getElementById('swal-note')?.value || '').trim();
       if (!first && !last) {
         Swal.showValidationMessage('Isi minimal salah satu jam koreksi.');
         return false;
       }
-      return { first, last };
+      return { first, last, note };
     },
   });
 
@@ -1875,6 +1860,7 @@ async function openCorrectionSwal(row) {
     end_time: row.end_time || null,
     corrected_first_time: result.value.first,
     corrected_last_time: result.value.last,
+    note: result.value.note || null,
   }, {
     preserveScroll: true,
     onSuccess: () => {
@@ -1969,6 +1955,7 @@ function applyLocalCorrection(targetRow, payload) {
     status: 'approved',
     first_scan: firstScan,
     last_scan: lastScan,
+    note: payload.note || null,
     rejection_reason: null,
   };
 
