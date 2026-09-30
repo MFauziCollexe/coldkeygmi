@@ -96,12 +96,17 @@ class BillingController
             $catalog['products'],
         );
         [$startDate, $endDate] = $this->resolveDateRange($request);
-        $headers = [
-            'Date', 'Owner', 'Transaksi', 'Destination package', 'Kode barang',
-            'Nama barang', 'Source Document', 'Expired', 'Location', 'To',
-            'Saldo Awal', 'IN', 'OUT', 'Saldo Akhir',
+        $headerColumns = [
+            'Date', 'Start Qty', 'Start Pallet', 'Inbound Qty', 'Inbound_Pallet',
+            'Outbound_Qty', 'Outbound_Pallet', 'Adjust_Qty', 'Adjust_Pallet',
+            'End Qty', 'End Pallet', 'Storage',
         ];
-        $data = [];
+        $detailColumns = [
+            'Tanggal', 'Jam', 'Owner', 'Transaksi', 'Destination', 'Nama barang',
+            'Doc', 'Expired', 'Location', 'To', 'Saldo', 'IN', 'OUT',
+        ];
+        $headerData = [];
+        $detailData = [];
 
         if ($selection['selectedProductId'] !== null && $selection['selectedCustomerId'] !== null) {
             $ledger = $this->ledgerService->ledger(
@@ -111,30 +116,81 @@ class BillingController
                 $startDate,
                 $endDate,
             );
+            $palletValue = static function (float $quantity): int|string {
+                $pallets = (int) round($quantity / 40);
+
+                return $pallets > 1 ? $pallets : '-';
+            };
+            $palletCount = static fn (float $quantity): int => $quantity > 0
+                ? (int) round($quantity / 40)
+                : 0;
+            $date = Carbon::createFromFormat('!Y-m-d', $startDate);
+            $lastDate = Carbon::createFromFormat('!Y-m-d', $endDate);
+            while ($date->lte($lastDate)) {
+                $dateKey = $date->toDateString();
+                $summary = $ledger['dailySummaries'][$dateKey] ?? [];
+                $opening = (float) ($summary['opening'] ?? 0);
+                $inbound = (float) ($summary['in'] ?? 0);
+                $outbound = (float) ($summary['out'] ?? 0);
+                $closing = (float) ($summary['closing'] ?? ($opening + $inbound - $outbound));
+                $startPallet = $palletCount($opening);
+                $inboundPallet = $palletCount($inbound);
+                $outboundPallet = $palletCount($outbound);
+                $adjustPallet = 0;
+                $endPallet = $startPallet + $inboundPallet - $outboundPallet + $adjustPallet;
+                $storage = $startPallet + $inboundPallet;
+                $headerData[] = [
+                    $dateKey,
+                    $opening,
+                    $palletValue($opening),
+                    $inbound,
+                    $palletValue($inbound),
+                    $outbound,
+                    $palletValue($outbound),
+                    0,
+                    '-',
+                    $closing,
+                    $endPallet > 1 ? $endPallet : '-',
+                    $storage > 1 ? $storage : '-',
+                ];
+                $date->addDay();
+            }
+
             foreach ($ledger['rows'] as $row) {
-                $data[] = [
-                    implode("\n", $this->formatExportTimes($row)),
+                $dateTimes = $this->formatExportDateTimes($row);
+                $detailData[] = [
+                    implode("\n", array_column($dateTimes, 'date')),
+                    implode("\n", array_column($dateTimes, 'time')),
                     $row['Owner'] ?? null,
                     $row['Transaksi'] ?? null,
                     $row['Destination package'] ?? null,
-                    $row['Kode barang'] ?? null,
                     $row['Nama barang'] ?? null,
                     $row['Source Document'] ?? null,
-                    $row['Expired'] ?? null,
+                    $this->formatExpiredDate($row['Expired'] ?? null),
                     $row['Location'] ?? null,
                     $row['To'] ?? null,
                     (float) ($row['Saldo Awal'] ?? 0),
                     (float) ($row['In'] ?? 0),
                     (float) ($row['Out'] ?? 0),
-                    (float) ($row['Saldo Akhir'] ?? 0),
                 ];
             }
         }
 
         $spreadsheet = new Spreadsheet;
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->fromArray($headers, null, 'A1');
-        $sheet->fromArray($data, null, 'A2');
+        $headerSheet = $spreadsheet->getActiveSheet();
+        $headerSheet->setTitle('Header');
+        $headerSheet->fromArray($headerColumns, null, 'A1');
+        if ($headerData !== []) {
+            $headerSheet->fromArray($headerData, null, 'A2');
+        }
+
+        $detailSheet = $spreadsheet->createSheet();
+        $detailSheet->setTitle('Detail');
+        $detailSheet->fromArray($detailColumns, null, 'A1');
+        if ($detailData !== []) {
+            $detailSheet->fromArray($detailData, null, 'A2');
+        }
+
         $safePart = preg_replace('/[^A-Za-z0-9\-_]+/', '_', (string) ($selection['productName'] ?? 'product'));
         $filename = 'billing_'.($safePart !== '' ? $safePart : 'product').'_'.now()->format('Ymd_His').'.xlsx';
 
@@ -164,10 +220,34 @@ class BillingController
         return [$startDate, $endDate];
     }
 
-    /** @return array<int, string> */
-    private function formatExportTimes(array $row): array
+    /** @return array<int, array{date: string, time: string}> */
+    private function formatExportDateTimes(array $row): array
     {
         $times = is_array($row['Times'] ?? null) ? $row['Times'] : [];
-        return $times !== [] ? $times : [(string) ($row['Date'] ?? '')];
+        if ($times === []) {
+            $times = [(string) ($row['Date'] ?? '')];
+        }
+
+        return array_map(function (string $value): array {
+            if (preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/', $value, $matches) === 1) {
+                return [
+                    'date' => $matches[3].'/'.$matches[2].'/'.substr($matches[1], -2),
+                    'time' => isset($matches[4], $matches[5]) ? $matches[4].':'.$matches[5] : '-',
+                ];
+            }
+
+            return ['date' => $value, 'time' => '-'];
+        }, $times);
+    }
+
+    private function formatExpiredDate(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}/', $value, $matches) === 1
+            ? $matches[0]
+            : $value;
     }
 }

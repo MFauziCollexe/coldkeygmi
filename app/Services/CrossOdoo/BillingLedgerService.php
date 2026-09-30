@@ -133,6 +133,7 @@ class BillingLedgerService
         $locationMap = $this->fetchLocationMap($odoo, $lines);
         $pickingTypes = $this->fetchPickingTypes($odoo, $lines);
         $lineDetails = $this->fetchLineDetails($odoo, $lines, $templateId, $customerId, $pickingTypes, $locationMap);
+        $deliveryPlan = $this->planDeliveryNotes($lines, $pickingTypes, $locationMap, $lineDetails);
         $opening = [];
         $openingDetails = [];
         $latestDetailsByLocation = [];
@@ -142,9 +143,12 @@ class BillingLedgerService
             $transactionDate = CarbonImmutable::parse((string) ($line['date'] ?? ''));
             $date = $transactionDate->format('Y-m-d');
             $time = $transactionDate->format('Y-m-d H:i:s');
+            $lineId = (int) ($line['id'] ?? 0);
+            $date = $deliveryPlan['lineDates'][$lineId] ?? $date;
+            $time = $deliveryPlan['lineTimes'][$lineId] ?? $time;
             $source = $this->locationGroup($line['location_id'] ?? false, $locationMap);
             $destination = $this->locationGroup($line['location_dest_id'] ?? false, $locationMap);
-            $details = $lineDetails[(int) ($line['id'] ?? 0)] ?? [];
+            $details = $lineDetails[$lineId] ?? [];
             if ($details !== []) {
                 if ($source !== null) {
                     $latestDetailsByLocation[$source] ??= [$details];
@@ -188,7 +192,8 @@ class BillingLedgerService
                 $destination,
                 $quantity,
                 $time,
-                $details,
+                $deliveryPlan['hiddenLines'][$lineId] ?? false ? [] : $details,
+                $deliveryPlan['hiddenLines'][$lineId] ?? false,
             );
         }
 
@@ -245,17 +250,16 @@ class BillingLedgerService
                 $closingBalance = $openingBalance + $movement['balance'];
                 $hasMovement = $movement['in'] != 0.0 || $movement['out'] != 0.0;
                 $hasCarryForward = ! $hasMovement && $closingBalance != 0.0;
+                $isBuffer = $this->isBufferLocation($location);
+                $isDeliveryLocation = $this->isOutputLocation($location)
+                    || (float) ($movement['billing_out'] ?? 0.0) > 0.0;
                 $rowDetails = $movement['details'] !== []
                     ? $movement['details']
                     : ($runningDetails[$location] ?? ($historicalDetailsByLocation[$location] ?? []));
-                if ($hasCustomerOutbound && ! $this->isOutputLocation($location)) {
-                    $running[$location] = $closingBalance;
-                    continue;
-                }
-                if (! $this->isBufferLocation($location) && $hasMovement) {
+                if ($hasMovement) {
                     $transactionBalance = $openingBalance;
                     usort($movement['transactions'], fn ($left, $right) => strcmp($left['time'], $right['time']));
-                    if ($hasCustomerOutbound && $this->isOutputLocation($location)) {
+                    if ($hasCustomerOutbound && $isDeliveryLocation) {
                         $totalIn = array_sum(array_column($movement['transactions'], 'in'));
                         $totalOut = array_sum(array_column($movement['transactions'], 'out'));
                         $allDetails = [];
@@ -288,24 +292,24 @@ class BillingLedgerService
                         $dateRows[] = $this->makeLedgerRow(
                             $dateKey,
                             [$transaction['time']],
-                            $transactionOpening,
+                            $isBuffer ? 0.0 : $transactionOpening,
                             $location,
                             $transaction['in'],
                             $transaction['out'],
-                            $transactionClosing,
+                            $isBuffer ? 0.0 : $transactionClosing,
                             $transactionDetails,
                         );
                         $transactionBalance = $transactionClosing;
                     }
-                } elseif (! $this->isBufferLocation($location) && $hasCarryForward) {
+                } elseif ($hasCarryForward) {
                     $dateRows[] = $this->makeLedgerRow(
                         $dateKey,
                         [],
-                        $openingBalance,
+                        $isBuffer ? 0.0 : $openingBalance,
                         $location,
                         0.0,
                         0.0,
-                        $closingBalance,
+                        $isBuffer ? 0.0 : $closingBalance,
                         $rowDetails,
                     );
                 }
@@ -314,8 +318,34 @@ class BillingLedgerService
                 }
                 $running[$location] = $closingBalance;
             }
+            $stagingRows = $deliveryPlan['stagingRows'][$dateKey] ?? [];
+            if ($stagingRows !== []) {
+                $dateRows = array_merge(array_map(
+                    fn (array $staging) => $this->makeLedgerRow(
+                        $dateKey,
+                        [$staging['time']],
+                        0.0,
+                        $staging['location'],
+                        0.0,
+                        $staging['quantity'],
+                        0.0,
+                        [$staging['details']],
+                    ),
+                    $stagingRows,
+                ), $dateRows);
+            }
             $summary['closing'] = array_sum($running);
             $dailySummaries[$dateKey] = $summary;
+            $dateRows = array_values(array_filter(
+                $dateRows,
+                fn (array $row) => ! str_contains(
+                    preg_replace('/[^a-z]/', '', strtolower((string) ($row['Location'] ?? ''))),
+                    'partnerscustomers',
+                ) && ! str_contains(
+                    preg_replace('/[^a-z]/', '', strtolower((string) ($row['To'] ?? ''))),
+                    'partnerscustomers',
+                ),
+            ));
             $rows = array_merge($rows, $dateRows);
         }
 
@@ -431,6 +461,21 @@ class BillingLedgerService
         $productName = ($template['name'] ?? false) ?: null;
         $owners = $odoo->searchRead('res.partner', ['id', 'name'], 1, [['id', '=', $customerId]]);
         $defaultOwner = $owners[0]['name'] ?? (string) $customerId;
+        $putawayDestinationByPackage = [];
+        foreach ($lines as $line) {
+            if ($this->classify($line, $pickingTypes) !== 'internal') {
+                continue;
+            }
+            $source = $this->locationGroup($line['location_id'] ?? false, $locationMap);
+            if ($source === null || ! $this->isBufferLocation($source)) {
+                continue;
+            }
+            $packageId = $this->packageId($line);
+            $destinationGroup = $this->locationGroup($line['location_dest_id'] ?? false, $locationMap);
+            if ($packageId !== null && $destinationGroup !== null) {
+                $putawayDestinationByPackage[$packageId] = $destinationGroup;
+            }
+        }
         $details = [];
 
         foreach ($lines as $line) {
@@ -443,6 +488,17 @@ class BillingLedgerService
             $lotId = is_array($lot) && isset($lot[0]) ? (int) $lot[0] : null;
             $pickingId = is_array($picking) && isset($picking[0]) ? (int) $picking[0] : null;
             $pickingTypeId = is_array($pickingType) && isset($pickingType[0]) ? (int) $pickingType[0] : null;
+            $packageId = $this->packageId($line);
+            $destinationGroup = $this->locationGroup($destination, $locationMap);
+            $isBufferInbound = $this->classify($line, $pickingTypes) === 'in'
+                && $destinationGroup !== null
+                && $this->isBufferLocation($destinationGroup);
+            $to = $isBufferInbound && $packageId !== null
+                ? ($putawayDestinationByPackage[$packageId] ?? null)
+                : null;
+            $to ??= is_array($destination) && isset($destination[0])
+                ? ($locationMap[(int) $destination[0]]['complete_name'] ?? ($destination[1] ?? null))
+                : null;
             $details[(int) ($line['id'] ?? 0)] = [
                 'Owner' => is_array($owner) ? ($owner[1] ?? null) : $defaultOwner,
                 'Transaksi' => $pickingTypeId !== null ? ($pickingTypes[$pickingTypeId]['name'] ?? null) : null,
@@ -451,9 +507,7 @@ class BillingLedgerService
                 'Nama barang' => $productName,
                 'Source Document' => $pickingId !== null ? ($pickingMap[$pickingId] ?? null) : null,
                 'Expired' => $lotId !== null ? ($lotMap[$lotId] ?? null) : null,
-                'To' => is_array($destination) && isset($destination[0])
-                    ? ($locationMap[(int) $destination[0]]['complete_name'] ?? ($destination[1] ?? null))
-                    : null,
+                'To' => $to,
             ];
         }
 
@@ -530,21 +584,23 @@ class BillingLedgerService
         }
     }
 
-    private function applyVisibleMovement(array &$daily, string $date, string $movement, ?string $source, ?string $destination, float $quantity, string $time, array $details = []): void
+    private function applyVisibleMovement(array &$daily, string $date, string $movement, ?string $source, ?string $destination, float $quantity, string $time, array $details = [], bool $hideSourceTransaction = false): void
     {
         if ($movement === 'in' && $destination !== null) {
             $daily[$date][$destination]['balance'] = ($daily[$date][$destination]['balance'] ?? 0.0) + $quantity;
-            $daily[$date][$destination]['details'][] = $details;
             $daily[$date][$destination]['billing_in'] = ($daily[$date][$destination]['billing_in'] ?? 0.0) + $quantity;
-            if (! $this->isBufferLocation($destination)) {
-                $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
-                $daily[$date][$destination]['times'][] = $time;
+            if ($details !== []) {
+                $daily[$date][$destination]['details'][] = $details;
             }
+            $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
+            $daily[$date][$destination]['times'][] = $time;
             $daily[$date][$destination]['transactions'][] = ['time' => $time, 'in' => $quantity, 'out' => 0.0, 'details' => $details];
         } elseif ($movement === 'out' && $source !== null) {
             $daily[$date][$source]['balance'] = ($daily[$date][$source]['balance'] ?? 0.0) - $quantity;
-            $daily[$date][$source]['details'][] = $details;
             $daily[$date][$source]['billing_out'] = ($daily[$date][$source]['billing_out'] ?? 0.0) + $quantity;
+            if ($details !== []) {
+                $daily[$date][$source]['details'][] = $details;
+            }
             $daily[$date][$source]['out'] = ($daily[$date][$source]['out'] ?? 0.0) + $quantity;
             $daily[$date][$source]['times'][] = $time;
             $daily[$date][$source]['transactions'][] = ['time' => $time, 'in' => 0.0, 'out' => $quantity, 'details' => $details];
@@ -552,21 +608,23 @@ class BillingLedgerService
             if ($source !== null) {
                 $daily[$date][$source]['balance'] = ($daily[$date][$source]['balance'] ?? 0.0) - $quantity;
                 $daily[$date][$source]['internal'] = ($daily[$date][$source]['internal'] ?? 0.0) - $quantity;
-                $daily[$date][$source]['details'][] = $details;
-                if (! $this->isBufferLocation($source)) {
+                if ($details !== []) {
+                    $daily[$date][$source]['details'][] = $details;
+                }
+                if (! $hideSourceTransaction && ! $this->isBufferLocation($source)) {
                     $daily[$date][$source]['out'] = ($daily[$date][$source]['out'] ?? 0.0) + $quantity;
                     $daily[$date][$source]['times'][] = $time;
+                    $daily[$date][$source]['transactions'][] = ['time' => $time, 'in' => 0.0, 'out' => $quantity, 'details' => $details];
                 }
-                $daily[$date][$source]['transactions'][] = ['time' => $time, 'in' => 0.0, 'out' => $quantity, 'details' => $details];
             }
             if ($destination !== null) {
                 $daily[$date][$destination]['balance'] = ($daily[$date][$destination]['balance'] ?? 0.0) + $quantity;
                 $daily[$date][$destination]['internal'] = ($daily[$date][$destination]['internal'] ?? 0.0) + $quantity;
-                $daily[$date][$destination]['details'][] = $details;
-                if (! $this->isBufferLocation($destination)) {
-                    $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
-                    $daily[$date][$destination]['times'][] = $time;
+                if ($details !== []) {
+                    $daily[$date][$destination]['details'][] = $details;
                 }
+                $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
+                $daily[$date][$destination]['times'][] = $time;
             }
         }
     }
@@ -633,6 +691,159 @@ class BillingLedgerService
             'Expired' => $this->aggregateDetailValues($details, 'Expired'),
             'To' => $this->aggregateDetailValues($details, 'To'),
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $lines
+     * @param  array<int, array<string, mixed>>  $lineDetails
+     * @return array{lineDates: array<int, string>, lineTimes: array<int, string>, hiddenLines: array<int, bool>, stagingRows: array<string, array<int, array<string, mixed>>>}
+     */
+    private function planDeliveryNotes(array $lines, array $pickingTypes, array $locationMap, array $lineDetails): array
+    {
+        $staging = [];
+        $deliveries = [];
+
+        foreach ($lines as $line) {
+            $movement = $this->classify($line, $pickingTypes);
+            if ($movement === null) {
+                continue;
+            }
+            $quantity = (float) ($line['quantity'] ?? 0);
+            if ($quantity == 0.0) {
+                continue;
+            }
+            $lineId = (int) ($line['id'] ?? 0);
+            $time = CarbonImmutable::parse((string) ($line['date'] ?? ''))->format('Y-m-d H:i:s');
+            $source = $this->locationGroup($line['location_id'] ?? false, $locationMap);
+            $destination = $this->locationGroup($line['location_dest_id'] ?? false, $locationMap);
+
+            if ($movement === 'internal' && $destination !== null && $this->isOutputLocation($destination)) {
+                $staging[] = [
+                    'id' => $lineId,
+                    'time' => $time,
+                    'location' => (string) $source,
+                    'quantity' => $quantity,
+                ];
+                continue;
+            }
+
+            if ($movement !== 'out' || $source === null || ! $this->isOutputLocation($source)) {
+                continue;
+            }
+
+            $picking = $line['picking_id'] ?? false;
+            $key = (is_array($picking) && isset($picking[0])) ? 'p'.(int) $picking[0] : 'd'.$time;
+            if (! isset($deliveries[$key])) {
+                $deliveries[$key] = [
+                    'date' => substr($time, 0, 10),
+                    'time' => $time,
+                    'name' => is_array($picking) ? (string) ($picking[1] ?? '') : '',
+                    'output' => $source,
+                    'lines' => [],
+                    'quantity' => 0.0,
+                ];
+            }
+            $deliveries[$key]['lines'][] = $lineId;
+            $deliveries[$key]['quantity'] += $quantity;
+            if (strcmp($time, $deliveries[$key]['time']) < 0) {
+                $deliveries[$key]['time'] = $time;
+            }
+        }
+
+        usort($staging, fn (array $left, array $right) => strcmp($left['time'], $right['time']));
+        uasort($deliveries, fn (array $left, array $right) => strcmp($left['time'], $right['time']));
+
+        $lineDates = [];
+        $lineTimes = [];
+        $hiddenLines = [];
+        $stagingRows = [];
+        $cursor = 0;
+
+        foreach ($deliveries as $delivery) {
+            $remaining = $delivery['quantity'];
+            $racks = [];
+            $rackDetails = [];
+            $consumedDetails = [];
+
+            while ($remaining > 0.0 && isset($staging[$cursor])) {
+                $entry = $staging[$cursor];
+                if (strcmp($entry['time'], $delivery['time']) > 0) {
+                    break;
+                }
+                $take = min($entry['quantity'], $remaining);
+                $racks[$entry['location']] = ($racks[$entry['location']] ?? 0.0) + $take;
+                $entryDetails = $lineDetails[$entry['id']] ?? [];
+                $consumedDetails[] = $entryDetails;
+                $rackDetails[$entry['location']][] = $entryDetails;
+                $remaining -= $take;
+
+                if ($take < $entry['quantity']) {
+                    break;
+                }
+
+                $hiddenLines[$entry['id']] = true;
+                $lineDates[$entry['id']] = $delivery['date'];
+                unset($staging[$cursor]);
+                $cursor++;
+            }
+
+            $deliveryDate = $delivery['date'];
+            foreach ($delivery['lines'] as $lineId) {
+                $lineDates[$lineId] = $deliveryDate;
+                $lineTimes[$lineId] = $deliveryDate.' 00:00:00';
+            }
+
+            if ($racks === []) {
+                continue;
+            }
+
+            $consumedDetails = array_values(array_filter($consumedDetails));
+
+            foreach ($racks as $location => $quantity) {
+                $rackSpecificDetails = array_values(array_filter($rackDetails[$location] ?? []));
+                $stagingRows[$delivery['date']][] = [
+                    'time' => $delivery['time'],
+                    'location' => $location,
+                    'quantity' => $quantity,
+                    'details' => [
+                        'Owner' => $this->aggregateDetailValues($rackSpecificDetails, 'Owner'),
+                        'Transaksi' => 'PUTAWAY',
+                        'Destination package' => $this->aggregateDetailValues($rackSpecificDetails, 'Destination package'),
+                        'Kode barang' => $this->aggregateDetailValues($rackSpecificDetails, 'Kode barang'),
+                        'Nama barang' => $this->aggregateDetailValues($rackSpecificDetails, 'Nama barang'),
+                        'Source Document' => $delivery['name'] !== '' ? $delivery['name'] : null,
+                        'Expired' => $this->aggregateDetailValues($rackSpecificDetails, 'Expired'),
+                        'To' => $delivery['output'],
+                    ],
+                ];
+            }
+        }
+
+        return [
+            'lineDates' => $lineDates,
+            'lineTimes' => $lineTimes,
+            'hiddenLines' => $hiddenLines,
+            'stagingRows' => $stagingRows,
+        ];
+    }
+
+    private function formatQuantity(float $quantity): string
+    {
+        $formatted = rtrim(rtrim(number_format($quantity, 2, '.', ''), '0'), '.');
+
+        return $formatted === '' ? '0' : $formatted;
+    }
+
+    private function packageId(array $line): ?int
+    {
+        foreach (['result_package_id', 'package_id'] as $field) {
+            $reference = $line[$field] ?? false;
+            if (is_array($reference) && isset($reference[0])) {
+                return (int) $reference[0];
+            }
+        }
+
+        return null;
     }
 
     private function isBufferLocation(string $location): bool

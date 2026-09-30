@@ -62,6 +62,26 @@ const exportUrl = computed(() => {
   return `/gmisl/cross-odoo/billing/export?${params.toString()}`;
 });
 
+function normalizePalletValue(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 1) {
+    return null;
+  }
+
+  return numeric;
+}
+
+const standardPalletQty = 40;
+
+function toPallet(qty) {
+  const numeric = Number(qty ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+
+  return Math.round(numeric / standardPalletQty);
+}
+
 const groupedRows = computed(() => {
   const groups = new Map();
 
@@ -98,10 +118,43 @@ const groupedRows = computed(() => {
     }
   });
 
-  return Array.from(groups.values()).map((group) => ({
-    ...group,
-    locationCount: new Set(group.rows.map((row) => row.Location)).size,
-  }));
+  const orderedGroups = Array.from(groups.values()).sort((left, right) => {
+    const leftDate = left.date || '0000-00-00';
+    const rightDate = right.date || '0000-00-00';
+    return leftDate.localeCompare(rightDate);
+  });
+
+  return orderedGroups.map((group) => {
+    const openingQty = Number(group.opening ?? 0);
+    const endQty = Number(group.closing ?? openingQty + Number(group.in || 0) - Number(group.out || 0));
+    const startPallet = toPallet(openingQty);
+    const inPallet = toPallet(group.in);
+    const outPallet = toPallet(group.out);
+    const adjustPallet = 0;
+    const startPalletCount = startPallet ?? 0;
+    const inPalletCount = inPallet ?? 0;
+    const outPalletCount = outPallet ?? 0;
+    const endPallet = startPalletCount + inPalletCount - outPalletCount + adjustPallet;
+    const storage = startPalletCount + inPalletCount;
+
+    const result = {
+      ...group,
+      startQty: openingQty,
+      startPallet,
+      inQty: Number(group.in || 0),
+      inPallet,
+      outQty: Number(group.out || 0),
+      outPallet,
+      adjustQty: 0,
+      adjustPallet,
+      endQty,
+      endPallet,
+      storage,
+      locationCount: new Set(group.rows.map((row) => row.Location)).size,
+    };
+
+    return result;
+  });
 });
 
 function onCustomerChange(value) {
@@ -159,14 +212,30 @@ function formatNumber(value) {
   });
 }
 
-function formatDetailDates(row = {}) {
+function formatPallet(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 1) {
+    return '-';
+  }
+
+  return formatNumber(numeric);
+}
+
+function formatDetailDateTimes(row = {}) {
   const times = Array.isArray(row.Times) ? row.Times : [];
   const formatted = times.map((value) => {
     const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-    return match ? `${match[3]}/${match[2]}/${match[1].slice(-2)} ${match[4]}:${match[5]}` : String(value);
+    return match
+      ? { date: `${match[3]}/${match[2]}/${match[1].slice(-2)}`, time: `${match[4]}:${match[5]}` }
+      : { date: String(value), time: '-' };
   });
 
-  return formatted.length ? formatted : [`${row.Date || '-'} 00:00`];
+  return formatted.length ? formatted : [{ date: row.Date || '-', time: '00:00' }];
+}
+
+function formatExpired(value) {
+  if (!value) return '-';
+  return String(value).match(/^\d{4}-\d{2}-\d{2}/)?.[0] || String(value);
 }
 
 function toggleDate(date) {
@@ -174,6 +243,15 @@ function toggleDate(date) {
   if (next.has(date)) next.delete(date);
   else next.add(date);
   expandedDates.value = next;
+}
+
+function rowTone(row = {}) {
+  const inQuantity = Number(row.In || 0);
+  const outQuantity = Number(row.Out || 0);
+  if (inQuantity !== 0 && outQuantity !== 0) return 'bg-amber-200 hover:bg-amber-300';
+  if (inQuantity !== 0) return 'bg-green-200 hover:bg-green-300';
+  if (outQuantity !== 0) return 'bg-red-200 hover:bg-red-300';
+  return 'bg-white hover:bg-blue-50';
 }
 </script>
 
@@ -218,71 +296,75 @@ function toggleDate(date) {
       <div class="overflow-x-auto rounded border border-slate-600 bg-white">
         <table class="w-full border-collapse text-xs text-slate-900">
           <thead>
-            <tr class="bg-sky-100 text-slate-900">
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Date</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Owner</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Transaksi</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Destination package</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Kode barang</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Nama barang</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Source Document</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Expired</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">Location</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">To</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Saldo Awal</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">IN</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">OUT</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">Saldo Akhir</th>
+            <tr class="bg-emerald-100 text-slate-800">
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left text-[11px] font-bold uppercase tracking-wide">Date</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">Start Qty</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">Start Pallet</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">Inbound Qty</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">Inbound_Pallet</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">Outbound_Qty</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">Outbound_Pallet</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">Adjust_Qty</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">Adjust_Pallet</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">End Qty</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">End Pallet</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right text-[11px] font-bold uppercase tracking-wide">Storage</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!rows.length"><td colspan="14" class="border border-slate-300 px-2 py-6 text-center text-slate-400">Tidak ada data untuk filter yang dipilih.</td></tr>
             <template v-for="group in groupedRows" :key="group.date">
-              <tr class="cursor-pointer bg-sky-50 text-slate-900 hover:bg-sky-100" @click="toggleDate(group.date)">
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-semibold">
+              <tr class="cursor-pointer bg-emerald-50 text-slate-900 hover:bg-emerald-100" @click="toggleDate(group.date)">
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-bold">
                   <span class="mr-2 inline-block w-4 text-center">{{ expandedDates.has(group.date) ? '-' : '+' }}</span>
                   {{ group.date }}
                 </td>
-                <td colspan="9" class="border border-slate-300 px-2 py-1.5 font-semibold">Detail ({{ group.locationCount }} Location)</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.opening) }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.in) }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.out) }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.closing) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.startQty || group.opening || 0) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.startPallet) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.inQty || group.in || 0) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.inPallet) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.outQty || group.out || 0) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.outPallet) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.adjustQty || 0) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.adjustPallet) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.endQty || group.closing || 0) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.endPallet) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.storage) }}</td>
               </tr>
               <template v-if="expandedDates.has(group.date)">
                 <tr class="bg-slate-100 text-slate-700">
-                  <td class="border border-slate-300 px-2 py-1.5"></td>
+                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Tanggal</td>
+                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Jam</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Owner</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Transaksi</td>
-                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Destination package</td>
-                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Kode barang</td>
+                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Destination</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Nama barang</td>
-                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Source Document</td>
+                  <td class="border border-slate-300 px-2 py-1.5 font-semibold">Doc</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Expired</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">Location</td>
                   <td class="border border-slate-300 px-2 py-1.5 font-semibold">To</td>
-                  <td class="border border-slate-300 px-2 py-1.5 text-right font-semibold">Saldo Awal</td>
+                  <td class="border border-slate-300 px-2 py-1.5 text-right font-semibold">Saldo</td>
                   <td class="border border-slate-300 px-2 py-1.5 text-right font-semibold">IN</td>
                   <td class="border border-slate-300 px-2 py-1.5 text-right font-semibold">OUT</td>
-                  <td class="border border-slate-300 px-2 py-1.5 text-right font-semibold">Saldo Akhir</td>
                 </tr>
-                <tr v-for="(row, index) in group.rows" :key="`${group.date}-${row.Location}-${index}`" class="bg-white hover:bg-blue-50">
+                <tr v-for="(row, index) in group.rows" :key="`${group.date}-${row.Location}-${index}`" :class="rowTone(row)">
                   <td class="border border-slate-300 px-2 py-1.5">
-                    <div v-for="timestamp in formatDetailDates(row)" :key="timestamp">{{ timestamp }}</div>
+                    <div v-for="timestamp in formatDetailDateTimes(row)" :key="timestamp.date + timestamp.time">{{ timestamp.date }}</div>
+                  </td>
+                  <td class="border border-slate-300 px-2 py-1.5">
+                    <div v-for="timestamp in formatDetailDateTimes(row)" :key="timestamp.date + timestamp.time">{{ timestamp.time }}</div>
                   </td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row.Owner || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row.Transaksi || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row['Destination package'] || '-' }}</td>
-                  <td class="border border-slate-300 px-2 py-1.5">{{ row['Kode barang'] || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row['Nama barang'] || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row['Source Document'] || '-' }}</td>
-                  <td class="border border-slate-300 px-2 py-1.5">{{ row.Expired || '-' }}</td>
+                  <td class="border border-slate-300 px-2 py-1.5">{{ formatExpired(row.Expired) }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row.Location || '-' }}</td>
                   <td class="border border-slate-300 px-2 py-1.5">{{ row.To || '-' }}</td>
                   <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(row['Saldo Awal']) }}</td>
                   <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(row.In) }}</td>
                   <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(row.Out) }}</td>
-                  <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(row['Saldo Akhir']) }}</td>
                 </tr>
               </template>
             </template>
