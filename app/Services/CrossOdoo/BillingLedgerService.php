@@ -157,7 +157,7 @@ class BillingLedgerService
                     $latestDetailsByLocation[$destination] ??= [$details];
                 }
             }
-            $movement = $this->classify($line, $pickingTypes);
+            $movement = $this->classify($line, $pickingTypes, $locationMap);
             if ($movement === null) {
                 continue;
             }
@@ -230,6 +230,7 @@ class BillingLedgerService
                 'opening' => array_sum($running),
                 'in' => array_sum(array_map(fn ($movement) => (float) ($movement['billing_in'] ?? 0.0), $dateMovements)),
                 'out' => array_sum(array_map(fn ($movement) => (float) ($movement['billing_out'] ?? 0.0), $dateMovements)),
+                'adjust' => array_sum(array_map(fn ($movement) => (float) ($movement['billing_adjust'] ?? 0.0), $dateMovements)),
                 'closing' => 0.0,
             ];
             $dateRows = [];
@@ -463,7 +464,7 @@ class BillingLedgerService
         $defaultOwner = $owners[0]['name'] ?? (string) $customerId;
         $putawayDestinationByPackage = [];
         foreach ($lines as $line) {
-            if ($this->classify($line, $pickingTypes) !== 'internal') {
+            if ($this->classify($line, $pickingTypes, $locationMap) !== 'internal') {
                 continue;
             }
             $source = $this->locationGroup($line['location_id'] ?? false, $locationMap);
@@ -490,7 +491,8 @@ class BillingLedgerService
             $pickingTypeId = is_array($pickingType) && isset($pickingType[0]) ? (int) $pickingType[0] : null;
             $packageId = $this->packageId($line);
             $destinationGroup = $this->locationGroup($destination, $locationMap);
-            $isBufferInbound = $this->classify($line, $pickingTypes) === 'in'
+            $movement = $this->classify($line, $pickingTypes, $locationMap);
+            $isBufferInbound = $movement === 'in'
                 && $destinationGroup !== null
                 && $this->isBufferLocation($destinationGroup);
             $to = $isBufferInbound && $packageId !== null
@@ -501,7 +503,9 @@ class BillingLedgerService
                 : null;
             $details[(int) ($line['id'] ?? 0)] = [
                 'Owner' => is_array($owner) ? ($owner[1] ?? null) : $defaultOwner,
-                'Transaksi' => $pickingTypeId !== null ? ($pickingTypes[$pickingTypeId]['name'] ?? null) : null,
+                'Transaksi' => $movement === 'adjustment_in' || $movement === 'adjustment_out'
+                    ? 'INVENTORY ADJUSTMENT'
+                    : ($pickingTypeId !== null ? ($pickingTypes[$pickingTypeId]['name'] ?? null) : null),
                 'Destination package' => is_array($destinationPackage) ? ($destinationPackage[1] ?? null) : null,
                 'Kode barang' => $defaultCode,
                 'Nama barang' => $productName,
@@ -514,8 +518,19 @@ class BillingLedgerService
         return $details;
     }
 
-    private function classify(array $line, array $pickingTypes): ?string
+    private function classify(array $line, array $pickingTypes, array $locationMap = []): ?string
     {
+        $sourceId = is_array($line['location_id'] ?? null) ? (int) $line['location_id'][0] : null;
+        $destinationId = is_array($line['location_dest_id'] ?? null) ? (int) $line['location_dest_id'][0] : null;
+        $sourceUsage = $sourceId !== null ? ($locationMap[$sourceId]['usage'] ?? null) : null;
+        $destinationUsage = $destinationId !== null ? ($locationMap[$destinationId]['usage'] ?? null) : null;
+        if ($sourceUsage === 'inventory' && $destinationUsage === 'internal') {
+            return 'adjustment_in';
+        }
+        if ($sourceUsage === 'internal' && $destinationUsage === 'inventory') {
+            return 'adjustment_out';
+        }
+
         $ref = $line['picking_type_id'] ?? false;
         $type = is_array($ref) ? ($pickingTypes[(int) ($ref[0] ?? 0)] ?? []) : [];
         $code = $type['code'] ?? '';
@@ -544,6 +559,7 @@ class BillingLedgerService
             || str_contains($name, 'JOIN PALLET')) {
             return 'internal';
         }
+
         return null;
     }
 
@@ -564,6 +580,16 @@ class BillingLedgerService
                 $balanceDetails[$destination] ??= [$details];
             }
         } elseif ($movement === 'out' && $source !== null) {
+            $balances[$source] = ($balances[$source] ?? 0.0) - $quantity;
+            if ($details !== []) {
+                $balanceDetails[$source] ??= [$details];
+            }
+        } elseif ($movement === 'adjustment_in' && $destination !== null) {
+            $balances[$destination] = ($balances[$destination] ?? 0.0) + $quantity;
+            if ($details !== []) {
+                $balanceDetails[$destination] ??= [$details];
+            }
+        } elseif ($movement === 'adjustment_out' && $source !== null) {
             $balances[$source] = ($balances[$source] ?? 0.0) - $quantity;
             if ($details !== []) {
                 $balanceDetails[$source] ??= [$details];
@@ -595,6 +621,24 @@ class BillingLedgerService
             $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
             $daily[$date][$destination]['times'][] = $time;
             $daily[$date][$destination]['transactions'][] = ['time' => $time, 'in' => $quantity, 'out' => 0.0, 'details' => $details];
+        } elseif ($movement === 'adjustment_in' && $destination !== null) {
+            $daily[$date][$destination]['balance'] = ($daily[$date][$destination]['balance'] ?? 0.0) + $quantity;
+            $daily[$date][$destination]['billing_adjust'] = ($daily[$date][$destination]['billing_adjust'] ?? 0.0) + $quantity;
+            $daily[$date][$destination]['in'] = ($daily[$date][$destination]['in'] ?? 0.0) + $quantity;
+            $daily[$date][$destination]['times'][] = $time;
+            $daily[$date][$destination]['transactions'][] = ['time' => $time, 'in' => $quantity, 'out' => 0.0, 'details' => $details];
+            if ($details !== []) {
+                $daily[$date][$destination]['details'][] = $details;
+            }
+        } elseif ($movement === 'adjustment_out' && $source !== null) {
+            $daily[$date][$source]['balance'] = ($daily[$date][$source]['balance'] ?? 0.0) - $quantity;
+            $daily[$date][$source]['billing_adjust'] = ($daily[$date][$source]['billing_adjust'] ?? 0.0) - $quantity;
+            $daily[$date][$source]['out'] = ($daily[$date][$source]['out'] ?? 0.0) + $quantity;
+            $daily[$date][$source]['times'][] = $time;
+            $daily[$date][$source]['transactions'][] = ['time' => $time, 'in' => 0.0, 'out' => $quantity, 'details' => $details];
+            if ($details !== []) {
+                $daily[$date][$source]['details'][] = $details;
+            }
         } elseif ($movement === 'out' && $source !== null) {
             $daily[$date][$source]['balance'] = ($daily[$date][$source]['balance'] ?? 0.0) - $quantity;
             $daily[$date][$source]['billing_out'] = ($daily[$date][$source]['billing_out'] ?? 0.0) + $quantity;
@@ -704,7 +748,7 @@ class BillingLedgerService
         $deliveries = [];
 
         foreach ($lines as $line) {
-            $movement = $this->classify($line, $pickingTypes);
+            $movement = $this->classify($line, $pickingTypes, $locationMap);
             if ($movement === null) {
                 continue;
             }

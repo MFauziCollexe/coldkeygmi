@@ -92,6 +92,7 @@ const groupedRows = computed(() => {
       opening: Number(summary.opening ?? 0),
       in: Number(summary.in ?? 0),
       out: Number(summary.out ?? 0),
+      adjust: Number(summary.adjust ?? 0),
       closing: Number(summary.closing ?? 0),
     });
   });
@@ -104,6 +105,7 @@ const groupedRows = computed(() => {
         opening: Number(props.dailySummaries[row.Date]?.opening ?? 0),
         in: Number(props.dailySummaries[row.Date]?.in ?? 0),
         out: Number(props.dailySummaries[row.Date]?.out ?? 0),
+        adjust: Number(props.dailySummaries[row.Date]?.adjust ?? 0),
         closing: Number(props.dailySummaries[row.Date]?.closing ?? 0),
       });
     }
@@ -126,11 +128,14 @@ const groupedRows = computed(() => {
 
   return orderedGroups.map((group) => {
     const openingQty = Number(group.opening ?? 0);
-    const endQty = Number(group.closing ?? openingQty + Number(group.in || 0) - Number(group.out || 0));
+    const endQty = Number(group.closing ?? openingQty + Number(group.in || 0) - Number(group.out || 0) + Number(group.adjust || 0));
     const startPallet = toPallet(openingQty);
     const inPallet = toPallet(group.in);
     const outPallet = toPallet(group.out);
-    const adjustPallet = 0;
+    const adjustQty = Number(group.adjust || 0);
+    const adjustPallet = adjustQty === 0
+      ? 0
+      : Math.sign(adjustQty) * (toPallet(Math.abs(adjustQty)) ?? 0);
     const startPalletCount = startPallet ?? 0;
     const inPalletCount = inPallet ?? 0;
     const outPalletCount = outPallet ?? 0;
@@ -145,7 +150,7 @@ const groupedRows = computed(() => {
       inPallet,
       outQty: Number(group.out || 0),
       outPallet,
-      adjustQty: 0,
+      adjustQty,
       adjustPallet,
       endQty,
       endPallet,
@@ -155,6 +160,26 @@ const groupedRows = computed(() => {
 
     return result;
   });
+});
+
+const subtotal = computed(() => {
+  if (groupedRows.value.length === 0) return null;
+
+  const sum = (key) => groupedRows.value.reduce((total, group) => total + Number(group[key] || 0), 0);
+
+  return {
+    startQty: sum('startQty'),
+    startPallet: sum('startPallet'),
+    inQty: sum('inQty'),
+    inPallet: sum('inPallet'),
+    outQty: sum('outQty'),
+    outPallet: sum('outPallet'),
+    adjustQty: sum('adjustQty'),
+    adjustPallet: sum('adjustPallet'),
+    endQty: sum('endQty'),
+    endPallet: sum('endPallet'),
+    storage: sum('storage'),
+  };
 });
 
 function onCustomerChange(value) {
@@ -212,6 +237,10 @@ function formatNumber(value) {
   });
 }
 
+function formatOptionalNumber(value) {
+  return Number(value || 0) === 0 ? '-' : formatNumber(value);
+}
+
 function formatPallet(value) {
   const numeric = Number(value ?? 0);
   if (!Number.isFinite(numeric) || numeric <= 1) {
@@ -246,6 +275,10 @@ function toggleDate(date) {
 }
 
 function rowTone(row = {}) {
+  if (String(row.Transaksi || '').toUpperCase().includes('ADJUSTMENT')) {
+    return 'bg-blue-200 hover:bg-blue-300';
+  }
+
   const inQuantity = Number(row.In || 0);
   const outQuantity = Number(row.Out || 0);
   if (inQuantity !== 0 && outQuantity !== 0) return 'bg-amber-200 hover:bg-amber-300';
@@ -314,7 +347,10 @@ function rowTone(row = {}) {
           <tbody>
             <tr v-if="!rows.length"><td colspan="14" class="border border-slate-300 px-2 py-6 text-center text-slate-400">Tidak ada data untuk filter yang dipilih.</td></tr>
             <template v-for="group in groupedRows" :key="group.date">
-              <tr class="cursor-pointer bg-emerald-50 text-slate-900 hover:bg-emerald-100" @click="toggleDate(group.date)">
+              <tr
+                class="cursor-pointer bg-emerald-50 text-slate-900 hover:bg-emerald-100"
+                @click="toggleDate(group.date)"
+              >
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-bold">
                   <span class="mr-2 inline-block w-4 text-center">{{ expandedDates.has(group.date) ? '-' : '+' }}</span>
                   {{ group.date }}
@@ -325,8 +361,8 @@ function rowTone(row = {}) {
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.inPallet) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.outQty || group.out || 0) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.outPallet) }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.adjustQty || 0) }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.adjustPallet) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatOptionalNumber(group.adjustQty) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatOptionalNumber(group.adjustPallet) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatNumber(group.endQty || group.closing || 0) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.endPallet) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">{{ formatPallet(group.storage) }}</td>
@@ -369,6 +405,22 @@ function rowTone(row = {}) {
               </template>
             </template>
           </tbody>
+          <tfoot v-if="subtotal" class="bg-slate-200 font-bold text-slate-900">
+            <tr>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5">SUB TOTAL</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(subtotal.startQty) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatPallet(subtotal.startPallet) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(subtotal.inQty) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatPallet(subtotal.inPallet) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(subtotal.outQty) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatPallet(subtotal.outPallet) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatOptionalNumber(subtotal.adjustQty) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatOptionalNumber(subtotal.adjustPallet) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatNumber(subtotal.endQty) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatPallet(subtotal.endPallet) }}</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right">{{ formatPallet(subtotal.storage) }}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 

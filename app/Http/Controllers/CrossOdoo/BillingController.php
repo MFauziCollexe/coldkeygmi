@@ -132,11 +132,14 @@ class BillingController
                 $opening = (float) ($summary['opening'] ?? 0);
                 $inbound = (float) ($summary['in'] ?? 0);
                 $outbound = (float) ($summary['out'] ?? 0);
-                $closing = (float) ($summary['closing'] ?? ($opening + $inbound - $outbound));
+                $adjust = (float) ($summary['adjust'] ?? 0);
+                $closing = (float) ($summary['closing'] ?? ($opening + $inbound - $outbound + $adjust));
                 $startPallet = $palletCount($opening);
                 $inboundPallet = $palletCount($inbound);
                 $outboundPallet = $palletCount($outbound);
-                $adjustPallet = 0;
+                $adjustPallet = $adjust === 0.0
+                    ? 0
+                    : (int) (round(abs($adjust) / 40) * ($adjust < 0 ? -1 : 1));
                 $endPallet = $startPallet + $inboundPallet - $outboundPallet + $adjustPallet;
                 $storage = $startPallet + $inboundPallet;
                 $headerData[] = [
@@ -147,13 +150,40 @@ class BillingController
                     $palletValue($inbound),
                     $outbound,
                     $palletValue($outbound),
-                    0,
-                    '-',
+                    $adjust !== 0.0 ? $adjust : '-',
+                    $adjustPallet !== 0 ? $adjustPallet : '-',
                     $closing,
                     $endPallet > 1 ? $endPallet : '-',
                     $storage > 1 ? $storage : '-',
                 ];
                 $date->addDay();
+            }
+
+            if ($headerData !== []) {
+                $sumHeaderColumn = static fn (int $column): float => array_sum(array_map(
+                    static fn (array $row): float => is_numeric($row[$column] ?? null) ? (float) $row[$column] : 0.0,
+                    $headerData,
+                ));
+                $subtotalStartPallet = $sumHeaderColumn(2);
+                $subtotalInboundPallet = $sumHeaderColumn(4);
+                $subtotalOutboundPallet = $sumHeaderColumn(6);
+                $subtotalAdjustPallet = $sumHeaderColumn(8);
+                $subtotalEndPallet = $sumHeaderColumn(10);
+                $subtotalStorage = $sumHeaderColumn(11);
+                $headerData[] = [
+                    'SUB TOTAL',
+                    $sumHeaderColumn(1),
+                    $subtotalStartPallet > 1 ? $subtotalStartPallet : '-',
+                    $sumHeaderColumn(3),
+                    $subtotalInboundPallet > 1 ? $subtotalInboundPallet : '-',
+                    $sumHeaderColumn(5),
+                    $subtotalOutboundPallet > 1 ? $subtotalOutboundPallet : '-',
+                    $sumHeaderColumn(7) !== 0.0 ? $sumHeaderColumn(7) : '-',
+                    $subtotalAdjustPallet !== 0.0 ? $subtotalAdjustPallet : '-',
+                    $sumHeaderColumn(9),
+                    $subtotalEndPallet > 1 ? $subtotalEndPallet : '-',
+                    $subtotalStorage > 1 ? $subtotalStorage : '-',
+                ];
             }
 
             foreach ($ledger['rows'] as $row) {
