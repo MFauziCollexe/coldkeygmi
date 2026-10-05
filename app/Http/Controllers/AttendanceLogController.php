@@ -178,7 +178,8 @@ class AttendanceLogController extends Controller
                 re.shift_code,
                 re.is_off,
                 re.start_time,
-                re.end_time
+                re.end_time,
+                rub.department_id as batch_department_id
             ")
             ->get();
         $rosterRows = $this->remapRosterRowsToKnownEmployeePins($rosterRows, $employeeInfoByPin, $employeePinByIdentity);
@@ -1119,7 +1120,8 @@ class AttendanceLogController extends Controller
                 (string) ($row->pin ?? ''),
                 (string) ($row->roster_name ?? ''),
                 $this->normalizeTime($row->start_time ?? null),
-                $this->normalizeTime($row->end_time ?? null)
+                $this->normalizeTime($row->end_time ?? null),
+                $row->batch_department_id ?? null
             );
 
             $normalized = clone $row;
@@ -1324,7 +1326,8 @@ class AttendanceLogController extends Controller
                 re.shift_code,
                 re.is_off,
                 re.start_time,
-                re.end_time
+                re.end_time,
+                rub.department_id as batch_department_id
             ")
             ->get();
         $rosterRows = $this->normalizeRosterRowsForAttendance($rosterRows, $employeeDepartmentByPin);
@@ -3167,12 +3170,24 @@ class AttendanceLogController extends Controller
         ?string $employeeNrp = null,
         ?string $employeeName = null,
         ?string $storedStartTime = null,
-        ?string $storedEndTime = null
+        ?string $storedEndTime = null,
+        $batchDepartmentId = null
     ): array {
         $fallback = $this->normalizeAttendanceSaturdaySchedule((string) $logDate, [
             'start_time' => $this->normalizeTime($storedStartTime),
             'end_time' => $this->normalizeTime($storedEndTime),
         ], $departmentName, $isOff);
+
+        // Baris roster dari batch OFFICE memakai jadwal dari config, bukan
+        // aturan umum (Jumat 16:30 / clamp 5 jam Sabtu).
+        if ($this->isAttendanceOfficeDepartmentId($batchDepartmentId)) {
+            return $this->resolveAttendanceOfficeSchedule(
+                $logDate,
+                strtoupper(trim((string) ($shiftCode ?? ''))),
+                $isOff,
+                $fallback
+            );
+        }
 
         if ($isOff) {
             return ['start_time' => null, 'end_time' => null];
@@ -3232,6 +3247,75 @@ class AttendanceLogController extends Controller
             'start_time' => $start->format('H:i:s'),
             'end_time' => $end->format('H:i:s'),
         ], $departmentName);
+    }
+
+    private function isAttendanceOfficeDepartmentId($departmentId): bool
+    {
+        if (!$departmentId) {
+            return false;
+        }
+
+        static $officeDepartmentId = null;
+        if ($officeDepartmentId === null) {
+            $officeDepartmentId = (int) \App\Models\Department::query()
+                ->where('code', 'OFF')
+                ->value('id');
+        }
+
+        return (int) $departmentId === (int) $officeDepartmentId;
+    }
+
+    private function attendanceOfficeScheduleConfig(string $key): array
+    {
+        return (array) config('roster.schedules.office.' . $key, []);
+    }
+
+    /**
+     * Jadwal absensi untuk baris roster batch OFFICE: durasi per hari dari config,
+     * dihitung dari jam masuk pada kode shift angka.
+     */
+    private function resolveAttendanceOfficeSchedule(
+        ?string $logDate,
+        string $shiftCode,
+        bool $isOff,
+        array $fallback
+    ): array {
+        if ($isOff || $shiftCode === '' || in_array($shiftCode, ['OFF', 'NONE'], true)) {
+            return ['start_time' => null, 'end_time' => null];
+        }
+
+        try {
+            $date = Carbon::parse((string) $logDate);
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+
+        $dayKey = strtolower(substr($date->englishDayOfWeek, 0, 3));
+
+        if (in_array($dayKey, $this->attendanceOfficeScheduleConfig('force_off_days'), true)) {
+            return ['start_time' => null, 'end_time' => null];
+        }
+
+        $hours = $this->attendanceOfficeScheduleConfig('default_hours');
+        if (!array_key_exists($dayKey, $hours) || $hours[$dayKey] === null) {
+            return ['start_time' => null, 'end_time' => null];
+        }
+
+        if (!preg_match('/^\d+$/', $shiftCode)) {
+            return $fallback;
+        }
+
+        $hour = (int) $shiftCode;
+        if ($hour < 0 || $hour > 23) {
+            return $fallback;
+        }
+
+        $start = Carbon::createFromTime($hour, 0, 0);
+
+        return [
+            'start_time' => $start->format('H:i:s'),
+            'end_time' => $start->copy()->addHours((float) $hours[$dayKey])->format('H:i:s'),
+        ];
     }
 
     private function resolveAttendanceRosterDefaultHours(

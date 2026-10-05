@@ -47,6 +47,14 @@ class HandleInertiaRequests extends Middleware
                     ? $user->modulePermissions()->pluck('module_key')->toArray()
                     : [],
             ],
+            'roster_config' => [
+                'schedules' => [
+                    'office' => [
+                        'default_hours' => config('roster.schedules.office.default_hours'),
+                        'force_off_days' => config('roster.schedules.office.force_off_days'),
+                    ],
+                ],
+            ],
         ];
     }
 

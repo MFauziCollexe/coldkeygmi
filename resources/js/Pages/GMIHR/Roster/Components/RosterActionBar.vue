@@ -52,9 +52,19 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
-defineProps({
+const allTemplateLabels = {
+  inventory_said: 'Inventory SAID',
+  inventory_imanda: 'Inventory Imanda',
+  risk_control: 'Risk Control',
+  maintanance: 'Maintanance',
+  security: 'Security',
+  office: 'Office',
+};
+
+const props = defineProps({
   templateType: {
     type: String,
     default: '',
@@ -79,15 +89,26 @@ defineProps({
     type: String,
     default: '',
   },
+  uploadableTemplates: {
+    type: Array,
+    default: () => [
+      'inventory_said',
+      'inventory_imanda',
+      'risk_control',
+      'maintanance',
+      'security',
+      'office',
+    ],
+  },
 });
 
 const emit = defineEmits(['update:templateType', 'download-template', 'preview', 'upload']);
-const templateOptions = [
-  { value: 'inventory_said', label: 'Inventory SAID' },
-  { value: 'inventory_imanda', label: 'Inventory Imanda' },
-  { value: 'risk_control', label: 'Risk Control' },
-  // { value: 'admin_loket', label: 'Admin Loket' },
-  { value: 'maintanance', label: 'Maintanance' },
-  { value: 'security', label: 'Security' },
-];
+
+// Hanya template yang diizinkan server untuk user ini yang ditampilkan.
+// Filter ini untuk tampilan; gate sesungguhnya ada di RosterController.
+const templateOptions = computed(() =>
+  props.uploadableTemplates
+    .filter((type) => allTemplateLabels[type])
+    .map((type) => ({ value: type, label: allTemplateLabels[type] })),
+);
 </script>

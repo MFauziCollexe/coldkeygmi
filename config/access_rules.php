@@ -221,9 +221,15 @@ return [
                     'append_ids_if' => [
                         [
                             'if' => [
+                                ['type' => 'department_code', 'value' => 'INV'],
+                            ],
+                            'department_codes' => ['INV_SAID', 'INV_IMANDA'],
+                        ],
+                        [
+                            'if' => [
                                 ['type' => 'manager_in_department_codes', 'values' => ['OPS']],
                             ],
-                            'department_codes' => ['INV', 'RSC', 'ADL'],
+                            'department_codes' => ['INV', 'RSC', 'ADL', 'OFF', 'INV_SAID', 'INV_IMANDA'],
                         ],
                     ],
                 ],
@@ -240,9 +246,15 @@ return [
                     'append_ids_if' => [
                         [
                             'if' => [
+                                ['type' => 'department_code', 'value' => 'INV'],
+                            ],
+                            'department_codes' => ['INV_SAID', 'INV_IMANDA'],
+                        ],
+                        [
+                            'if' => [
                                 ['type' => 'manager_in_department_codes', 'values' => ['OPS']],
                             ],
-                            'department_codes' => ['INV', 'RSC', 'ADL'],
+                            'department_codes' => ['INV', 'RSC', 'ADL', 'INV_SAID', 'INV_IMANDA'],
                         ],
                     ],
                 ],

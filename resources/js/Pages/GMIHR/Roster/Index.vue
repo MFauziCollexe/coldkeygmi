@@ -60,7 +60,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue';
 import axios from 'axios';
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RosterFileDropzone from '@/Pages/GMIHR/Roster/Components/RosterFileDropzone.vue';
 import RosterActionBar from '@/Pages/GMIHR/Roster/Components/RosterActionBar.vue';
@@ -296,6 +296,10 @@ function normalizeRowOnClient(row) {
     return normalized;
   }
 
+  if (String(form.templateType || '').trim() === 'office') {
+    return normalizeOfficeRowOnClient(normalized, date, shiftCode);
+  }
+
   if (String(form.templateType || '').trim() === 'security') {
     if (shiftCode === 'P') {
       normalized.start_time = '07:00:00';
@@ -352,6 +356,69 @@ function normalizeRowOnClient(row) {
   return normalized;
 }
 
+function officeScheduleConfig() {
+  const office = usePage().props.roster_config?.schedules?.office ?? {};
+  return {
+    default_hours: office.default_hours ?? {},
+    force_off_days: office.force_off_days ?? {},
+  };
+}
+
+function dayKeyFromDate(date) {
+  const isDateValid = date instanceof Date && !Number.isNaN(date.getTime());
+  if (!isDateValid) return null;
+  return ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][date.getDay()];
+}
+
+function resolveOfficeHoursOnClient(date) {
+  const { default_hours: defaultHours, force_off_days: forceOffDays } = officeScheduleConfig();
+  const dayKey = dayKeyFromDate(date);
+  if (!dayKey) return null;
+  if (forceOffDays.includes(dayKey)) return null;
+  if (!(dayKey in defaultHours) || defaultHours[dayKey] === null) return null;
+  return Number(defaultHours[dayKey]);
+}
+
+function addHoursToTimeString(time, hours) {
+  const [h, m] = String(time || '00:00:00').split(':').map(Number);
+  const total = h * 60 + m + Math.round(hours * 60);
+  const wrapped = ((total % 1440) + 1440) % 1440;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(wrapped / 60))}:${pad(wrapped % 60)}:00`;
+}
+
+function normalizeOfficeRowOnClient(normalized, date, shiftCode) {
+  if (shiftCode === 'OFF' || shiftCode === 'NONE') {
+    normalized.is_off = true;
+    return normalized;
+  }
+
+  const hours = resolveOfficeHoursOnClient(date);
+  if (hours === null) {
+    normalized.is_off = true;
+    return normalized;
+  }
+
+  if (!/^\d+$/.test(shiftCode)) {
+    normalized.is_valid = false;
+    normalized.error = `Kode shift office tidak dikenali: ${shiftCode}`;
+    return normalized;
+  }
+
+  const hour = Number(shiftCode);
+  if (hour < 0 || hour > 23) {
+    normalized.is_valid = false;
+    normalized.error = `Jam tidak valid: ${shiftCode}`;
+    return normalized;
+  }
+
+  const pad = (n) => String(n).padStart(2, '0');
+  normalized.start_time = `${pad(hour)}:00:00`;
+  normalized.end_time = addHoursToTimeString(normalized.start_time, hours);
+  normalized.work_hours = hours;
+  return normalized;
+}
+
 function resolveDefaultHoursOnClient(date) {
   if (String(form.templateType || '').trim() === 'maintanance') {
     return 8;
@@ -364,12 +431,12 @@ function resolveDefaultHoursOnClient(date) {
 
 function detectTemplateTypeFromFilename(filename) {
   const name = String(filename || '').toLowerCase();
-  if (name.includes('admin_loket') || name.includes('admin-loket') || name.includes('loket')) return 'admin_loket';
   if (name.includes('risk_control') || name.includes('risk-control') || name.includes('risk')) return 'risk_control';
   if (name.includes('maintanance') || name.includes('maintenance') || name.includes('mnt')) return 'maintanance';
   if (name.includes('security') || name.includes('satpam')) return 'security';
   if (name.includes('inventory_said') || name.includes('inv_said')) return 'inventory_said';
   if (name.includes('inventory_imanda') || name.includes('inv_imanda')) return 'inventory_imanda';
+  if (name.includes('office') || name.includes('kantor')) return 'office';
   return null;
 }
 </script>

@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\RosterEntry;
 use App\Models\RosterUploadBatch;
 use App\Models\Department;
+use App\Models\User;
 use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -25,6 +27,17 @@ class RosterController extends Controller
 {
     private const ACCESS_MODULE = 'roster';
 
+    private const OFFICE_DEPARTMENT_CODE = 'OFF';
+
+    private const SUPPORTED_TEMPLATE_TYPES = [
+        'inventory_said',
+        'inventory_imanda',
+        'risk_control',
+        'maintanance',
+        'security',
+        'office',
+    ];
+
     protected function accessRules(): AccessRuleService
     {
         return app(AccessRuleService::class);
@@ -37,7 +50,11 @@ class RosterController extends Controller
 
     public function uploadPage()
     {
-        return Inertia::render('GMIHR/Roster/Upload');
+        return Inertia::render('GMIHR/Roster/Upload', [
+            'uploadableTemplates' => $this->uploadableTemplateTypes(
+                Auth::user()->loadMissing(['department', 'position'])
+            ),
+        ]);
     }
 
     public function listPage()
@@ -129,8 +146,10 @@ class RosterController extends Controller
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
             'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
-            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,admin_loket,maintanance,maintenance,security',
+            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,maintanance,maintenance,security,office',
         ]);
+
+        $this->assertOfficePeriodIsEffective($request);
 
         $month = (int) $request->input('month');
         $year = (int) $request->input('year');
@@ -141,13 +160,18 @@ class RosterController extends Controller
             $templateType = $detectedTemplateType;
         }
 
-        $user = Auth::user();
-        $targetDepartmentId = $this->resolveDepartmentIdForTemplateType($templateType)
-            ?: (int) ($user?->department_id ?? 0);
+        $user = Auth::user()->loadMissing(['department', 'position']);
+        if (!$this->canUploadTemplate($user, $templateType)) {
+            return response()->json([
+                'message' => "Anda tidak berhak upload template {$templateType}.",
+            ], 403);
+        }
+
+        $targetDepartmentId = (int) ($this->resolveDepartmentIdForTemplateType($templateType) ?? 0);
 
         if ($targetDepartmentId <= 0) {
             return response()->json([
-                'message' => 'User tidak memiliki departemen. Preview roster ditolak.',
+                'message' => "Template {$templateType} belum punya departemen target. Preview roster ditolak.",
             ], 422);
         }
 
@@ -226,7 +250,7 @@ class RosterController extends Controller
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
             'preview_key' => 'required|string',
-            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,admin_loket,maintanance,maintenance,security',
+            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,maintanance,maintenance,security,office',
             'change_reason' => 'nullable|string|max:1000',
             'edited_rows' => 'nullable|array',
             'edited_rows.*.employee_key' => 'required_with:edited_rows|string|max:120',
@@ -235,6 +259,8 @@ class RosterController extends Controller
             'edited_rows.*.roster_date' => 'required_with:edited_rows|date',
             'edited_rows.*.shift_code' => 'required_with:edited_rows|string|max:20',
         ]);
+
+        $this->assertOfficePeriodIsEffective($request);
 
         $previewKey = $request->input('preview_key');
         $previewPath = "roster_previews/{$previewKey}.json";
@@ -255,7 +281,19 @@ class RosterController extends Controller
             ], 422);
         }
 
-        $templateType = $this->normalizeTemplateType((string) $request->input('template_type', (string) ($previewData['template_type'] ?? 'inventory_said')));
+        // Template type dan target department harus mengikuti hasil preview.
+        // Kalau request mencoba menimpa, tolak: ini mencegah user mem-preview
+        // template yang dia boleh lalu meng-upload sebagai template lain.
+        $previewTemplateType = $this->normalizeTemplateType((string) ($previewData['template_type'] ?? ''));
+        $requestedTemplateType = $this->normalizeTemplateType((string) $request->input('template_type', $previewTemplateType));
+
+        if ($requestedTemplateType !== $previewTemplateType) {
+            return response()->json([
+                'message' => 'Template tidak sesuai dengan hasil preview. Silakan preview ulang.',
+            ], 422);
+        }
+
+        $templateType = $previewTemplateType;
 
         $sourceRows = $request->input('edited_rows');
         if (empty($sourceRows)) {
@@ -263,18 +301,24 @@ class RosterController extends Controller
         }
 
         $user = Auth::user()->loadMissing(['department', 'position']);
-        if (!$user || !$user->department_id) {
+        if (!$this->canUploadTemplate($user, $templateType)) {
             return response()->json([
-                'message' => 'User tidak memiliki departemen. Upload roster ditolak.',
+                'message' => "Anda tidak berhak upload template {$templateType}.",
+            ], 403);
+        }
+
+        $targetDepartmentId = (int) ($previewData['target_department_id'] ?? 0);
+        $resolvedDepartmentId = (int) ($this->resolveDepartmentIdForTemplateType($templateType) ?? 0);
+
+        if ($targetDepartmentId <= 0 || $targetDepartmentId !== $resolvedDepartmentId) {
+            return response()->json([
+                'message' => 'Preview tidak lagi cocok dengan konfigurasi template. Silakan preview ulang.',
             ], 422);
         }
 
-        $targetDepartmentId = $this->resolveDepartmentIdForTemplateType($templateType)
-            ?: (int) $user->department_id;
-
         $validRows = [];
         foreach ($sourceRows as $row) {
-            $normalized = $this->normalizeEditableRow($row, $month, $year, $targetDepartmentId ?: $user->department_id);
+            $normalized = $this->normalizeEditableRow($row, $month, $year, $targetDepartmentId);
             if ($normalized !== null && $normalized['is_valid']) {
                 $validRows[] = $normalized;
             }
@@ -287,11 +331,7 @@ class RosterController extends Controller
         }
 
         $changeReason = trim((string) $request->input('change_reason', ''));
-        $currentApprovedBatch = $this->effectiveApprovedBatchForPeriod(
-            (int) ($targetDepartmentId ?: $user->department_id),
-            $year,
-            $month
-        );
+        $currentApprovedBatch = $this->effectiveApprovedBatchForPeriod($targetDepartmentId, $year, $month);
 
         if ($currentApprovedBatch && $changeReason === '') {
             return response()->json([
@@ -312,7 +352,7 @@ class RosterController extends Controller
                 'source_file_path' => null,
                 'delimiter' => substr((string) ($previewData['delimiter'] ?? ';'), 0, 1),
                 'uploaded_by' => $user->id,
-                'department_id' => $targetDepartmentId ?: $user->department_id,
+                'department_id' => $targetDepartmentId,
                 'total_rows' => count($validRows),
                 'saved_rows' => 0,
                 'status' => 'pending',
@@ -635,15 +675,22 @@ class RosterController extends Controller
         $request->validate([
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
-            'type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,admin_loket,maintanance,maintenance,security',
+            'type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,maintanance,maintenance,security,office',
         ]);
+
+        $this->assertOfficePeriodIsEffective($request);
 
         $month = (int) $request->input('month');
         $year = (int) $request->input('year');
-        $type = strtolower((string) $request->input('type', 'inventory_said'));
-        if ($type === 'maintenance') {
-            $type = 'maintanance';
+        $type = $this->normalizeTemplateType((string) $request->input('type', 'inventory_said'));
+
+        $user = Auth::user()->loadMissing(['department', 'position']);
+        if (!$this->canUploadTemplate($user, $type)) {
+            return response()->json([
+                'message' => "Anda tidak berhak mengunduh template {$type}.",
+            ], 403);
         }
+
         $daysInMonth = Carbon::create($year, $month, 1)->daysInMonth;
         $monthLabel = strtoupper(Carbon::create($year, $month, 1)->locale('id')->translatedFormat('F'));
 
@@ -1028,10 +1075,57 @@ class RosterController extends Controller
         if ($type === 'maintenance') {
             $type = 'maintanance';
         }
-        if (!in_array($type, ['inventory_said', 'inventory_imanda', 'risk_control', 'admin_loket', 'maintanance', 'security'], true)) {
-            return 'inventory_said';
+        if (!in_array($type, self::SUPPORTED_TEMPLATE_TYPES, true)) {
+            // Default-deny: tipe tak dikenal tidak boleh jatuh ke template
+            // tertentu, karena itu memberi akses di luar hak yang seharusnya.
+            throw ValidationException::withMessages([
+                'template_type' => "Template roster tidak dikenal: {$type}.",
+            ]);
         }
         return $type;
+    }
+
+    private function canUploadTemplate(?User $user, string $templateType): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if (in_array((int) $user->id, (array) config('roster.bypass_user_ids', []), true)) {
+            return true;
+        }
+
+        $access = (array) config("roster.template_access.{$templateType}", []);
+        if (empty($access)) {
+            return false;
+        }
+
+        if (in_array((int) $user->id, array_map('intval', (array) ($access['user_ids'] ?? [])), true)) {
+            return true;
+        }
+
+        $allowedCodes = array_values(array_filter(array_map(
+            fn ($code) => strtoupper(trim((string) $code)),
+            (array) ($access['department_codes'] ?? [])
+        )));
+
+        if (empty($allowedCodes)) {
+            return false;
+        }
+
+        $userDepartmentCode = strtoupper(trim((string) ($user->department->code ?? '')));
+        return $userDepartmentCode !== '' && in_array($userDepartmentCode, $allowedCodes, true);
+    }
+
+    /**
+     * Template yang boleh diupload user saat ini, untuk membatasi dropdown.
+     */
+    public function uploadableTemplateTypes(?User $user): array
+    {
+        return array_values(array_filter(
+            self::SUPPORTED_TEMPLATE_TYPES,
+            fn (string $type) => $this->canUploadTemplate($user, $type)
+        ));
     }
 
     private function resolveDepartmentIdForTemplateType(string $type): ?int
@@ -1041,9 +1135,9 @@ class RosterController extends Controller
             'inventory_said' => 'INV_SAID',
             'inventory_imanda' => 'INV_IMANDA',
             'risk_control' => 'RSC',
-            'admin_loket' => 'ADL',
             'maintanance' => 'MNT',
             'security' => 'SEC',
+            'office' => self::OFFICE_DEPARTMENT_CODE,
         ];
         $departmentCode = $codeMap[$normalized] ?? null;
         if (!$departmentCode) {
@@ -1060,8 +1154,8 @@ class RosterController extends Controller
     private function detectTemplateTypeFromFilename(string $filename): ?string
     {
         $name = strtolower($filename);
-        if (str_contains($name, 'admin_loket') || str_contains($name, 'admin-loket') || str_contains($name, 'loket')) {
-            return 'admin_loket';
+        if (str_contains($name, 'office') || str_contains($name, 'kantor')) {
+            return 'office';
         }
         if (str_contains($name, 'risk_control') || str_contains($name, 'risk-control') || str_contains($name, 'risk')) {
             return 'risk_control';
@@ -1084,6 +1178,16 @@ class RosterController extends Controller
 
     private function getFixedTemplateEmployees(string $type = 'inventory_said'): array
     {
+        if ($type === 'office') {
+            return [
+                ['nrp' => '25090304', 'name' => 'ACHMAD NAZUMAH ARIF'],
+                ['nrp' => '26033041', 'name' => 'DIAH AYU RATNASARI'],
+                ['nrp' => '25101615', 'name' => 'MUHAMMAD ILHAM ZARKASYI'],
+                ['nrp' => '25120832', 'name' => 'NATHANIA INDRAWATI'],
+                ['nrp' => '25071502', 'name' => 'TUNGGAL YOGA FENDITYANA'],
+            ];
+        }
+
         if ($type === 'inventory_said') {
             return [
                 ['nrp' => '25091508', 'name' => 'ISNINDAR UMAR SAID'],
@@ -1142,14 +1246,6 @@ class RosterController extends Controller
             ];
         }
 
-        // if ($type === 'admin_loket') {
-        //     return [
-        //         ['nrp' => '25111731', 'name' => 'RAHAYU ANJAS SARI'],
-        //         ['nrp' => '25110316', 'name' => 'AINUR RAFIQ SAIFULLAH'],
-        //         ['nrp' => '25111730', 'name' => 'SOFIA NOVA PRADANI'],
-        //     ];
-        // }
-
         if ($type === 'security') {
             return [
                 ['nrp' => 'T2P251001006', 'name' => 'ARI BUDI HANDOKO'],
@@ -1162,56 +1258,14 @@ class RosterController extends Controller
             ];
         }
 
-        return [
-            ['nrp' => '020806200', 'name' => 'Defin'],
-            ['nrp' => '080414383', 'name' => 'fauzi'],
-            ['nrp' => '2', 'name' => 'rahadiyanp'],
-            ['nrp' => '25040101', 'name' => 'PANDU ST'],
-            ['nrp' => '25071502', 'name' => 'T YOGA F'],
-            ['nrp' => '25081507', 'name' => 'IMANDA ARIESAND'],
-            ['nrp' => '25090304', 'name' => 'NAZUMAH A'],
-            ['nrp' => '25091506', 'name' => 'CHANDRA TAC'],
-            ['nrp' => '25091508', 'name' => 'I UMAR SAID'],
-            ['nrp' => '25100109', 'name' => 'YOGA AP'],
-            ['nrp' => '25100110', 'name' => 'CHOIRUL ANWAR'],
-            ['nrp' => '25101312', 'name' => 'FIRMAN EFENDI'],
-            ['nrp' => '25101313', 'name' => 'ELRIES A'],
-            ['nrp' => '25101314', 'name' => 'M SOLIHIN'],
-            ['nrp' => '25101615', 'name' => 'M ILHAM Z'],
-            ['nrp' => '25110316', 'name' => 'AINUR RAFIQ S'],
-            ['nrp' => '25110317', 'name' => 'M DHANI R'],
-            ['nrp' => '25110418', 'name' => 'GROMY ABP'],
-            ['nrp' => '25110419', 'name' => 'REZA SA'],
-            ['nrp' => '25110420', 'name' => 'ILHAM M'],
-            ['nrp' => '25111021', 'name' => 'SULTAN RAFLIAN'],
-            ['nrp' => '25111022', 'name' => 'RIZKY FADLIKA'],
-            ['nrp' => '26033042', 'name' => 'FAJAR DARIYANTO'],
-            ['nrp' => '25111723', 'name' => 'HUSNI A'],
-            ['nrp' => '25111724', 'name' => 'EKO P'],
-            ['nrp' => '25111725', 'name' => 'RAFI EKA'],
-            ['nrp' => '25111727', 'name' => 'FEBRIHAN BAGUS'],
-            ['nrp' => '25111728', 'name' => 'DIMAS SD'],
-            ['nrp' => '25111729', 'name' => 'SAKA AP'],
-            ['nrp' => '25111730', 'name' => 'SOFIA NP'],
-            ['nrp' => '25111731', 'name' => 'RAHAYU AS'],
-            ['nrp' => '25111732', 'name' => 'MEMET W'],
-            ['nrp' => '25120126', 'name' => 'ADI PUJI'],
-            ['nrp' => '25120832', 'name' => 'NATHANIA'],
-            ['nrp' => '26010533', 'name' => 'M HADIRI'],
-            ['nrp' => '26010534', 'name' => 'TIO ISMAN'],
-            ['nrp' => '26010535', 'name' => 'ADITYA R A'],
-            ['nrp' => '26010536', 'name' => 'JOJOK S'],
-            ['nrp' => '26011537', 'name' => 'EDI ATMAJA'],
-            ['nrp' => '26011538', 'name' => 'RANGGA SURYA'],
-            ['nrp' => '26011539', 'name' => 'RIO SEPTIANTO'],
-            ['nrp' => 'T2P 251117007', 'name' => 'M RAMLI'],
-            ['nrp' => 'T2P241201001', 'name' => 'DAUD SETIAWAN'],
-            ['nrp' => 'T2P250209004', 'name' => 'HERIYANT'],
-            ['nrp' => 'T2P251001006', 'name' => 'ARI BUDI'],
-            ['nrp' => 'T2P2511170005', 'name' => 'M ALI G'],
-            ['nrp' => 'T2P251117003', 'name' => 'YUNANDA TB'],
-            ['nrp' => 'T2P260504008', 'name' => 'SULAIMAN SARI'],
-        ];
+        // Default-deny: tipe di luar SUPPORTED_TEMPLATE_TYPES tidak boleh
+        // menerima daftar karyawan. Fallback lama mengembalikan seluruh
+        // karyawan aktif sehingga salah ketik tipe bisa membocorkan data.
+        Log::warning('Roster template requested unknown type', [
+            'type' => $type,
+        ]);
+
+        return [];
     }
 
     private function cleanCellValue($value): string
@@ -1289,6 +1343,10 @@ class RosterController extends Controller
                 'work_hours' => 0,
                 'error' => null,
             ];
+        }
+
+        if ($this->isOfficeDepartment($departmentId)) {
+            return $this->resolveOfficeShiftTiming($rawCode, $rosterDate);
         }
 
         if ($this->isSecurityDepartment($departmentId)) {
@@ -1375,6 +1433,67 @@ class RosterController extends Controller
         };
     }
 
+    /**
+     * Jadwal batch OFFICE: durasi kerja diambil dari config per hari, dihitung
+     * dari jam masuk pada kode shift angka. Tidak memakai aturan Jumat 16:30
+     * maupun clamp 5 jam Sabtu milik departemen lain.
+     */
+    private function resolveOfficeShiftTiming(string $rawCode, Carbon $rosterDate): array
+    {
+        if ($this->isOfficeForcedOffDate($rosterDate)) {
+            return [
+                'is_off' => true,
+                'start_time' => null,
+                'end_time' => null,
+                'work_hours' => 0,
+                'error' => null,
+            ];
+        }
+
+        $hours = $this->officeWorkHoursForDate($rosterDate);
+        if ($hours === null) {
+            return [
+                'is_off' => true,
+                'start_time' => null,
+                'end_time' => null,
+                'work_hours' => 0,
+                'error' => null,
+            ];
+        }
+
+        if (!is_numeric($rawCode)) {
+            return [
+                'is_off' => false,
+                'start_time' => null,
+                'end_time' => null,
+                'work_hours' => 0,
+                'error' => "Kode shift tidak dikenali: {$rawCode}",
+            ];
+        }
+
+        $hour = (int) $rawCode;
+        if ($hour < 0 || $hour > 23) {
+            return [
+                'is_off' => false,
+                'start_time' => null,
+                'end_time' => null,
+                'work_hours' => 0,
+                'error' => "Jam tidak valid: {$rawCode}",
+            ];
+        }
+
+        $start = Carbon::createFromTime($hour, 0, 0);
+        $end = (clone $start)->addHours($hours);
+
+        return [
+            'is_off' => false,
+            'start_time' => $start->format('H:i:s'),
+            'end_time' => $end->format('H:i:s'),
+            'work_hours' => (float) $hours,
+            'error' => null,
+        ];
+    }
+
     private function resolveDefaultWorkHours(Carbon $rosterDate, ?int $departmentId = null): int
     {
         if ($this->isSecurityDepartment($departmentId)) {
@@ -1454,6 +1573,90 @@ class RosterController extends Controller
         return (int) $departmentId === (int) $securityDepartmentId;
     }
 
+    /**
+     * Roster OFFICE baru berlaku mulai periode efektif di config
+     * (default 2026-10). Periode sebelum itu ditolak di preview, upload,
+     * dan unduh template.
+     */
+    private function assertOfficePeriodIsEffective(Request $request): void
+    {
+        $templateType = trim((string) (
+            $request->input('template_type') ?? $request->input('type') ?? ''
+        ));
+
+        // Upload tidak selalu mengirim template_type (type diambil dari preview).
+        // Type kosong berarti bukan OFFICE, jadi tidak ada yang perlu dijaga.
+        if ($templateType === '') {
+            return;
+        }
+
+        if ($this->normalizeTemplateType($templateType) !== 'office') {
+            return;
+        }
+
+        $month = (int) $request->input('month');
+        $year = (int) $request->input('year');
+        if ($month <= 0 || $year <= 0) {
+            return;
+        }
+
+        $effectiveMonth = (int) config('roster.office.effective_month', 10);
+        $effectiveYear = (int) config('roster.office.effective_year', 2026);
+
+        if ($year > $effectiveYear || ($year === $effectiveYear && $month >= $effectiveMonth)) {
+            return;
+        }
+
+        $label = strtoupper(Carbon::create($year, $month, 1)->locale('id')->translatedFormat('F')) . ' ' . $year;
+
+        throw ValidationException::withMessages([
+            'month' => "Roster Office baru berlaku mulai periode efektif. Periode {$label} belum diizinkan.",
+        ]);
+    }
+
+    private function isOfficeDepartment(?int $departmentId): bool
+    {
+        if (!$departmentId) {
+            return false;
+        }
+
+        return (int) $departmentId === (int) $this->officeDepartmentId();
+    }
+
+    private function officeDepartmentId(): int
+    {
+        static $officeDepartmentId = null;
+        if ($officeDepartmentId === null) {
+            $officeDepartmentId = (int) Department::query()
+                ->where('code', self::OFFICE_DEPARTMENT_CODE)
+                ->value('id');
+        }
+
+        return (int) $officeDepartmentId;
+    }
+
+    /**
+     * Durasi kerja (jam) untuk batch OFFICE per nama hari dalam bahasa Inggris.
+     * Mengembalikan null bila hari tersebut tidak punya jam kerja.
+     */
+    private function officeWorkHoursForDate(Carbon $rosterDate): ?float
+    {
+        $hours = config('roster.schedules.office.default_hours', []);
+
+        $dayKey = strtolower(substr($rosterDate->englishDayOfWeek, 0, 3));
+
+        return array_key_exists($dayKey, $hours)
+            ? ($hours[$dayKey] === null ? null : (float) $hours[$dayKey])
+            : null;
+    }
+
+    private function isOfficeForcedOffDate(Carbon $rosterDate): bool
+    {
+        $days = (array) config('roster.schedules.office.force_off_days', []);
+
+        return in_array(strtolower(substr($rosterDate->englishDayOfWeek, 0, 3)), $days, true);
+    }
+
     private function isMaintananceEmployee(string $employeeNrp, string $employeeName = ''): bool
     {
         $normalizedNrp = strtoupper(trim($employeeNrp));
@@ -1498,6 +1701,27 @@ class RosterController extends Controller
     {
         if (!$user) {
             return false;
+        }
+
+        // Batch OFFICE dikunci ke manajer departemen approver yang ditentukan di
+        // config, sehingga aturan all_if (admin/IT/HRD) tidak ikut membuka approve.
+        if ($this->isOfficeDepartment($batch->department_id)) {
+            if (!$this->isDepartmentManager($user)) {
+                return false;
+            }
+
+            $allowedCodes = array_map(
+                fn ($code) => strtoupper(trim((string) $code)),
+                (array) config('roster.office_approver_department_codes', [])
+            );
+
+            if (empty($allowedCodes)) {
+                return false;
+            }
+
+            $userDepartmentCode = strtoupper((string) ($user->department->code ?? ''));
+
+            return in_array($userDepartmentCode, $allowedCodes, true);
         }
 
         if ($this->canApproveAllRosterDepartments($user)) {
