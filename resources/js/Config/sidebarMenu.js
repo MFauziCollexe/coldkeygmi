@@ -103,6 +103,13 @@ export const sidebarMenuConfig = [
                         route: "/gmisl/cross-odoo/billing",
                         module_key: "gmisl.cross_odoo.billing",
                     },
+                    {
+                        id: "cross-odoo-cold-storage",
+                        label: "Cold Storage",
+                        icon: "Snowflake",
+                        route: "/gmisl/cross-odoo/cold-storage",
+                        module_key: "gmisl.cross_odoo.cold_storage",
+                    },
                 ],
             },
             {

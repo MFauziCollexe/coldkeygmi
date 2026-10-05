@@ -191,6 +191,9 @@ Route::get('gmisl/cross-odoo/rekap-outbound/export', [App\Http\Controllers\Cross
 Route::get('gmisl/cross-odoo/billing', [App\Http\Controllers\CrossOdoo\BillingController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.billing'])
     ->name('cross-odoo.billing.index');
+Route::get('gmisl/cross-odoo/cold-storage', [App\Http\Controllers\CrossOdoo\ColdStorageController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.cold_storage'])
+    ->name('cross-odoo.cold-storage.index');
 Route::get('gmisl/cross-odoo/billing/export', [App\Http\Controllers\CrossOdoo\BillingController::class, 'export'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmisl.cross_odoo.billing'])
     ->name('cross-odoo.billing.export');

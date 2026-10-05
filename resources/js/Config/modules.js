@@ -42,6 +42,7 @@ export default [
             { key: "gmisl.cross_odoo.rekap_inbound", label: "Rekap Inbound" },
             { key: "gmisl.cross_odoo.rekap_outbound", label: "Rekap Outbound" },
             { key: "gmisl.cross_odoo.billing", label: "Billing" },
+            { key: "gmisl.cross_odoo.cold_storage", label: "Cold Storage" },
         ],
     },
     {

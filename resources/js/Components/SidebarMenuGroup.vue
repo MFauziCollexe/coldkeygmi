@@ -51,6 +51,7 @@ import {
   Gauge,
   Zap,
   Droplets,
+  Snowflake,
 } from 'lucide-vue-next';
 import SidebarSubItem from './SidebarSubItem.vue';
 
@@ -90,6 +91,7 @@ const iconMap = {
   Gauge,
   Zap,
   Droplets,
+  Snowflake,
 };
 
 function getIcon(iconName) {
