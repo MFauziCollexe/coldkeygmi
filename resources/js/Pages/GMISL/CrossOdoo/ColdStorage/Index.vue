@@ -95,7 +95,7 @@
               <span class="text-xs text-slate-500">{{ filteredStorages.length }} lokasi</span>
             </div>
             <div v-if="filteredStorages.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <button v-for="storage in filteredStorages" :key="storage.id" type="button" class="flex h-72 flex-col border border-slate-800 bg-[#15181d] p-4 text-left transition hover:border-slate-600 hover:bg-[#191d23] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300" @click="openStorage(storage)">
+              <button v-for="storage in filteredStorages" :key="storage.id" type="button" class="flex h-72 flex-col border border-slate-800 bg-[#15181d] p-4 text-left transition hover:border-slate-600 hover:bg-[#191d23] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300" :title="customerBreakdownTitle(storage)" @click="openStorage(storage)">
                 <div class="flex items-start justify-between gap-3">
                   <div>
                     <h4 class="text-base font-semibold text-white">{{ storage.name }}</h4>
