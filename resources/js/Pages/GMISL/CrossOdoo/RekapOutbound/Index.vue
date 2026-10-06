@@ -18,7 +18,8 @@
           <a
             :href="exportUrl"
             data-inertia-ignore
-            class="inline-flex items-center justify-center rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"
+            :aria-disabled="!filtersApplied"
+            :class="['inline-flex items-center justify-center rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700', !filtersApplied && 'pointer-events-none opacity-50']"
           >
             Export
           </a>
@@ -112,7 +113,7 @@
           <tbody>
             <tr v-if="!paginatedRows.length">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="14">
-                Tidak ada data untuk filter yang dipilih.
+                {{ filtersApplied ? 'Tidak ada data untuk filter yang dipilih.' : 'Pilih filter lalu klik Apply filter untuk memuat data.' }}
               </td>
             </tr>
             <template v-for="(row, index) in paginatedRows" :key="index">
@@ -192,6 +193,7 @@ import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 const props = defineProps({
   rows:               { type: Array,    default: () => [] },
+  filtersApplied:     { type: Boolean,  default: false },
   customers:          { type: Array,    default: () => [] },
   products:           { type: Array,    default: () => [] },
   selectedCustomerId: { type: [String, Number], default: null },
@@ -239,10 +241,12 @@ const paginatedRows = computed(() => {
 const totalPages    = computed(() => Math.max(1, Math.ceil(props.totalRows / props.perPage)));
 
 const exportUrl = computed(() => {
+  if (!props.filtersApplied) return '#';
   const params = new URLSearchParams();
   if (localCustomerId.value !== null && localCustomerId.value !== undefined && localCustomerId.value !== '') params.set('customer_id', localCustomerId.value);
   if (Number(localProductId.value) > 0) params.set('product_id', localProductId.value);
   if (periodInput.value) params.set('period', periodInput.value);
+  params.set('filters_applied', '1');
   return `/gmisl/cross-odoo/rekap-outbound/export?${params.toString()}`;
 });
 
@@ -273,6 +277,7 @@ function buildParams(overrides = {}) {
     customer_id: localCustomerId.value ?? undefined,
     product_id:  Number(localProductId.value) > 0 ? localProductId.value : undefined,
     period:      periodInput.value     || undefined,
+    filters_applied: 1,
     page: props.currentPage,
     ...overrides,
   };
@@ -286,7 +291,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows','selectedCustomerId','selectedProductId','customerName','productName','period','allItems','currentPage','perPage','totalRows','totalQty','totalQtyKg'];
+const ONLY_FILTER = ['rows','filtersApplied','selectedCustomerId','selectedProductId','customerName','productName','period','allItems','currentPage','perPage','totalRows','totalQty','totalQtyKg'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;

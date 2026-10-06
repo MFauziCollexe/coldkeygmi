@@ -37,4 +37,9 @@ class Customer extends Model
         'is_pkp' => 'boolean',
         'is_active' => 'boolean',
     ];
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
 }

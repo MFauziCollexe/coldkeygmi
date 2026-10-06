@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\User;
 use App\Models\Department;
 use App\Models\Position;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -70,10 +71,12 @@ class UserController extends Controller
     {
         $departments = Department::where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $positions = Position::where('is_active', true)->orderBy('name')->get(['id', 'name', 'department_id']);
+        $customers = Customer::where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('ControlPanel/User/UserCreate', [
             'departments' => $departments,
             'positions' => $positions,
+            'customers' => $customers,
         ]);
     }
 
@@ -86,17 +89,18 @@ class UserController extends Controller
         $request->merge([
             'department_id' => $request->input('department_id') ?: null,
             'position_id' => $request->input('position_id') ?: null,
+            'customer_id' => $request->input('customer_id') ?: null,
         ]);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'account' => 'required|string|unique:users,account',
-            'from_owner_id' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string',
             'status' => 'required|in:active,deactivated',
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
+            'customer_id' => 'nullable|exists:customers,id',
             'is_admin' => 'nullable|boolean',
         ]);
 
@@ -104,12 +108,12 @@ class UserController extends Controller
             $user = User::create([
                 'name' => $validated['name'],
                 'account' => $validated['account'],
-                'from_owner_id' => $validated['from_owner_id'] ?? null,
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
                 'status' => $validated['status'],
                 'department_id' => $validated['department_id'] ?? null,
                 'position_id' => $validated['position_id'] ?? null,
+                'customer_id' => $validated['customer_id'] ?? null,
                 'is_admin' => $validated['is_admin'] ?? false,
                 'user_created' => Auth::user()->email,
                 'user_updated' => Auth::user()->email,
@@ -133,11 +137,13 @@ class UserController extends Controller
     {
         $departments = Department::where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $positions = Position::where('is_active', true)->orderBy('name')->get(['id', 'name', 'department_id']);
+        $customers = Customer::where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('ControlPanel/User/UserEdit', [
             'user' => $user,
             'departments' => $departments,
             'positions' => $positions,
+            'customers' => $customers,
         ]);
     }
 
@@ -150,17 +156,18 @@ class UserController extends Controller
         $request->merge([
             'department_id' => $request->input('department_id') ?: null,
             'position_id' => $request->input('position_id') ?: null,
+            'customer_id' => $request->input('customer_id') ?: null,
         ]);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'account' => 'required|string|unique:users,account,' . $user->id,
-            'from_owner_id' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string',
             'status' => 'required|in:active,deactivated',
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
+            'customer_id' => 'nullable|exists:customers,id',
             'is_admin' => 'nullable|boolean',
         ]);
 
@@ -170,11 +177,11 @@ class UserController extends Controller
             $updateData = [
                 'name' => $validated['name'],
                 'account' => $validated['account'],
-                'from_owner_id' => $validated['from_owner_id'] ?? null,
                 'email' => $validated['email'],
                 'status' => $validated['status'],
                 'department_id' => $validated['department_id'] ?? null,
                 'position_id' => $validated['position_id'] ?? null,
+                'customer_id' => $validated['customer_id'] ?? null,
                 'is_admin' => $validated['is_admin'] ?? false,
                 'user_updated' => Auth::user()->email,
             ];

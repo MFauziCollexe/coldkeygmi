@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\CrossOdoo;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Services\CrossOdooCustomerAccessService;
 use App\Services\OdooXmlRpcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -24,7 +26,8 @@ class StockOnHandController extends Controller
 
     public function index(Request $request): Response
     {
-        [$customers, $products] = $this->fetchCustomersAndProducts();
+        $filtersApplied = $request->boolean('filters_applied');
+        [$customers, $products] = $this->fetchCustomersAndProducts($request->user());
 
         $selection = $this->resolveSelection($request, $customers, $products);
         $selectedCustomerId = $selection['selectedCustomerId'];
@@ -43,8 +46,8 @@ class StockOnHandController extends Controller
         $totalReserve = 0.0;
         $totalQtyAvailable = 0.0;
 
-        if ($selectedProductId !== null) {
-            $odoo = new OdooXmlRpcService;
+        if ($filtersApplied && $selectedProductId !== null) {
+            $odoo = app(OdooXmlRpcService::class);
 
             $grouped = $this->computeGroupedRows($odoo, (int) $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName);
 
@@ -64,6 +67,7 @@ class StockOnHandController extends Controller
             'rows' => $rows,
             'customers' => $customers,
             'products' => $products,
+            'filtersApplied' => $filtersApplied,
             'selectedCustomerId' => $selectedCustomerId,
             'selectedProductId' => $selectedProductId,
             'customerName' => $customerName,
@@ -80,7 +84,8 @@ class StockOnHandController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
-        [$customers, $products] = $this->fetchCustomersAndProducts();
+        $filtersApplied = $request->boolean('filters_applied');
+        [$customers, $products] = $this->fetchCustomersAndProducts($request->user());
 
         $selection = $this->resolveSelection($request, $customers, $products);
         $selectedCustomerId = $selection['selectedCustomerId'];
@@ -108,8 +113,8 @@ class StockOnHandController extends Controller
         ];
         $data = [];
 
-        if ($selectedProductId !== null) {
-            $odoo = new OdooXmlRpcService;
+        if ($filtersApplied && $selectedProductId !== null) {
+            $odoo = app(OdooXmlRpcService::class);
 
             $grouped = $this->computeGroupedRows($odoo, (int) $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName);
 
@@ -156,12 +161,7 @@ class StockOnHandController extends Controller
      */
     protected function resolveSelection(Request $request, array $customers, array $products): array
     {
-        $selectedCustomerId = $request->input('customer_id');
-        if ($selectedCustomerId !== null && $selectedCustomerId !== '') {
-            $selectedCustomerId = (int) $selectedCustomerId;
-        } else {
-            $selectedCustomerId = $customers[0]['customer_id'] ?? null;
-        }
+        $selectedCustomerId = CrossOdooCustomerAccessService::resolveCustomerId($request->input('customer_id'), $customers);
 
         $selectedCustomerProducts = array_values(array_filter(
             $products,
@@ -261,56 +261,9 @@ class StockOnHandController extends Controller
      *
      * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
      */
-    protected function fetchCustomersAndProducts(): array
+    protected function fetchCustomersAndProducts(?User $user): array
     {
-        $odoo = new OdooXmlRpcService;
-
-        $templates = $odoo->searchRead(
-            'product.template',
-            ['id', 'name', 'default_code', 'x_studio_customer'],
-            null,
-            [['x_studio_customer', '!=', false]],
-            ['lang' => 'en_US'],
-        );
-
-        $customers = [];
-        $products = [];
-
-        foreach ($templates as $template) {
-            $customer = $template['x_studio_customer'] ?? null;
-
-            if (! is_array($customer) || count($customer) < 2) {
-                continue;
-            }
-
-            $customerId = (int) $customer[0];
-            $customerName = (string) $customer[1];
-
-            $customers[$customerId] = [
-                'customer_id' => $customerId,
-                'customer_name' => $customerName,
-            ];
-
-            $products[] = [
-                'product_id' => (int) $template['id'],
-                'default_code' => ($template['default_code'] ?? false) !== false ? (string) $template['default_code'] : null,
-                'product_name' => (string) $template['name'],
-                'customer_id' => $customerId,
-                'customer_name' => $customerName,
-            ];
-        }
-
-        $customers = array_values($customers);
-        usort($customers, fn ($a, $b) => strcmp($a['customer_name'], $b['customer_name']));
-
-        usort($products, function ($a, $b) {
-            return strcmp(
-                $a['customer_name'].'|'.$a['product_name'],
-                $b['customer_name'].'|'.$b['product_name'],
-            );
-        });
-
-        return [$customers, $products];
+        return app(CrossOdooCustomerAccessService::class)->fetchCustomersAndProducts($user);
     }
 
     /**

@@ -18,7 +18,8 @@
           <a
             :href="exportUrl"
             data-inertia-ignore
-            class="inline-flex items-center justify-center rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"
+            :aria-disabled="!filtersApplied"
+            :class="['inline-flex items-center justify-center rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700', !filtersApplied && 'pointer-events-none opacity-50']"
           >
             Export
           </a>
@@ -99,7 +100,7 @@
           <tbody>
             <tr v-if="!paginatedRows.length">
               <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" :colspan="showDate ? 16 : 15">
-                Tidak ada data untuk filter yang dipilih.
+                {{ filtersApplied ? 'Tidak ada data untuk filter yang dipilih.' : 'Pilih filter lalu klik Apply filter untuk memuat data.' }}
               </td>
             </tr>
             <tr
@@ -179,6 +180,7 @@ const props = defineProps({
   basePath:             { type: String,   default: '/gmisl/cross-odoo/soh' },
   showDate:             { type: Boolean,  default: false },
   rows:                { type: Array,    default: () => [] },
+  filtersApplied:      { type: Boolean,  default: false },
   customers:           { type: Array,    default: () => [] },
   products:            { type: Array,    default: () => [] },
   selectedCustomerId:  { type: [String, Number], default: null },
@@ -212,9 +214,11 @@ const localCustomerId = ref(props.selectedCustomerId);
 const localProductId  = ref(props.selectedProductId);
 
 const exportUrl = computed(() => {
+  if (!props.filtersApplied) return '#';
   const params = new URLSearchParams();
   if (localCustomerId.value !== null && localCustomerId.value !== undefined && localCustomerId.value !== '') params.set('customer_id', localCustomerId.value);
   if (localProductId.value !== null && localProductId.value !== undefined && localProductId.value !== '') params.set('product_id', localProductId.value);
+  params.set('filters_applied', '1');
   return `${props.basePath}/export?${params.toString()}`;
 });
 
@@ -239,6 +243,7 @@ function buildParams(overrides = {}) {
   return {
     customer_id: localCustomerId.value ?? undefined,
     product_id:  localProductId.value  ?? undefined,
+    filters_applied: 1,
     page: props.currentPage,
     ...overrides,
   };
@@ -252,7 +257,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'currentPage', 'perPage', 'totalRows', 'totalSoh', 'totalQtySoh', 'totalReserve', 'totalOnHandAvailable'];
+const ONLY_FILTER = ['rows', 'filtersApplied', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'currentPage', 'perPage', 'totalRows', 'totalSoh', 'totalQtySoh', 'totalReserve', 'totalOnHandAvailable'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;

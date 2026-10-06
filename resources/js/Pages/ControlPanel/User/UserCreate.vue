@@ -42,20 +42,6 @@
 
         <div class="relative">
           <input
-            v-model="form.from_owner_id"
-            placeholder=" "
-            class="peer w-full rounded-lg border border-slate-700 bg-slate-800 px-3 pb-2 pt-5 text-slate-100"
-          />
-          <label
-            class="pointer-events-none absolute left-3 top-0 z-10 -translate-y-1/2 bg-slate-800 px-1 text-xs text-slate-300 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:bg-transparent peer-placeholder-shown:px-0 peer-placeholder-shown:text-base peer-placeholder-shown:text-slate-400 peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:bg-slate-800 peer-focus:px-1 peer-focus:text-xs peer-focus:text-slate-200"
-          >
-            From Owner ID
-          </label>
-          <div v-if="errors.from_owner_id" class="mt-1 text-sm text-red-400">{{ errors.from_owner_id }}</div>
-        </div>
-
-        <div class="relative">
-          <input
             v-model="form.email"
             type="email"
             placeholder=" "
@@ -160,6 +146,31 @@
           <div v-if="errors.position_id" class="mt-1 text-sm text-red-400">{{ errors.position_id }}</div>
         </div>
 
+        <div class="relative group">
+          <SearchableSelect
+            v-model="form.customer_id"
+            :options="customers"
+            option-value="id"
+            option-label="name"
+            placeholder=" "
+            empty-label="Select Customer (optional)"
+            input-class="w-full pl-3 pr-10 pt-5 pb-2 !bg-slate-800 !border-slate-700 rounded-lg text-slate-100"
+            button-class="border-0 border-l !border-slate-700 rounded-r-lg !bg-slate-800 text-slate-100"
+          />
+          <label
+            :class="[
+              'pointer-events-none absolute left-3 z-10 transition-all',
+              (form.customer_id
+                ? 'top-0 -translate-y-1/2 bg-slate-800 px-1 text-xs text-slate-300'
+                : 'top-1/2 -translate-y-1/2 bg-transparent px-0 text-base text-slate-400'),
+              'group-focus-within:top-0 group-focus-within:-translate-y-1/2 group-focus-within:bg-slate-800 group-focus-within:px-1 group-focus-within:text-xs group-focus-within:text-slate-200',
+            ]"
+          >
+            Customer Account
+          </label>
+          <div v-if="errors.customer_id" class="mt-1 text-sm text-red-400">{{ errors.customer_id }}</div>
+        </div>
+
         <div class="pt-2">
           <label class="flex cursor-pointer items-center gap-2">
             <input v-model="form.is_admin" type="checkbox" class="h-4 w-4 rounded bg-slate-700 text-indigo-600" />
@@ -190,23 +201,25 @@ import SearchableSelect from '@/Components/SearchableSelect.vue';
 const props = defineProps({
   departments: Array,
   positions: Array,
+  customers: Array,
   errors: Object,
 });
 
 const form = reactive({
   name: '',
   account: '',
-  from_owner_id: '',
   email: '',
   password: '',
   status: 'active',
   department_id: '',
   position_id: '',
+  customer_id: '',
   is_admin: false,
 });
 
 const departments = props.departments || [];
 const positions = props.positions || [];
+const customers = props.customers || [];
 
 const filteredPositions = computed(() => {
   if (!form.department_id) return positions;

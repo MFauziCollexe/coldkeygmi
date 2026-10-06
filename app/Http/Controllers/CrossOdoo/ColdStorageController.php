@@ -22,6 +22,7 @@ class ColdStorageController extends Controller
         if ($coldStorageRoot === null) {
             return Inertia::render('GMISL/CrossOdoo/ColdStorage/Index', [
                 'storages' => [],
+                'customerOccupancy' => [],
                 'updatedAt' => now()->format('d/m/Y H:i'),
             ]);
         }
@@ -123,8 +124,81 @@ class ColdStorageController extends Controller
         }, $storages));
         usort($storages, fn (array $left, array $right): int => strnatcasecmp($left['name'], $right['name']));
 
+        $totalCapacity = array_sum(array_column($storages, 'capacity'));
+        $ownerSlotGroups = $odoo->executeKw(
+            'stock.quant',
+            'read_group',
+            [[
+                ['location_id', 'child_of', (int) $coldStorageRoot['id']],
+                ['location_id.usage', '=', 'internal'],
+                ['quantity', '>', 0],
+                ['owner_id', '!=', false],
+            ], ['owner_id', 'location_id'], ['owner_id', 'location_id']],
+            ['lazy' => false],
+        );
+
+        $customerSlots = [];
+        $customerSlotsByStorage = [];
+        foreach (is_array($ownerSlotGroups) ? $ownerSlotGroups : [] as $ownerSlotGroup) {
+            $owner = $ownerSlotGroup['owner_id'] ?? false;
+            $location = $ownerSlotGroup['location_id'] ?? false;
+            if (! is_array($owner) || ! isset($owner[0], $owner[1]) || ! is_array($location) || ! isset($location[0])) {
+                continue;
+            }
+
+            $ownerId = (int) $owner[0];
+            $slotId = (int) $location[0];
+            $storageId = $slotToStorage[$slotId] ?? null;
+            if ($storageId === null) {
+                continue;
+            }
+
+            if (! isset($customerSlots[$ownerId])) {
+                $customerSlots[$ownerId] = [
+                    'customer' => (string) $owner[1],
+                    'occupiedSlots' => 0,
+                ];
+            }
+            $customerSlots[$ownerId]['occupiedSlots']++;
+
+            if (! isset($customerSlotsByStorage[$storageId][$ownerId])) {
+                $customerSlotsByStorage[$storageId][$ownerId] = [
+                    'customer' => (string) $owner[1],
+                    'occupiedSlots' => 0,
+                ];
+            }
+            $customerSlotsByStorage[$storageId][$ownerId]['occupiedSlots']++;
+        }
+
+        $customerOccupancy = array_values(array_map(function (array $customer) use ($totalCapacity): array {
+            $customer['percentage'] = $totalCapacity > 0
+                ? round($customer['occupiedSlots'] / $totalCapacity * 100, 1)
+                : 0;
+
+            return $customer;
+        }, $customerSlots));
+        usort($customerOccupancy, fn (array $left, array $right): int =>
+            $right['occupiedSlots'] <=> $left['occupiedSlots'] ?: strnatcasecmp($left['customer'], $right['customer'])
+        );
+
+        foreach ($storages as &$storage) {
+            $storageCustomerSlots = $customerSlotsByStorage[$storage['id']] ?? [];
+            $storage['customerOccupancy'] = array_values(array_map(function (array $customer) use ($storage): array {
+                $customer['percentage'] = $storage['capacity'] > 0
+                    ? round($customer['occupiedSlots'] / $storage['capacity'] * 100, 1)
+                    : 0;
+
+                return $customer;
+            }, $storageCustomerSlots));
+            usort($storage['customerOccupancy'], fn (array $left, array $right): int =>
+                $right['occupiedSlots'] <=> $left['occupiedSlots'] ?: strnatcasecmp($left['customer'], $right['customer'])
+            );
+        }
+        unset($storage);
+
         return Inertia::render('GMISL/CrossOdoo/ColdStorage/Index', [
             'storages' => $storages,
+            'customerOccupancy' => $customerOccupancy,
             'updatedAt' => now()->format('d/m/Y H:i'),
         ]);
     }

@@ -18,41 +18,45 @@
 
         <section class="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Ringkasan kapasitas">
           <article class="border-l-2 border-slate-500 bg-[#15181d] px-4 py-3.5">
-            <p class="text-xs font-medium text-slate-400">Total Kapasitas</p>
-            <p class="mt-1 text-2xl font-bold tabular-nums text-white">{{ formatNumber(totals.capacity) }}</p>
-            <p class="mt-1 text-xs text-slate-500">{{ storages.length }} Cold Storage</p>
+            <p class="text-sm font-medium text-slate-400">Total Kapasitas</p>
+            <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              <p class="text-4xl font-bold tabular-nums text-white">{{ formatNumber(totals.capacity) }}</p>
+              <span class="ml-auto flex flex-col items-end text-right text-sm text-slate-400"><span class="text-4xl font-bold tabular-nums text-white">{{ storages.length }}</span><span>Cold Storage</span></span>
+            </div>
           </article>
           <article class="border-l-2 border-sky-400 bg-[#15181d] px-4 py-3.5">
-            <p class="text-xs font-medium text-slate-400">Slot Terpakai</p>
-            <p class="mt-1 text-2xl font-bold tabular-nums text-sky-300">{{ formatNumber(totals.used) }}</p>
-            <p class="mt-1 text-xs text-slate-500">{{ formatPercent(totals.occupancy) }} tingkat okupansi</p>
+            <p class="text-sm font-medium text-slate-400">Slot Terpakai</p>
+            <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              <p class="text-4xl font-bold tabular-nums text-sky-300">{{ formatNumber(totals.used) }}</p>
+              <span class="ml-auto flex flex-col items-end text-right text-sm text-slate-400"><span class="text-4xl font-bold tabular-nums text-sky-300">{{ formatPercent(totals.occupancy) }}</span><span>tingkat okupansi</span></span>
+            </div>
           </article>
           <article class="border-l-2 border-emerald-400 bg-[#15181d] px-4 py-3.5">
-            <p class="text-xs font-medium text-slate-400">Slot Tersedia</p>
-            <p class="mt-1 text-2xl font-bold tabular-nums text-emerald-300">{{ formatNumber(totals.available) }}</p>
-            <p class="mt-1 text-xs text-slate-500">Slot internal tanpa stok</p>
+            <p class="text-sm font-medium text-slate-400">Slot Tersedia</p>
+            <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              <p class="text-4xl font-bold tabular-nums text-emerald-300">{{ formatNumber(totals.available) }}</p>
+              <p class="ml-auto text-right text-sm text-slate-400">Slot internal tanpa stok</p>
+            </div>
           </article>
           <article class="border-l-2 border-red-400 bg-[#15181d] px-4 py-3.5">
-            <p class="text-xs font-medium text-slate-400">Status Kritis</p>
-            <p class="mt-1 text-2xl font-bold tabular-nums text-red-300">{{ totals.critical }}</p>
-            <p class="mt-1 text-xs text-slate-500">Cold Storage dengan okupansi ≥ 85%</p>
+            <p class="text-sm font-medium text-slate-400">Status Kritis</p>
+            <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              <p class="text-4xl font-bold tabular-nums text-red-300">{{ totals.critical }}</p>
+              <span class="ml-auto flex flex-col items-end text-right text-sm text-slate-400"><span class="text-4xl font-bold tabular-nums text-red-300">85%</span><span>Cold Storage dengan okupansi ≥</span></span>
+            </div>
           </article>
         </section>
 
-        <section class="flex flex-col gap-4 border-y border-white/10 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <section class="flex flex-col gap-4 border-y border-white/10 py-3 sm:flex-row sm:items-center">
           <div class="flex flex-wrap items-center gap-2" aria-label="Filter status">
             <span class="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Filter</span>
             <button v-for="filter in statusFilters" :key="filter.value" type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold transition" :class="statusFilter === filter.value ? 'bg-sky-400 text-slate-950' : 'text-slate-300 hover:bg-white/10'" @click="statusFilter = filter.value">
               {{ filter.label }}
             </button>
           </div>
-          <div class="inline-flex w-fit rounded-full border border-slate-700 p-1" aria-label="Mode tampilan">
-            <button type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold transition" :class="viewMode === 'chart' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'" @click="viewMode = 'chart'">Grafik</button>
-            <button type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold transition" :class="viewMode === 'cards' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'" @click="viewMode = 'cards'">Kartu</button>
-          </div>
         </section>
 
-        <section v-if="viewMode === 'chart'" class="border border-slate-800 bg-[#12151a] p-4 sm:p-5" aria-labelledby="chart-title">
+        <section class="border border-slate-800 bg-[#12151a] p-4 sm:p-5" aria-labelledby="chart-title">
           <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div>
               <h2 id="chart-title" class="text-lg font-semibold text-white">Perbandingan Kapasitas per Cold Storage</h2>
@@ -69,7 +73,7 @@
               <div class="pointer-events-none absolute inset-x-2 top-5 bottom-7 flex flex-col justify-between border-b border-slate-700/70">
                 <div v-for="tick in 4" :key="tick" class="border-t border-dashed border-slate-800"></div>
               </div>
-              <button v-for="storage in filteredStorages" :key="storage.id" type="button" class="group relative z-10 flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-sm px-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300" :aria-label="`${storage.name}, ${storage.used} dari ${storage.capacity} slot terpakai`" @click="openStorage(storage)">
+              <button v-for="storage in filteredStorages" :key="storage.id" type="button" class="group relative z-10 flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-sm px-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300" :aria-label="`${storage.name}, ${storage.used} dari ${storage.capacity} slot terpakai`" :title="customerBreakdownTitle(storage)" @click="openStorage(storage)">
                 <span class="text-[10px] tabular-nums text-slate-400 transition group-hover:text-white">{{ storage.used }}/{{ storage.capacity }}</span>
                 <div class="relative flex w-full max-w-10 flex-1 items-end justify-center">
                   <div class="relative w-full rounded-t-sm bg-slate-700/80 transition group-hover:bg-slate-600" :style="{ height: `${Math.max(8, storage.capacity / maxCapacity * 100)}%` }">
@@ -81,39 +85,72 @@
             </div>
           </div>
           <p v-else class="py-12 text-center text-sm text-slate-500">Tidak ada Cold Storage yang cocok dengan filter.</p>
-        </section>
 
-        <section v-else class="space-y-3" aria-labelledby="cards-title">
-          <div class="flex items-end justify-between">
-            <div>
-              <h2 id="cards-title" class="text-lg font-semibold text-white">Cold Storage</h2>
-              <p class="mt-1 text-xs text-slate-500">Klik kartu untuk melihat rincian slot terisi.</p>
+          <section class="mt-5 border-t border-slate-800 pt-4" aria-labelledby="cards-title">
+            <div class="mb-3 flex items-end justify-between">
+              <div>
+                <h3 id="cards-title" class="text-lg font-semibold text-white">Cold Storage</h3>
+                <p class="mt-1 text-xs text-slate-500">Klik kartu untuk melihat rincian slot terisi.</p>
+              </div>
+              <span class="text-xs text-slate-500">{{ filteredStorages.length }} lokasi</span>
             </div>
-            <span class="text-xs text-slate-500">{{ filteredStorages.length }} lokasi</span>
-          </div>
-          <div v-if="filteredStorages.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <button v-for="storage in filteredStorages" :key="storage.id" type="button" class="border border-slate-800 bg-[#15181d] p-4 text-left transition hover:border-slate-600 hover:bg-[#191d23] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300" @click="openStorage(storage)">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <h3 class="text-base font-semibold text-white">{{ storage.name }}</h3>
-                  <p class="mt-0.5 text-[11px] text-slate-500">{{ storage.completeName }}</p>
+            <div v-if="filteredStorages.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <button v-for="storage in filteredStorages" :key="storage.id" type="button" class="flex h-72 flex-col border border-slate-800 bg-[#15181d] p-4 text-left transition hover:border-slate-600 hover:bg-[#191d23] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300" @click="openStorage(storage)">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 class="text-base font-semibold text-white">{{ storage.name }}</h4>
+                    <p class="mt-0.5 text-[11px] text-slate-500">{{ storage.completeName }}</p>
+                  </div>
+                  <span class="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide" :class="statusClasses(storage.status)">{{ statusLabel(storage.status) }}</span>
                 </div>
-                <span class="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide" :class="statusClasses(storage.status)">{{ statusLabel(storage.status) }}</span>
+                <div class="mt-4 flex items-end justify-between">
+                  <span class="text-xs text-slate-400">Okupansi</span>
+                  <span class="text-lg font-bold tabular-nums" :class="statusTextClass(storage.status)">{{ formatPercent(storage.occupancy) }}</span>
+                </div>
+                <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div class="h-full rounded-full transition-all" :class="progressClasses(storage.status)" :style="{ width: `${storage.occupancy}%` }"></div>
+                </div>
+                <div class="mt-2 flex justify-between text-xs tabular-nums text-slate-400">
+                  <span>{{ formatNumber(storage.used) }} / {{ formatNumber(storage.capacity) }} slot</span>
+                  <span>{{ formatNumber(storage.available) }} tersedia</span>
+                </div>
+                <div class="mt-auto border-t border-slate-800 pt-2.5">
+                  <p class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Customer per CS</p>
+                  <div v-if="storage.customerOccupancy?.length" class="space-y-1">
+                    <div v-for="customer in storage.customerOccupancy.slice(0, 3)" :key="customer.customer" class="flex items-center justify-between gap-2 text-[11px]">
+                      <span class="flex min-w-0 items-center gap-1.5 text-slate-400" :title="customer.customer"><i class="h-2 w-2 shrink-0 rounded-full" :style="{ backgroundColor: customerColor(customer.customer) }" aria-hidden="true"></i><span class="truncate">{{ customer.customer }}</span></span>
+                      <span class="shrink-0 font-semibold tabular-nums text-sky-300">{{ formatPercent(customer.percentage) }}</span>
+                    </div>
+                    <p v-if="storage.customerOccupancy.length > 3" class="pt-0.5 text-[10px] font-medium text-slate-500">+{{ storage.customerOccupancy.length - 3 }} customer</p>
+                  </div>
+                  <p v-else class="text-[11px] text-slate-500">Belum ada customer pada slot terisi.</p>
+                </div>
+              </button>
+            </div>
+            <p v-else class="border border-slate-800 bg-[#12151a] py-8 text-center text-sm text-slate-500">Tidak ada Cold Storage yang cocok dengan filter.</p>
+          </section>
+
+          <section class="mt-5 border-t border-slate-800 pt-4" aria-labelledby="customer-share-title">
+            <div class="mb-4 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h3 id="customer-share-title" class="text-base font-semibold text-white">Okupansi per Customer</h3>
+                <p class="mt-1 text-xs text-slate-500">Porsi slot customer dibanding total kapasitas seluruh Cold Storage.</p>
               </div>
-              <div class="mt-4 flex items-end justify-between">
-                <span class="text-xs text-slate-400">Okupansi</span>
-                <span class="text-lg font-bold tabular-nums" :class="statusTextClass(storage.status)">{{ formatPercent(storage.occupancy) }}</span>
+              <span class="text-xs tabular-nums text-slate-500">{{ formatNumber(totals.capacity) }} total slot</span>
+            </div>
+            <div v-if="customerOccupancy.length" class="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+              <div v-for="customer in customerOccupancy" :key="customer.customer" class="min-w-0">
+                <div class="mb-1.5 flex items-center justify-between gap-3 text-xs">
+                  <span class="flex min-w-0 items-center gap-2 truncate font-medium text-slate-300" :title="customer.customer"><i class="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/10" :style="{ backgroundColor: customerColor(customer.customer) }" aria-hidden="true"></i>{{ customer.customer }}</span>
+                  <span class="shrink-0 text-right tabular-nums text-slate-400">{{ formatNumber(customer.occupiedSlots) }} slot · <strong class="text-sky-300">{{ formatPercent(customer.percentage) }}</strong></span>
+                </div>
+                <div class="h-1.5 overflow-hidden rounded-full bg-slate-800">
+                  <div class="h-full rounded-full bg-sky-300" :style="{ width: `${Math.min(100, customer.percentage)}%` }"></div>
+                </div>
               </div>
-              <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
-                <div class="h-full rounded-full transition-all" :class="progressClasses(storage.status)" :style="{ width: `${storage.occupancy}%` }"></div>
-              </div>
-              <div class="mt-2 flex justify-between text-xs tabular-nums text-slate-400">
-                <span>{{ formatNumber(storage.used) }} / {{ formatNumber(storage.capacity) }} slot</span>
-                <span>{{ formatNumber(storage.available) }} tersedia</span>
-              </div>
-            </button>
-          </div>
-          <p v-else class="border border-slate-800 bg-[#12151a] py-12 text-center text-sm text-slate-500">Tidak ada Cold Storage yang cocok dengan filter.</p>
+            </div>
+            <p v-else class="py-5 text-center text-sm text-slate-500">Belum ada slot terisi yang memiliki customer/owner.</p>
+          </section>
         </section>
 
         <p v-if="!storages.length" class="border border-amber-900/70 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
@@ -197,11 +234,11 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
   storages: { type: Array, default: () => [] },
+  customerOccupancy: { type: Array, default: () => [] },
   updatedAt: { type: String, default: '' },
 });
 
 const statusFilter = ref('all');
-const viewMode = ref('chart');
 const selectedStorage = ref(null);
 const slotFilter = ref('used');
 const refreshing = ref(false);
@@ -213,6 +250,11 @@ const statusFilters = [
   { value: 'low', label: 'Rendah (<50%)' },
 ];
 
+const customerColors = [
+  '#38bdf8', '#34d399', '#fbbf24', '#fb7185', '#a78bfa',
+  '#2dd4bf', '#f97316', '#60a5fa', '#e879f9', '#a3e635',
+];
+
 const slotFilters = [
   { value: 'used', label: 'Terpakai' },
   { value: 'unused', label: 'Belum terpakai' },
@@ -220,6 +262,7 @@ const slotFilters = [
 ];
 
 const storages = computed(() => props.storages || []);
+const customerOccupancy = computed(() => props.customerOccupancy || []);
 const filteredStorages = computed(() => statusFilter.value === 'all'
   ? storages.value
   : storages.value.filter((storage) => storage.status === statusFilter.value));
@@ -255,6 +298,15 @@ function formatPercent(value) {
   return `${Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`;
 }
 
+function customerColor(customerName) {
+  let hash = 0;
+  for (const character of String(customerName || '').toLowerCase()) {
+    hash = (hash * 31 + character.codePointAt(0)) >>> 0;
+  }
+
+  return customerColors[hash % customerColors.length];
+}
+
 function statusLabel(status) {
   return status === 'high' ? 'Kritis' : status === 'normal' ? 'Normal' : 'Tersedia';
 }
@@ -275,6 +327,18 @@ function progressClasses(status) {
   return status === 'high' ? 'bg-red-400' : status === 'normal' ? 'bg-blue-400' : 'bg-emerald-400';
 }
 
+function customerBreakdownTitle(storage) {
+  const customers = storage.customerOccupancy || [];
+  if (customers.length === 0) {
+    return `${storage.name}\nBelum ada stok dengan customer/owner pada unit ini.`;
+  }
+
+  return [
+    `${storage.name} · Customer memakai kapasitas unit`,
+    ...customers.map((customer) => `${customer.customer}: ${formatPercent(customer.percentage)} (${formatNumber(customer.occupiedSlots)} slot)`),
+  ].join('\n');
+}
+
 function openStorage(storage) {
   selectedStorage.value = storage;
   slotFilter.value = 'used';
@@ -283,7 +347,7 @@ function openStorage(storage) {
 function refreshData() {
   refreshing.value = true;
   router.reload({
-    only: ['storages', 'updatedAt'],
+    only: ['storages', 'customerOccupancy', 'updatedAt'],
     preserveScroll: true,
     onFinish: () => { refreshing.value = false; },
   });

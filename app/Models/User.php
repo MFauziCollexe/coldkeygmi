@@ -30,6 +30,7 @@ class User extends Authenticatable
         'email',
         'account',
         'from_owner_id',
+        'customer_id',
         'password',
         'status',
         'department_id',
@@ -144,6 +145,11 @@ class User extends Authenticatable
     public function position()
     {
         return $this->belongsTo(\App\Models\Position::class);
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(\App\Models\Customer::class);
     }
 
     /**
