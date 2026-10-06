@@ -39,6 +39,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                'login_as_url' => fn () => $request->session()->get('login_as_url'),
             ],
             'auth' => [
                 'user' => fn () => $this->sharedUser($user),
@@ -46,6 +47,7 @@ class HandleInertiaRequests extends Middleware
                 'module_permissions' => fn () => $user
                     ? $user->modulePermissions()->pluck('module_key')->toArray()
                     : [],
+                'impersonation' => fn () => $request->session()->get('impersonation'),
             ],
             'roster_config' => [
                 'schedules' => [

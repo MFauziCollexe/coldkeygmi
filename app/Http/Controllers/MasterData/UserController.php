@@ -61,6 +61,7 @@ class UserController extends Controller
             'filters' => $request->only(['search', 'status', 'department_id', 'page']),
             'departments' => $departments,
             'positions' => $positions,
+            'canCreateLoginLink' => $request->user()?->isAdmin() ?? false,
         ]);
     }
 

@@ -106,4 +106,56 @@ class OvertimeWorkflowTest extends TestCase
 
         $this->assertSame(0, Overtime::query()->count());
     }
+
+    public function test_andrian_can_view_overtime_requests_from_all_departments(): void
+    {
+        $fat = $this->createDepartment(['name' => 'FAT', 'code' => 'FAT']);
+        $maintenance = $this->createDepartment(['name' => 'Maintanance', 'code' => 'MNT']);
+
+        $andrian = $this->createManagerUser(
+            ['name' => 'FAT', 'code' => 'FAT'],
+            ['name' => 'CFO', 'code' => 'FAT-CFO', 'is_manager' => true],
+            ['name' => 'Andrian', 'email' => 'Andrian@coldkeygmi.com'],
+            'gmihr_attendance_overtime',
+        );
+
+        $fatEmployeeUser = $this->createUser(['department' => $fat], 'gmihr_attendance_overtime');
+        $fatEmployee = $this->createEmployee($fatEmployeeUser, ['department_id' => $fat->id]);
+        $maintenanceEmployeeUser = $this->createUser(['department' => $maintenance], 'gmihr_attendance_overtime');
+        $maintenanceEmployee = $this->createEmployee($maintenanceEmployeeUser, ['department_id' => $maintenance->id]);
+
+        $fatOvertime = $this->createOvertime($fatEmployeeUser, $fatEmployee);
+        $maintenanceOvertime = $this->createOvertime($maintenanceEmployeeUser, $maintenanceEmployee);
+
+        $this->actingAs($andrian)
+            ->get(route('overtime.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('GMIHR/Overtime/Index')
+                ->where('overtimes.data', fn ($rows) => collect($rows)->contains('id', $fatOvertime->id)
+                    && collect($rows)->contains('id', $maintenanceOvertime->id)));
+
+        $regularUser = $this->createUser(['department' => $fat], 'gmihr_attendance_overtime');
+        $this->actingAs($regularUser)
+            ->get(route('overtime.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('GMIHR/Overtime/Index')
+                ->where('overtimes.data', fn ($rows) => collect($rows)->contains('id', $fatOvertime->id)
+                    && !collect($rows)->contains('id', $maintenanceOvertime->id)));
+    }
+
+    private function createOvertime(\App\Models\User $user, \App\Models\Employee $employee): Overtime
+    {
+        return Overtime::create([
+            'user_id' => $user->id,
+            'employee_id' => $employee->id,
+            'overtime_date' => now()->toDateString(),
+            'start_time' => '18:00',
+            'end_time' => '19:00',
+            'hours' => 1,
+            'reason' => 'Cross-department overtime visibility test.',
+            'status' => 'pending',
+        ]);
+    }
 }

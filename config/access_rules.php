@@ -106,6 +106,7 @@ return [
                         ['type' => 'admin'],
                         ['type' => 'department_code', 'value' => 'HRD'],
                         ['type' => 'department_name_contains', 'value' => 'HRD'],
+                        ['type' => 'user_email', 'value' => 'Andrian@coldkeygmi.com'],
                     ],
                     'ids_from' => [
                         'managed_departments',
@@ -361,6 +362,9 @@ return [
             ],
         ],
         'tickets' => [
+            'view_only_department_codes_by_email' => [
+                'andrian@coldkeygmi.com' => ['MNT'],
+            ],
             'scopes' => [
                 'manage_department' => [
                     'all_if' => [

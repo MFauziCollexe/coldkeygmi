@@ -121,14 +121,15 @@ class TicketController extends Controller
         // Restrict visibility: creator OR assignee OR department manager (except for admins)
         if ($currentUserId && !$canViewAllManagedDepartments) {
             $managedDeptIds = $this->getManagedDepartmentIds($currentUserId);
-            
-            $query->where(function ($q) use ($currentUserId, $managedDeptIds) {
+            $viewOnlyDeptIds = $this->getViewOnlyDepartmentIds($currentUser);
+            $visibleDepartmentIds = array_values(array_unique(array_merge($managedDeptIds, $viewOnlyDeptIds)));
+
+            $query->where(function ($q) use ($currentUserId, $visibleDepartmentIds) {
                 $q->where('assigned_to', $currentUserId)
                   ->orWhere('created_by', $currentUserId);
                 
-                // Add department manager visibility
-                if (!empty($managedDeptIds)) {
-                    $q->orWhereIn('department_id', $managedDeptIds);
+                if (!empty($visibleDepartmentIds)) {
+                    $q->orWhereIn('department_id', $visibleDepartmentIds);
                 }
             });
         } elseif (!$currentUserId) {
@@ -161,8 +162,13 @@ class TicketController extends Controller
      */
     public function create()
     {
+        $viewOnlyDepartmentIds = $this->getViewOnlyDepartmentIds(Auth::user());
+
         return Inertia::render('GMISL/Utility/Tickets/Create', [
-            'departments' => Department::active()->select('id', 'name', 'code')->get(),
+            'departments' => Department::active()
+                ->when($viewOnlyDepartmentIds !== [], fn ($query) => $query->whereNotIn('id', $viewOnlyDepartmentIds))
+                ->select('id', 'name', 'code')
+                ->get(),
         ]);
     }
 
@@ -180,6 +186,8 @@ class TicketController extends Controller
             'attachments' => 'nullable|array',
             'attachments.*' => 'file|image|max:5120',
         ]);
+
+        abort_if(in_array((int) $data['department_id'], $this->getViewOnlyDepartmentIds(Auth::user()), true), 403);
 
         $data['ticket_number'] = 'TKT-' . Str::upper(Str::random(8));
         $data['created_by'] = Auth::id();
@@ -209,7 +217,7 @@ class TicketController extends Controller
      */
     public function show(Ticket $ticket)
     {
-        $this->authorizeTicketVisibility($ticket);
+        $this->authorizeTicketReadVisibility($ticket);
         $ticket->load(['creator', 'assignee']);
 
         // Get users in the ticket's department for distribution
@@ -228,6 +236,7 @@ class TicketController extends Controller
         
         // Check if current user is the creator
         $isCreator = $ticket->isCreator(Auth::id());
+        $hasRegularVisibility = $this->canViewTicket($ticket, Auth::user());
 
         return Inertia::render('GMISL/Utility/Tickets/Show', [
             'ticket' => $ticket->load([
@@ -251,7 +260,7 @@ class TicketController extends Controller
             'isAssignee' => $isAssignee,
             'isCreator' => $isCreator,
             'canReopen' => $isCreator && $ticket->status === 'Closed',
-            'canComment' => $this->canCommentOnTicket($ticket, Auth::user()),
+            'canComment' => $hasRegularVisibility && $this->canCommentOnTicket($ticket, Auth::user()),
             'isAdmin' => (bool) Auth::user()?->is_admin,
         ]);
     }
@@ -699,6 +708,44 @@ class TicketController extends Controller
         if (!$this->canViewTicket($ticket, $user)) {
             abort(403);
         }
+    }
+
+    protected function authorizeTicketReadVisibility(Ticket $ticket): void
+    {
+        $user = Auth::user();
+        if (!$user || (!$this->canViewTicket($ticket, $user) && !$this->canViewTicketDepartmentReadOnly($user, $ticket))) {
+            abort(403);
+        }
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    protected function getViewOnlyDepartmentIds(?User $user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        $departmentCodesByEmail = config('access_rules.modules.tickets.view_only_department_codes_by_email', []);
+        $departmentCodes = $departmentCodesByEmail[strtolower(trim($user->email))] ?? [];
+
+        if ($departmentCodes === []) {
+            return [];
+        }
+
+        return Department::query()
+            ->whereIn('code', $departmentCodes)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    protected function canViewTicketDepartmentReadOnly(?User $user, Ticket $ticket): bool
+    {
+        return $user !== null
+            && $ticket->department_id !== null
+            && in_array((int) $ticket->department_id, $this->getViewOnlyDepartmentIds($user), true);
     }
 
     protected function canManageTicketDepartment(?User $user, Ticket $ticket): bool

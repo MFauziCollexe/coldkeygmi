@@ -88,6 +88,14 @@
             </div>
 
             <div class="mt-4 flex gap-2">
+              <button
+                v-if="canCreateLoginLink"
+                @click="createLoginLink(user)"
+                :disabled="creatingLinkFor === user.id || user.status !== 'active'"
+                class="flex-1 rounded bg-amber-500 px-3 py-2 text-sm font-medium text-slate-950 hover:bg-amber-400 disabled:opacity-50"
+              >
+                {{ creatingLinkFor === user.id ? 'Creating...' : 'Login as' }}
+              </button>
               <Link
                 :href="`/control-panel/user/${user.id}/edit`"
                 class="flex-1 rounded bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-indigo-500"
@@ -120,13 +128,27 @@
               <th>Status</th>
               <th>Admin</th>
               <th>Created</th>
-              <th></th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(user, index) in users.data" :key="user.id" class="border-t border-slate-700">
               <td class="py-3">{{ (users.current_page - 1) * users.per_page + index + 1 }}</td>
-              <td>{{ user.account }}</td>
+              <td>
+                <div class="flex min-w-36 items-center justify-between gap-3">
+                  <span>{{ user.account }}</span>
+                  <button
+                    v-if="canCreateLoginLink"
+                    type="button"
+                    :disabled="creatingLinkFor === user.id || user.status !== 'active'"
+                    class="shrink-0 font-semibold text-amber-300 hover:text-amber-200 disabled:opacity-50"
+                    :title="user.status === 'active' ? `Create temporary login link for ${user.account}` : 'Only active users can be selected'"
+                    @click="createLoginLink(user)"
+                  >
+                    {{ creatingLinkFor === user.id ? 'Creating...' : 'Login as' }}
+                  </button>
+                </div>
+              </td>
               <td>{{ user.email }}</td>
               <td>{{ user.department?.name || '-' }}</td>
               <td>{{ user.position?.name || '-' }}</td>
@@ -158,12 +180,31 @@
         </div>
       </div>
     </div>
+
+    <div v-if="loginAsUrl" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" @click.self="closeLoginLink">
+      <section role="dialog" aria-modal="true" aria-labelledby="login-as-title" class="w-full max-w-xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="login-as-title" class="text-lg font-semibold text-white">Temporary login link created</h2>
+            <p class="mt-1 text-sm text-slate-400">One-time use · expires in 5 minutes</p>
+          </div>
+          <button type="button" aria-label="Close" class="rounded border border-slate-700 px-2 py-1 text-slate-300 hover:bg-slate-800" @click="closeLoginLink">Close</button>
+        </div>
+        <p class="mt-4 text-sm leading-6 text-slate-300">Copy this link, open an Incognito window, and paste it there. The link shows a confirmation page before signing in.</p>
+        <input ref="loginLinkInput" :value="loginAsUrl" readonly class="mt-3 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200" @focus="$event.target.select()" />
+        <div class="mt-4 flex justify-end">
+          <button type="button" class="rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400" @click="copyLoginLink">
+            {{ copied ? 'Copied' : 'Copy link' }}
+          </button>
+        </div>
+      </section>
+    </div>
   </AppLayout>
 </template>
 
 <script setup>
 import { ref, reactive, computed } from 'vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
@@ -174,9 +215,15 @@ const props = defineProps({
   users: Object,
   filters: Object,
   departments: Array,
+  canCreateLoginLink: { type: Boolean, default: false },
 });
 
 const users = computed(() => props.users);
+const page = usePage();
+const creatingLinkFor = ref(null);
+const loginAsUrl = ref('');
+const copied = ref(false);
+const loginLinkInput = ref(null);
 
 const filters = reactive({
   search: props.filters.search || '',
@@ -214,6 +261,35 @@ function next() {
 
 function prev() {
   if (users.value.prev_page_url) goToPage(users.value.current_page - 1);
+}
+
+function createLoginLink(user) {
+  creatingLinkFor.value = user.id;
+  router.post(`/control-panel/user/${user.id}/temporary-login-link`, {}, {
+    preserveScroll: true,
+    onSuccess: () => {
+      loginAsUrl.value = page.props.flash?.login_as_url || '';
+      copied.value = false;
+    },
+    onFinish: () => {
+      creatingLinkFor.value = null;
+    },
+  });
+}
+
+async function copyLoginLink() {
+  try {
+    await navigator.clipboard.writeText(loginAsUrl.value);
+    copied.value = true;
+  } catch {
+    loginLinkInput.value?.focus();
+    loginLinkInput.value?.select();
+  }
+}
+
+function closeLoginLink() {
+  loginAsUrl.value = '';
+  copied.value = false;
 }
 
 function formatDate(date) {

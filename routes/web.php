@@ -577,6 +577,9 @@ Route::resource('master-data/employee', \App\Http\Controllers\EmployeeController
     ->names('employees');
 
 // Control Panel - User Management (route: /control-panel/user)
+Route::post('control-panel/user/{user}/temporary-login-link', [App\Http\Controllers\UserImpersonationController::class, 'createLink'])
+    ->middleware(['auth', App\Http\Middleware\EnsureModulePermission::class . ':control.users'])
+    ->name('control.users.temporary-login-link');
 Route::resource('control-panel/user', \App\Http\Controllers\MasterData\UserController::class)
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':control.users'])
     ->names('control.users');
@@ -842,6 +845,15 @@ Route::get('/', function () {
 Route::get('/signup', [UserController::class, 'showSignUp'])->name('signup');
 Route::post('/signup', [UserController::class, 'store'])->name('signup.store');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+Route::get('/temporary-user-access/{token}', [App\Http\Controllers\UserImpersonationController::class, 'confirm'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->name('user-impersonation.confirm');
+Route::post('/temporary-user-access/stop', [App\Http\Controllers\UserImpersonationController::class, 'stop'])
+    ->middleware('auth')
+    ->name('user-impersonation.stop');
+Route::post('/temporary-user-access/{token}', [App\Http\Controllers\UserImpersonationController::class, 'redeem'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->name('user-impersonation.redeem');
 
 // Forgot Password
 Route::get('/forgot-password', [App\Http\Controllers\ForgotPasswordController::class, 'showForgotPassword'])->name('forgot-password');

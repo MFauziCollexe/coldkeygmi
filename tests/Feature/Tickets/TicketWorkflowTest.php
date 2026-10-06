@@ -125,6 +125,82 @@ class TicketWorkflowTest extends TestCase
         $this->assertSame('Open', $ticket->status);
     }
 
+    public function test_andrian_can_list_and_open_maintenance_tickets_read_only(): void
+    {
+        $maintenance = $this->createDepartment(['name' => 'Maintanance', 'code' => 'MNT']);
+        $otherDepartment = $this->createDepartment(['name' => 'Operations', 'code' => 'OPS']);
+        $andrian = $this->createManagerUser(
+            ['name' => 'Finance', 'code' => 'FAT'],
+            ['name' => 'CFO', 'code' => 'FAT-CFO', 'is_manager' => true],
+            ['name' => 'Andrian', 'email' => 'Andrian@coldkeygmi.com'],
+            'utility_tickets',
+        );
+        $maintenanceCreator = $this->createUser(['department' => $maintenance], 'utility.tickets');
+        $maintenanceAssignee = $this->createUser(['department' => $maintenance], 'utility.tickets');
+        $financeCreator = $this->createUser(['department' => $otherDepartment], 'utility.tickets');
+        $financeAssignee = $this->createUser(['department' => $otherDepartment], 'utility.tickets');
+
+        $maintenanceTicket = $this->createTicket($maintenance, $maintenanceCreator, $maintenanceAssignee);
+        $financeTicket = $this->createTicket($otherDepartment, $financeCreator, $financeAssignee);
+
+        $this->actingAs($andrian)
+            ->get(route('tickets.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('GMISL/Utility/Tickets/Index')
+                ->where('tickets.data', fn ($tickets) => collect($tickets)->contains('id', $maintenanceTicket->id)
+                    && !collect($tickets)->contains('id', $financeTicket->id)));
+
+        $this->get(route('tickets.show', $maintenanceTicket))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('GMISL/Utility/Tickets/Show')
+                ->where('ticket.id', $maintenanceTicket->id)
+                ->where('isManager', false)
+                ->where('isAssignee', false)
+                ->where('isCreator', false)
+                ->where('canComment', false));
+
+        $this->get(route('tickets.show', $financeTicket))->assertForbidden();
+    }
+
+    public function test_andrian_read_only_maintenance_access_does_not_allow_mutations_or_ticket_creation(): void
+    {
+        $maintenance = $this->createDepartment(['name' => 'Maintanance', 'code' => 'MNT']);
+        $finance = $this->createDepartment(['name' => 'Finance', 'code' => 'FAT']);
+        $andrian = $this->createManagerUser(
+            ['name' => 'Finance', 'code' => 'FAT'],
+            ['name' => 'CFO', 'code' => 'FAT-CFO', 'is_manager' => true],
+            ['name' => 'Andrian', 'email' => 'Andrian@coldkeygmi.com'],
+            'utility_tickets',
+        );
+        $creator = $this->createUser(['department' => $maintenance], 'utility.tickets');
+        $assignee = $this->createUser(['department' => $maintenance], 'utility.tickets');
+        $ticket = $this->createTicket($maintenance, $creator, $assignee);
+
+        $this->actingAs($andrian)
+            ->put(route('tickets.update', $ticket), ['title' => 'Unauthorized edit'])
+            ->assertForbidden();
+
+        $this->post(route('tickets.comments.store', $ticket), ['comment' => 'Unauthorized comment'])
+            ->assertForbidden();
+
+        $this->post(route('tickets.store'), [
+            'title' => 'Unauthorized Maintenance ticket',
+            'description' => 'Should not be created by read-only viewer.',
+            'deadline' => now()->addDay()->toDateString(),
+            'department_id' => $maintenance->id,
+        ])->assertForbidden();
+
+        $this->assertDatabaseHas('tickets', [
+            'id' => $ticket->id,
+            'title' => 'Utility incident',
+            'status' => 'Open',
+        ]);
+        $this->assertDatabaseMissing('tickets', ['title' => 'Unauthorized Maintenance ticket']);
+        $this->assertDatabaseMissing('ticket_comments', ['comment' => 'Unauthorized comment']);
+    }
+
     /**
      * @param  array<string, mixed>  $attributes
      */

@@ -9,6 +9,10 @@
     <Sidebar :open="sidebarOpen" :mobile="isMobile" @update:open="sidebarOpen = $event" />
 
     <div class="min-w-0 flex-1 flex flex-col">
+      <div v-if="$page.props.auth?.impersonation" class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-950 px-4 py-2 text-sm text-amber-100">
+        <span>You are viewing this session as <strong>{{ $page.props.auth.user?.name }}</strong>. Started by {{ $page.props.auth.impersonation.issued_by_name }}.</span>
+        <button type="button" class="rounded border border-amber-300/50 px-3 py-1 text-xs font-semibold hover:bg-amber-900" @click="stopImpersonation">Stop impersonation</button>
+      </div>
       <Topbar @toggle-sidebar="sidebarOpen = !sidebarOpen" />
 
       <main class="min-w-0 overflow-auto bg-slate-900">
@@ -22,6 +26,7 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { router } from '@inertiajs/vue3';
 import HelpAssistantWidget from '@/Components/HelpAssistantWidget.vue';
 import Sidebar from '@/Components/Sidebar.vue';
 import Topbar from '@/Components/Topbar.vue';
@@ -56,6 +61,10 @@ function triggerLogout() {
   isLoggingOut = true;
   clearIdleTimer();
   window.location.replace('/session-timeout');
+}
+
+function stopImpersonation() {
+  router.post('/temporary-user-access/stop');
 }
 
 function resetIdleTimer() {
