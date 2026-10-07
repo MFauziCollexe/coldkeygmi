@@ -21,7 +21,33 @@ class AccessRuleService
             return $defaults;
         }
 
-        return array_replace_recursive($defaults, $overrides);
+        return $this->mergeModules($defaults, $overrides);
+    }
+
+    protected function mergeModules(array $defaults, array $overrides): array
+    {
+        foreach ($overrides as $key => $override) {
+            if (!array_key_exists($key, $defaults)) {
+                $defaults[$key] = $override;
+                continue;
+            }
+
+            $defaultValue = $defaults[$key];
+
+            if (is_array($override) && is_array($defaultValue)) {
+                if (array_is_list($override)) {
+                    $defaults[$key] = $override;
+                    continue;
+                }
+
+                $defaults[$key] = $this->mergeModules($defaultValue, $override);
+                continue;
+            }
+
+            $defaults[$key] = $override;
+        }
+
+        return $defaults;
     }
 
     public function defaultModules(): array
