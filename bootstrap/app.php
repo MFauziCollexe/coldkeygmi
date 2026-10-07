@@ -31,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\LogModuleAction::class,
+            \App\Http\Middleware\SeedPreviousUrl::class,
         ]);
 
         $middleware->web(prepend: [

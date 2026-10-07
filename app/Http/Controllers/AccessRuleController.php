@@ -110,7 +110,7 @@ class AccessRuleController extends Controller
             $accessRules->overrideModules()
         );
 
-        return redirect()->back()->with('success', 'Access rule overrides berhasil disimpan.');
+        return redirect()->route('control.access-rules')->with('success', 'Access rule overrides berhasil disimpan.');
     }
 
     public function reset(Request $request, AccessRuleService $accessRules): RedirectResponse
@@ -127,7 +127,7 @@ class AccessRuleController extends Controller
             $accessRules->overrideModules()
         );
 
-        return redirect()->back()->with('success', 'Access rule overrides berhasil direset ke default.');
+        return redirect()->route('control.access-rules')->with('success', 'Access rule overrides berhasil direset ke default.');
     }
 
     public function rollback(Request $request, AccessRuleService $accessRules): RedirectResponse
@@ -140,7 +140,7 @@ class AccessRuleController extends Controller
         $beforeOverrides = $accessRules->overrideModules();
 
         if (!$accessRules->rollbackToAudit($data['audit_id'])) {
-            return redirect()->back()->with('error', 'Audit trail tidak ditemukan atau belum punya snapshot rollback.');
+            return redirect()->route('control.access-rules')->with('error', 'Audit trail tidak ditemukan atau belum punya snapshot rollback.');
         }
 
         $accessRules->logAudit(
@@ -152,6 +152,6 @@ class AccessRuleController extends Controller
             $accessRules->overrideModules()
         );
 
-        return redirect()->back()->with('success', 'Access rule berhasil dikembalikan ke versi audit terpilih.');
+        return redirect()->route('control.access-rules')->with('success', 'Access rule berhasil dikembalikan ke versi audit terpilih.');
     }
 }
