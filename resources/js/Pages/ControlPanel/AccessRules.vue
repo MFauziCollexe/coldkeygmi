@@ -926,6 +926,7 @@
 import { computed, defineComponent, h, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Swal from 'sweetalert2';
 import { swalConfirm } from '@/Utils/swalConfirm';
 
 const types = [
@@ -1615,7 +1616,7 @@ function addScope() {
   if (!selected.value) return;
   const firstAvailableKey = scopeKeyOptions('').find((key) => !(selected.value?.scopes || []).some((scope) => String(scope?.key || '').trim() === key)) || '';
   if (!firstAvailableKey) {
-    window.Swal.fire({
+    Swal.fire({
       icon: 'warning',
       title: 'Semua Scope Key Sudah Terpakai',
       text: `Module "${selectedModuleKey.value}" tidak punya scope key baru. Edit scope yang sudah ada, mis. gunakan "Add Append" di dalam scope untuk menambah akses departemen.`,
@@ -1630,7 +1631,7 @@ function addAbility() {
   if (!selected.value) return;
   const firstAvailableKey = abilityKeyOptions('').find((key) => !(selected.value?.abilities || []).some((ability) => String(ability?.key || '').trim() === key)) || '';
   if (!firstAvailableKey) {
-    window.Swal.fire({
+    Swal.fire({
       icon: 'warning',
       title: 'Semua Ability Key Sudah Terpakai',
       text: `Module "${selectedModuleKey.value}" tidak punya ability key baru. Tambahkan kondisi pada ability yang sudah ada.`,
@@ -1645,7 +1646,7 @@ function addSetting() {
   if (!selected.value) return;
   const firstAvailableKey = settingKeyOptions('').find((key) => !(selected.value?.settings || []).some((setting) => String(setting?.key || '').trim() === key)) || '';
   if (!firstAvailableKey) {
-    window.Swal.fire({
+    Swal.fire({
       icon: 'warning',
       title: 'Semua Setting Key Sudah Terpakai',
       text: `Module "${selectedModuleKey.value}" tidak punya setting key baru. Ubah nilai setting yang sudah ada.`,
@@ -1661,7 +1662,7 @@ function addTemplatePermission() {
   if (!selected.value) return;
   const firstAvailableKey = templatePermissionKeyOptions('').find((key) => !(selected.value?.template_permissions || []).some((templatePermission) => String(templatePermission?.key || '').trim() === key)) || '';
   if (!firstAvailableKey) {
-    window.Swal.fire({
+    Swal.fire({
       icon: 'warning',
       title: 'Semua Template Permission Key Sudah Terpakai',
       text: `Module "${selectedModuleKey.value}" tidak punya template permission key baru.`,
@@ -1721,7 +1722,7 @@ function resetDraft() {
 function saveRules() {
   const issues = collectKeyIssues();
   if (issues.length > 0) {
-    window.Swal.fire({
+    Swal.fire({
       icon: 'error',
       title: 'Override Tidak Dapat Disimpan',
       html: `<div style="text-align:left;font-size:12px;line-height:1.6;">${issues.map((issue) => `<div>&bull; ${escapeHtml(issue)}</div>`).join('')}</div>`,
@@ -1791,7 +1792,7 @@ function previewModuleSnapshot(entry) {
 
 async function previewRollback(entry) {
   if (!canRollbackEntry(entry)) {
-    window.Swal.fire({
+    Swal.fire({
       icon: 'warning',
       title: 'Snapshot Tidak Tersedia',
       text: 'Audit lama ini belum memiliki snapshot untuk rollback.',
@@ -1809,7 +1810,7 @@ async function previewRollback(entry) {
     </div>
   `;
 
-  const result = await window.Swal.fire({
+  const result = await Swal.fire({
     icon: 'warning',
     title: 'Preview Rollback',
     html: previewHtml,
@@ -1830,7 +1831,7 @@ async function previewRollback(entry) {
 
 async function rollbackAudit(entry) {
   if (!canRollbackEntry(entry)) {
-    window.Swal.fire({
+    Swal.fire({
       icon: 'warning',
       title: 'Snapshot Tidak Tersedia',
       text: 'Audit lama ini belum memiliki snapshot untuk rollback.',
