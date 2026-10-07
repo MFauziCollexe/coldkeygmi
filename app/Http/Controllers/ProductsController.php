@@ -6,7 +6,6 @@ use App\Models\TProduct;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 

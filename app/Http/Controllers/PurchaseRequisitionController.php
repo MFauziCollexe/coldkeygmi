@@ -1043,7 +1043,6 @@ class PurchaseRequisitionController extends Controller
          ]);
 
          // 11. Optional: Check if all attachments signed → could trigger auto-approval
-         // $this->checkAndAutoApprovePr($purchaseRequisition);
 
          if ($request->expectsJson() || $request->wantsJson()) {
              return response()->json([

@@ -4,14 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Fingerprint;
 use App\Models\Employee;
-use App\Models\User;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FingerprintController extends Controller
 {
@@ -292,67 +289,6 @@ class FingerprintController extends Controller
                 'text' => 'All fingerprint data has been cleared.',
             ]
         ]);
-    }
-
-    /**
-     * Download all fingerprint scan logs as CSV.
-     */
-    public function downloadScanlog(Request $request): StreamedResponse
-    {
-        $filename = 'scanlog_' . now()->format('Ymd_His') . '.csv';
-
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ];
-
-        $columns = [
-            'Tanggal scan',
-            'Tanggal',
-            'Jam',
-            'PIN',
-            'NIP',
-            'Nama',
-            'Jabatan',
-            'Departemen',
-            'Kantor',
-            'Verifikasi',
-            'I/O',
-            'Workcode',
-            'SN',
-            'Mesin',
-        ];
-
-        return response()->stream(function () use ($columns) {
-            $handle = fopen('php://output', 'w');
-            fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, $columns);
-
-            Fingerprint::query()
-                ->orderBy('scan_date', 'desc')
-                ->chunk(1000, function ($rows) use ($handle) {
-                    foreach ($rows as $row) {
-                        fputcsv($handle, [
-                            optional($row->scan_date)->format('Y-m-d H:i:s'),
-                            optional($row->scan_date_only)->format('Y-m-d'),
-                            $row->scan_time ?? '',
-                            $row->pin ?? '',
-                            $row->nip ?? '',
-                            $row->name ?? '',
-                            $row->position ?? '',
-                            $row->department ?? '',
-                            $row->office ?? '',
-                            $row->verify ?? '',
-                            $row->io ?? '',
-                            $row->workcode ?? '',
-                            $row->sn ?? '',
-                            $row->machine ?? '',
-                        ]);
-                    }
-                });
-
-            fclose($handle);
-        }, 200, $headers);
     }
 
     /**

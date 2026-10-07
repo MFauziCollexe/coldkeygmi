@@ -6,8 +6,6 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
@@ -62,56 +60,5 @@ class UserController extends Controller
 
             return back()->withErrors(['error' => 'Failed to create account. Please try again.']);
         }
-    }
-
-    /**
-     * Activate user account (admin only).
-     */
-    public function activate(Request $request, User $user)
-    {
-        if (!auth()->check() || !auth()->user()->isAdmin()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        try {
-            $user->activate(auth()->user()->email);
-            return response()->json(['success' => true, 'message' => 'User activated successfully']);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Deactivate user account (admin only).
-     */
-    public function deactivate(Request $request, User $user)
-    {
-        if (!auth()->check() || !auth()->user()->isAdmin()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        try {
-            $user->deactivate(auth()->user()->email);
-            return response()->json(['success' => true, 'message' => 'User deactivated successfully']);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Get activity logs for a user.
-     */
-    public function getActivityLogs(User $user)
-    {
-        if (!auth()->check() || !auth()->user()->isAdmin()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $logs = \App\Models\ActivityLog::where('table_name', 'users')
-            ->where('record_id', $user->id)
-            ->orderBy('created_date', 'desc')
-            ->get();
-
-        return response()->json($logs);
     }
 }

@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
-use App\Models\TicketComment;
 use App\Models\Department;
 use App\Models\User;
 use App\Models\Position;

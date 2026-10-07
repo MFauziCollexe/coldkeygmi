@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
 use App\Models\Employee;
 use App\Models\Overtime;
-use App\Models\User;
 use App\Models\Department;
 use App\Models\ActivityLog;
 use App\Support\AccessRuleService;

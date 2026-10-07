@@ -267,39 +267,6 @@ class ChecklistEntryController extends Controller
         );
     }
 
-    public function downloadTemplatePdf(Request $request)
-    {
-        $data = $request->validate([
-            'template' => ['required', 'string', 'in:jadwal_cleaning_ob'],
-            'sections' => ['required', 'array', 'min:1'],
-        ]);
-
-        $templateId = (string) $data['template'];
-        $this->authorizeChecklistTemplate($request->user(), $templateId, 'view');
-
-        $entry = [
-            'template_id' => $templateId,
-            'name' => 'Jadwal Cleaning OB',
-            'form' => [
-                'document_no' => 'FRM.HSE.15.02',
-                'rev' => '00',
-                'effective_date' => '22 Desember 2025',
-                'date_value' => '',
-                'sections' => $data['sections'],
-                'area_notes' => [],
-                'area_photo_paths' => [],
-                'area_photo_urls' => [],
-                'area_photo_names' => [],
-            ],
-        ];
-
-        return $this->streamPdf(
-            view('pdf.checklist', ['entry' => $entry])->render(),
-            'Template_Jadwal_Cleaning_OB.pdf',
-            $this->resolvePdfOrientation($entry)
-        );
-    }
-
     public function savedEntries(Request $request): JsonResponse
     {
         $start = $this->parseOptionalDateFilter($request, 'start');
