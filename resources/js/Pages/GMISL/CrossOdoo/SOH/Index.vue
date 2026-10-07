@@ -139,32 +139,6 @@
           </tfoot>
         </table>
       </div>
-
-      <div v-if="totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="text-sm text-slate-400">
-          Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
-        </div>
-        <div class="flex items-center gap-1">
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(1)">
-            &laquo;
-          </button>
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
-            &lsaquo;
-          </button>
-          <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-1.5 py-1 text-xs text-slate-500">...</span>
-            <button v-else type="button" class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition" :class="page === currentPage ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'" @click="changePage(page)">
-              {{ page }}
-            </button>
-          </template>
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
-            &rsaquo;
-          </button>
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(totalPages)">
-            &raquo;
-          </button>
-        </div>
-      </div>
     </div>
   </AppLayout>
 </template>
@@ -187,8 +161,6 @@ const props = defineProps({
   selectedProductId:   { type: [String, Number], default: null },
   customerName:        { type: String,   default: 'Customer' },
   productName:         { type: String,   default: 'Product' },
-  currentPage:         { type: Number,   default: 1 },
-  perPage:             { type: Number,   default: 25 },
   totalRows:           { type: Number,   default: 0 },
   totalSoh:            { type: Number,   default: 0 },
   totalQtySoh:         { type: Number,   default: 0 },
@@ -197,7 +169,6 @@ const props = defineProps({
 });
 
 const paginatedRows   = computed(() => props.rows || []);
-const totalPages      = computed(() => Math.max(1, Math.ceil(props.totalRows / props.perPage)));
 
 const customerOptions = computed(() =>
   (props.customers || []).map(c => ({ customer_id: c.customer_id, label: c.customer_name }))
@@ -222,18 +193,6 @@ const exportUrl = computed(() => {
   return `${props.basePath}/export?${params.toString()}`;
 });
 
-const visiblePages = computed(() => {
-  const total = totalPages.value;
-  const cur   = props.currentPage;
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = [1];
-  if (cur > 3) pages.push('...');
-  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i);
-  if (cur < total - 2) pages.push('...');
-  pages.push(total);
-  return pages;
-});
-
 function formatNumber(v) {
   if (v === null || v === undefined || v === '') return '-';
   return Number(v).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -244,7 +203,6 @@ function buildParams(overrides = {}) {
     customer_id: localCustomerId.value ?? undefined,
     product_id:  localProductId.value  ?? undefined,
     filters_applied: 1,
-    page: props.currentPage,
     ...overrides,
   };
 }
@@ -257,7 +215,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows', 'filtersApplied', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'currentPage', 'perPage', 'totalRows', 'totalSoh', 'totalQtySoh', 'totalReserve', 'totalOnHandAvailable'];
+const ONLY_FILTER = ['rows', 'filtersApplied', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'totalRows', 'totalSoh', 'totalQtySoh', 'totalReserve', 'totalOnHandAvailable'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;
@@ -270,12 +228,6 @@ function onProductChange(value) {
 }
 
 function applyFilters() {
-  reload(buildParams({ page: 1 }), ONLY_FILTER);
-}
-
-function changePage(p) {
-  const safe = Math.max(1, Math.min(p, totalPages.value));
-  if (safe === props.currentPage) return;
-  reload(buildParams({ page: safe }), ONLY_FILTER);
+  reload(buildParams(), ONLY_FILTER);
 }
 </script>

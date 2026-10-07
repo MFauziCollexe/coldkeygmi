@@ -31,7 +31,7 @@ class DepartmentScope
         }
 
         $extraIds = Department::query()
-            ->whereIn('code', ['INV', 'RSC', 'ADL', 'HSE'])
+            ->whereIn('code', ['INV', 'RSC', 'ADL', 'HSE', 'INV_SAID', 'INV_IMANDA'])
             ->pluck('id')
             ->map(fn($id) => (int) $id)
             ->all();

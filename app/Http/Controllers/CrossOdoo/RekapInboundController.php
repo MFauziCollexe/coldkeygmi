@@ -40,9 +40,6 @@ class RekapInboundController extends Controller
         $startDate = $period.'-01';
         $endDate = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
 
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = 25;
-
         $rows = [];
         $totalRows = 0;
         $totalQty = 0.0;
@@ -64,14 +61,7 @@ class RekapInboundController extends Controller
             }
 
             $totalRows = count($allRows);
-
-            if ($allItems) {
-                $rows = $allRows;
-            } else {
-                $page = min($page, max(1, (int) ceil($totalRows / $perPage)));
-                $offset = ($page - 1) * $perPage;
-                $rows = array_slice($allRows, $offset, $perPage);
-            }
+            $rows = $allRows;
         }
 
         return Inertia::render('GMISL/CrossOdoo/RekapInbound/Index', [
@@ -87,8 +77,6 @@ class RekapInboundController extends Controller
             'startDate' => $startDate,
             'endDate' => $endDate,
             'allItems' => $allItems,
-            'currentPage' => $page,
-            'perPage' => $perPage,
             'totalRows' => $totalRows,
             'totalQty' => $totalQty,
             'totalQtyKg' => $totalQtyKg,
@@ -111,7 +99,7 @@ class RekapInboundController extends Controller
         $startDate = $period.'-01';
         $endDate = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
 
-        $headers = ['NO', 'TANGGAL', 'KD CUSTOMER', 'NM CUSTOMER', 'NO DELIVERY', 'SOURCE DOCUMENTS', 'NO MOBIL', 'KD BARANG', 'NM BARANG', 'QTY', 'QTY KG', 'UOM', 'EXPIRED DATE', 'LOT'];
+        $headers = ['NO', 'TANGGAL', 'KD CUSTOMER', 'NM CUSTOMER', 'NO DELIVERY', 'SOURCE DOCUMENTS', 'NO MOBIL', 'KD BARANG', 'NM BARANG', 'QTY', 'QTY KG', 'UOM'];
         $data = [];
 
         if ($filtersApplied && $selectedCustomerId !== null) {
@@ -137,8 +125,6 @@ class RekapInboundController extends Controller
                     (float) $row['qty'],
                     (float) $row['qty_kg'],
                     $row['uom'],
-                    $row['expired_date'],
-                    $row['lot'],
                 ];
             }
         }
@@ -259,18 +245,12 @@ class RekapInboundController extends Controller
         $locationUsages = $this->fetchLocationUsages($odoo, $lines);
 
         $pickingIds = [];
-        $lotIds = [];
         $productProductIds = [];
         $uomIds = [];
         foreach ($lines as $line) {
             $picking = $line['picking_id'] ?? false;
             if (is_array($picking) && isset($picking[0])) {
                 $pickingIds[(int) $picking[0]] = true;
-            }
-
-            $lot = $line['lot_id'] ?? false;
-            if (is_array($lot) && isset($lot[0])) {
-                $lotIds[(int) $lot[0]] = true;
             }
 
             $product = $line['product_id'] ?? false;
@@ -285,7 +265,6 @@ class RekapInboundController extends Controller
         }
 
         $pickings = $this->fetchPickings($odoo, array_keys($pickingIds));
-        $lots = $this->fetchLots($odoo, array_keys($lotIds));
         $productDetails = $this->fetchProductDetails($odoo, array_keys($productProductIds));
         $uoms = $this->fetchUoms($odoo, array_keys($uomIds));
 
@@ -323,18 +302,9 @@ class RekapInboundController extends Controller
             $partnerId = $ownerId ?? ($pickingInfo['partner_id'] ?? null);
             $partner = $partnerId !== null ? ($pickings['_partners'][$partnerId] ?? null) : null;
 
-            $lot = $line['lot_id'] ?? false;
-            $lotId = is_array($lot) ? (int) $lot[0] : null;
-            $lotInfo = $lotId !== null ? ($lots[$lotId] ?? null) : null;
-
             $product = $line['product_id'] ?? false;
             $productId = is_array($product) ? (int) $product[0] : null;
             $productInfo = $productId !== null ? ($productDetails[$productId] ?? null) : null;
-
-            $expiredRaw = $lotInfo['expiration_date'] ?? null;
-            $expired = $expiredRaw !== null && $expiredRaw !== ''
-                ? substr((string) $expiredRaw, 0, 10)
-                : null;
 
             $uom = $line['product_uom_id'] ?? false;
             $uomId = is_array($uom) ? (int) $uom[0] : null;
@@ -351,8 +321,6 @@ class RekapInboundController extends Controller
                 'qty' => (float) ($line['quantity'] ?? 0),
                 'qty_kg' => abs((float) ($line['ns_actual_weight'] ?? 0)),
                 'uom' => $uomId !== null ? ($uoms[$uomId] ?? null) : null,
-                'expired_date' => $expired,
-                'lot' => $lotInfo['name'] ?? null,
             ];
         }
 
@@ -367,8 +335,6 @@ class RekapInboundController extends Controller
                 $row['no_mobil'],
                 $row['kd_barang'],
                 $row['nm_barang'],
-                $row['expired_date'],
-                $row['lot'],
             ]);
 
             if (! isset($groupedRows[$groupKey])) {
@@ -469,8 +435,6 @@ class RekapInboundController extends Controller
                 'qty' => $qty,
                 'qty_kg' => $qtyKg,
                 'uom' => null,
-                'expired_date' => null,
-                'lot' => null,
                 'is_subtotal' => true,
             ];
         }
@@ -533,37 +497,6 @@ class RekapInboundController extends Controller
                     'name' => (string) ($partner['name'] ?? ''),
                 ];
             }
-        }
-
-        return $map;
-    }
-
-    /**
-     * @param  array<int, int>  $lotIds
-     * @return array<int, array{name: string, expiration_date: string|null}>
-     */
-    private function fetchLots(OdooXmlRpcService $odoo, array $lotIds): array
-    {
-        if ($lotIds === []) {
-            return [];
-        }
-
-        $lots = $odoo->searchRead(
-            'stock.lot',
-            ['id', 'name', 'expiration_date'],
-            null,
-            [['id', 'in', $lotIds]],
-        );
-
-        $map = [];
-        foreach ($lots as $lot) {
-            $expiration = $lot['expiration_date'] ?? false;
-            $map[(int) $lot['id']] = [
-                'name' => (string) ($lot['name'] ?? ''),
-                'expiration_date' => ($expiration !== false && $expiration !== null && $expiration !== '')
-                    ? (string) $expiration
-                    : null,
-            ];
         }
 
         return $map;

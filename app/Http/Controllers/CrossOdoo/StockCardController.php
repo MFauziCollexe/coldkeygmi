@@ -44,8 +44,6 @@ class StockCardController extends Controller
         $openingStartDate = $startDate > self::OPENING_BALANCE_START_DATE
             ? self::OPENING_BALANCE_START_DATE
             : null;
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = 25;
 
         $openingBalance = 0.0;
         $formattedRows = [];
@@ -75,13 +73,6 @@ class StockCardController extends Controller
             $finalSaldoKg = $result['finalSaldoKg'];
             $totalRows = count($allRows);
 
-            if ($allItems) {
-                $pageRows = $allRows;
-            } else {
-                $offset = ($page - 1) * $perPage;
-                $pageRows = array_slice($allRows, $offset, $perPage);
-            }
-
             $formattedRows = array_map(fn ($row) => [
                 'transaction_date' => $row['date'] ?? null,
                 'operation_type' => $row['operation_type'] ?? null,
@@ -98,7 +89,7 @@ class StockCardController extends Controller
                 'saldo_kg' => (float) ($row['saldo_kg'] ?? 0),
                 'item_start' => ! empty($row['item_start']),
                 'item_subtotal' => ! empty($row['item_subtotal']),
-            ], $pageRows);
+            ], $allRows);
         }
 
         return Inertia::render('GMISL/CrossOdoo/StockCard/Index', [
@@ -116,8 +107,6 @@ class StockCardController extends Controller
             'productName' => $productName,
             'openingBalance' => $openingBalance,
             'openingBalanceKg' => $openingBalanceKg,
-            'currentPage' => $page,
-            'perPage' => $perPage,
             'totalRows' => $totalRows,
             'totalIn' => $totalIn,
             'totalOut' => $totalOut,

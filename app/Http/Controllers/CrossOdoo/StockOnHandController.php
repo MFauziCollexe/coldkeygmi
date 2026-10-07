@@ -36,8 +36,6 @@ class StockOnHandController extends Controller
         $productName = $selection['productName'];
 
         $endDate = $request->input('end_date') ?: now()->toDateString();
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = 25;
 
         $rows = [];
         $totalRows = 0;
@@ -49,18 +47,15 @@ class StockOnHandController extends Controller
         if ($filtersApplied && $selectedProductId !== null) {
             $odoo = app(OdooXmlRpcService::class);
 
-            $grouped = $this->computeGroupedRows($odoo, (int) $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName);
+            $rows = $this->computeGroupedRows($odoo, (int) $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName);
 
-            $totalRows = count($grouped);
-            foreach ($grouped as $groupedRow) {
+            $totalRows = count($rows);
+            foreach ($rows as $groupedRow) {
                 $totalSoh += (float) $groupedRow['SOH Available'];
                 $totalQtySoh += (float) $groupedRow['Qty SOH'];
                 $totalReserve += (float) $groupedRow['Qty Reserve'];
                 $totalQtyAvailable += (float) $groupedRow['On Hand Available'];
             }
-            $page = min($page, max(1, (int) ceil($totalRows / $perPage)));
-            $offset = ($page - 1) * $perPage;
-            $rows = array_slice($grouped, $offset, $perPage);
         }
 
         return Inertia::render('GMISL/CrossOdoo/SOH/Index', [
@@ -72,8 +67,6 @@ class StockOnHandController extends Controller
             'selectedProductId' => $selectedProductId,
             'customerName' => $customerName,
             'productName' => $productName,
-            'currentPage' => $page,
-            'perPage' => $perPage,
             'totalRows' => $totalRows,
             'totalSoh' => $totalSoh,
             'totalQtySoh' => $totalQtySoh,

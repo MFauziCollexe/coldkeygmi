@@ -106,13 +106,11 @@
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY KG</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">UOM</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">EXPIRED DATE</th>
-              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">LOT</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="14">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="12">
                 {{ filtersApplied ? 'Tidak ada data untuk filter yang dipilih.' : 'Pilih filter lalu klik Apply filter untuk memuat data.' }}
               </td>
             </tr>
@@ -121,14 +119,14 @@
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-bold" colspan="9">SUBTOTAL - {{ row.nm_barang }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(row.qty) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(row.qty_kg) }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="3"></td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="1"></td>
               </tr>
               <tr
                 v-else
                 :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
                 class="hover:bg-blue-50"
               >
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ allItems ? row.__no : rowNo(index) }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ allItems ? row.__no : index + 1 }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.tanggal) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_customer || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_customer || '-' }}</td>
@@ -140,8 +138,6 @@
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row.qty) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row.qty_kg) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.uom || '-' }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.expired_date) }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.lot || '-' }}</td>
               </tr>
             </template>
           </tbody>
@@ -150,36 +146,10 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="9">TOTAL</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalQty) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalQtyKg) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="3"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="1"></td>
             </tr>
           </tfoot>
         </table>
-      </div>
-
-      <div v-if="!allItems && totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="text-sm text-slate-400">
-          Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
-        </div>
-        <div class="flex items-center gap-1">
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(1)">
-            &laquo;
-          </button>
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
-            &lsaquo;
-          </button>
-          <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-1.5 py-1 text-xs text-slate-500">...</span>
-            <button v-else type="button" class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition" :class="page === currentPage ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'" @click="changePage(page)">
-              {{ page }}
-            </button>
-          </template>
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
-            &rsaquo;
-          </button>
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(totalPages)">
-            &raquo;
-          </button>
-        </div>
       </div>
     </div>
   </AppLayout>
@@ -204,8 +174,6 @@ const props = defineProps({
   startDate:          { type: String,   default: '' },
   endDate:            { type: String,   default: '' },
   period:             { type: String,   default: '' },
-  currentPage:        { type: Number,   default: 1 },
-  perPage:            { type: Number,   default: 25 },
   totalRows:          { type: Number,   default: 0 },
   totalQty:           { type: Number,   default: 0 },
   totalQtyKg:         { type: Number,   default: 0 },
@@ -238,7 +206,6 @@ const paginatedRows = computed(() => {
   let no = 0;
   return (props.rows || []).map(row => (row.is_subtotal ? row : { ...row, __no: ++no }));
 });
-const totalPages    = computed(() => Math.max(1, Math.ceil(props.totalRows / props.perPage)));
 
 const exportUrl = computed(() => {
   if (!props.filtersApplied) return '#';
@@ -248,18 +215,6 @@ const exportUrl = computed(() => {
   if (periodInput.value) params.set('period', periodInput.value);
   params.set('filters_applied', '1');
   return `/gmisl/cross-odoo/rekap-outbound/export?${params.toString()}`;
-});
-
-const visiblePages = computed(() => {
-  const total = totalPages.value;
-  const cur   = props.currentPage;
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = [1];
-  if (cur > 3) pages.push('...');
-  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i);
-  if (cur < total - 2) pages.push('...');
-  pages.push(total);
-  return pages;
 });
 
 function formatDateShort(v) {
@@ -278,7 +233,6 @@ function buildParams(overrides = {}) {
     product_id:  Number(localProductId.value) > 0 ? localProductId.value : undefined,
     period:      periodInput.value     || undefined,
     filters_applied: 1,
-    page: props.currentPage,
     ...overrides,
   };
 }
@@ -291,7 +245,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows','filtersApplied','selectedCustomerId','selectedProductId','customerName','productName','period','allItems','currentPage','perPage','totalRows','totalQty','totalQtyKg'];
+const ONLY_FILTER = ['rows','filtersApplied','selectedCustomerId','selectedProductId','customerName','productName','period','allItems','totalRows','totalQty','totalQtyKg'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;
@@ -303,16 +257,6 @@ function onProductChange(value) {
 }
 
 function applyFilters() {
-  reload(buildParams({ page: 1 }), ONLY_FILTER);
-}
-
-function changePage(p) {
-  const safe = Math.max(1, Math.min(p, totalPages.value));
-  if (safe === props.currentPage) return;
-  reload(buildParams({ page: safe }), ONLY_FILTER);
-}
-
-function rowNo(index) {
-  return (props.currentPage - 1) * props.perPage + index + 1;
+  reload(buildParams(), ONLY_FILTER);
 }
 </script>

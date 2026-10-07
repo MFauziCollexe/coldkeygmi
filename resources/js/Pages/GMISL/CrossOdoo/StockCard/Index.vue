@@ -177,32 +177,6 @@
           </tfoot>
         </table>
       </div>
-
-      <div v-if="!allItems && totalPages > 1" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="text-sm text-slate-400">
-          Menampilkan {{ totalRows === 0 ? 0 : (currentPage - 1) * perPage + 1 }}-{{ Math.min(currentPage * perPage, totalRows) }} dari {{ totalRows }} data
-        </div>
-        <div class="flex items-center gap-1">
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(1)">
-            &laquo;
-          </button>
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
-            &lsaquo;
-          </button>
-          <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-1.5 py-1 text-xs text-slate-500">...</span>
-            <button v-else type="button" class="min-w-8 rounded border px-2.5 py-1 text-xs font-semibold transition" :class="page === currentPage ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'" @click="changePage(page)">
-              {{ page }}
-            </button>
-          </template>
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
-            &rsaquo;
-          </button>
-          <button type="button" class="rounded border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="currentPage === totalPages" @click="changePage(totalPages)">
-            &raquo;
-          </button>
-        </div>
-      </div>
     </div>
   </AppLayout>
 </template>
@@ -228,8 +202,6 @@ const props = defineProps({
   productName:       { type: String,   default: 'Product' },
   openingBalance:    { type: Number,   default: 0 },
   openingBalanceKg:  { type: Number,   default: 0 },
-  currentPage:       { type: Number,   default: 1 },
-  perPage:           { type: Number,   default: 25 },
   totalRows:         { type: Number,   default: 0 },
   totalIn:           { type: Number,   default: 0 },
   totalOut:          { type: Number,   default: 0 },
@@ -241,7 +213,6 @@ const props = defineProps({
 
 const allRows       = computed(() => props.rows || []);
 const paginatedRows = computed(() => allRows.value);
-const totalPages    = computed(() => Math.max(1, Math.ceil(props.totalRows / props.perPage)));
 
 const todayDate    = new Date();
 const defaultPeriod = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}`;
@@ -278,18 +249,6 @@ const exportUrl = computed(() => {
   return `/gmisl/cross-odoo/stock-card/export?${params.toString()}`;
 });
 
-const visiblePages = computed(() => {
-  const total = totalPages.value;
-  const cur   = props.currentPage;
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = [1];
-  if (cur > 3) pages.push('...');
-  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i);
-  if (cur < total - 2) pages.push('...');
-  pages.push(total);
-  return pages;
-});
-
 function formatDateShort(v) {
   if (!v) return '-';
   const d = new Date(v);
@@ -306,7 +265,6 @@ function buildParams(overrides = {}) {
     product_id:  Number(localProductId.value) > 0 ? localProductId.value : undefined,
     period:      periodInput.value     || undefined,
     filters_applied: 1,
-    page: props.currentPage,
     ...overrides,
   };
 }
@@ -319,7 +277,7 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows','filtersApplied','selectedCustomerId','selectedProductId','period','startDate','endDate','allItems','customerName','productName','openingBalance','openingBalanceKg','currentPage','perPage','totalRows','totalIn','totalInKg','totalOut','totalOutKg','finalSaldo','finalSaldoKg'];
+const ONLY_FILTER = ['rows','filtersApplied','selectedCustomerId','selectedProductId','period','startDate','endDate','allItems','customerName','productName','openingBalance','openingBalanceKg','totalRows','totalIn','totalInKg','totalOut','totalOutKg','finalSaldo','finalSaldoKg'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;
@@ -331,16 +289,10 @@ function onProductChange(value) {
 }
 
 function onDateChange() {
-  reload(buildParams({ page: 1 }), ONLY_FILTER);
+  reload(buildParams(), ONLY_FILTER);
 }
 
 function applyFilters() {
   onDateChange();
-}
-
-function changePage(p) {
-  const safe = Math.max(1, Math.min(p, totalPages.value));
-  if (safe === props.currentPage) return;
-  reload(buildParams({ page: safe }), ONLY_FILTER);
 }
 </script>
