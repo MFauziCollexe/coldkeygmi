@@ -1320,6 +1320,40 @@ function serialize() {
   }));
 }
 
+function collectKeyIssues() {
+  const issues = [];
+
+  Object.entries(states.value).forEach(([moduleKey, config]) => {
+    const check = (list, label) => {
+      (list || []).forEach((item, index) => {
+        const key = String(item?.key || '').trim();
+        if (!key) {
+          issues.push(`Module "${moduleKey}": ${label} #${index + 1} belum punya key — pilih key dari dropdown atau klik Remove.`);
+        }
+      });
+
+      const counts = new Map();
+      (list || []).forEach((item) => {
+        const key = String(item?.key || '').trim();
+        if (!key) return;
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+      counts.forEach((count, key) => {
+        if (count > 1) {
+          issues.push(`Module "${moduleKey}": key ${label} "${key}" dipakai ${count} kali — cukup 1x, edit scope/ability yang sudah ada.`);
+        }
+      });
+    };
+
+    check(config?.scopes, 'scope');
+    check(config?.abilities, 'ability');
+    check(config?.settings, 'setting');
+    check(config?.template_permissions, 'template permission');
+  });
+
+  return issues;
+}
+
 function stable(value) {
   if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
   if (value && typeof value === 'object') return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(',')}}`;
@@ -1580,18 +1614,45 @@ function addIdsFrom(scope) {
 function addScope() {
   if (!selected.value) return;
   const firstAvailableKey = scopeKeyOptions('').find((key) => !(selected.value?.scopes || []).some((scope) => String(scope?.key || '').trim() === key)) || '';
+  if (!firstAvailableKey) {
+    window.Swal.fire({
+      icon: 'warning',
+      title: 'Semua Scope Key Sudah Terpakai',
+      text: `Module "${selectedModuleKey.value}" tidak punya scope key baru. Edit scope yang sudah ada, mis. gunakan "Add Append" di dalam scope untuk menambah akses departemen.`,
+      confirmButtonColor: '#d97706',
+    });
+    return;
+  }
   selected.value.scopes.push({ key: firstAvailableKey, all_if: [], ids_from: [], append_ids_if: [], pendingIdsFrom: '' });
 }
 
 function addAbility() {
   if (!selected.value) return;
   const firstAvailableKey = abilityKeyOptions('').find((key) => !(selected.value?.abilities || []).some((ability) => String(ability?.key || '').trim() === key)) || '';
+  if (!firstAvailableKey) {
+    window.Swal.fire({
+      icon: 'warning',
+      title: 'Semua Ability Key Sudah Terpakai',
+      text: `Module "${selectedModuleKey.value}" tidak punya ability key baru. Tambahkan kondisi pada ability yang sudah ada.`,
+      confirmButtonColor: '#d97706',
+    });
+    return;
+  }
   selected.value.abilities.push({ key: firstAvailableKey, conditions: [] });
 }
 
 function addSetting() {
   if (!selected.value) return;
   const firstAvailableKey = settingKeyOptions('').find((key) => !(selected.value?.settings || []).some((setting) => String(setting?.key || '').trim() === key)) || '';
+  if (!firstAvailableKey) {
+    window.Swal.fire({
+      icon: 'warning',
+      title: 'Semua Setting Key Sudah Terpakai',
+      text: `Module "${selectedModuleKey.value}" tidak punya setting key baru. Ubah nilai setting yang sudah ada.`,
+      confirmButtonColor: '#d97706',
+    });
+    return;
+  }
   const defaultItem = (base.value.settings || []).find((setting) => setting.key === firstAvailableKey);
   selected.value.settings.push({ key: firstAvailableKey, value: defaultItem?.value ?? '' });
 }
@@ -1599,6 +1660,15 @@ function addSetting() {
 function addTemplatePermission() {
   if (!selected.value) return;
   const firstAvailableKey = templatePermissionKeyOptions('').find((key) => !(selected.value?.template_permissions || []).some((templatePermission) => String(templatePermission?.key || '').trim() === key)) || '';
+  if (!firstAvailableKey) {
+    window.Swal.fire({
+      icon: 'warning',
+      title: 'Semua Template Permission Key Sudah Terpakai',
+      text: `Module "${selectedModuleKey.value}" tidak punya template permission key baru.`,
+      confirmButtonColor: '#d97706',
+    });
+    return;
+  }
   selected.value.template_permissions.push({ key: firstAvailableKey, view_conditions: [], approve_conditions: [] });
 }
 
@@ -1649,6 +1719,16 @@ function resetDraft() {
 }
 
 function saveRules() {
+  const issues = collectKeyIssues();
+  if (issues.length > 0) {
+    window.Swal.fire({
+      icon: 'error',
+      title: 'Override Tidak Dapat Disimpan',
+      html: `<div style="text-align:left;font-size:12px;line-height:1.6;">${issues.map((issue) => `<div>&bull; ${escapeHtml(issue)}</div>`).join('')}</div>`,
+      confirmButtonColor: '#dc2626',
+    });
+    return;
+  }
   router.post('/control-panel/access-rules/save', { modules: serialize() }, { preserveScroll: true });
 }
 

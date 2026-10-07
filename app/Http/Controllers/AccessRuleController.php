@@ -7,6 +7,7 @@ use App\Models\Position;
 use App\Support\AccessRuleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -49,6 +50,26 @@ class AccessRuleController extends Controller
         $data = $request->validate([
             'modules' => ['required', 'array'],
         ]);
+
+        foreach ($data['modules'] as $moduleKey => $config) {
+            if (!is_array($config)) {
+                continue;
+            }
+
+            foreach ([['scopes', 'scope'], ['abilities', 'ability'], ['settings', 'setting'], ['template_permissions', 'template permission']] as [$section, $label]) {
+                if (!isset($config[$section]) || !is_array($config[$section])) {
+                    continue;
+                }
+
+                foreach ($config[$section] as $itemKey => $item) {
+                    if (!is_string($itemKey) || trim($itemKey) === '') {
+                        throw ValidationException::withMessages([
+                            'modules' => "Module \"{$moduleKey}\" memiliki {$label} dengan key kosong. Perbaiki di editor sebelum menyimpan.",
+                        ]);
+                    }
+                }
+            }
+        }
 
         $modules = collect($data['modules'])
             ->filter(fn ($config, $moduleKey) => is_string($moduleKey) && trim($moduleKey) !== '' && is_array($config))
