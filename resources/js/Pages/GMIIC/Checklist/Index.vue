@@ -219,6 +219,7 @@
                 v-model="downloadTemplateId"
                 class="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-sm text-slate-100"
               >
+                <option value="">Semua Checklist</option>
                 <option v-for="option in availableChecklistOptions" :key="option.id" :value="option.id">
                   {{ option.name }}
                 </option>
@@ -501,7 +502,7 @@ function openTemplateDownloadModal() {
   templateDownloadError.value = '';
   downloadPeriod.value = (selectedDate.value || toDateInputValue(new Date())).slice(0, 7);
   downloadWeek.value = 1;
-  downloadTemplateId.value = availableChecklistOptions.value[0]?.id ?? '';
+  downloadTemplateId.value = '';
   previewChecked.value = false;
   previewResults.value = [];
   showTemplateModal.value = true;

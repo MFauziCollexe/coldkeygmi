@@ -325,7 +325,7 @@ class ChecklistEntryController extends Controller
         $start = $range['start'];
         $end = $range['end'];
 
-        $entries = $this->getSavedChecklistEntries($request->user(), 2000)
+        $entries = $this->getSavedChecklistEntries($request->user(), null)
             ->filter(fn (array $entry) => $this->withinDateRange($entry, $start, $end))
             ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
             ->values()
@@ -341,17 +341,23 @@ class ChecklistEntryController extends Controller
 
         $nameSuffix = $template !== null ? '_' . preg_replace('/[^A-Za-z0-9._-]+/', '_', $template) : '';
 
-        return $this->streamPdfBatch(
-            $entries,
-            'Checklist' . $nameSuffix . '_' . $period . '_minggu' . $week . '.pdf',
-            $orientation,
-            [
-                'period' => $period,
-                'week' => $week,
-                'start' => $start,
-                'end' => $end,
-            ]
-        );
+        try {
+            return $this->streamPdfBatch(
+                $entries,
+                'Checklist' . $nameSuffix . '_' . $period . '_minggu' . $week . '.pdf',
+                $orientation,
+                [
+                    'period' => $period,
+                    'week' => $week,
+                    'start' => $start,
+                    'end' => $end,
+                ]
+            );
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Gagal menghasilkan PDF: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function preview(Request $request)
@@ -366,7 +372,7 @@ class ChecklistEntryController extends Controller
         $start = $period.'-01';
         $end = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
 
-        $entries = $this->getSavedChecklistEntries($request->user(), 2000)
+        $entries = $this->getSavedChecklistEntries($request->user(), null)
             ->filter(fn (array $entry) => $this->withinDateRange($entry, $start, $end))
             ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
             ->map(fn (array $entry) => [
@@ -739,7 +745,14 @@ class ChecklistEntryController extends Controller
         $buffer = [];
         $bufferBytes = 0;
 
+        $rangeStart = trim((string) ($viewData['start'] ?? ''));
+        $rangeEnd = trim((string) ($viewData['end'] ?? ''));
+
         foreach ($entries as $entry) {
+            if ($rangeStart !== '' && $rangeEnd !== '') {
+                $entry = $this->limitEntryToDateRange($entry, $rangeStart, $rangeEnd);
+            }
+
             $normalizedEntry = $this->normalizePdfEntry($entry);
             $html = view('pdf.checklist', ['entry' => $normalizedEntry])->render();
             $bytes = strlen($html);
@@ -785,6 +798,115 @@ class ChecklistEntryController extends Controller
         }
     }
 
+    private function limitEntryToDateRange(array $entry, string $start, string $end): array
+    {
+        $startDay = (int) substr($start, 8, 2);
+        $endDay = (int) substr($end, 8, 2);
+
+        if ($startDay < 1 || $endDay < $startDay) {
+            return $entry;
+        }
+
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $allowedDays = array_fill_keys(range($startDay, $endDay), true);
+        $filterDayList = fn ($days) => array_values(array_filter(
+            is_array($days) ? $days : [],
+            fn ($day) => isset($allowedDays[(int) $day])
+        ));
+        $filterDayMap = function ($map) use ($allowedDays) {
+            if (!is_array($map)) {
+                return $map;
+            }
+
+            return collect($map)
+                ->filter(fn ($value, $day) => isset($allowedDays[(int) $day]))
+                ->all();
+        };
+
+        foreach (['approved_days', 'submitted_days', 'leave_days'] as $key) {
+            if (array_key_exists($key, $form)) {
+                $form[$key] = $filterDayList($form[$key]);
+            }
+        }
+
+        if (is_array($form['days'] ?? null)) {
+            $form['days'] = $filterDayList($form['days']);
+        }
+
+        foreach (['area_scans_by_day', 'approval_requests_by_day'] as $key) {
+            if (array_key_exists($key, $form)) {
+                $form[$key] = $filterDayMap($form[$key]);
+            }
+        }
+
+        if (is_array($form['approved_days_by_area'] ?? null)) {
+            $form['approved_days_by_area'] = collect($form['approved_days_by_area'])
+                ->map(fn ($days) => $filterDayList($days))
+                ->all();
+        }
+
+        if (is_array($form['rows'] ?? null)) {
+            $form['rows'] = array_values(array_filter($form['rows'], function ($row) use ($allowedDays) {
+                if (!is_array($row) || !array_key_exists('day', $row)) {
+                    return true;
+                }
+
+                return isset($allowedDays[(int) $row['day']]);
+            }));
+        }
+
+        if (is_array($form['rows_by_area'] ?? null)) {
+            $form['rows_by_area'] = collect($form['rows_by_area'])
+                ->map(function ($rows) use ($filterDayMap) {
+                    if (!is_array($rows)) {
+                        return $rows;
+                    }
+
+                    return collect($rows)
+                        ->map(function ($row) use ($filterDayMap) {
+                            if (is_array($row) && is_array($row['days'] ?? null)) {
+                                $row['days'] = $filterDayMap($row['days']);
+                            }
+
+                            return $row;
+                        })
+                        ->all();
+                })
+                ->all();
+        }
+
+        if (is_array($form['sections'] ?? null)) {
+            $form['sections'] = collect($form['sections'])
+                ->map(function ($section) use ($filterDayMap) {
+                    if (!is_array($section)) {
+                        return $section;
+                    }
+
+                    if (is_array($section['items'] ?? null)) {
+                        $section['items'] = collect($section['items'])
+                            ->map(function ($item) use ($filterDayMap) {
+                                if (is_array($item) && is_array($item['days'] ?? null)) {
+                                    $item['days'] = $filterDayMap($item['days']);
+                                }
+
+                                return $item;
+                            })
+                            ->all();
+                    }
+
+                    return $section;
+                })
+                ->all();
+        }
+
+        if (isset($form['active_day']) && !isset($allowedDays[(int) $form['active_day']])) {
+            $form['active_day'] = $startDay;
+        }
+
+        $entry['form'] = $form;
+
+        return $entry;
+    }
     private function renderPdf(string $html, string $orientation): string
     {
         $options = new Options();
