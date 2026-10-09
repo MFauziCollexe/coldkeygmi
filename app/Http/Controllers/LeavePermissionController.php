@@ -630,9 +630,10 @@ class LeavePermissionController extends Controller
 
         if ($request->has('status')) {
             if (!$this->canReviewLeavePermission($userId, $leavePermission)) {
-                return response()->json([
-                    'message' => 'Anda tidak memiliki izin untuk menyetujui/menolak permintaan ini.',
-                ], 403);
+                return $this->forbiddenActionResponse(
+                    $request,
+                    'Anda tidak memiliki izin untuk menyetujui/menolak permintaan ini.'
+                );
             }
 
             $data = $request->validate([
@@ -731,9 +732,7 @@ class LeavePermissionController extends Controller
         $userId = Auth::id();
 
         if (!$this->isAdmin($userId)) {
-            return response()->json([
-                'message' => 'Hanya admin yang dapat menghapus data ini.',
-            ], 403);
+            return $this->forbiddenActionResponse($request, 'Hanya admin yang dapat menghapus data ini.');
         }
 
         $this->deleteStoredAttachments($this->getAttachmentPaths($leavePermission));
@@ -799,6 +798,17 @@ class LeavePermissionController extends Controller
             'message' => "{$deletedCount} data berhasil dihapus.",
             'deleted_count' => $deletedCount,
         ]);
+    }
+
+    protected function forbiddenActionResponse(Request $request, string $message)
+    {
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()
+                ->withErrors(['request' => $message])
+                ->setStatusCode(303);
+        }
+
+        return response()->json(['message' => $message], 403);
     }
 
     /**

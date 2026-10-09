@@ -732,7 +732,7 @@ class TicketController extends Controller
         if ($departmentCodes === []) {
             return [];
         }
-
+        
         return Department::query()
             ->whereIn('code', $departmentCodes)
             ->pluck('id')

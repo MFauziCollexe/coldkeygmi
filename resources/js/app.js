@@ -6,9 +6,8 @@ import axios from "axios";
 
 let globalLoadingCount = 0;
 let isHandlingSessionExpiry = false;
-const LOGIN_PAGE_PATH = "/";
 
-function redirectToLoginOnSessionExpired() {
+function showSessionExpiredNotice() {
     if (isHandlingSessionExpiry) {
         return;
     }
@@ -16,7 +15,15 @@ function redirectToLoginOnSessionExpired() {
     isHandlingSessionExpiry = true;
     globalLoadingCount = 0;
     closeGlobalLoading();
-    window.location.replace(LOGIN_PAGE_PATH);
+
+    Swal.fire({
+        icon: "warning",
+        title: "Sesi request kadaluarsa",
+        text: "Aksi belum berhasil diproses. Silakan refresh halaman lalu coba lagi.",
+        confirmButtonText: "OK",
+    }).finally(() => {
+        isHandlingSessionExpiry = false;
+    });
 }
 
 function isGlobalLoadingPopup() {
@@ -88,7 +95,7 @@ axios.interceptors.response.use(
         endGlobalLoading();
 
         if (error?.response?.status === 419) {
-            redirectToLoginOnSessionExpired();
+            showSessionExpiredNotice();
         }
 
         return Promise.reject(error);
@@ -100,12 +107,6 @@ document.addEventListener("inertia:finish", endGlobalLoading);
 document.addEventListener("inertia:error", endGlobalLoading);
 document.addEventListener("inertia:invalid", endGlobalLoading);
 document.addEventListener("inertia:exception", endGlobalLoading);
-document.addEventListener("inertia:before", () => {
-    const state = window.history.state;
-    if (state && state.page) {
-        window.history.replaceState({}, "");
-    }
-});
 document.addEventListener("inertia:start", () => {
     const el = document.getElementById("app");
     if (el) {
@@ -120,19 +121,19 @@ document.addEventListener("inertia:success", (event) => {
 });
 document.addEventListener("inertia:error", (event) => {
     if (event?.detail?.response?.status === 419) {
-        redirectToLoginOnSessionExpired();
+        showSessionExpiredNotice();
     }
 });
 document.addEventListener("inertia:invalid", (event) => {
     if (event?.detail?.response?.status === 419) {
         event.preventDefault?.();
-        redirectToLoginOnSessionExpired();
+        showSessionExpiredNotice();
     }
 });
 document.addEventListener("inertia:exception", (event) => {
     if (event?.detail?.response?.status === 419) {
         event.preventDefault?.();
-        redirectToLoginOnSessionExpired();
+        showSessionExpiredNotice();
     }
 });
 
