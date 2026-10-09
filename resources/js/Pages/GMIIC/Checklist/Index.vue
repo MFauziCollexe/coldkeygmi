@@ -217,9 +217,10 @@
               <label class="mb-1 block text-sm text-slate-300">Template</label>
               <select
                 v-model="downloadTemplateId"
+                  :disabled="!availableChecklistOptions.length"
                 class="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-sm text-slate-100"
               >
-                <option value="">Semua Checklist</option>
+                  <option v-if="!availableChecklistOptions.length" value="" disabled>Tidak ada template tersedia</option>
                 <option v-for="option in availableChecklistOptions" :key="option.id" :value="option.id">
                   {{ option.name }}
                 </option>
@@ -250,7 +251,7 @@
 
               <button
                 class="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="previewLoading || !downloadPeriod"
+                  :disabled="previewLoading || !downloadPeriod || !downloadTemplateId"
                 @click="checkDownloadPreview"
               >
                 {{ previewLoading ? 'Memeriksa...' : 'Cek' }}
@@ -258,7 +259,7 @@
 
               <button
                 class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="rangeDownloading || !downloadPeriod || !downloadWeek"
+                  :disabled="rangeDownloading || !downloadPeriod || !downloadWeek || !downloadTemplateId"
                 @click="downloadRangePdf"
               >
                 {{ rangeDownloading ? 'Menyiapkan PDF...' : 'Download' }}
@@ -502,7 +503,7 @@ function openTemplateDownloadModal() {
   templateDownloadError.value = '';
   downloadPeriod.value = (selectedDate.value || toDateInputValue(new Date())).slice(0, 7);
   downloadWeek.value = 1;
-  downloadTemplateId.value = '';
+  downloadTemplateId.value = availableChecklistOptions.value[0]?.id || '';
   previewChecked.value = false;
   previewResults.value = [];
   showTemplateModal.value = true;
@@ -513,7 +514,7 @@ function closeTemplateDownloadModal() {
 }
 
 async function checkDownloadPreview() {
-  if (!downloadPeriod.value) {
+  if (!downloadPeriod.value || !downloadTemplateId.value) {
     return;
   }
 
@@ -545,7 +546,7 @@ async function checkDownloadPreview() {
 }
 
 async function downloadRangePdf() {
-  if (!downloadPeriod.value || !downloadWeek.value) {
+  if (!downloadPeriod.value || !downloadWeek.value || !downloadTemplateId.value) {
     return;
   }
 
