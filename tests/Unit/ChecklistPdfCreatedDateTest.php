@@ -10,6 +10,35 @@ use Tests\TestCase;
 
 class ChecklistPdfCreatedDateTest extends TestCase
 {
+    public function test_kotak_p3k_pdf_falls_back_to_legacy_root_data_when_selected_location_is_empty(): void
+    {
+        $html = view('pdf.checklist', ['entry' => [
+            'template_id' => 'kotak_p3k',
+            'created_date' => '09/10/2026',
+            'form' => [
+                'location' => 'ruang_kontrol',
+                'active_month' => 'jul',
+                'year' => '2026',
+                'monthly_check_dates' => ['jul' => '30 Juli 2026'],
+                'items' => [[
+                    'name' => 'Kasa steril terbungkus',
+                    'quantity' => 20,
+                    'months' => ['jul' => 'yes'],
+                ]],
+                'location_entries' => [
+                    'ruang_admin' => ['items' => []],
+                    'ruang_kontrol' => ['items' => [], 'monthly_check_dates' => []],
+                    'pos_security' => ['items' => []],
+                ],
+            ],
+        ]])->render();
+
+        $this->assertStringContainsString('Lantai 1 Belakang (R.Kontrol)', $html);
+        $this->assertStringContainsString('Kasa steril terbungkus', $html);
+        $this->assertStringContainsString('30 Juli 2026', $html);
+        $this->assertStringContainsString('check-yes', $html);
+    }
+
     public function test_listed_hse_pdf_views_match_their_saved_form_shapes(): void
     {
         $kotakHtml = view('pdf.checklist', ['entry' => [

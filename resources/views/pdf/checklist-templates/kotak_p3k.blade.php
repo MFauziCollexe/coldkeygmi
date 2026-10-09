@@ -12,8 +12,44 @@
     ];
     $activeMonth = $form['active_month'] ?? 'jan';
     $locationStates = is_array($form['location_entries'] ?? null) ? $form['location_entries'] : [];
+    $legacyLocationId = trim((string) ($form['location'] ?? ''));
+    $legacyItems = is_array($form['items'] ?? null) ? $form['items'] : [];
+    $hasAnswers = static function (array $items): bool {
+        foreach ($items as $item) {
+            $values = is_array($item['months'] ?? null) ? $item['months'] : [];
+            foreach ($values as $value) {
+                if (in_array($value, ['yes', 'no'], true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    };
+    if ($legacyLocationId !== '' && $legacyItems !== []) {
+        $currentLocationState = is_array($locationStates[$legacyLocationId] ?? null)
+            ? $locationStates[$legacyLocationId]
+            : [];
+        $currentLocationItems = is_array($currentLocationState['items'] ?? null)
+            ? $currentLocationState['items']
+            : [];
+        if (!$locationStates || !$hasAnswers($currentLocationItems)) {
+            $legacyState = array_merge($form, $currentLocationState);
+            $legacyState['items'] = $legacyItems;
+            foreach (['monthly_check_dates', 'monthly_notes', 'monthly_barcodes', 'approved_months', 'submitted_months'] as $field) {
+                $currentValue = $currentLocationState[$field] ?? null;
+                $legacyValue = $form[$field] ?? null;
+                if (!is_array($currentValue) || !$currentValue || ($field !== 'approved_months' && $field !== 'submitted_months' && !array_filter($currentValue))) {
+                    if (is_array($legacyValue) && $legacyValue) {
+                        $legacyState[$field] = $legacyValue;
+                    }
+                }
+            }
+            $locationStates[$legacyLocationId] = $legacyState;
+        }
+    }
     if (!$locationStates) {
-        $locationStates[trim((string) ($form['location'] ?? ''))] = $form;
+        $locationStates[$legacyLocationId] = $form;
     }
     $monthNames = ['jan'=>'Januari','feb'=>'Februari','mar'=>'Maret','apr'=>'April','may'=>'Mei','jun'=>'Juni','jul'=>'Juli','aug'=>'Agustus','sep'=>'September','oct'=>'Oktober','nov'=>'November','dec'=>'Desember'];
 @endphp
