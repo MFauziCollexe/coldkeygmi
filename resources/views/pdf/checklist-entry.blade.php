@@ -40,6 +40,7 @@
         @if(!empty($form['document_no']))
             <div class="sub">Doc. No: {{ $form['document_no'] }} | Rev: {{ $form['rev'] ?? '-' }} | Page: {{ $form['page'] ?? '-' }}</div>
         @endif
+        <div class="sub">Tanggal Dibuat: {{ $entry['created_date'] ?? '-' }}</div>
     </div>
 @endunless
 

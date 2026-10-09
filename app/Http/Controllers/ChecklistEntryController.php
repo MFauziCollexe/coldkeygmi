@@ -1335,6 +1335,7 @@ class ChecklistEntryController extends Controller
         $entry['name'] = (string) ($entry['name'] ?? $header->title ?? $header->template?->name ?? '');
         $entry['form'] = is_array($entry['form'] ?? null) ? $entry['form'] : [];
         $entry['created_at'] = $header->created_at?->format('H.i');
+        $entry['created_date'] = $header->created_at?->format('d/m/Y');
         $entry['approved_at'] = $header->approved_at?->format('H.i');
         $entry['user'] = $header->creator?->name ?? $header->creator?->account ?? '';
 

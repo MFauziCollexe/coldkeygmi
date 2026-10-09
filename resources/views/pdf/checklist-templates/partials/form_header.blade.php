@@ -18,7 +18,7 @@
     </colgroup>
     <tbody>
         <tr>
-            <td rowspan="5" class="form-logo">
+            <td rowspan="6" class="form-logo">
                 @if($logoSrc)
                     <img src="{{ $logoSrc }}" alt="PT Golden Multi Indotama">
                 @endif
@@ -26,7 +26,7 @@
             <td colspan="3" class="company-name">PT GOLDEN MULTI INDOTAMA</td>
         </tr>
         <tr>
-            <td rowspan="4" class="document-title">{!! nl2br(e($headerTitle)) !!}</td>
+            <td rowspan="5" class="document-title">{!! nl2br(e($headerTitle)) !!}</td>
             <td class="document-meta-label">Doc. No.</td>
             <td class="document-meta-value">{{ $form['document_no'] ?? '-' }}</td>
         </tr>
@@ -37,6 +37,10 @@
         <tr>
             <td class="document-meta-label">Tanggal Efektif</td>
             <td class="document-meta-value">{{ $form['effective_date'] ?? '-' }}</td>
+        </tr>
+        <tr>
+            <td class="document-meta-label">Tanggal Dibuat</td>
+            <td class="document-meta-value">{{ $entry['created_date'] ?? '-' }}</td>
         </tr>
         <tr>
             <td class="document-meta-label">Halaman</td>
