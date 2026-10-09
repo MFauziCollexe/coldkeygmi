@@ -24,6 +24,14 @@ class AttendanceLogController extends Controller
     // Easy rollback switch for scan pairing logic.
     private const ACCESS_MODULE = 'attendance_log';
     private const USE_SCHEDULE_WINDOWS = true;
+    private const DUMMY_EXPORT_FORCED_SUNDAY_OFF_PINS = [
+        '25090304',
+        '26033041',
+        '080414383',
+        '25120832',
+        '25071502',
+        '25101615',
+    ];
     protected function accessRules(): AccessRuleService
     {
         return app(AccessRuleService::class);
@@ -805,6 +813,10 @@ class AttendanceLogController extends Controller
                 ['pin', 'asc'],
             ])
             ->values();
+
+        if ((string) $request->input('export') === 'dummy') {
+            return $this->exportRowsToDummyExcel($rows);
+        }
 
         if ($request->boolean('export')) {
             if ($this->shouldUseSecurityIndividualExport($selectedDepartments)) {
@@ -3845,11 +3857,106 @@ class AttendanceLogController extends Controller
             $rowIndex++;
         }
 
-        $bodyLastRow = max($bodyStartRow, $rowIndex - 1);
-        $sheet->freezePane('C' . $bodyStartRow);
-        $this->appendAttendanceStatusLegendSheet($spreadsheet, $rows);
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
+    }
 
-        $filename = 'attendance_logs_' . now()->format('Ymd_His') . '.xlsx';
+    private function exportRowsToDummyExcel(Collection $rows)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Attendance Dummy');
+
+        $headers = [
+            'Tanggal',
+            'PIN',
+            'Nama',
+            'Shift',
+            'Hari',
+            'Jadwal',
+            'Masuk',
+            'Pulang',
+            'Lembur',
+            'Status',
+        ];
+
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->getStyle('A1:J1')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => 'solid',
+                'color' => ['rgb' => '1F4E79'],
+            ],
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical' => 'center',
+            ],
+        ]);
+
+        $rowIndex = 2;
+        foreach ($rows as $row) {
+            $logDate = (string) ($row['log_date'] ?? '');
+
+            if ($this->isDummyForcedOff((string) ($row['pin'] ?? ''), $logDate)) {
+                $shift = '-';
+                $jadwal = '-';
+                $checkIn = '-';
+                $checkOut = '-';
+                $lembur = '-';
+                $status = 'OFF';
+            } else {
+                $checkIn = $this->exportTimeOnly($row['first_scan'] ?? null);
+                $checkOut = $this->exportTimeOnly($row['last_scan'] ?? null);
+                $status = trim((string) ($row['expected'] ?? '')) ?: '-';
+                $shift = trim((string) ($row['shift_code'] ?? '')) ?: '-';
+                $jadwal = $this->exportSchedule($row['start_time'] ?? null, $row['end_time'] ?? null);
+                $lembur = trim((string) ($row['overtime_label'] ?? '')) ?: '-';
+
+                $filled = false;
+                if ($checkIn === '-' && trim((string) ($row['start_time'] ?? '')) !== '') {
+                    $checkIn = $this->dummyFillCheckIn((string) $row['start_time']);
+                    $filled = true;
+                }
+                if ($checkOut === '-' && trim((string) ($row['end_time'] ?? '')) !== '') {
+                    $checkOut = $this->dummyFillCheckOut((string) $row['end_time']);
+                    $filled = true;
+                }
+                if ($filled) {
+                    $status = 'On Time';
+                }
+            }
+
+            $sheet->setCellValue('A' . $rowIndex, $this->exportDateOnly($logDate));
+            $sheet->setCellValueExplicit('B' . $rowIndex, trim((string) ($row['pin'] ?? '')), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('C' . $rowIndex, trim((string) ($row['name'] ?? '')));
+            $sheet->setCellValue('D' . $rowIndex, $shift);
+            $sheet->setCellValue('E' . $rowIndex, $this->exportDayName($logDate));
+            $sheet->setCellValue('F' . $rowIndex, $jadwal);
+            $sheet->setCellValue('G' . $rowIndex, $checkIn);
+            $sheet->setCellValue('H' . $rowIndex, $checkOut);
+            $sheet->setCellValue('I' . $rowIndex, $lembur);
+            $sheet->setCellValue('J' . $rowIndex, $status);
+            $rowIndex++;
+        }
+
+        foreach ([12, 10, 24, 8, 16, 15, 10, 10, 10, 22] as $columnIndex => $width) {
+            $column = Coordinate::stringFromColumnIndex($columnIndex + 1);
+            $sheet->getColumnDimension($column)->setWidth($width);
+        }
+
+        $sheet->freezePane('A2');
+        $sheet->getRowDimension(1)->setRowHeight(22);
+
+        $filename = 'attendance_log_dummy_' . now()->format('Ymd_His') . '.xlsx';
         $writer = new Xlsx($spreadsheet);
 
         return response()->streamDownload(function () use ($writer) {
@@ -3860,6 +3967,59 @@ class AttendanceLogController extends Controller
             'Pragma' => 'no-cache',
             'Expires' => '0',
         ]);
+    }
+
+    private function isDummyForcedOff(string $pin, string $logDate): bool
+    {
+        if (!in_array(trim($pin), self::DUMMY_EXPORT_FORCED_SUNDAY_OFF_PINS, true)) {
+            return false;
+        }
+
+        try {
+            return Carbon::parse($logDate)->dayOfWeek === Carbon::SUNDAY;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function dummyFillCheckIn(string $startTime): string
+    {
+        $hour = $this->extractTimeHour($startTime, 8);
+        $checkInHour = max(0, $hour - 1);
+
+        return sprintf('%02d:%02d', $checkInHour, mt_rand(30, 59));
+    }
+
+    private function dummyFillCheckOut(string $endTime): string
+    {
+        $hour = $this->extractTimeHour($endTime, 16);
+
+        return sprintf('%02d:%02d', min(23, $hour), mt_rand(1, 30));
+    }
+
+    private function extractTimeHour(string $value, int $fallback): int
+    {
+        if (preg_match('/(?:^|\D)([01]?\d|2[0-3]):[0-5]\d(?:\D|$)/', trim($value), $matches)) {
+            $hour = (int) $matches[1];
+            if ($hour >= 0 && $hour <= 23) {
+                return $hour;
+            }
+        }
+
+        return $fallback;
+    }
+
+    private function exportDateOnly(string $logDate): string
+    {
+        if ($logDate === '') {
+            return '-';
+        }
+
+        try {
+            return Carbon::parse($logDate)->format('d/m/Y');
+        } catch (\Throwable $e) {
+            return '-';
+        }
     }
 
     private function exportSecurityRowsToPdf(Collection $rows, ?string $dateFrom = null, ?string $dateTo = null)

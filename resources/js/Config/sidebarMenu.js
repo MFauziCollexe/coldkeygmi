@@ -285,28 +285,6 @@ export const sidebarMenuConfig = [
                 ],
             },
             {
-                id: "payroll",
-                label: "Payroll",
-                icon: "Clipboard",
-                color: "text-yellow-300",
-                children: [
-                    {
-                        id: "salary",
-                        label: "Salary",
-                        icon: "DollarSign",
-                        route: "/salary",
-                        module_key: "gmihr.payroll.salary",
-                    },
-                    {
-                        id: "payslip",
-                        label: "Payslip",
-                        icon: "File",
-                        route: "/payslip",
-                        module_key: "gmihr.payroll.payslip",
-                    },
-                ],
-            },
-            {
                 id: "device-integration",
                 label: "Device Integration",
                 icon: "Monitor",
@@ -319,6 +297,13 @@ export const sidebarMenuConfig = [
                         module_key: "gmihr.device.fingerprint",
                     },
                 ],
+            },
+            {
+                id: "attendance",
+                label: "Attendance",
+                icon: "CalendarCheck",
+                route: "/attendance",
+                module_key: "gmihr.attendance.import",
             },
         ],
     },

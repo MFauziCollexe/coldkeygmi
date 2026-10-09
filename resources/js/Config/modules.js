@@ -92,19 +92,15 @@ export default [
                 ],
             },
             {
-                key: "gmihr.payroll",
-                label: "Payroll",
-                children: [
-                    { key: "gmihr.payroll.salary", label: "Salary" },
-                    { key: "gmihr.payroll.payslip", label: "Payslip" },
-                ],
-            },
-            {
                 key: "gmihr.device",
                 label: "Device Integration",
                 children: [
                     { key: "gmihr.device.fingerprint", label: "Fingerprint" },
                 ],
+            },
+            {
+                key: "gmihr.attendance.import",
+                label: "Attendance",
             },
         ],
     },

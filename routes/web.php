@@ -780,16 +780,6 @@ Route::get('attendance-approval', function () {
     return Inertia::render('GMIHR/AttendanceApproval/Index');
 })->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.approval']);
 
-// GMIHR - Payroll - Salary
-Route::get('salary', function () {
-    return Inertia::render('GMIHR/Salary/Index');
-})->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.payroll.salary']);
-
-// GMIHR - Payroll - Payslip
-Route::get('payslip', function () {
-    return Inertia::render('GMIHR/Payslip/Index');
-})->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.payroll.payslip']);
-
 // GMIHR - Time & Attendance - Roster
 Route::get('roster', [RosterController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.payroll.roster.upload'])
@@ -821,6 +811,23 @@ Route::get('roster/{batch}/download', [RosterController::class, 'download'])
 Route::get('roster/template', [RosterController::class, 'template'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.payroll.roster.upload'])
     ->name('roster.template');
+
+// GMIHR - Attendance (import matrix bulanan)
+Route::get('attendance', [App\Http\Controllers\AttendanceImportController::class, 'index'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.import'])
+    ->name('attendance.index');
+Route::get('attendance/import/template', [App\Http\Controllers\AttendanceImportController::class, 'template'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.import'])
+    ->name('attendance.template');
+Route::post('attendance/import/preview', [App\Http\Controllers\AttendanceImportController::class, 'preview'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.import'])
+    ->name('attendance.preview');
+Route::post('attendance/import/store', [App\Http\Controllers\AttendanceImportController::class, 'store'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.import'])
+    ->name('attendance.store');
+Route::delete('attendance/import/batches/{batch}', [App\Http\Controllers\AttendanceImportController::class, 'destroy'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.import'])
+    ->name('attendance.batches.destroy');
 
 // Attachment actions: delete and replace
 Route::delete('tickets/{ticket}/attachments/{attachment}', [App\Http\Controllers\TicketController::class, 'destroyAttachment'])->middleware('auth')->name('tickets.attachments.destroy');
