@@ -10,6 +10,26 @@ use Tests\TestCase;
 
 class ChecklistPdfCreatedDateTest extends TestCase
 {
+    public function test_week_preview_excludes_dates_outside_the_selected_week(): void
+    {
+        $controller = new ChecklistEntryController();
+        $rangeMethod = new ReflectionMethod($controller, 'parseWeekRange');
+        $rangeMethod->setAccessible(true);
+        $range = $rangeMethod->invoke($controller, '2026-07', 5);
+
+        $filterMethod = new ReflectionMethod($controller, 'withinDateRange');
+        $filterMethod->setAccessible(true);
+
+        $this->assertSame('2026-07-29', $range['start']);
+        $this->assertSame('2026-07-31', $range['end']);
+        $this->assertTrue($filterMethod->invoke($controller, [
+            'form' => ['date_value' => '2026-07-29'],
+        ], $range['start'], $range['end']));
+        $this->assertFalse($filterMethod->invoke($controller, [
+            'form' => ['date_value' => '2026-07-14'],
+        ], $range['start'], $range['end']));
+    }
+
     public function test_pdf_templates_show_the_checklist_creation_date(): void
     {
         $header = new ChecklistHeader([

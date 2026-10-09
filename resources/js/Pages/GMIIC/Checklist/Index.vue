@@ -210,7 +210,7 @@
 
           <div class="flex-1 overflow-y-auto p-3 sm:p-4">
             <p class="mb-3 rounded bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-              Pilih bulan dan minggu untuk download; klik Cek untuk melihat seluruh data pada bulan tersebut.
+              Pilih bulan dan minggu; klik Cek untuk melihat data checklist pada minggu tersebut.
             </p>
 
             <div class="mb-3">
@@ -272,13 +272,13 @@
                 <p class="mb-2 text-sm text-slate-300">
                   Ditemukan
                   <span class="font-semibold text-emerald-300">{{ previewResults.length }}</span>
-                  checklist pada bulan {{ downloadPeriod }}.
+                  checklist pada minggu {{ downloadWeek }} bulan {{ downloadPeriod }}.
                 </p>
                 <p
                   v-if="!previewResults.length"
                   class="rounded bg-slate-900/60 px-3 py-2 text-sm text-amber-300"
                 >
-                  Tidak ada checklist tersimpan pada bulan tersebut.
+                  Tidak ada checklist tersimpan pada minggu tersebut.
                 </p>
                 <ul
                   v-else
@@ -340,6 +340,7 @@ const rangeDownloading = ref(false);
 const previewResults = ref([]);
 const previewChecked = ref(false);
 const previewLoading = ref(false);
+const previewRequestId = ref(0);
 const supportedTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler', 'checklist_it', 'inspeksi_loker', 'jadwal_cleaning_ob'];
 const dailyApprovedTemplates = ['kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler'];
 const monthlyChecklistTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
@@ -455,7 +456,9 @@ watch(downloadPeriod, () => {
   }
 });
 
-watch([downloadPeriod, downloadTemplateId], () => {
+watch([downloadPeriod, downloadWeek, downloadTemplateId], () => {
+  previewRequestId.value += 1;
+  previewLoading.value = false;
   previewChecked.value = false;
   previewResults.value = [];
 });
@@ -510,6 +513,10 @@ function openTemplateDownloadModal() {
 }
 
 function closeTemplateDownloadModal() {
+  previewRequestId.value += 1;
+  previewLoading.value = false;
+  previewChecked.value = false;
+  previewResults.value = [];
   showTemplateModal.value = false;
 }
 
@@ -518,6 +525,10 @@ async function checkDownloadPreview() {
     return;
   }
 
+  const requestId = ++previewRequestId.value;
+  const requestedPeriod = downloadPeriod.value;
+  const requestedWeek = downloadWeek.value;
+  const requestedTemplateId = downloadTemplateId.value;
   previewLoading.value = true;
   previewChecked.value = false;
   previewResults.value = [];
@@ -526,14 +537,23 @@ async function checkDownloadPreview() {
   try {
     const response = await axios.get('/gmiic/checklist/entries/preview', {
       params: {
-        period: downloadPeriod.value,
-        template: downloadTemplateId.value || undefined,
+        period: requestedPeriod,
+        week: requestedWeek,
+        template: requestedTemplateId,
       },
     });
+
+    if (requestId !== previewRequestId.value || !showTemplateModal.value) {
+      return;
+    }
 
     previewResults.value = response.data?.entries || [];
     previewChecked.value = true;
   } catch (error) {
+    if (requestId !== previewRequestId.value || !showTemplateModal.value) {
+      return;
+    }
+
     let message = 'Gagal memeriksa data. Silakan coba lagi.';
     if (error?.response?.data?.message) {
       message = error.response.data.message;
@@ -541,7 +561,9 @@ async function checkDownloadPreview() {
     templateDownloadError.value = message;
     previewChecked.value = false;
   } finally {
-    previewLoading.value = false;
+    if (requestId === previewRequestId.value) {
+      previewLoading.value = false;
+    }
   }
 }
 

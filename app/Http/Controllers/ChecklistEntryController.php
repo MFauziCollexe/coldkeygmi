@@ -17,6 +17,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use setasign\Fpdi\Fpdi;
@@ -364,16 +365,21 @@ class ChecklistEntryController extends Controller
     {
         $data = $request->validate([
             'period' => ['required', 'date_format:Y-m'],
+            'week' => ['required', 'integer', 'min:1'],
         ]);
 
         $period = $data['period'];
+        $week = (int) $data['week'];
         $template = $this->parseOptionalTemplateFilter($request);
-
-        $start = $period.'-01';
-        $end = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
+        $range = $this->parseWeekRange($period, $week);
+        if ($range === null) {
+            throw ValidationException::withMessages([
+                'week' => 'Minggu yang dipilih tidak valid untuk bulan tersebut.',
+            ]);
+        }
 
         $entries = $this->getSavedChecklistEntries($request->user(), null)
-            ->filter(fn (array $entry) => $this->withinDateRange($entry, $start, $end))
+            ->filter(fn (array $entry) => $this->withinDateRange($entry, $range['start'], $range['end']))
             ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
             ->map(fn (array $entry) => [
                 'template_id' => (string) ($entry['template_id'] ?? ''),
@@ -388,8 +394,9 @@ class ChecklistEntryController extends Controller
 
         return response()->json([
             'period' => $period,
-            'start' => $start,
-            'end' => $end,
+            'week' => $week,
+            'start' => $range['start'],
+            'end' => $range['end'],
             'entries' => $entries,
         ]);
     }
