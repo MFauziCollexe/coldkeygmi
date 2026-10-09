@@ -7,6 +7,21 @@
 
 @php
     $rows = $form['rows'] ?? [];
+    $formatCellValue = function ($value) use (&$formatCellValue): string {
+        if (is_array($value)) {
+            $parts = [];
+            foreach ($value as $key => $childValue) {
+                $formatted = $formatCellValue($childValue);
+                if ($formatted !== '') {
+                    $parts[] = is_int($key) ? $formatted : $key.': '.$formatted;
+                }
+            }
+
+            return implode(', ', $parts);
+        }
+
+        return is_scalar($value) ? (string) $value : '';
+    };
 @endphp
 
 @if(!empty($rows) && is_array($rows))
@@ -40,7 +55,7 @@
                                 @php $val = $row[$col] ?? ''; @endphp
                                 @if($val === 'yes') <span class="check-yes">✓</span>
                                 @elseif($val === 'no') <span class="check-no">✕</span>
-                                @else {{ $val }}
+                                @else {{ $formatCellValue($val) ?: '-' }}
                                 @endif
                             </td>
                         @endforeach

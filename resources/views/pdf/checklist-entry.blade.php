@@ -21,11 +21,15 @@
     ];
     $label = $labelMap[$tid] ?? $entry['name'] ?? 'Checklist';
     $formLayoutTemplates = [
+        'kotak_p3k',
+        'apar_smoke_detector_fire_alarm',
+        'personal_hygiene_karyawan',
         'patroli_security',
         'site_visit_hse',
         'sarana_dan_prasarana',
         'jadwal_cleaning_ob',
         'site_visit_maintenance',
+        'inspeksi_loker',
         'genset_running',
         'running_genset',
         'generic',
@@ -62,6 +66,8 @@
     @include('pdf.checklist-templates.patroli_security', ['entry' => $entry, 'form' => $form])
 @elseif($tid === 'site_visit_hse')
     @include('pdf.checklist-templates.site_visit_hse', ['entry' => $entry, 'form' => $form])
+@elseif($tid === 'inspeksi_loker')
+    @include('pdf.checklist-templates.inspeksi_loker', ['entry' => $entry, 'form' => $form])
 @elseif($tid === 'site_visit_maintenance')
     @include('pdf.checklist-templates.site_visit_maintenance', ['entry' => $entry, 'form' => $form])
 @elseif($tid === 'genset_running')

@@ -1362,6 +1362,53 @@ function handleOutsideLocationMenu(event) {
 
 // ─── Lifecycle ──────────────────────────────────────────────
 let refreshEntryTimer = null
+let hseDropdownSaveTimer = null
+
+function getHseDropdownSignature(targetEntry) {
+  if (!targetEntry?.form) return ''
+  const form = targetEntry.form
+  const selections = {
+    kotak_p3k: ['location', 'active_month'],
+    apar_smoke_detector_fire_alarm: ['card_type', 'location', 'active_month'],
+    site_visit_hse: ['selected_area'],
+    personal_hygiene_karyawan: ['period'],
+    inspeksi_loker: ['date_value'],
+  }[targetEntry.template_id]
+
+  if (!selections) return ''
+  return JSON.stringify(selections.map((field) => form[field] ?? ''))
+}
+
+watch(
+  () => ({
+    id: entry.value?.id || '',
+    templateId: entry.value?.template_id || '',
+    signature: getHseDropdownSignature(entry.value),
+  }),
+  (current, previous) => {
+    if (!current.id || !current.signature || current.id !== previous?.id || current.templateId !== previous?.templateId) {
+      if (hseDropdownSaveTimer) {
+        clearTimeout(hseDropdownSaveTimer)
+        hseDropdownSaveTimer = null
+      }
+      return
+    }
+
+    if (current.signature === previous.signature) return
+
+    const isPersisted = props.savedEntry?.id === current.id
+      || knownChecklistEntries.value.some((savedEntry) => savedEntry?.id === current.id)
+    if (!isPersisted) return
+
+    if (hseDropdownSaveTimer) clearTimeout(hseDropdownSaveTimer)
+    hseDropdownSaveTimer = setTimeout(() => {
+      hseDropdownSaveTimer = null
+      if (entry.value?.id === current.id && getHseDropdownSignature(entry.value) === current.signature) {
+        persistChecklistEntry(entry.value, { force: true }).catch(() => {})
+      }
+    }, 400)
+  },
+)
 
 onMounted(() => document.addEventListener('click', handleOutsideLocationMenu))
 onBeforeUnmount(() => {
@@ -1371,6 +1418,10 @@ onBeforeUnmount(() => {
   if (refreshEntryTimer) {
     clearTimeout(refreshEntryTimer)
     refreshEntryTimer = null
+  }
+  if (hseDropdownSaveTimer) {
+    clearTimeout(hseDropdownSaveTimer)
+    hseDropdownSaveTimer = null
   }
 })
 

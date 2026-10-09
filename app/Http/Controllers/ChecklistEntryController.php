@@ -327,7 +327,7 @@ class ChecklistEntryController extends Controller
         $end = $range['end'];
 
         $entries = $this->getSavedChecklistEntries($request->user(), null)
-            ->filter(fn (array $entry) => $this->withinDateRange($entry, $start, $end))
+            ->filter(fn (array $entry) => $this->matchesChecklistRange($entry, $start, $end))
             ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
             ->values()
             ->all();
@@ -379,7 +379,7 @@ class ChecklistEntryController extends Controller
         }
 
         $entries = $this->getSavedChecklistEntries($request->user(), null)
-            ->filter(fn (array $entry) => $this->withinDateRange($entry, $range['start'], $range['end']))
+            ->filter(fn (array $entry) => $this->matchesChecklistRange($entry, $range['start'], $range['end']))
             ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
             ->map(fn (array $entry) => [
                 'template_id' => (string) ($entry['template_id'] ?? ''),
@@ -404,6 +404,23 @@ class ChecklistEntryController extends Controller
     private function resolvePreviewDate(array $entry, ?string $periodKey = null): string
     {
         $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $templateId = (string) ($entry['template_id'] ?? '');
+
+        if ($templateId === 'inspeksi_loker') {
+            $dateValue = trim((string) ($form['date_value'] ?? ''));
+            if (preg_match('/^(\d{4})-(\d{2})$/', $dateValue, $matches)) {
+                return $this->indonesianMonthName((int) $matches[2]).' '.$matches[1];
+            }
+        }
+
+        if (in_array($templateId, ['kotak_p3k', 'apar_smoke_detector_fire_alarm'], true) && $periodKey !== null) {
+            $monthlyDate = $this->resolveHseMonthlyCheckDate($form, $periodKey, $templateId);
+            if ($monthlyDate !== null) {
+                return $monthlyDate;
+            }
+
+            return $this->indonesianMonthName((int) substr($periodKey, 5, 2)).' '.substr($periodKey, 0, 4);
+        }
 
         $iso = $this->resolveEntryIsoDate($form);
         if ($iso !== null) {
@@ -436,6 +453,120 @@ class ChecklistEntryController extends Controller
         }
 
         return '';
+    }
+
+    private function matchesChecklistRange(array $entry, string $start, string $end): bool
+    {
+        $templateId = (string) ($entry['template_id'] ?? '');
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $startMonth = substr($start, 0, 7);
+        $endMonth = substr($end, 0, 7);
+
+        if ($templateId === 'inspeksi_loker') {
+            $dateValue = trim((string) ($form['date_value'] ?? ''));
+            if (preg_match('/^\d{4}-\d{2}$/', $dateValue)) {
+                return $dateValue >= $startMonth && $dateValue <= $endMonth;
+            }
+        }
+
+        if ($templateId === 'personal_hygiene_karyawan') {
+            $period = trim((string) ($form['period'] ?? ''));
+            if (preg_match('/^\d{4}-\d{2}$/', $period)) {
+                return $period >= $startMonth && $period <= $endMonth;
+            }
+        }
+
+        if (in_array($templateId, ['kotak_p3k', 'apar_smoke_detector_fire_alarm'], true)) {
+            $monthlyMatch = $this->matchesHseMonthlyChecklistRange($form, $start, $end, $templateId);
+            if ($monthlyMatch !== null) {
+                return $monthlyMatch;
+            }
+        }
+
+        return $this->withinDateRange($entry, $start, $end);
+    }
+
+    private function matchesHseMonthlyChecklistRange(array $form, string $start, string $end, string $templateId): ?bool
+    {
+        $year = trim((string) ($form['year'] ?? ''));
+        $rangeYear = substr($start, 0, 4);
+        if ($year !== '' && $year !== $rangeYear) {
+            return false;
+        }
+
+        $monthKey = $this->monthNumberToKey((int) substr($start, 5, 2));
+        if ($monthKey === null) {
+            return null;
+        }
+
+        $states = [];
+        if ($templateId === 'kotak_p3k') {
+            $locationEntries = $form['location_entries'] ?? null;
+            if (is_array($locationEntries)) {
+                foreach ($locationEntries as $locationState) {
+                    if (is_array($locationState)) {
+                        $states[] = $locationState;
+                    }
+                }
+            }
+        } else {
+            $locationRecords = $form['location_records'] ?? null;
+            if (is_array($locationRecords)) {
+                foreach ($locationRecords as $locationState) {
+                    if (is_array($locationState)) {
+                        $states[] = $locationState;
+                    }
+                }
+            }
+        }
+
+        if (!$states) {
+            $states[] = $form;
+        }
+
+        foreach ($states as $state) {
+            $checkDates = is_array($state['monthly_check_dates'] ?? null) ? $state['monthly_check_dates'] : [];
+            $checkDate = trim((string) ($checkDates[$monthKey] ?? ''));
+            if ($checkDate === '') {
+                continue;
+            }
+
+            $checkIso = $this->parseChecklistDisplayDate($checkDate);
+            if ($checkIso === null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $checkDate)) {
+                $checkIso = $checkDate;
+            }
+
+            if ($checkIso !== null && $checkIso >= $start && $checkIso <= $end) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function resolveHseMonthlyCheckDate(array $form, string $period, string $templateId): ?string
+    {
+        $monthKey = $this->monthNumberToKey((int) substr($period, 5, 2));
+        if ($monthKey === null) {
+            return null;
+        }
+
+        if ($templateId === 'kotak_p3k') {
+            $locationId = trim((string) ($form['location'] ?? ''));
+            $state = $form['location_entries'][$locationId] ?? $form;
+        } else {
+            $recordKey = trim((string) ($form['card_type'] ?? '')).'::'.trim((string) ($form['location'] ?? ''));
+            $state = $form['location_records'][$recordKey] ?? $form;
+        }
+
+        if (!is_array($state)) {
+            return null;
+        }
+
+        $checkDates = is_array($state['monthly_check_dates'] ?? null) ? $state['monthly_check_dates'] : [];
+        $checkDate = trim((string) ($checkDates[$monthKey] ?? ''));
+
+        return $checkDate !== '' ? $checkDate : null;
     }
 
     private function parseOptionalTemplateFilter(Request $request): ?string
@@ -968,7 +1099,7 @@ class ChecklistEntryController extends Controller
         $landscapeTemplates = [
             'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler',
             'non_warehouse_sanitation', 'personal_hygiene_karyawan',
-            'sarana_dan_prasarana',
+            'sarana_dan_prasarana', 'inspeksi_loker', 'kotak_p3k', 'apar_smoke_detector_fire_alarm',
         ];
         $tid = (string) ($entry['template_id'] ?? '');
         return in_array($tid, $landscapeTemplates, true) ? 'landscape' : 'portrait';

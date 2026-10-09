@@ -1,6 +1,13 @@
 @php
     $sections = array_values(array_filter((array) ($form['sections'] ?? []), 'is_array'));
     $areaNotes = is_array($form['area_notes'] ?? null) ? $form['area_notes'] : [];
+    $areaLabels = [
+        'lantai_1_area_luar' => 'Lantai 1 Depan Dan Luar',
+        'lantai_1_area_belakang' => 'Lantai 1 Belakang',
+        'lantai_1_area_dalam' => 'Lantai 1 Dalam',
+        'lantai_2' => 'Lantai 2 Office',
+        'lantai_3' => 'Lantai 3 Office',
+    ];
     $totalPages = max(count($sections), 1);
 @endphp
 
@@ -23,7 +30,7 @@
             <span class="fake-input">{{ $form['date_value'] ?? '-' }}</span>
             <span style="display:inline-block; width:18px;"></span>
             <span class="control-label">Area:</span>
-            <span class="fake-select">{{ $section['title'] ?? $areaId ?: '-' }}</span>
+            <span class="fake-select">{{ $areaLabels[$areaId] ?? $section['title'] ?? $areaId ?: '-' }}</span>
         </div>
 
         <table class="form-table">
