@@ -160,57 +160,72 @@
           Tidak ada data untuk filter ini.
         </div>
 
-        <div v-else class="mt-4 space-y-3">
-          <div v-for="group in groups" :key="group.key" class="overflow-hidden rounded-lg border border-slate-700 bg-slate-900/40">
-            <button
-              class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-800/60"
-              @click="toggleExpand(group.key)"
-            >
-              <div class="min-w-0">
-                <span class="truncate text-sm font-semibold text-slate-100">{{ group.name }}</span>
-                <span class="ml-2 text-xs text-slate-400">{{ group.pin || 'tanpa PIN' }}</span>
-              </div>
-              <div class="flex shrink-0 items-center gap-3 text-xs text-slate-400">
-                <span>{{ group.total_records }} data</span>
-                <svg viewBox="0 0 20 20" class="h-4 w-4 transition-transform" :class="expandedKeys.has(group.key) ? 'rotate-180' : ''">
-                  <path fill="currentColor" d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z" />
-                </svg>
-              </div>
-            </button>
-
-            <div v-if="expandedKeys.has(group.key)" class="overflow-x-auto border-t border-slate-700">
-              <table class="w-full text-sm">
-                <thead class="border-b border-slate-700 bg-slate-800/60 text-slate-400">
-                  <tr>
-                    <th class="px-4 py-2 text-left">Tanggal</th>
-                    <th class="px-4 py-2 text-left">Shift</th>
-                    <th class="px-4 py-2 text-left">Hari</th>
-                    <th class="px-4 py-2 text-left">Jadwal</th>
-                    <th class="px-4 py-2 text-left">Masuk</th>
-                    <th class="px-4 py-2 text-left">Pulang</th>
-                    <th class="px-4 py-2 text-left">Lembur</th>
-                    <th class="px-4 py-2 text-left">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in group.rows" :key="row.attendance_date" class="border-b border-slate-700 last:border-b-0">
-                    <td class="px-4 py-2 text-slate-200">{{ row.attendance_date_label }}</td>
-                    <td class="px-4 py-2">{{ row.shift_code || (row.is_off ? 'OFF' : '-') }}</td>
-                    <td class="px-4 py-2 text-slate-300">{{ row.day_name }}</td>
-                    <td class="px-4 py-2">{{ formatSchedule(row.schedule_start, row.schedule_end) }}</td>
-                    <td class="px-4 py-2">{{ row.check_in || '—' }}</td>
-                    <td class="px-4 py-2">{{ row.check_out || '—' }}</td>
-                    <td class="px-4 py-2">{{ row.overtime_label || '—' }}</td>
-                    <td class="px-4 py-2">
-                      <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium" :class="statusBadgeClass(row.status)">
-                        {{ row.status || '-' }}
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+        <div v-else class="mt-4 overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="border-b border-slate-700 text-slate-400">
+              <tr>
+                <th class="py-2 pr-3 text-left">PIN</th>
+                <th class="py-2 pr-3 text-left">Nama</th>
+                <th class="py-2 pr-3 text-left">Department</th>
+                <th class="py-2 pr-3 text-left">Reporting To</th>
+                <th class="py-2 pr-3 text-left">Absensi</th>
+                <th class="py-2 pr-3 text-left">Terlambat</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="group in groups" :key="group.key">
+                <tr class="cursor-pointer border-b border-slate-700/50 hover:bg-slate-700/30" @click="toggleExpand(group.key)">
+                  <td class="py-2 pr-3">{{ group.pin || '-' }}</td>
+                  <td class="py-2 pr-3">{{ group.name || '-' }}</td>
+                  <td class="py-2 pr-3">{{ group.department_name || '-' }}</td>
+                  <td class="py-2 pr-3">{{ group.supervisor_name || '-' }}</td>
+                  <td class="py-2 pr-3">{{ group.total_records }}</td>
+                  <td class="py-2 pr-3">
+                    <span class="inline-flex min-w-8 justify-center rounded-md border border-amber-400/40 bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-200">
+                      {{ group.total_late }}
+                    </span>
+                    <span class="ml-2 text-slate-400">{{ expandedKeys.has(group.key) ? '▾' : '▸' }}</span>
+                  </td>
+                </tr>
+                <tr v-if="expandedKeys.has(group.key)" class="border-b border-slate-700/50 bg-slate-900/30">
+                  <td colspan="6" class="py-3">
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-sm">
+                        <thead class="border-b border-slate-700 text-slate-400">
+                          <tr>
+                            <th class="px-4 py-2 text-left">Tanggal</th>
+                            <th class="px-4 py-2 text-left">Shift</th>
+                            <th class="px-4 py-2 text-left">Hari</th>
+                            <th class="px-4 py-2 text-left">Jadwal</th>
+                            <th class="px-4 py-2 text-left">Masuk</th>
+                            <th class="px-4 py-2 text-left">Pulang</th>
+                            <th class="px-4 py-2 text-left">Lembur</th>
+                            <th class="px-4 py-2 text-left">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="row in group.rows" :key="row.attendance_date" class="border-b border-slate-700 last:border-b-0">
+                            <td class="px-4 py-2 text-slate-200">{{ row.attendance_date_label }}</td>
+                            <td class="px-4 py-2">{{ row.shift_code || (row.is_off ? 'OFF' : '-') }}</td>
+                            <td class="px-4 py-2 text-slate-300">{{ row.day_name }}</td>
+                            <td class="px-4 py-2">{{ formatSchedule(row.schedule_start, row.schedule_end) }}</td>
+                            <td class="px-4 py-2">{{ row.check_in || '—' }}</td>
+                            <td class="px-4 py-2">{{ row.check_out || '—' }}</td>
+                            <td class="px-4 py-2">{{ row.overtime_label || '—' }}</td>
+                            <td class="px-4 py-2">
+                              <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium" :class="statusBadgeClass(row.status)">
+                                {{ row.status || '-' }}
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
 
           <Pagination
             v-if="pagination.last_page > 1"

@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceImportBatch;
 use App\Models\AttendanceImportEntry;
+use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -88,16 +90,39 @@ class AttendanceImportController extends Controller
             'overtime_label' => $entry->overtime_label,
         ])->values();
 
+        $employeeQuery = Employee::query()
+            ->whereNotNull('nik')
+            ->where('nik', '<>', '')
+            ->with(['department:id,name']);
+        $supervisorColumns = ['id', 'name'];
+        if (Schema::hasColumn('employees', 'alias_name')) {
+            $supervisorColumns[] = 'alias_name';
+        }
+        if (Schema::hasColumn('employees', 'reports_to')) {
+            $employeeQuery->with(['supervisor:' . implode(',', $supervisorColumns)]);
+        }
+        $employeesByPin = $employeeQuery
+            ->get(['id', 'nik', 'department_id', 'reports_to'])
+            ->mapWithKeys(fn (Employee $employee) => [
+                $this->normalizeAttendancePin((string) $employee->nik) => $employee,
+            ]);
+
         $groups = $rawRows
             ->groupBy(fn (array $row) => $row['pin'] !== '' ? $row['pin'] : ('name:' . Str::slug($row['name'])))
-            ->map(function ($rows) {
+            ->map(function ($rows, $groupKey) use ($employeesByPin) {
                 $rows = collect($rows);
                 $first = $rows->first();
+                $employee = $employeesByPin->get($this->normalizeAttendancePin((string) ($first['pin'] ?? '')));
+                $supervisor = $employee?->supervisor;
 
                 return [
+                    'key' => (string) $groupKey,
                     'pin' => $first['pin'],
                     'name' => $first['name'],
                     'total_records' => $rows->count(),
+                    'department_name' => $employee?->department?->name ?? '-',
+                    'supervisor_name' => ($supervisor?->alias_name ?: $supervisor?->name) ?? '-',
+                    'total_late' => $rows->filter(fn (array $row) => mb_strtolower(trim((string) ($row['status'] ?? ''))) === 'terlambat')->count(),
                     'rows' => $rows->sortBy('attendance_date')->values(),
                 ];
             })
@@ -157,6 +182,11 @@ class AttendanceImportController extends Controller
             ],
             'batches' => $batches,
         ]);
+    }
+
+    private function normalizeAttendancePin(string $pin): string
+    {
+        return mb_strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', trim($pin)) ?? '');
     }
 
     public function template(Request $request)
