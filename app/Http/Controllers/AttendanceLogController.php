@@ -3857,6 +3857,9 @@ class AttendanceLogController extends Controller
             $rowIndex++;
         }
 
+        $filename = 'attendance_log_' . now()->format('Ymd_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
         }, $filename, [

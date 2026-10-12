@@ -6,10 +6,26 @@ use App\Http\Controllers\AttendanceLogController;
 use Illuminate\Support\Collection;
 use ReflectionMethod;
 use stdClass;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\TestCase;
 
 class AttendanceLogControllerTest extends TestCase
 {
+    public function test_attendance_log_export_returns_xlsx_download(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'exportRowsToExcel');
+        $method->setAccessible(true);
+
+        $response = $method->invoke($controller, collect(), null, null);
+
+        $this->assertInstanceOf(StreamedResponse::class, $response);
+        $this->assertStringContainsString(
+            'attendance_log_',
+            (string) $response->headers->get('content-disposition')
+        );
+    }
+
     public function test_resolve_by_schedule_windows_ignores_same_day_early_morning_carryover_for_non_overnight_shift(): void
     {
         $controller = new AttendanceLogController();
