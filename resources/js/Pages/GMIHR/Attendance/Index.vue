@@ -39,7 +39,7 @@
               @keyup.enter="applyFilters"
             />
           </div>
-          <div class="w-64 shrink-0">
+          <div v-if="canImportAttendance" class="w-64 shrink-0">
             <label class="text-xs text-slate-300">File Excel / CSV</label>
             <input
               ref="fileInput"
@@ -56,6 +56,7 @@
               Reset
             </button>
             <button
+              v-if="canImportAttendance"
               class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50"
               :disabled="importing"
               @click="previewImport"
@@ -66,7 +67,7 @@
         </div>
       </div>
 
-      <div v-if="previewRows" class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+      <div v-if="canImportAttendance && previewRows" class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p class="text-sm font-semibold text-slate-200">Hasil Preview</p>
@@ -235,7 +236,7 @@
         </div>
       </div>
 
-      <div v-if="batches.length" class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+      <div v-if="canViewImportHistory && batches.length" class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <p class="text-sm font-semibold text-slate-200">Riwayat Import</p>
         <div class="mt-3 overflow-x-auto">
           <table class="w-full text-sm">
@@ -283,6 +284,8 @@ const props = defineProps({
   summary: { type: Object, default: () => ({}) },
   statusOptions: { type: Array, default: () => [] },
   filters: { type: Object, default: () => ({}) },
+  canImportAttendance: { type: Boolean, default: false },
+  canViewImportHistory: { type: Boolean, default: false },
   batches: { type: Array, default: () => [] },
 });
 

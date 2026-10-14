@@ -145,22 +145,26 @@ class AttendanceImportController extends Controller
             ->sort()
             ->values();
 
-        $batches = AttendanceImportBatch::query()
-            ->with('uploader')
-            ->orderByDesc('id')
-            ->limit(15)
-            ->get()
-            ->map(fn (AttendanceImportBatch $batch) => [
-                'id' => $batch->id,
-                'filename' => $batch->filename,
-                'month' => $batch->month,
-                'year' => $batch->year,
-                'total_rows' => $batch->total_rows,
-                'valid_rows' => $batch->valid_rows,
-                'saved_rows' => $batch->saved_rows,
-                'uploaded_by' => $batch->uploader?->name ?? 'System',
-                'imported_at' => $batch->created_at?->format('d M Y H:i'),
-            ]);
+        $canImportAttendance = $this->isItDepartment($request);
+        $canViewImportHistory = $canImportAttendance;
+        $batches = $canViewImportHistory
+            ? AttendanceImportBatch::query()
+                ->with('uploader')
+                ->orderByDesc('id')
+                ->limit(15)
+                ->get()
+                ->map(fn (AttendanceImportBatch $batch) => [
+                    'id' => $batch->id,
+                    'filename' => $batch->filename,
+                    'month' => $batch->month,
+                    'year' => $batch->year,
+                    'total_rows' => $batch->total_rows,
+                    'valid_rows' => $batch->valid_rows,
+                    'saved_rows' => $batch->saved_rows,
+                    'uploaded_by' => $batch->uploader?->name ?? 'System',
+                    'imported_at' => $batch->created_at?->format('d M Y H:i'),
+                ])
+            : collect();
 
         [$paginatedGroups, $total] = $this->paginateGroups($groups, $perPage, $request);
 
@@ -180,6 +184,8 @@ class AttendanceImportController extends Controller
                 'status' => $statusFilter,
                 'q' => $q,
             ],
+            'canImportAttendance' => $canImportAttendance,
+            'canViewImportHistory' => $canViewImportHistory,
             'batches' => $batches,
         ]);
     }
@@ -191,6 +197,8 @@ class AttendanceImportController extends Controller
 
     public function template(Request $request)
     {
+        abort_unless($this->isItDepartment($request), 403);
+
         $request->validate([
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
@@ -282,6 +290,8 @@ class AttendanceImportController extends Controller
 
     public function preview(Request $request)
     {
+        abort_unless($this->isItDepartment($request), 403);
+
         $request->validate([
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
@@ -402,6 +412,8 @@ class AttendanceImportController extends Controller
 
     public function store(Request $request)
     {
+        abort_unless($this->isItDepartment($request), 403);
+
         $request->validate([
             'preview_key' => 'required|string',
             'month' => 'required|integer|min:1|max:12',
@@ -511,6 +523,8 @@ class AttendanceImportController extends Controller
 
     public function destroy(Request $request, int $batch)
     {
+        abort_unless($this->isItDepartment($request), 403);
+
         $batchModel = AttendanceImportBatch::find($batch);
         if (!$batchModel) {
             return response()->json([
@@ -521,6 +535,11 @@ class AttendanceImportController extends Controller
         $batchModel->delete();
 
         return redirect()->back()->with('success', 'Batch import attendance berhasil dihapus.');
+    }
+
+    private function isItDepartment(Request $request): bool
+    {
+        return strtoupper(trim((string) $request->user()?->department?->code)) === 'IT';
     }
 
     private function paginateGroups($groups, int $perPage, Request $request): array
