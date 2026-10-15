@@ -110,6 +110,9 @@ Route::post('gmium/listrik', [App\Http\Controllers\ListrikController::class, 'st
 Route::put('gmium/listrik/{listrik}', [App\Http\Controllers\ListrikController::class, 'update'])
     ->middleware(['auth'])
     ->name('gmium.listrik.update');
+Route::delete('gmium/listrik/{listrik}', [App\Http\Controllers\ListrikController::class, 'destroy'])
+    ->middleware(['auth'])
+    ->name('gmium.listrik.destroy');
 
 // PDAM (GMIUM > Utility Management > PDAM)
 Route::get('gmisl/pdam', [App\Http\Controllers\PdamController::class, 'index'])

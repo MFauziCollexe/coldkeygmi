@@ -467,5 +467,14 @@ return [
                 ],
             ],
         ],
+        'gmisl.listrik' => [
+            'abilities' => [
+                'delete' => [
+                    ['type' => 'admin'],
+                    ['type' => 'department_code', 'value' => 'IT'],
+                    ['type' => 'department_name_contains', 'value' => 'INFORMATION TECHNOLOGY'],
+                ],
+            ],
+        ],
     ],
 ];

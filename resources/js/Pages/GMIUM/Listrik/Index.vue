@@ -56,7 +56,7 @@
                           <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">Total</th>
                           <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">Kvarh</th>
                           <th class="border border-black px-2 py-1 text-center">Foto</th>
-                          <th v-if="isIT" class="border border-black px-2 py-1 text-center">Aksi</th>
+                          <th v-if="isIT || canDelete" class="border border-black px-2 py-1 text-center">Aksi</th>
                         </tr>
                 </thead>
                 <tbody>
@@ -82,18 +82,29 @@
                       </a>
                       <span v-else class="text-slate-400">-</span>
                     </td>
-                    <td v-if="isIT" class="border border-black px-2 py-1 text-center">
-                      <button
-                        type="button"
-                        class="rounded bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-300"
-                        @click="openEdit(r)"
-                      >
-                        Edit
-                      </button>
+                    <td v-if="isIT || canDelete" class="border border-black px-2 py-1 text-center">
+                      <div class="flex justify-center gap-2">
+                        <button
+                          v-if="isIT"
+                          type="button"
+                          class="rounded bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-300"
+                          @click="openEdit(r)"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          v-if="canDelete"
+                          type="button"
+                          class="rounded bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700"
+                          @click="deleteRecord(r.id)"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   <tr v-if="records.data.length === 0">
-                    <td :colspan="(activeLokasi === 'GMI' ? 8 : 5) + (isIT ? 1 : 0)" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
+                    <td :colspan="(activeLokasi === 'GMI' ? 8 : 5) + (isIT || canDelete ? 1 : 0)" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
                   </tr>
                 </tbody>
               </table>
@@ -281,10 +292,12 @@ import { router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { compressImageToMax } from '@/Utils/imageCompression';
+import { swalConfirm } from '@/Utils/swalConfirm';
 
-const props = defineProps({ records: Object, filters: Object, currentUser: Object });
+const props = defineProps({ records: Object, filters: Object, currentUser: Object, canDelete: Boolean });
 const records = computed(() => props.records || { data: [] });
 const errors = computed(() => usePage().props.errors || {});
+const canDelete = computed(() => props.canDelete === true);
 
 const isIT = computed(() =>
   String(props.currentUser?.department_code || '').toUpperCase() === 'IT',
@@ -441,6 +454,17 @@ function saveRecord() {
     return;
   }
   router.post('/gmium/listrik', payload, options);
+}
+
+async function deleteRecord(id) {
+  const confirmed = await swalConfirm({
+    title: 'Hapus Data Listrik',
+    text: 'Data listrik ini akan dihapus permanen.',
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!confirmed) return;
+  router.delete(`/gmium/listrik/${id}`, { preserveScroll: true });
 }
 
 function search() {

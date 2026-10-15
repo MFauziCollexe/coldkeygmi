@@ -3,14 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Listrik;
+use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class ListrikController extends Controller
 {
+    private const ACCESS_MODULE = 'gmisl.listrik';
+
     public function index(Request $request)
     {
         $query = Listrik::query();
+        $lokasi = $request->get('lokasi');
+        if (!in_array($lokasi, ['GMI', 'CRMI', 'Office'], true)) {
+            $lokasi = 'GMI';
+        }
 
         $bulan = $request->get('bulan', now()->format('Y-m'));
         if (!preg_match('/^\d{4}-\d{2}$/', (string) $bulan)) {
@@ -19,9 +27,7 @@ class ListrikController extends Controller
         [$year, $month] = array_map('intval', explode('-', $bulan));
         $query->whereYear('tanggal', $year)->whereMonth('tanggal', $month);
 
-        if ($request->filled('lokasi')) {
-            $query->where('lokasi', $request->get('lokasi'));
-        }
+        $query->where('lokasi', $lokasi);
 
         $records = $query
             ->orderByDesc('tanggal')
@@ -32,18 +38,20 @@ class ListrikController extends Controller
 
         $user = $request->user();
         $user?->loadMissing('department');
+        $canDelete = app(AccessRuleService::class)->allows($user, self::ACCESS_MODULE, 'delete');
 
         return Inertia::render('GMIUM/Listrik/Index', [
             'records' => $records,
             'filters' => [
                 'bulan' => $bulan,
-                'lokasi' => $request->get('lokasi'),
+                'lokasi' => $lokasi,
             ],
             'currentUser' => [
                 'id' => $user?->id,
                 'name' => $user?->name,
                 'department_code' => $user?->department?->code,
             ],
+            'canDelete' => $canDelete,
         ]);
     }
 
@@ -175,6 +183,30 @@ class ListrikController extends Controller
         $record->update($data);
 
         return back()->with('success', 'Data listrik berhasil diubah.');
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        abort_unless(
+            app(AccessRuleService::class)->allows($request->user(), self::ACCESS_MODULE, 'delete'),
+            403
+        );
+
+        $record = Listrik::findOrFail($id);
+        $photoPaths = array_filter([
+            $record->foto_path,
+            $record->foto_path_2,
+            $record->foto_path_3,
+            $record->foto_path_4,
+        ]);
+
+        if ($photoPaths) {
+            Storage::disk('public')->delete($photoPaths);
+        }
+
+        $record->delete();
+
+        return back()->with('success', 'Data listrik berhasil dihapus.');
     }
 
     protected function isIT($user): bool
