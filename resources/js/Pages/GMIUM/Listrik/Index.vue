@@ -55,8 +55,7 @@
                           <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">WbP</th>
                           <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">Total</th>
                           <th v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-center">Kvarh</th>
-                          <th class="border border-black px-2 py-1 text-center">Foto</th>
-                          <th v-if="isIT || canDelete" class="border border-black px-2 py-1 text-center">Aksi</th>
+                          <th class="border border-black px-2 py-1 text-center">Aksi</th>
                         </tr>
                 </thead>
                 <tbody>
@@ -69,21 +68,16 @@
                     <td v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-right">{{ formatNumber(r.total) }}</td>
                     <td v-if="activeLokasi === 'GMI'" class="border border-black px-2 py-1 text-right">{{ formatNumber(r.kvarh) }}</td>
                     <td class="border border-black px-2 py-1 text-center">
-                      <div v-if="activeLokasi === 'GMI'" class="flex flex-wrap justify-center gap-1">
-                        <template v-for="(fu, i) in gmiPhotos(r)" :key="i">
-                          <a v-if="fu" :href="fu" target="_blank" rel="noopener">
-                            <img :src="fu" :alt="`Foto ${i + 1}`" class="h-10 w-10 rounded object-cover" />
-                          </a>
-                          <span v-else class="inline-block h-10 w-10 border border-dashed border-slate-300 text-xs leading-10 text-slate-300">-</span>
-                        </template>
-                      </div>
-                      <a v-else-if="r.foto_url" :href="r.foto_url" target="_blank" rel="noopener">
-                        <img :src="r.foto_url" alt="Foto meter listrik" class="inline-block h-10 w-10 rounded object-cover" />
-                      </a>
+                      <div class="flex flex-wrap justify-center gap-1">
+                      <button
+                        v-if="recordPhotos(r).length"
+                        type="button"
+                        class="rounded bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-200"
+                        @click="openPhotoPreview(recordPhotos(r), activeLokasi === 'GMI' ? 'Foto Listrik' : 'Foto meter listrik')"
+                      >
+                        Lihat Foto
+                      </button>
                       <span v-else class="text-slate-400">-</span>
-                    </td>
-                    <td v-if="isIT || canDelete" class="border border-black px-2 py-1 text-center">
-                      <div class="flex justify-center gap-2">
                         <button
                           v-if="isIT"
                           type="button"
@@ -104,7 +98,7 @@
                     </td>
                   </tr>
                   <tr v-if="records.data.length === 0">
-                    <td :colspan="(activeLokasi === 'GMI' ? 8 : 5) + (isIT || canDelete ? 1 : 0)" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
+                    <td :colspan="activeLokasi === 'GMI' ? 8 : 5" class="border border-black px-2 py-4 text-center text-slate-400">Tidak ada data</td>
                   </tr>
                 </tbody>
               </table>
@@ -116,6 +110,38 @@
           </div>
         </div>
       </div>
+
+    <!-- Modal Lihat Foto -->
+    <div
+      v-if="photoPreview"
+      class="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-4"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="photoPreview.title"
+      @click.self="closePhoto"
+    >
+      <div class="relative flex max-h-full w-full max-w-5xl flex-col items-center overflow-y-auto rounded-lg bg-white p-4 shadow-2xl">
+        <div class="mb-3 flex w-full items-center justify-between gap-4">
+          <h3 class="text-base font-semibold text-slate-900">{{ photoPreview.title }}</h3>
+          <button
+            type="button"
+            class="rounded bg-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-300"
+            @click="closePhoto"
+          >
+            Tutup
+          </button>
+        </div>
+        <div class="flex w-full flex-col items-center gap-4">
+          <img
+            v-for="photo in photoPreview.photos"
+            :key="photo.url"
+            :src="photo.url"
+            :alt="photo.label"
+            class="max-h-[65vh] max-w-full object-contain"
+          />
+        </div>
+      </div>
+    </div>
 
     <!-- Modal Tambah -->
     <div
@@ -329,6 +355,7 @@ function selectLokasi(value) {
 }
 
 const showModal = ref(false);
+const photoPreview = ref(null);
 const allFormFields = [
   { key: 'lbp', label: 'LbP' },
   { key: 'wbp', label: 'WbP' },
@@ -381,6 +408,20 @@ function openEdit(record) {
 function closeModal() {
   showModal.value = false;
   editingId.value = null;
+}
+
+function openPhotoPreview(urls, title) {
+  photoPreview.value = {
+    title,
+    photos: urls.map((url, index) => ({
+      url,
+      label: urls.length > 1 ? `Foto ${index + 1}` : title,
+    })),
+  };
+}
+
+function closePhoto() {
+  photoPreview.value = null;
 }
 
 function triggerPhotoCamera() {
@@ -492,5 +533,13 @@ function formatNumber(v) {
 
 function gmiPhotos(r) {
   return [r?.foto_url, r?.foto_url_2, r?.foto_url_3, r?.foto_url_4];
+}
+
+function recordPhotos(record) {
+  const photosForRecord = activeLokasi.value === 'GMI'
+    ? gmiPhotos(record)
+    : [record?.foto_url];
+
+  return photosForRecord.filter(Boolean);
 }
 </script>
