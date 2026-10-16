@@ -27,6 +27,8 @@ class AttendanceImportController extends Controller
 
     public function index(Request $request)
     {
+        $dateFrom = $this->normalizeAttendanceDateFilter($request->input('date_from'));
+        $dateTo = $this->normalizeAttendanceDateFilter($request->input('date_to'));
         $monthInput = $request->input('month');
         $yearInput = $request->input('year');
         $month = ($monthInput === null || $monthInput === '' || $monthInput === 'all') ? null : (int) $monthInput;
@@ -47,6 +49,22 @@ class AttendanceImportController extends Controller
                 $year = (int) now()->year;
             }
         }
+        if ($dateFrom === null && $dateTo === null) {
+            if ($monthInput !== null && $month !== null && $yearInput !== null && $year !== null) {
+                $rangeStart = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+                $dateFrom = $rangeStart->toDateString();
+                $dateTo = $rangeStart->copy()->endOfMonth()->toDateString();
+            } else {
+                $rangeStart = now()->startOfMonth();
+                $dateFrom = $rangeStart->toDateString();
+                $dateTo = $rangeStart->copy()->endOfMonth()->toDateString();
+            }
+        }
+        $dateFrom ??= $dateTo;
+        $dateTo ??= $dateFrom;
+        if ($dateFrom > $dateTo) {
+            [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
+        }
         $statusFilter = strtolower(trim((string) $request->input('status', 'all')));
         $q = trim((string) $request->input('q', ''));
         $perPage = (int) $request->input('per_page', 50);
@@ -55,11 +73,7 @@ class AttendanceImportController extends Controller
         }
 
         $entries = AttendanceImportEntry::query()
-            ->when($month !== null && $year !== null, function ($query) use ($month, $year) {
-                $first = sprintf('%04d-%02d-01', $year, $month);
-                $last = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
-                $query->whereBetween('attendance_date', [$first, $last]);
-            })
+            ->whereBetween('attendance_date', [$dateFrom, $dateTo])
             ->when($statusFilter !== '' && $statusFilter !== 'all', function ($query) use ($statusFilter) {
                 $query->whereRaw('LOWER(status) = ?', [$statusFilter]);
             })
@@ -179,6 +193,8 @@ class AttendanceImportController extends Controller
             'summary' => $summary,
             'statusOptions' => $statusOptions,
             'filters' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
                 'month' => $month,
                 'year' => $year,
                 'status' => $statusFilter,
@@ -188,6 +204,22 @@ class AttendanceImportController extends Controller
             'canViewImportHistory' => $canViewImportHistory,
             'batches' => $batches,
         ]);
+    }
+
+    private function normalizeAttendanceDateFilter($value): ?string
+    {
+        $value = trim((string) $value);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        try {
+            $date = Carbon::createFromFormat('!Y-m-d', $value);
+
+            return $date && $date->format('Y-m-d') === $value ? $value : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function normalizeAttendancePin(string $pin): string

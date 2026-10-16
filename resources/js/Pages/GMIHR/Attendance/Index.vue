@@ -10,17 +10,13 @@
 
       <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div class="flex flex-wrap items-end gap-3">
-          <div class="w-36 shrink-0">
-            <label class="text-xs text-slate-300">Bulan</label>
-            <select v-model="form.month" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
-              <option v-for="n in 12" :key="n" :value="n">{{ monthNames[n - 1] }}</option>
-            </select>
+          <div class="w-40 shrink-0">
+            <label class="text-xs text-slate-300">Tanggal Dari</label>
+            <input v-model="form.date_from" type="date" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" />
           </div>
-          <div class="w-32 shrink-0">
-            <label class="text-xs text-slate-300">Tahun</label>
-            <select v-model="form.year" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
-              <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
-            </select>
+          <div class="w-40 shrink-0">
+            <label class="text-xs text-slate-300">Sampai</label>
+            <input v-model="form.date_to" type="date" class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" />
           </div>
           <div class="w-48 shrink-0">
             <label class="text-xs text-slate-300">Status</label>
@@ -39,15 +35,17 @@
               @keyup.enter="applyFilters"
             />
           </div>
-          <div v-if="canImportAttendance" class="w-64 shrink-0">
-            <label class="text-xs text-slate-300">File Excel / CSV</label>
-            <input
-              ref="fileInput"
-              type="file"
-              accept=".xlsx,.xls,.csv,.txt"
-              class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-1.5 text-sm"
-            />
-          </div>
+          <template v-if="canImportAttendance">
+            <div class="w-64 shrink-0">
+              <label class="text-xs text-slate-300">File Excel / CSV</label>
+              <input
+                ref="fileInput"
+                type="file"
+                accept=".xlsx,.xls,.csv,.txt"
+                class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-1.5 text-sm"
+              />
+            </div>
+          </template>
           <div class="flex shrink-0 items-end gap-2">
             <button class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold hover:bg-sky-500" @click="applyFilters">
               Tampilkan
@@ -295,11 +293,19 @@ const monthNames = [
 ];
 
 const currentYear = new Date().getFullYear();
-const yearOptions = Array.from({ length: 8 }, (_, i) => currentYear - 3 + i);
+const currentMonth = new Date().getMonth() + 1;
+const currentMonthStart = new Date(currentYear, currentMonth - 1, 1);
+const currentMonthEnd = new Date(currentYear, currentMonth, 0);
+
+function formatDateInput(date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
 
 const form = reactive({
-  month: props.filters.month ?? new Date().getMonth() + 1,
-  year: props.filters.year ?? currentYear,
+  date_from: props.filters.date_from || formatDateInput(currentMonthStart),
+  date_to: props.filters.date_to || formatDateInput(currentMonthEnd),
   status: props.filters.status || 'all',
   q: props.filters.q || '',
 });
@@ -329,8 +335,8 @@ function formatSchedule(start, end) {
 
 function applyFilters() {
   router.get('/attendance', {
-    month: form.month,
-    year: form.year,
+    date_from: form.date_from,
+    date_to: form.date_to,
     status: form.status,
     q: form.q,
   }, { preserveState: true, preserveScroll: true });
@@ -338,8 +344,8 @@ function applyFilters() {
 
 function resetFilters() {
   const now = new Date();
-  form.month = now.getMonth() + 1;
-  form.year = now.getFullYear();
+  form.date_from = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+  form.date_to = formatDateInput(new Date(now.getFullYear(), now.getMonth() + 1, 0));
   form.status = 'all';
   form.q = '';
   applyFilters();
@@ -348,11 +354,23 @@ function resetFilters() {
 function goToPage(page) {
   router.get('/attendance', {
     page,
-    month: form.month,
-    year: form.year,
+    date_from: form.date_from,
+    date_to: form.date_to,
     status: form.status,
     q: form.q,
   }, { preserveState: true, preserveScroll: true });
+}
+
+function importFallbackPeriod() {
+  const [, yearValue, monthValue] = String(form.date_from || '').match(/^(\d{4})-(\d{2})-\d{2}$/) || [];
+  const year = Number(yearValue);
+  const month = Number(monthValue);
+
+  if (year >= 2000 && year <= 2100 && month >= 1 && month <= 12) {
+    return { month, year };
+  }
+
+  return { month: currentMonth, year: currentYear };
 }
 
 async function previewImport() {
@@ -363,8 +381,9 @@ async function previewImport() {
   }
 
   const data = new FormData();
-  data.append('month', form.month);
-  data.append('year', form.year);
+  const importPeriod = importFallbackPeriod();
+  data.append('month', importPeriod.month);
+  data.append('year', importPeriod.year);
   data.append('file', file);
 
   importing.value = true;
@@ -387,8 +406,6 @@ async function previewImport() {
       source: json.period_source || 'file',
     };
     previewSummary.value = json.summary;
-    form.month = json.month;
-    form.year = json.year;
   } catch (error) {
     Swal.fire('Gagal Preview', 'Terjadi kesalahan saat memproses file.', 'error');
   } finally {
@@ -418,9 +435,7 @@ async function saveImport() {
     if (!response.ok) {
       if (json.message && json.message.includes('kadaluarsa')) {
         Swal.fire('Data Kemungkinan Sudah Tersimpan', 'Sesi preview kadaluarsa — data kemungkinan besar sudah tersimpan sebelumnya. Halaman akan dimuat ulang untuk memeriksa.', 'info');
-        form.month = previewPeriod.value.month;
-        form.year = previewPeriod.value.year;
-        router.get('/attendance', { month: form.month, year: form.year }, { preserveScroll: true });
+        showImportedPeriod(previewPeriod.value.month, previewPeriod.value.year);
         return;
       }
       Swal.fire('Gagal Simpan', json.message || 'Terjadi kesalahan saat menyimpan.', 'error');
@@ -429,13 +444,8 @@ async function saveImport() {
     const savedMonth = previewPeriod.value.month;
     const savedYear = previewPeriod.value.year;
     clearPreview();
-    form.month = savedMonth;
-    form.year = savedYear;
     Swal.fire('Berhasil', json.message, 'success');
-    router.get('/attendance', {
-      month: savedMonth,
-      year: savedYear,
-    }, { preserveScroll: true });
+    showImportedPeriod(savedMonth, savedYear);
   } catch (error) {
     console.error('Attendance save error:', error);
     const detail = error && error.message ? error.message : String(error);
@@ -443,6 +453,22 @@ async function saveImport() {
   } finally {
     saving.value = false;
   }
+}
+
+function showImportedPeriod(month, year) {
+  const paddedMonth = String(month).padStart(2, '0');
+  const lastDay = new Date(Number(year), Number(month), 0).getDate();
+  form.date_from = `${year}-${paddedMonth}-01`;
+  form.date_to = `${year}-${paddedMonth}-${String(lastDay).padStart(2, '0')}`;
+  form.status = 'all';
+  form.q = '';
+
+  router.get('/attendance', {
+    date_from: form.date_from,
+    date_to: form.date_to,
+    status: form.status,
+    q: form.q,
+  }, { preserveScroll: true });
 }
 
 function clearPreview() {
