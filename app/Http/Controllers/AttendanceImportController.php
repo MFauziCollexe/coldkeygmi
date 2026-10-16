@@ -808,6 +808,7 @@ class AttendanceImportController extends Controller
         $previewRows = [];
         $validRows = [];
         $dataStart = (int) $columns['header_row'] + 1;
+        $dateOrder = $this->detectFlatDateOrder($rows, (int) $columns['tanggal'], $dataStart);
 
         for ($index = $dataStart; $index < count($rows); $index++) {
             $row = $rows[$index];
@@ -826,7 +827,7 @@ class AttendanceImportController extends Controller
                 continue;
             }
 
-            $attendanceDate = $this->parseFlatDateCell($dateRaw);
+            $attendanceDate = $this->parseFlatDateCell($dateRaw, $dateOrder);
             if ($attendanceDate === null) {
                 $rowData = $this->buildFlatPreviewRow($pin, $name, '', '-', '-', null, null, $statusRaw, false, null, null, null, null, null, false, 'Tanggal tidak valid atau kosong.');
                 $previewRows[] = $rowData;
@@ -917,7 +918,30 @@ class AttendanceImportController extends Controller
         ];
     }
 
-    private function parseFlatDateCell(string $value): ?string
+    private function detectFlatDateOrder(array $rows, int $dateColumn, int $dataStart): string
+    {
+        $dayFirstEvidence = 0;
+        $monthFirstEvidence = 0;
+
+        for ($index = $dataStart; $index < count($rows); $index++) {
+            $value = trim((string) ($rows[$index][$dateColumn] ?? ''));
+            if (!preg_match('/^(\d{1,2})[\/.-](\d{1,2})[\/.-]\d{4}$/', $value, $matches)) {
+                continue;
+            }
+
+            $first = (int) $matches[1];
+            $second = (int) $matches[2];
+            if ($first > 12 && $second >= 1 && $second <= 12) {
+                $dayFirstEvidence++;
+            } elseif ($second > 12 && $first >= 1 && $first <= 12) {
+                $monthFirstEvidence++;
+            }
+        }
+
+        return $monthFirstEvidence > $dayFirstEvidence ? 'mdy' : 'dmy';
+    }
+
+    private function parseFlatDateCell(string $value, string $dateOrder = 'dmy'): ?string
     {
         $value = trim($value);
         if ($value === '' || $value === '-') {
@@ -927,22 +951,26 @@ class AttendanceImportController extends Controller
         if (is_numeric($value)) {
             try {
                 $date = ExcelDate::excelToDateTimeObject((float) $value);
-
-                return $date->format('Y-m-d');
+                if ((int) $date->format('Y') >= 2000 && (int) $date->format('Y') <= 2100) {
+                    return $date->format('Y-m-d');
+                }
             } catch (\Throwable $e) {
                 // fallthrough ke format teks
             }
         }
 
-        foreach (['d/m/Y', 'd-m-Y', 'd.m.Y', 'Y-m-d', 'Y/m/d'] as $format) {
-            try {
-                $parsed = Carbon::createFromFormat($format, $value);
-            } catch (\Throwable $e) {
-                continue;
-            }
-            if ($parsed !== false) {
-                return $parsed->format('Y-m-d');
-            }
+        if (preg_match('/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/', $value, $matches)) {
+            return $this->formatStrictFlatDate((int) $matches[1], (int) $matches[2], (int) $matches[3]);
+        }
+
+        if (preg_match('/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/', $value, $matches)) {
+            $first = (int) $matches[1];
+            $second = (int) $matches[2];
+            $year = (int) $matches[3];
+            $month = $dateOrder === 'mdy' ? $first : $second;
+            $day = $dateOrder === 'mdy' ? $second : $first;
+
+            return $this->formatStrictFlatDate($year, $month, $day);
         }
 
         $timestamp = strtotime($value);
@@ -954,6 +982,15 @@ class AttendanceImportController extends Controller
         }
 
         return null;
+    }
+
+    private function formatStrictFlatDate(int $year, int $month, int $day): ?string
+    {
+        if ($year < 2000 || $year > 2100 || !checkdate($month, $day, $year)) {
+            return null;
+        }
+
+        return sprintf('%04d-%02d-%02d', $year, $month, $day);
     }
 
     private function parseFlatTime(string $value): ?string
