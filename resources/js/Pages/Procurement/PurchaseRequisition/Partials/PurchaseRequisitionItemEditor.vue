@@ -18,22 +18,22 @@
 <colgroup>
             <col class="w-[52px]" />
             <col class="w-[150px]" />
-            <col class="w-[170px]" />
-            <col class="w-[170px]" />
             <col class="w-[90px]" />
-            <col class="w-[120px]" />
             <col class="w-[130px]" />
+            <col class="w-[170px]" />
+            <col class="w-[170px]" />
+            <col class="w-[120px]" />
             <col class="w-[90px]" />
           </colgroup>
         <thead>
 <tr class="bg-gradient-to-b from-[#7489ba] to-[#556d9a] text-center text-[12px] font-semibold text-white">
              <th class="border border-slate-400 px-2 py-1.5">No</th>
              <th class="border border-slate-400 px-2 py-1.5">Master Item</th>
+             <th class="border border-slate-400 px-2 py-1.5">Qty</th>
+             <th class="border border-slate-400 px-2 py-1.5">Required Date</th>
              <th class="border border-slate-400 px-2 py-1.5">Description</th>
              <th class="border border-slate-400 px-2 py-1.5">Note</th>
-             <th class="border border-slate-400 px-2 py-1.5">Qty</th>
              <th class="border border-slate-400 px-2 py-1.5">Item Unit</th>
-             <th class="border border-slate-400 px-2 py-1.5">Required Date</th>
              <th class="border border-slate-400 px-2 py-1.5">Action</th>
            </tr>
         </thead>
@@ -42,18 +42,48 @@
             <td class="border border-slate-300 px-2 py-2 text-center font-medium">{{ index + 1 }}</td>
 
             <td class="border border-slate-300 px-2 py-2">
-              <select
-                :value="item.procurement_master_item_id || ''"
-                class="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
-                @change="applyMasterItem(index, $event.target.value)"
-              >
-                <option value="">Pilih Barang</option>
-                <option v-for="masterItem in masterItems" :key="masterItem.id" :value="masterItem.id">
-                  {{ masterItem.label }}
-                </option>
-              </select>
+              <div class="relative">
+                <input
+                  :value="masterItemSearchValue(item)"
+                  type="text"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls="pr-master-item-suggestions"
+                  :aria-expanded="activeMasterItemIndex === index && isMasterItemDropdownVisible"
+                  placeholder="Ketik kode atau nama barang"
+                  class="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
+                  @focus="openMasterItemDropdown(index, $event)"
+                  @click="openMasterItemDropdown(index, $event)"
+                  @blur="closeMasterItemDropdown"
+                  @input="updateMasterItemSearch(index, $event.target.value)"
+                  @keydown.enter.prevent="selectFirstMasterItem(index)"
+                  @keydown.esc.prevent="closeMasterItemDropdown"
+                />
+              </div>
               <div v-if="itemError(index, 'procurement_master_item_id')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'procurement_master_item_id') }}</div>
             </td>
+            <td class="border border-slate-300 px-2 py-2">
+              <input
+                v-model="item.quantity"
+                type="number"
+                min="1"
+                step="1"
+                class="h-[36px] w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-center text-sm text-slate-800"
+                @input="normalizeQuantity(index)"
+              />
+              <div v-if="itemError(index, 'quantity')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'quantity') }}</div>
+            </td>
+
+            <td class="border border-slate-300 px-2 py-2">
+              <EnhancedDatePicker
+                v-model="item.required_date"
+                placeholder="dd/mm/yyyy"
+                :min-date="minimumRequiredDate"
+                input-class="h-[36px] w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
+              />
+              <div v-if="itemError(index, 'required_date')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'required_date') }}</div>
+            </td>
+
             <td class="border border-slate-300 px-2 py-2">
               <textarea v-model="item.description_of_goods" rows="1" readonly class="h-[36px] min-h-[36px] w-full resize-none rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700"></textarea>
               <div v-if="itemError(index, 'description_of_goods')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'description_of_goods') }}</div>
@@ -70,35 +100,12 @@
             </td>
 
             <td class="border border-slate-300 px-2 py-2">
-              <input
-                v-model="item.quantity"
-                type="number"
-                min="1"
-                step="1"
-                class="h-[36px] w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-center text-sm text-slate-800"
-                @input="normalizeQuantity(index)"
-              />
-              <div v-if="itemError(index, 'quantity')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'quantity') }}</div>
-            </td>
-
-            <td class="border border-slate-300 px-2 py-2">
               <select v-model="item.unit" disabled class="w-full rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-700">
                 <option value="">Pilih Unit</option>
                 <option v-for="unit in uomOptions" :key="unit.id" :value="unit.name">{{ unit.name }}</option>
               </select>
               <div v-if="itemError(index, 'unit')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'unit') }}</div>
             </td>
-
-            <td class="border border-slate-300 px-2 py-2">
-              <EnhancedDatePicker
-                v-model="item.required_date"
-                placeholder="dd/mm/yyyy"
-                :min-date="minimumRequiredDate"
-                input-class="h-[36px] w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
-              />
-              <div v-if="itemError(index, 'required_date')" class="mt-1 text-xs text-rose-600">{{ itemError(index, 'required_date') }}</div>
-            </td>
-
 
 
             <td class="border border-slate-300 px-2 py-2 text-center">
@@ -119,9 +126,34 @@
       {{ form.errors.items }}
     </div>
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="isMasterItemDropdownVisible"
+      id="pr-master-item-suggestions"
+      class="fixed z-1000 overflow-y-auto rounded border border-slate-300 bg-white py-1 shadow-lg"
+      role="listbox"
+      :style="masterItemDropdownStyle"
+    >
+      <button
+        v-for="masterItem in activeMasterItemSuggestions"
+        :key="masterItem.id"
+        type="button"
+        class="block w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-indigo-50"
+        role="option"
+        @mousedown.prevent="selectMasterItem(activeMasterItemIndex, masterItem)"
+      >
+        {{ masterItem.label }}
+      </button>
+      <div v-if="!activeMasterItemSuggestions.length" class="px-3 py-2 text-sm text-slate-500">
+        Tidak ada master item yang cocok.
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 
@@ -130,6 +162,30 @@ const props = defineProps({
   uomOptions: { type: Array, default: () => [] },
   masterItems: { type: Array, default: () => [] },
   minimumRequiredDate: { type: String, default: '' },
+});
+const activeMasterItemIndex = ref(null);
+const activeMasterItemInput = ref(null);
+const showAllMasterItems = ref(false);
+const masterItemDropdownStyle = ref({});
+const activeMasterItem = computed(() =>
+  activeMasterItemIndex.value === null ? null : props.form.items[activeMasterItemIndex.value],
+);
+const activeMasterItemSuggestions = computed(() =>
+  activeMasterItem.value ? masterItemSuggestions(activeMasterItem.value) : [],
+);
+const isMasterItemDropdownVisible = computed(() => {
+  const item = activeMasterItem.value;
+  return Boolean(showAllMasterItems.value || (item?._masterItemSearch?.trim() && !isCurrentMasterItemValue(item)));
+});
+
+onMounted(() => {
+  window.addEventListener('resize', updateMasterItemDropdownPosition);
+  window.addEventListener('scroll', updateMasterItemDropdownPosition, true);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateMasterItemDropdownPosition);
+  window.removeEventListener('scroll', updateMasterItemDropdownPosition, true);
 });
 
 function createItem() {
@@ -158,6 +214,7 @@ function addItem() {
 
 function removeItem(index) {
   props.form.items.splice(index, 1);
+  closeMasterItemDropdown();
 }
 
 function itemError(index, field) {
@@ -170,6 +227,7 @@ function applyMasterItem(index, rawId) {
   const masterItem = props.masterItems.find((entry) => entry.id === masterItemId);
 
   item.procurement_master_item_id = masterItem ? masterItem.id : '';
+  item._masterItemSearch = masterItem?.label || '';
 
   if (!masterItem) {
     return;
@@ -183,6 +241,121 @@ function applyMasterItem(index, rawId) {
   }
   item.unit = masterItem.unit || '';
   item.category_id = masterItem.category_id || '';
+}
+
+function masterItemSearchValue(item) {
+  if (Object.prototype.hasOwnProperty.call(item, '_masterItemSearch')) {
+    return item._masterItemSearch;
+  }
+
+  const masterItemId = Number(item.procurement_master_item_id || 0);
+  const masterItem = props.masterItems.find((entry) => entry.id === masterItemId);
+
+  return masterItem?.label || [item.item_code, item.item_name].filter(Boolean).join(' - ');
+}
+
+function updateMasterItemSearch(index, value) {
+  const item = props.form.items[index];
+  item._masterItemSearch = value;
+  activeMasterItemIndex.value = index;
+  showAllMasterItems.value = false;
+
+  const normalizedValue = value.trim().toLowerCase();
+  const masterItem = props.masterItems.find(
+    (entry) => String(entry.label || '').trim().toLowerCase() === normalizedValue,
+  );
+
+  if (masterItem) {
+    applyMasterItem(index, masterItem.id);
+    closeMasterItemDropdown();
+    return;
+  }
+
+  item.procurement_master_item_id = '';
+  item.item_code = '';
+  item.item_name = '';
+  item.description_of_goods = '';
+  item.unit = '';
+  item.category_id = '';
+  updateMasterItemDropdownPosition();
+}
+
+function masterItemSuggestions(item) {
+  if (showAllMasterItems.value) {
+    return props.masterItems;
+  }
+
+  const query = String(item._masterItemSearch || '').trim().toLowerCase();
+  if (!query) {
+    return [];
+  }
+
+  if (isCurrentMasterItemValue(item)) {
+    return [];
+  }
+
+  return props.masterItems
+    .filter((entry) => String(entry.label || '').toLowerCase().includes(query))
+    .slice(0, 10);
+}
+
+function isCurrentMasterItemValue(item) {
+  const query = String(item?._masterItemSearch || '').trim().toLowerCase();
+  const selectedItem = props.masterItems.find(
+    (entry) => entry.id === Number(item?.procurement_master_item_id || 0),
+  );
+
+  return Boolean(query && selectedItem?.label?.trim().toLowerCase() === query);
+}
+
+function openMasterItemDropdown(index, event) {
+  const item = props.form.items[index];
+  const query = String(item?._masterItemSearch || '').trim();
+
+  activeMasterItemIndex.value = index;
+  activeMasterItemInput.value = event.currentTarget;
+  showAllMasterItems.value = !query || isCurrentMasterItemValue(item);
+  updateMasterItemDropdownPosition();
+}
+
+function updateMasterItemDropdownPosition() {
+  const input = activeMasterItemInput.value;
+  if (!input || activeMasterItemIndex.value === null) {
+    return;
+  }
+
+  const bounds = input.getBoundingClientRect();
+  const desiredHeight = Math.min(240, Math.max(40, activeMasterItemSuggestions.value.length * 40));
+  const spaceBelow = window.innerHeight - bounds.bottom - 8;
+  const spaceAbove = bounds.top - 8;
+  const opensAbove = spaceBelow < desiredHeight && spaceAbove > spaceBelow;
+  const availableSpace = opensAbove ? spaceAbove : spaceBelow;
+  const maxHeight = Math.max(80, Math.min(240, availableSpace));
+
+  masterItemDropdownStyle.value = {
+    left: `${bounds.left}px`,
+    top: `${opensAbove ? Math.max(8, bounds.top - maxHeight - 4) : bounds.bottom + 4}px`,
+    width: `${bounds.width}px`,
+    maxHeight: `${maxHeight}px`,
+  };
+}
+
+function selectMasterItem(index, masterItem) {
+  applyMasterItem(index, masterItem.id);
+  closeMasterItemDropdown();
+}
+
+function selectFirstMasterItem(index) {
+  const firstMatch = masterItemSuggestions(props.form.items[index])[0];
+  if (firstMatch) {
+    selectMasterItem(index, firstMatch);
+  }
+}
+
+function closeMasterItemDropdown() {
+  activeMasterItemIndex.value = null;
+  activeMasterItemInput.value = null;
+  showAllMasterItems.value = false;
 }
 
 function normalizeQuantity(index) {
