@@ -144,6 +144,46 @@ class AttendanceImportController extends Controller
             ->sortBy(fn (array $group) => strtolower($group['name']))
             ->values();
 
+        $filterDefinitions = [
+            'pins' => ['flag' => 'filter_pins', 'field' => 'pin'],
+            'names' => ['flag' => 'filter_names', 'field' => 'name'],
+            'departments' => ['flag' => 'filter_departments', 'field' => 'department_name'],
+            'reporting_tos' => ['flag' => 'filter_reporting_tos', 'field' => 'supervisor_name'],
+        ];
+        $filterOptions = [];
+        foreach ($filterDefinitions as $key => $definition) {
+            $filterOptions[$key] = $groups
+                ->map(function (array $group) use ($definition) {
+                    $value = trim((string) ($group[$definition['field']] ?? ''));
+                    return $value !== '' ? $value : '-';
+                })
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+        }
+
+        $columnFilters = [];
+        foreach ($filterDefinitions as $key => $definition) {
+            $selected = array_values(array_unique(array_filter(
+                array_map(static fn ($value) => trim((string) $value), (array) $request->input($key, [])),
+                static fn (string $value) => $value !== ''
+            )));
+            $active = $request->boolean($definition['flag']);
+            $columnFilters[$key] = [
+                'active' => $active,
+                'selected' => $selected,
+            ];
+
+            if ($active) {
+                $groups = $groups->filter(function (array $group) use ($definition, $selected) {
+                    $value = trim((string) ($group[$definition['field']] ?? ''));
+                    $value = $value !== '' ? $value : '-';
+                    return in_array($value, $selected, true);
+                })->values();
+            }
+        }
+
         $summary = [
             'total_records' => $rawRows->count(),
             'total_employees' => $groups->count(),
@@ -192,6 +232,8 @@ class AttendanceImportController extends Controller
             ],
             'summary' => $summary,
             'statusOptions' => $statusOptions,
+            'filterOptions' => $filterOptions,
+            'columnFilters' => $columnFilters,
             'filters' => [
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,

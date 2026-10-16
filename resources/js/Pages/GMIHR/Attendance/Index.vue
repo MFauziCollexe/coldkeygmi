@@ -163,10 +163,21 @@
           <table class="w-full text-sm">
             <thead class="border-b border-slate-700 text-slate-400">
               <tr>
-                <th class="py-2 pr-3 text-left">PIN</th>
-                <th class="py-2 pr-3 text-left">Nama</th>
-                <th class="py-2 pr-3 text-left">Department</th>
-                <th class="py-2 pr-3 text-left">Reporting To</th>
+                <th v-for="column in filterColumns" :key="column.key" class="py-2 pr-3 text-left">
+                  <div class="inline-flex items-center gap-2">
+                    <span>{{ column.label }}</span>
+                    <button
+                      type="button"
+                      :aria-label="`Filter ${column.label}`"
+                      :class="headerFilterButtonClass(isColumnFilterActive(column.key))"
+                      @click.stop="toggleHeaderFilter(column.key, $event)"
+                    >
+                      <svg viewBox="0 0 20 20" class="h-3.5 w-3.5 fill-current" aria-hidden="true">
+                        <path d="M3 5h14l-5.5 6.2V16l-3-1v-3.8L3 5z" />
+                      </svg>
+                    </button>
+                  </div>
+                </th>
                 <th class="py-2 pr-3 text-left">Absensi</th>
                 <th class="py-2 pr-3 text-left">Terlambat</th>
               </tr>
@@ -265,12 +276,50 @@
           </table>
         </div>
       </div>
+
+      <Teleport to="body">
+        <div
+          v-if="activeHeaderFilter"
+          class="fixed z-100 w-72 rounded-lg border border-slate-600 bg-slate-900 p-3 shadow-2xl"
+          :style="headerFilterPosition"
+          @click.stop
+        >
+          <input
+            v-model="headerFilterSearch"
+            type="text"
+            placeholder="Search"
+            class="w-full rounded border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+          />
+          <div class="mt-3 max-h-56 overflow-y-auto rounded border border-slate-700 bg-slate-950/70 p-2">
+            <label class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-slate-200">
+              <input type="checkbox" :checked="activeHeaderAllSelected" @change="toggleHeaderSelectAll" />
+              <span>(Select All)</span>
+            </label>
+            <label
+              v-for="option in activeHeaderOptions"
+              :key="option"
+              class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-slate-200"
+            >
+              <input type="checkbox" :checked="activeHeaderDraft.includes(option)" @change="toggleHeaderOption(option)" />
+              <span>{{ option }}</span>
+            </label>
+            <div v-if="!activeHeaderOptions.length" class="px-1 py-2 text-sm text-slate-400">
+              Tidak ada opsi.
+            </div>
+          </div>
+          <div class="mt-3 flex justify-end">
+            <button type="button" class="rounded bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-500" @click="applyHeaderFilter">
+              OK
+            </button>
+          </div>
+        </div>
+      </Teleport>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -281,11 +330,48 @@ const props = defineProps({
   pagination: { type: Object, default: () => ({}) },
   summary: { type: Object, default: () => ({}) },
   statusOptions: { type: Array, default: () => [] },
+  filterOptions: { type: Object, default: () => ({}) },
+  columnFilters: { type: Object, default: () => ({}) },
   filters: { type: Object, default: () => ({}) },
   canImportAttendance: { type: Boolean, default: false },
   canViewImportHistory: { type: Boolean, default: false },
   batches: { type: Array, default: () => [] },
 });
+
+const filterColumns = [
+  { key: 'pins', label: 'PIN' },
+  { key: 'names', label: 'Nama' },
+  { key: 'departments', label: 'Department' },
+  { key: 'reporting_tos', label: 'Reporting To' },
+];
+const activeHeaderFilter = ref('');
+const headerFilterSearch = ref('');
+const headerFilterPosition = reactive({ left: '12px', top: '12px' });
+const selectedColumnFilters = reactive({ pins: [], names: [], departments: [], reporting_tos: [] });
+const draftColumnFilters = reactive({ pins: [], names: [], departments: [], reporting_tos: [] });
+
+function syncColumnFiltersFromProps() {
+  filterColumns.forEach(({ key }) => {
+    const options = props.filterOptions?.[key] || [];
+    const filter = props.columnFilters?.[key];
+    const selected = filter?.active ? (filter.selected || []) : options;
+    selectedColumnFilters[key] = [...selected];
+    draftColumnFilters[key] = [...selected];
+  });
+}
+
+watch(() => [props.filterOptions, props.columnFilters], syncColumnFiltersFromProps, { deep: true, immediate: true });
+
+const activeHeaderOptions = computed(() => {
+  const options = props.filterOptions?.[activeHeaderFilter.value] || [];
+  const query = headerFilterSearch.value.trim().toLowerCase();
+  return query ? options.filter((option) => String(option).toLowerCase().includes(query)) : options;
+});
+const activeHeaderDraft = computed(() => draftColumnFilters[activeHeaderFilter.value] || []);
+const activeHeaderAllSelected = computed(() =>
+  activeHeaderOptions.value.length > 0
+    && activeHeaderOptions.value.every((option) => activeHeaderDraft.value.includes(option)),
+);
 
 const monthNames = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -333,12 +419,95 @@ function formatSchedule(start, end) {
   return `${start} - ${end}`;
 }
 
+function isColumnFilterActive(key) {
+  const options = props.filterOptions?.[key] || [];
+  const selected = selectedColumnFilters[key] || [];
+  return !(options.length === selected.length && options.every((option) => selected.includes(option)));
+}
+
+function columnFilterQuery() {
+  const query = {};
+  filterColumns.forEach(({ key }) => {
+    const active = isColumnFilterActive(key);
+    query[`filter_${key}`] = active;
+    if (active) {
+      query[key] = selectedColumnFilters[key];
+    }
+  });
+  return query;
+}
+
+function headerFilterButtonClass(isActive) {
+  return [
+    'inline-flex h-6 w-6 items-center justify-center rounded border transition',
+    isActive
+      ? 'border-sky-400/60 bg-sky-500/20 text-sky-200'
+      : 'border-slate-600 bg-slate-900 text-slate-400 hover:text-slate-200',
+  ];
+}
+
+function toggleHeaderFilter(key, event) {
+  if (activeHeaderFilter.value === key) {
+    activeHeaderFilter.value = '';
+    return;
+  }
+
+  activeHeaderFilter.value = key;
+  headerFilterSearch.value = '';
+  draftColumnFilters[key] = [...selectedColumnFilters[key]];
+
+  const bounds = event.currentTarget.getBoundingClientRect();
+  const popupHeight = 320;
+  const left = Math.max(12, Math.min(window.innerWidth - 300, bounds.left));
+  const top = bounds.bottom + popupHeight + 12 <= window.innerHeight
+    ? bounds.bottom + 8
+    : Math.max(12, bounds.top - popupHeight - 8);
+  headerFilterPosition.left = `${left}px`;
+  headerFilterPosition.top = `${top}px`;
+}
+
+function toggleHeaderOption(option) {
+  const selected = draftColumnFilters[activeHeaderFilter.value];
+  draftColumnFilters[activeHeaderFilter.value] = selected.includes(option)
+    ? selected.filter((value) => value !== option)
+    : [...selected, option];
+}
+
+function toggleHeaderSelectAll() {
+  const key = activeHeaderFilter.value;
+  const visible = activeHeaderOptions.value;
+  if (activeHeaderAllSelected.value) {
+    draftColumnFilters[key] = draftColumnFilters[key].filter((value) => !visible.includes(value));
+    return;
+  }
+
+  draftColumnFilters[key] = Array.from(new Set([...draftColumnFilters[key], ...visible]));
+}
+
+function applyHeaderFilter() {
+  const key = activeHeaderFilter.value;
+  if (!key) return;
+
+  selectedColumnFilters[key] = [...draftColumnFilters[key]];
+  activeHeaderFilter.value = '';
+
+  router.get('/attendance', {
+    date_from: form.date_from,
+    date_to: form.date_to,
+    status: form.status,
+    q: form.q,
+    page: 1,
+    ...columnFilterQuery(),
+  }, { preserveState: true, preserveScroll: true });
+}
+
 function applyFilters() {
   router.get('/attendance', {
     date_from: form.date_from,
     date_to: form.date_to,
     status: form.status,
     q: form.q,
+    ...columnFilterQuery(),
   }, { preserveState: true, preserveScroll: true });
 }
 
@@ -358,6 +527,7 @@ function goToPage(page) {
     date_to: form.date_to,
     status: form.status,
     q: form.q,
+    ...columnFilterQuery(),
   }, { preserveState: true, preserveScroll: true });
 }
 
