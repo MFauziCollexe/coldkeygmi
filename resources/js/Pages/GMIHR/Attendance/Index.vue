@@ -112,7 +112,6 @@
                 <th class="py-2 pr-3 text-left">PIN</th>
                 <th class="py-2 pr-3 text-left">Nama</th>
                 <th class="py-2 pr-3 text-left">Shift</th>
-                <th class="py-2 pr-3 text-left">Jadwal</th>
                 <th class="py-2 pr-3 text-left">Masuk</th>
                 <th class="py-2 pr-3 text-left">Pulang</th>
                 <th class="py-2 pr-3 text-left">Status</th>
@@ -130,7 +129,6 @@
                 <td class="py-2 pr-3">{{ row.pin || '-' }}</td>
                 <td class="py-2 pr-3">{{ row.name }}</td>
                 <td class="py-2 pr-3">{{ row.shift_code || (row.is_off ? 'OFF' : '-') }}</td>
-                <td class="py-2 pr-3">{{ formatSchedule(row.schedule_start, row.schedule_end) }}</td>
                 <td class="py-2 pr-3">{{ row.check_in || '—' }}</td>
                 <td class="py-2 pr-3">{{ row.check_out || '—' }}</td>
                 <td class="py-2 pr-3">
@@ -204,7 +202,6 @@
                             <th class="px-4 py-2 text-left">Tanggal</th>
                             <th class="px-4 py-2 text-left">Shift</th>
                             <th class="px-4 py-2 text-left">Hari</th>
-                            <th class="px-4 py-2 text-left">Jadwal</th>
                             <th class="px-4 py-2 text-left">Masuk</th>
                             <th class="px-4 py-2 text-left">Pulang</th>
                             <th class="px-4 py-2 text-left">Status</th>
@@ -215,7 +212,6 @@
                             <td class="px-4 py-2 text-slate-200">{{ row.attendance_date_label }}</td>
                             <td class="px-4 py-2">{{ row.shift_code || (row.is_off ? 'OFF' : '-') }}</td>
                             <td class="px-4 py-2 text-slate-300">{{ row.day_name }}</td>
-                            <td class="px-4 py-2">{{ formatSchedule(row.schedule_start, row.schedule_end) }}</td>
                             <td class="px-4 py-2">{{ row.check_in || '—' }}</td>
                             <td class="px-4 py-2">{{ row.check_out || '—' }}</td>
                             <td class="px-4 py-2">
