@@ -115,7 +115,6 @@
                 <th class="py-2 pr-3 text-left">Jadwal</th>
                 <th class="py-2 pr-3 text-left">Masuk</th>
                 <th class="py-2 pr-3 text-left">Pulang</th>
-                <th class="py-2 pr-3 text-left">Lembur</th>
                 <th class="py-2 pr-3 text-left">Status</th>
               </tr>
             </thead>
@@ -134,7 +133,6 @@
                 <td class="py-2 pr-3">{{ formatSchedule(row.schedule_start, row.schedule_end) }}</td>
                 <td class="py-2 pr-3">{{ row.check_in || '—' }}</td>
                 <td class="py-2 pr-3">{{ row.check_out || '—' }}</td>
-                <td class="py-2 pr-3">{{ row.overtime_label || '—' }}</td>
                 <td class="py-2 pr-3">
                   <span v-if="row.is_valid" class="inline-flex rounded-full px-2 py-0.5 text-xs" :class="statusBadgeClass(row.status)">
                     {{ row.status || '-' }}
@@ -209,7 +207,6 @@
                             <th class="px-4 py-2 text-left">Jadwal</th>
                             <th class="px-4 py-2 text-left">Masuk</th>
                             <th class="px-4 py-2 text-left">Pulang</th>
-                            <th class="px-4 py-2 text-left">Lembur</th>
                             <th class="px-4 py-2 text-left">Status</th>
                           </tr>
                         </thead>
@@ -221,7 +218,6 @@
                             <td class="px-4 py-2">{{ formatSchedule(row.schedule_start, row.schedule_end) }}</td>
                             <td class="px-4 py-2">{{ row.check_in || '—' }}</td>
                             <td class="px-4 py-2">{{ row.check_out || '—' }}</td>
-                            <td class="px-4 py-2">{{ row.overtime_label || '—' }}</td>
                             <td class="px-4 py-2">
                               <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium" :class="statusBadgeClass(row.status)">
                                 {{ row.status || '-' }}
