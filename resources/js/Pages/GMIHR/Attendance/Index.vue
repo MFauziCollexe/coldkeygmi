@@ -45,6 +45,13 @@
                 class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-1.5 text-sm"
               />
             </div>
+            <button
+              type="button"
+              class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold hover:bg-indigo-500"
+              @click="downloadAttendanceTemplate"
+            >
+              Template Excel
+            </button>
           </template>
           <div class="flex shrink-0 items-end gap-2">
             <button class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold hover:bg-sky-500" @click="applyFilters">
@@ -52,6 +59,9 @@
             </button>
             <button class="rounded bg-slate-600 px-4 py-2 text-sm font-semibold hover:bg-slate-500" @click="resetFilters">
               Reset
+            </button>
+            <button class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold hover:bg-emerald-500" @click="exportExcel">
+              Export Excel
             </button>
             <button
               v-if="canImportAttendance"
@@ -503,6 +513,26 @@ function applyFilters() {
   }, { preserveState: true, preserveScroll: true });
 }
 
+function exportExcel() {
+  const params = new URLSearchParams({
+    export: 'excel',
+    date_from: form.date_from,
+    date_to: form.date_to,
+    status: form.status,
+    q: form.q,
+  });
+
+  Object.entries(columnFilterQuery()).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((option) => params.append(`${key}[]`, option));
+    } else if (value) {
+      params.set(key, '1');
+    }
+  });
+
+  window.location.href = `/attendance?${params.toString()}`;
+}
+
 function resetFilters() {
   const now = new Date();
   form.date_from = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -533,6 +563,12 @@ function importFallbackPeriod() {
   }
 
   return { month: currentMonth, year: currentYear };
+}
+
+function downloadAttendanceTemplate() {
+  const { month, year } = importFallbackPeriod();
+  const params = new URLSearchParams({ month: String(month), year: String(year) });
+  window.location.href = `/attendance/import/template?${params.toString()}`;
 }
 
 async function previewImport() {

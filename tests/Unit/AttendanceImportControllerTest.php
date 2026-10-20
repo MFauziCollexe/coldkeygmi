@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Http\Controllers\AttendanceImportController;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -54,6 +55,91 @@ class AttendanceImportControllerTest extends TestCase
             $this->assertSame('2025-07-01', $dates[0]);
             $this->assertSame('2025-07-31', $dates[30]);
             $this->assertCount(1, array_unique(array_map(fn (string $date) => substr($date, 0, 7), $dates)));
+        }
+    }
+
+    public function test_attendance_export_streams_an_xlsx_file(): void
+    {
+        $controller = new AttendanceImportController();
+        $method = new ReflectionMethod($controller, 'exportAttendanceExcel');
+        $method->setAccessible(true);
+        $groups = collect([
+            [
+                'pin' => '000123',
+                'name' => 'Test Employee',
+                'department_name' => 'Operations',
+                'supervisor_name' => 'Supervisor',
+                'total_records' => 1,
+                'rows' => collect([
+                    [
+                        'attendance_date_label' => '20 Okt 2026',
+                        'day_name' => 'Selasa',
+                        'shift_code' => 'A',
+                        'check_in' => '08:00',
+                        'check_out' => '17:00',
+                        'status' => 'On Time',
+                    ],
+                ]),
+            ],
+        ]);
+
+        $response = $method->invoke($controller, $groups, '2026-10-01', '2026-10-31');
+        ob_start();
+        $response->sendContent();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            $response->headers->get('Content-Type')
+        );
+        $this->assertStringStartsWith('PK', $output);
+        $this->assertDummyWorkbookHeaders($output);
+    }
+
+    public function test_attendance_template_download_uses_flat_dummy_workbook(): void
+    {
+        $controller = new AttendanceImportController();
+        $request = Request::create('/attendance/import/template', 'GET', [
+            'month' => 7,
+            'year' => 2026,
+        ]);
+        $request->setUserResolver(fn () => (object) [
+            'department' => (object) ['code' => 'IT'],
+        ]);
+
+        $response = $controller->template($request);
+        $disposition = $response->headers->get('Content-Disposition');
+
+        ob_start();
+        $response->sendContent();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('template_attendance_dummy_2026_07.xlsx', $disposition);
+        $this->assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            $response->headers->get('Content-Type')
+        );
+        $this->assertStringStartsWith('PK', $output);
+        $this->assertDummyWorkbookHeaders($output);
+    }
+
+    private function assertDummyWorkbookHeaders(string $output): void
+    {
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'attendance-xlsx-');
+        $workbookPath = $temporaryPath . '.xlsx';
+        rename($temporaryPath, $workbookPath);
+
+        try {
+            file_put_contents($workbookPath, $output);
+            $workbook = IOFactory::load($workbookPath);
+            $sheet = $workbook->getActiveSheet();
+
+            $this->assertSame([
+                'Tanggal', 'PIN', 'Nama', 'Shift', 'Hari', 'Masuk', 'Pulang',
+            ], $sheet->rangeToArray('A1:G1', null, true, false)[0]);
+            $this->assertNull($sheet->getCell('H1')->getValue());
+        } finally {
+            @unlink($workbookPath);
         }
     }
 }

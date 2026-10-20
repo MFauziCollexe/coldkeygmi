@@ -8,6 +8,7 @@ use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -184,6 +185,10 @@ class AttendanceImportController extends Controller
             }
         }
 
+        if ((string) $request->input('export') === 'excel') {
+            return $this->exportAttendanceExcel($groups);
+        }
+
         $summary = [
             'total_records' => $rawRows->count(),
             'total_employees' => $groups->count(),
@@ -248,6 +253,66 @@ class AttendanceImportController extends Controller
         ]);
     }
 
+    private function exportAttendanceExcel(Collection $groups)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Attendance Dummy');
+        $sheet->fromArray([
+            'Tanggal', 'PIN', 'Nama', 'Shift', 'Hari', 'Masuk', 'Pulang',
+        ], null, 'A1');
+
+        $headerStyle = $sheet->getStyle('A1:G1');
+        $headerStyle->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $headerStyle->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF1F4E79');
+        $headerStyle->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $headerStyle->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+
+        $rowNumber = 2;
+        foreach ($groups as $group) {
+            foreach ($group['rows'] as $row) {
+                $attendanceDate = (string) ($row['attendance_date'] ?? '');
+                $dateLabel = $attendanceDate !== ''
+                    ? Carbon::parse($attendanceDate)->format('d/m/Y')
+                    : '-';
+                $sheet->setCellValue("A{$rowNumber}", $dateLabel);
+                $sheet->setCellValueExplicit(
+                    "B{$rowNumber}",
+                    (string) ($group['pin'] ?? ''),
+                    \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+                );
+                $sheet->fromArray([
+                    $group['name'] ?: '-',
+                    ($row['shift_code'] ?? '') ?: (($row['is_off'] ?? false) ? 'OFF' : '-'),
+                    $row['day_name'] ?: '-',
+                    $row['check_in'] ?: '-',
+                    $row['check_out'] ?: '-',
+                ], null, "C{$rowNumber}");
+                $rowNumber++;
+            }
+        }
+
+        $lastRow = max(1, $rowNumber - 1);
+        $sheet->getStyle("A1:G{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        foreach ([12, 10, 24, 8, 16, 10, 10] as $columnIndex => $width) {
+            $sheet->getColumnDimension($this->columnLetter($columnIndex + 1))->setWidth($width);
+        }
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter("A1:G{$lastRow}");
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'attendance_dummy_' . now()->format('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
+    }
+
     private function normalizeAttendanceDateFilter($value): ?string
     {
         $value = trim((string) $value);
@@ -280,76 +345,43 @@ class AttendanceImportController extends Controller
 
         $month = (int) $request->input('month');
         $year = (int) $request->input('year');
-        $daysInMonth = Carbon::create($year, $month, 1)->daysInMonth;
-        $monthLabel = strtoupper(Carbon::create($year, $month, 1)->locale('id')->translatedFormat('F'));
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Attendance');
+        $sheet->setTitle('Attendance Dummy');
+        $headers = ['Tanggal', 'PIN', 'Nama', 'Shift', 'Hari', 'Masuk', 'Pulang'];
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->getStyle('A1:G1')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => 'solid',
+                'color' => ['rgb' => '1F4E79'],
+            ],
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical' => 'center',
+            ],
+        ]);
 
-        $startCol = 3;
-        $endCol = $startCol + $daysInMonth - 1;
-        $endColLetter = $this->columnLetter($endCol);
-
-        $sheet->setCellValue('A1', 'PIN');
-        $sheet->setCellValue('B1', 'Nama');
-        $sheet->mergeCells("C1:{$endColLetter}1");
-        $sheet->setCellValue('C1', "ATTENDANCE {$monthLabel} {$year}");
-
-        $dayNames = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
-        for ($day = 1; $day <= $daysInMonth; $day++) {
-            $col = $startCol + $day - 1;
-            $colLetter = $this->columnLetter($col);
-            $date = Carbon::create($year, $month, $day);
-            $sheet->setCellValue("{$colLetter}2", $day);
-            $sheet->setCellValue("{$colLetter}3", $dayNames[$date->dayOfWeek]);
+        for ($row = 2; $row <= 4; $row++) {
+            for ($column = 1; $column <= 7; $column++) {
+                $sheet->setCellValue($this->columnLetter($column) . $row, '');
+            }
         }
 
-        for ($row = 4; $row <= 6; $row++) {
-            $sheet->setCellValue("A{$row}", '');
-            $sheet->setCellValue("B{$row}", '');
+        foreach ([12, 10, 24, 8, 16, 10, 10] as $columnIndex => $width) {
+            $sheet->getColumnDimension($this->columnLetter($columnIndex + 1))->setWidth($width);
         }
 
-        $lastRow = 6;
-        $sheet->getColumnDimension('A')->setWidth(14);
-        $sheet->getColumnDimension('B')->setWidth(30);
-        for ($col = $startCol; $col <= $endCol; $col++) {
-            $sheet->getColumnDimension($this->columnLetter($col))->setWidth(5);
-        }
+        $sheet->getStyle('A1:G4')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:G4');
+        $sheet->getRowDimension(1)->setRowHeight(22);
 
-        $sheet->getStyle("A1:{$endColLetter}3")->getFont()->setBold(true);
-        $sheet->getStyle("A1:{$endColLetter}1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFF6E05E');
-        $sheet->getStyle("A2:{$endColLetter}3")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFF99');
-        $sheet->getStyle("A1:{$endColLetter}{$lastRow}")
-            ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setARGB('FF000000');
-        $sheet->getStyle("A1:{$endColLetter}{$lastRow}")
-            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle("B4:B{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-
-        $legend = $spreadsheet->createSheet();
-        $legend->setTitle('Petunjuk');
-        $legendRows = [
-            ['Cara isi', 'Contoh', 'Keterangan'],
-            ['Jam masuk + jam keluar + status', '07:20', 'Tiap baris sel diisi dengan menekan Alt+Enter'],
-            ['', '15:05', ''],
-            ['', 'On Time', ''],
-            ['Hanya jam masuk + status', '13:36', 'Contoh: Dinas Luar / Tidak Scan pulang'],
-            ['', 'Tidak Scan pulang', ''],
-            ['Jam masuk + jam keluar (tanpa status)', '07:20, 15:05', 'Pisahkan dengan koma / spasi / slash dalam satu sel'],
-            ['Status tunggal', 'OFF', 'Hari libur mingguan'],
-            ['', 'Libur Nasional', 'Hari libur nasional'],
-            ['', 'Cuti / Izin / Sakit / Dinas Luar', 'Cuti / izin / sakit / dinas luar'],
-            ['', 'Cek Lagi', 'Perlu dicek ulang'],
-        ];
-        $legend->fromArray($legendRows, null, 'A1');
-        $legend->getStyle('A1:C1')->getFont()->setBold(true);
-        $legend->getStyle('A1:C1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFF6E05E');
-        $legend->getColumnDimension('A')->setWidth(34);
-        $legend->getColumnDimension('B')->setWidth(22);
-        $legend->getColumnDimension('C')->setWidth(48);
-        $spreadsheet->setActiveSheetIndex(0);
-
-        $filename = sprintf('template_attendance_%04d_%02d.xlsx', $year, $month);
+        $filename = sprintf('template_attendance_dummy_%04d_%02d.xlsx', $year, $month);
         $writer = new Xlsx($spreadsheet);
 
         return response()->streamDownload(function () use ($writer) {
