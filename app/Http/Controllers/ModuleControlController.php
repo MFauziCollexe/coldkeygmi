@@ -43,6 +43,10 @@ class ModuleControlController extends Controller
             ModulePermission::create(['user_id' => $userId, 'module_key' => $key]);
         }
 
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Permissions updated']);
+        }
+
         return redirect()->back()->with('success', 'Permissions updated');
     }
 

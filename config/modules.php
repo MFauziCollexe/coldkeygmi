@@ -84,6 +84,7 @@ return [
                 ['key' => 'gmihr.attendance.overtime', 'label' => 'Overtime'],
                 ['key' => 'gmihr.attendance.the_days', 'label' => 'The Days'],
             ]],
+            ['key' => 'gmihr.attendance.import', 'label' => 'Attendance'],
             ['key' => 'gmihr.payroll', 'label' => 'Payroll', 'children' => [
                 ['key' => 'gmihr.payroll.salary', 'label' => 'Salary'],
                 ['key' => 'gmihr.payroll.payslip', 'label' => 'Payslip'],

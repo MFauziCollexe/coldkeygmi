@@ -72,8 +72,8 @@
 import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import modules from '@/Config/modules.js';
-import { router } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
+import Swal from 'sweetalert2';
 
 const props = defineProps({ users: Array, modules: Object });
 const users = props.users || [];
@@ -131,7 +131,7 @@ async function selectUser(u) {
   }
 }
 
-function save() {
+async function save() {
   if (!selectedUser.value) {
     Swal.fire({
       icon: 'warning',
@@ -143,10 +143,43 @@ function save() {
   }
   // normalize keys (convert dot-separated keys to underscore format)
   const normalized = selectedPermissions.value.map(k => k.replace(/\./g, '_'));
-  router.post('/control-panel/module-control/save', {
-    user_id: selectedUser.value.id,
-    permissions: normalized,
-  });
+
+  try {
+    const response = await fetch('/control-panel/module-control/save', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+      },
+      body: JSON.stringify({
+        user_id: selectedUser.value.id,
+        permissions: normalized,
+      }),
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      const validationMessage = Object.values(result.errors || {}).flat()[0];
+      throw new Error(validationMessage || result.message || 'Gagal menyimpan permission.');
+    }
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Berhasil',
+      text: result.message || 'Permission berhasil disimpan.',
+      timer: 1600,
+      showConfirmButton: false,
+    });
+  } catch (error) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Gagal menyimpan',
+      text: error.message || 'Terjadi kesalahan saat menyimpan permission.',
+      confirmButtonColor: '#dc2626',
+    });
+  }
 }
 
 function hasPermission(key) {
