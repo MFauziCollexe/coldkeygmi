@@ -702,8 +702,6 @@ class AttendanceLogController extends Controller
             })->values();
         }
 
-        $summaryRows = $rows;
-
         if ($dateFrom !== null || $dateTo !== null) {
             $rows = $rows->filter(function (array $row) use ($dateFrom, $dateTo) {
                 $logDate = $this->toDateString($row['log_date'] ?? null);
@@ -719,6 +717,8 @@ class AttendanceLogController extends Controller
                 return true;
             })->values();
         }
+
+        $summaryRows = $rows;
 
         if ($q !== '') {
             $needle = mb_strtolower($q);
