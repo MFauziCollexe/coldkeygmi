@@ -485,6 +485,21 @@ class AttendanceLogController extends Controller
             $unmatchedByPinDate[$normalizedPin][$logDate] = $scans->sortBy('scan_date')->values();
         }
 
+        $rosterDateKeys = [];
+        foreach ($rosterRows as $rosterRow) {
+            $logDate = $this->toDateString($rosterRow->log_date);
+            $pin = $this->normalizePin((string) $rosterRow->pin);
+            if ($logDate === null || $pin === '') {
+                continue;
+            }
+
+            foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
+                $rosterDateKeys[$logDate . '|' . $candidatePin] = true;
+            }
+
+            $unmatchedByPinDate[$pin] = $unmatchedByPinDate[$pin] ?? [];
+        }
+
         // Also include historical fingerprint PINs even when selected month has no scans,
         // so "Tanpa Roster" can still be shown for that period.
         $historicalPins = DB::table('fingerprints')
@@ -503,22 +518,10 @@ class AttendanceLogController extends Controller
                 continue;
             }
 
-            if ($this->hasRosterPinMatch($pin, $rosterPinIndex)) {
-                continue;
-            }
-
-            if (!isset($unmatchedByPinDate[$pin])) {
-                $unmatchedByPinDate[$pin] = [];
-            }
+            $unmatchedByPinDate[$pin] = $unmatchedByPinDate[$pin] ?? [];
         }
 
         foreach ($unmatchedByPinDate as $pin => $dateMap) {
-            // If this PIN can still be matched with roster using normalized/legacy variants,
-            // do not generate fallback no-roster rows.
-            if ($this->hasRosterPinMatch($pin, $rosterPinIndex)) {
-                continue;
-            }
-
             $monthKeys = collect(array_keys($dateMap))
                 ->map(fn($date) => Carbon::parse($date)->format('Y-m'))
                 ->unique()
@@ -548,16 +551,28 @@ class AttendanceLogController extends Controller
                 $employeeInfo = $employeeInfoByPin->get($pin);
                 $displayPin = $this->resolveAttendanceDisplayPin(null, $employeeInfo, collect($dateMap)->flatten(1), $pin);
                 $departmentName = trim((string) (($employeeInfo['department_name'] ?? '')));
+                $pinCandidates = $this->pinCandidatesForMatch($pin);
 
                 for ($day = 1; $day <= $daysInMonth; $day++) {
                     $logDate = $monthStart->copy()->day($day)->format('Y-m-d');
+                    $hasRosterForDate = false;
+                    foreach ($pinCandidates as $candidatePin) {
+                        if (isset($rosterDateKeys[$logDate . '|' . $candidatePin])) {
+                            $hasRosterForDate = true;
+                            break;
+                        }
+                    }
+                    if ($hasRosterForDate) {
+                        continue;
+                    }
+
                     ['start_time' => $defaultStartTime, 'end_time' => $defaultEndTime, 'next_day_start_time' => $defaultNextDayStartTime, 'label' => $defaultScheduleLabel] = $this->resolveNoRosterSchedule($logDate, $displayPin, $departmentName);
                     $lookupDates = $this->scanLookupDatesForSchedule($logDate, $defaultStartTime, $defaultEndTime, $defaultNextDayStartTime);
                     if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
                         $lookupDates = $this->resolveFlexibleT2PScanLookupDates($logDate);
                     }
                     $scans = collect();
-                    foreach ($this->pinCandidatesForMatch($pin) as $candidatePin) {
+                    foreach ($pinCandidates as $candidatePin) {
                         foreach ($lookupDates as $lookupDate) {
                             $scans = $scans->merge($scanGroups->get($lookupDate . '|' . $candidatePin, collect()));
                         }
