@@ -819,9 +819,6 @@ Route::get('roster/template', [RosterController::class, 'template'])
 Route::get('attendance', [App\Http\Controllers\AttendanceImportController::class, 'index'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.import'])
     ->name('attendance.index');
-Route::get('attendance/import/template', [App\Http\Controllers\AttendanceImportController::class, 'template'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.import'])
-    ->name('attendance.template');
 Route::post('attendance/import/preview', [App\Http\Controllers\AttendanceImportController::class, 'preview'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.import'])
     ->name('attendance.preview');

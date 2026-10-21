@@ -186,7 +186,7 @@ class AttendanceImportController extends Controller
         }
 
         if ((string) $request->input('export') === 'excel') {
-            return $this->exportAttendanceExcel($groups);
+            return $this->exportAttendanceExcel($groups, $dateFrom, $dateTo);
         }
 
         $summary = [
@@ -253,55 +253,129 @@ class AttendanceImportController extends Controller
         ]);
     }
 
-    private function exportAttendanceExcel(Collection $groups)
+    private function exportAttendanceExcel(Collection $groups, string $dateFrom, string $dateTo)
     {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Attendance Dummy');
-        $sheet->fromArray([
-            'Tanggal', 'PIN', 'Nama', 'Shift', 'Hari', 'Masuk', 'Pulang',
-        ], null, 'A1');
+        $sheet->setTitle('Attendance');
 
-        $headerStyle = $sheet->getStyle('A1:G1');
-        $headerStyle->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-        $headerStyle->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF1F4E79');
-        $headerStyle->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $headerStyle->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+        $dates = [];
+        $startDate = Carbon::parse($dateFrom)->startOfDay();
+        $endDate = Carbon::parse($dateTo)->startOfDay();
+        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
+            $dates[] = $date->toDateString();
+        }
 
-        $rowNumber = 2;
+        $lastColumn = $this->columnLetter(count($dates) + 2);
+        $sheet->mergeCells('A1:A2');
+        $sheet->mergeCells('B1:B2');
+        $sheet->setCellValue('A1', 'No');
+        $sheet->setCellValue('B1', 'Nama');
+
+        $dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        foreach ($dates as $index => $attendanceDate) {
+            $column = $this->columnLetter($index + 3);
+            $date = Carbon::parse($attendanceDate);
+            $sheet->setCellValue("{$column}1", $date->day);
+            $sheet->setCellValue("{$column}2", $dayNames[$date->dayOfWeek]);
+        }
+
+        $gridColor = '6AA84F';
+        $sheet->getStyle("A1:{$lastColumn}2")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => '111827']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => 'FFFFFF']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => $gridColor]],
+            ],
+        ]);
+        if ($dates !== []) {
+            $sheet->getStyle('C1:' . $lastColumn . '1')->getFont()->getColor()->setRGB('7C3AED');
+            $sheet->getStyle('C1:' . $lastColumn . '1')->getFont()->setSize(12);
+            $sheet->getStyle('C2:' . $lastColumn . '2')->getFont()->setSize(9);
+        }
+
+        $rowNumber = 3;
         foreach ($groups as $group) {
-            foreach ($group['rows'] as $row) {
-                $attendanceDate = (string) ($row['attendance_date'] ?? '');
-                $dateLabel = $attendanceDate !== ''
-                    ? Carbon::parse($attendanceDate)->format('d/m/Y')
-                    : '-';
-                $sheet->setCellValue("A{$rowNumber}", $dateLabel);
-                $sheet->setCellValueExplicit(
-                    "B{$rowNumber}",
-                    (string) ($group['pin'] ?? ''),
-                    \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
-                );
-                $sheet->fromArray([
-                    $group['name'] ?: '-',
-                    ($row['shift_code'] ?? '') ?: (($row['is_off'] ?? false) ? 'OFF' : '-'),
-                    $row['day_name'] ?: '-',
-                    $row['check_in'] ?: '-',
-                    $row['check_out'] ?: '-',
-                ], null, "C{$rowNumber}");
-                $rowNumber++;
+            $sheet->setCellValueExplicit(
+                "A{$rowNumber}",
+                (string) ($group['pin'] ?? ''),
+                \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+            );
+            $sheet->setCellValue("B{$rowNumber}", (string) ($group['name'] ?? '-'));
+            $sheet->getStyle("A{$rowNumber}:B{$rowNumber}")->applyFromArray([
+                'font' => ['color' => ['rgb' => '111827'], 'size' => 10],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => 'E5E7EB']],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
+                ],
+                'borders' => [
+                    'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => $gridColor]],
+                ],
+            ]);
+            $sheet->getStyle("B{$rowNumber}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+
+            $rowsByDate = collect($group['rows'])->keyBy('attendance_date');
+            foreach ($dates as $dateIndex => $attendanceDate) {
+                $column = $this->columnLetter($dateIndex + 3);
+                $row = $rowsByDate->get($attendanceDate);
+                $cellLines = [];
+                $fillColor = 'FFFFFF';
+
+                if (is_array($row)) {
+                    $checkIn = trim((string) ($row['check_in'] ?? ''));
+                    $checkOut = trim((string) ($row['check_out'] ?? ''));
+                    $status = trim((string) ($row['status'] ?? ''));
+                    if ($checkIn !== '' && $checkIn !== '-') $cellLines[] = substr($checkIn, 0, 5);
+                    if ($checkOut !== '' && $checkOut !== '-') $cellLines[] = substr($checkOut, 0, 5);
+                    if ($status === '' && ($row['is_off'] ?? false)) $status = 'OFF';
+                    if ($status !== '' && $status !== '-') $cellLines[] = $status;
+
+                    $statusLower = mb_strtolower($status);
+                    if ($statusLower === 'terlambat') {
+                        $fillColor = 'FDE047';
+                    } elseif ($statusLower === 'tidak masuk') {
+                        $fillColor = 'FCA5A5';
+                    } elseif ($statusLower === 'off' || $statusLower === 'libur nasional' || $cellLines !== []) {
+                        $fillColor = 'D1D5DB';
+                    }
+                }
+
+                $sheet->setCellValue("{$column}{$rowNumber}", implode("\n", $cellLines));
+                $sheet->getStyle("{$column}{$rowNumber}")->applyFromArray([
+                    'font' => ['color' => ['rgb' => '111827'], 'size' => 9],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => $fillColor]],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical' => Alignment::VERTICAL_CENTER,
+                        'wrapText' => true,
+                    ],
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => $gridColor]],
+                    ],
+                ]);
             }
+
+            $sheet->getRowDimension($rowNumber)->setRowHeight(58);
+            $rowNumber++;
         }
 
-        $lastRow = max(1, $rowNumber - 1);
-        $sheet->getStyle("A1:G{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        foreach ([12, 10, 24, 8, 16, 10, 10] as $columnIndex => $width) {
-            $sheet->getColumnDimension($this->columnLetter($columnIndex + 1))->setWidth($width);
+        $sheet->getColumnDimension('A')->setWidth(14);
+        $sheet->getColumnDimension('B')->setWidth(30);
+        foreach ($dates as $index => $attendanceDate) {
+            $sheet->getColumnDimension($this->columnLetter($index + 3))->setWidth(9.5);
         }
-        $sheet->freezePane('A2');
-        $sheet->setAutoFilter("A1:G{$lastRow}");
+        $sheet->getRowDimension(1)->setRowHeight(24);
+        $sheet->getRowDimension(2)->setRowHeight(20);
+        $sheet->freezePane('C3');
 
         $writer = new Xlsx($spreadsheet);
-        $filename = 'attendance_dummy_' . now()->format('Ymd_His') . '.xlsx';
+        $filename = 'attendance_' . now()->format('Ymd_His') . '.xlsx';
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
@@ -332,66 +406,6 @@ class AttendanceImportController extends Controller
     private function normalizeAttendancePin(string $pin): string
     {
         return mb_strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', trim($pin)) ?? '');
-    }
-
-    public function template(Request $request)
-    {
-        abort_unless($this->isItDepartment($request), 403);
-
-        $request->validate([
-            'month' => 'required|integer|min:1|max:12',
-            'year' => 'required|integer|min:2000|max:2100',
-        ]);
-
-        $month = (int) $request->input('month');
-        $year = (int) $request->input('year');
-
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Attendance Dummy');
-        $headers = ['Tanggal', 'PIN', 'Nama', 'Shift', 'Hari', 'Masuk', 'Pulang'];
-        $sheet->fromArray($headers, null, 'A1');
-        $sheet->getStyle('A1:G1')->applyFromArray([
-            'font' => [
-                'bold' => true,
-                'color' => ['rgb' => 'FFFFFF'],
-            ],
-            'fill' => [
-                'fillType' => 'solid',
-                'color' => ['rgb' => '1F4E79'],
-            ],
-            'alignment' => [
-                'horizontal' => 'center',
-                'vertical' => 'center',
-            ],
-        ]);
-
-        for ($row = 2; $row <= 4; $row++) {
-            for ($column = 1; $column <= 7; $column++) {
-                $sheet->setCellValue($this->columnLetter($column) . $row, '');
-            }
-        }
-
-        foreach ([12, 10, 24, 8, 16, 10, 10] as $columnIndex => $width) {
-            $sheet->getColumnDimension($this->columnLetter($columnIndex + 1))->setWidth($width);
-        }
-
-        $sheet->getStyle('A1:G4')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        $sheet->freezePane('A2');
-        $sheet->setAutoFilter('A1:G4');
-        $sheet->getRowDimension(1)->setRowHeight(22);
-
-        $filename = sprintf('template_attendance_dummy_%04d_%02d.xlsx', $year, $month);
-        $writer = new Xlsx($spreadsheet);
-
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
-        }, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-            'Pragma' => 'no-cache',
-            'Expires' => '0',
-        ]);
     }
 
     public function preview(Request $request)

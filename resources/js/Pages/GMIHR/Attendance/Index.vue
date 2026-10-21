@@ -45,13 +45,6 @@
                 class="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-1.5 text-sm"
               />
             </div>
-            <button
-              type="button"
-              class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold hover:bg-indigo-500"
-              @click="downloadAttendanceTemplate"
-            >
-              Template Excel
-            </button>
           </template>
           <div class="flex shrink-0 items-end gap-2">
             <button class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold hover:bg-sky-500" @click="applyFilters">
@@ -563,12 +556,6 @@ function importFallbackPeriod() {
   }
 
   return { month: currentMonth, year: currentYear };
-}
-
-function downloadAttendanceTemplate() {
-  const { month, year } = importFallbackPeriod();
-  const params = new URLSearchParams({ month: String(month), year: String(year) });
-  window.location.href = `/attendance/import/template?${params.toString()}`;
 }
 
 async function previewImport() {

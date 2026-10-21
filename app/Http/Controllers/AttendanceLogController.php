@@ -3908,6 +3908,12 @@ class AttendanceLogController extends Controller
         $rowIndex = 2;
         foreach ($rows as $row) {
             $logDate = (string) ($row['log_date'] ?? '');
+            $isOctober = false;
+            try {
+                $isOctober = Carbon::parse($logDate)->month === 10;
+            } catch (\Throwable $e) {
+                // Keep the existing fallback for unparseable dates.
+            }
 
             if ($this->isDummyForcedOff((string) ($row['pin'] ?? ''), $logDate)) {
                 $shift = '-';
@@ -3925,11 +3931,11 @@ class AttendanceLogController extends Controller
                 $lembur = trim((string) ($row['overtime_label'] ?? '')) ?: '-';
 
                 $filled = false;
-                if ($checkIn === '-' && trim((string) ($row['start_time'] ?? '')) !== '') {
+                if (!$isOctober && $checkIn === '-' && trim((string) ($row['start_time'] ?? '')) !== '') {
                     $checkIn = $this->dummyFillCheckIn((string) $row['start_time']);
                     $filled = true;
                 }
-                if ($checkOut === '-' && trim((string) ($row['end_time'] ?? '')) !== '') {
+                if (!$isOctober && $checkOut === '-' && trim((string) ($row['end_time'] ?? '')) !== '') {
                     $checkOut = $this->dummyFillCheckOut((string) $row['end_time']);
                     $filled = true;
                 }

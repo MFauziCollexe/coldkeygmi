@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Http\Controllers\AttendanceLogController;
 use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use ReflectionMethod;
 use stdClass;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -24,6 +25,54 @@ class AttendanceLogControllerTest extends TestCase
             'attendance_log_',
             (string) $response->headers->get('content-disposition')
         );
+    }
+
+    public function test_dummy_export_keeps_missing_october_scans_empty(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'exportRowsToDummyExcel');
+        $method->setAccessible(true);
+
+        foreach ([
+            ['2026-10-05', '-', '-', '-'],
+            ['2026-09-05', 'filled', 'filled', 'On Time'],
+        ] as [$date, $expectedCheckIn, $expectedCheckOut, $expectedStatus]) {
+            $response = $method->invoke($controller, collect([[
+                'log_date' => $date,
+                'pin' => 'TEST001',
+                'name' => 'Test Employee',
+                'first_scan' => null,
+                'last_scan' => null,
+                'expected' => '',
+                'shift_code' => 'A',
+                'start_time' => '08:00:00',
+                'end_time' => '17:00:00',
+                'overtime_label' => '',
+            ]]));
+
+            ob_start();
+            $response->sendContent();
+            $output = ob_get_clean();
+            $temporaryPath = tempnam(sys_get_temp_dir(), 'attendance-dummy-');
+            $workbookPath = $temporaryPath . '.xlsx';
+            rename($temporaryPath, $workbookPath);
+
+            try {
+                file_put_contents($workbookPath, $output);
+                $sheet = IOFactory::load($workbookPath)->getActiveSheet();
+
+                if ($expectedCheckIn === 'filled') {
+                    $this->assertNotSame('-', $sheet->getCell('G2')->getValue());
+                    $this->assertNotSame('-', $sheet->getCell('H2')->getValue());
+                } else {
+                    $this->assertSame($expectedCheckIn, $sheet->getCell('G2')->getValue());
+                    $this->assertSame($expectedCheckOut, $sheet->getCell('H2')->getValue());
+                }
+                $this->assertSame($expectedStatus, $sheet->getCell('J2')->getValue());
+            } finally {
+                @unlink($workbookPath);
+            }
+        }
     }
 
     public function test_resolve_by_schedule_windows_ignores_same_day_early_morning_carryover_for_non_overnight_shift(): void
