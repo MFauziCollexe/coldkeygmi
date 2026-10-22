@@ -49,20 +49,15 @@
 
           <div class="flex items-center gap-3">
             <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product :</label>
-            <SearchableSelect
+            <SearchableMultiSelect
               id="product_id"
-              v-model="localProductId"
+              v-model="localProductIds"
               variant="light"
-              class="min-w-0 flex-none"
-              style="width: calc(100% - 280px)"
+              class="min-w-0 flex-1"
               :options="availableProducts"
               option-value="product_id"
               option-label="label"
               placeholder="Ketik untuk mencari product..."
-              empty-label="Pilih product"
-              input-class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-              button-class="border-l border-slate-300"
-              @update:modelValue="onProductChange"
             />
           </div>
 
@@ -160,6 +155,7 @@ import { computed, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import SearchableMultiSelect from '@/Components/SearchableMultiSelect.vue';
 
 const props = defineProps({
   rows:               { type: Array,    default: () => [] },
@@ -168,6 +164,7 @@ const props = defineProps({
   products:           { type: Array,    default: () => [] },
   selectedCustomerId: { type: [String, Number], default: null },
   selectedProductId:  { type: [String, Number], default: null },
+  selectedProductIds: { type: Array, default: () => [] },
   customerName:       { type: String,   default: 'Customer' },
   productName:        { type: String,   default: 'Product' },
   allItems:           { type: Boolean,  default: false },
@@ -199,7 +196,9 @@ const availableProducts = computed(() => {
 });
 
 const localCustomerId = ref(props.selectedCustomerId);
-const localProductId  = ref(props.selectedProductId ?? 0);
+const localProductIds = ref(props.selectedProductIds.length
+  ? props.selectedProductIds
+  : [props.selectedProductId ?? 0]);
 
 const paginatedRows = computed(() => {
   if (!props.allItems) return props.rows || [];
@@ -211,7 +210,7 @@ const exportUrl = computed(() => {
   if (!props.filtersApplied) return '#';
   const params = new URLSearchParams();
   if (localCustomerId.value !== null && localCustomerId.value !== undefined && localCustomerId.value !== '') params.set('customer_id', localCustomerId.value);
-  if (Number(localProductId.value) > 0) params.set('product_id', localProductId.value);
+  localProductIds.value.filter((id) => Number(id) > 0).forEach((id) => params.append('product_id[]', id));
   if (periodInput.value) params.set('period', periodInput.value);
   params.set('filters_applied', '1');
   return `/gmisl/cross-odoo/rekap-outbound/export?${params.toString()}`;
@@ -230,7 +229,7 @@ function formatNumber(v) {
 function buildParams(overrides = {}) {
   return {
     customer_id: localCustomerId.value ?? undefined,
-    product_id:  Number(localProductId.value) > 0 ? localProductId.value : undefined,
+    product_id:  localProductIds.value.filter((id) => Number(id) > 0),
     period:      periodInput.value     || undefined,
     filters_applied: 1,
     ...overrides,
@@ -245,15 +244,11 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows','filtersApplied','selectedCustomerId','selectedProductId','customerName','productName','period','allItems','totalRows','totalQty','totalQtyKg'];
+const ONLY_FILTER = ['rows','filtersApplied','selectedCustomerId','selectedProductId','selectedProductIds','customerName','productName','period','allItems','totalRows','totalQty','totalQtyKg'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;
-  localProductId.value = 0;
-}
-
-function onProductChange(value) {
-  localProductId.value = value || null;
+  localProductIds.value = [0];
 }
 
 function applyFilters() {

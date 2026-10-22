@@ -31,7 +31,7 @@ class StockOnHandController extends Controller
 
         $selection = $this->resolveSelection($request, $customers, $products);
         $selectedCustomerId = $selection['selectedCustomerId'];
-        $selectedProductId = $selection['selectedProductId'];
+        $selectedProductIds = $selection['selectedProductIds'];
         $customerName = $selection['customerName'];
         $productName = $selection['productName'];
 
@@ -44,10 +44,15 @@ class StockOnHandController extends Controller
         $totalReserve = 0.0;
         $totalQtyAvailable = 0.0;
 
-        if ($filtersApplied && $selectedProductId !== null) {
+        if ($filtersApplied && $selectedProductIds !== []) {
             $odoo = app(OdooXmlRpcService::class);
 
-            $rows = $this->computeGroupedRows($odoo, (int) $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName);
+            foreach ($selectedProductIds as $selectedProductId) {
+                $rows = array_merge(
+                    $rows,
+                    $this->computeGroupedRows($odoo, $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName)
+                );
+            }
 
             $totalRows = count($rows);
             foreach ($rows as $groupedRow) {
@@ -64,7 +69,8 @@ class StockOnHandController extends Controller
             'products' => $products,
             'filtersApplied' => $filtersApplied,
             'selectedCustomerId' => $selectedCustomerId,
-            'selectedProductId' => $selectedProductId,
+            'selectedProductId' => $selectedProductIds[0] ?? null,
+            'selectedProductIds' => $selectedProductIds,
             'customerName' => $customerName,
             'productName' => $productName,
             'totalRows' => $totalRows,
@@ -82,7 +88,7 @@ class StockOnHandController extends Controller
 
         $selection = $this->resolveSelection($request, $customers, $products);
         $selectedCustomerId = $selection['selectedCustomerId'];
-        $selectedProductId = $selection['selectedProductId'];
+        $selectedProductIds = $selection['selectedProductIds'];
         $customerName = $selection['customerName'];
 
         $endDate = $request->input('end_date') ?: now()->toDateString();
@@ -106,10 +112,16 @@ class StockOnHandController extends Controller
         ];
         $data = [];
 
-        if ($filtersApplied && $selectedProductId !== null) {
+        if ($filtersApplied && $selectedProductIds !== []) {
             $odoo = app(OdooXmlRpcService::class);
 
-            $grouped = $this->computeGroupedRows($odoo, (int) $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName);
+            $grouped = [];
+            foreach ($selectedProductIds as $selectedProductId) {
+                $grouped = array_merge(
+                    $grouped,
+                    $this->computeGroupedRows($odoo, $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName)
+                );
+            }
 
             foreach ($grouped as $row) {
                 $data[] = [
@@ -150,7 +162,7 @@ class StockOnHandController extends Controller
     /**
      * @param  array<int, array<string, mixed>>  $customers
      * @param  array<int, array<string, mixed>>  $products
-     * @return array{selectedCustomerId: int|null, selectedProductId: int|null, customerName: string|null, productName: string|null}
+     * @return array{selectedCustomerId: int|null, selectedProductId: int|null, selectedProductIds: array<int, int>, customerName: string|null, productName: string|null}
      */
     protected function resolveSelection(Request $request, array $customers, array $products): array
     {
@@ -161,18 +173,22 @@ class StockOnHandController extends Controller
             fn ($product) => (int) $product['customer_id'] === (int) $selectedCustomerId
         ));
 
-        $requestedProductId = $request->input('product_id');
-        $requestedProduct = null;
-        foreach ($selectedCustomerProducts as $product) {
-            if ((int) $product['product_id'] === (int) $requestedProductId) {
-                $requestedProduct = $product;
-                break;
-            }
+        $requestedProductIds = $request->input('product_id', []);
+        $requestedProductIds = is_array($requestedProductIds) ? $requestedProductIds : [$requestedProductIds];
+        $requestedProductIds = array_values(array_unique(array_filter(
+            array_map('intval', $requestedProductIds),
+            fn ($id) => $id > 0
+        )));
+        $selectedProducts = array_values(array_filter(
+            $selectedCustomerProducts,
+            fn ($product) => in_array((int) $product['product_id'], $requestedProductIds, true)
+        ));
+        if ($selectedProducts === [] && $selectedCustomerProducts !== []) {
+            $selectedProducts = [$selectedCustomerProducts[0]];
         }
-
-        $selectedProduct = $requestedProduct ?? ($selectedCustomerProducts[0] ?? null);
-        $selectedProductId = $selectedProduct['product_id'] ?? null;
-        $productName = $selectedProduct['product_name'] ?? null;
+        $selectedProductIds = array_map(fn ($product) => (int) $product['product_id'], $selectedProducts);
+        $selectedProductId = $selectedProductIds[0] ?? null;
+        $productName = implode(', ', array_map(fn ($product) => $product['product_name'], $selectedProducts));
 
         $selectedCustomerName = null;
         foreach ($customers as $customer) {
@@ -186,6 +202,7 @@ class StockOnHandController extends Controller
         return [
             'selectedCustomerId' => $selectedCustomerId,
             'selectedProductId' => $selectedProductId,
+            'selectedProductIds' => $selectedProductIds,
             'customerName' => $customerName,
             'productName' => $productName,
         ];

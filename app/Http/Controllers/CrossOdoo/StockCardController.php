@@ -31,7 +31,7 @@ class StockCardController extends Controller
 
         $selection = $this->resolveSelection($request, $customers, $products);
         $selectedCustomerId = $selection['selectedCustomerId'];
-        $selectedProductId = $selection['selectedProductId'];
+        $selectedProductIds = $selection['selectedProductIds'];
         $customerName = $selection['customerName'];
         $productName = $selection['productName'];
 
@@ -55,12 +55,12 @@ class StockCardController extends Controller
         $totalInKg = 0.0;
         $totalOutKg = 0.0;
         $finalSaldoKg = 0.0;
-        $allItems = $selectedProductId === null;
+        $allItems = count($selectedProductIds) !== 1;
 
         if ($filtersApplied && $selectedCustomerId !== null) {
             $odoo = app(OdooXmlRpcService::class);
 
-            $result = $this->buildStockRows($odoo, $selectedProductId, (int) $selectedCustomerId, $products, $openingStartDate, $startDate, $endDate);
+            $result = $this->buildStockRows($odoo, $selectedProductIds, (int) $selectedCustomerId, $products, $openingStartDate, $startDate, $endDate);
 
             $allRows = $result['rows'];
             $openingBalance = $result['openingBalance'];
@@ -98,7 +98,8 @@ class StockCardController extends Controller
             'products' => $products,
             'filtersApplied' => $filtersApplied,
             'selectedCustomerId' => $selectedCustomerId,
-            'selectedProductId' => $selectedProductId,
+            'selectedProductId' => count($selectedProductIds) === 1 ? $selectedProductIds[0] : null,
+            'selectedProductIds' => $selectedProductIds,
             'period' => $period,
             'startDate' => $startDate,
             'endDate' => $endDate,
@@ -123,7 +124,7 @@ class StockCardController extends Controller
         [$customers, $products] = $this->fetchCustomersAndProducts($request->user());
 
         $selection = $this->resolveSelection($request, $customers, $products);
-        $selectedProductId = $selection['selectedProductId'];
+        $selectedProductIds = $selection['selectedProductIds'];
         $selectedCustomerId = $selection['selectedCustomerId'];
 
         $period = $request->input('period');
@@ -142,9 +143,9 @@ class StockCardController extends Controller
         if ($filtersApplied && $selectedCustomerId !== null) {
             $odoo = app(OdooXmlRpcService::class);
 
-            $result = $this->buildStockRows($odoo, $selectedProductId, (int) $selectedCustomerId, $products, $openingStartDate, $startDate, $endDate);
+            $result = $this->buildStockRows($odoo, $selectedProductIds, (int) $selectedCustomerId, $products, $openingStartDate, $startDate, $endDate);
 
-            if ($selectedProductId !== null) {
+            if (count($selectedProductIds) === 1) {
                 $data[] = [$startDate, '-', 'Saldo Awal', '-', '-', '-', '-', '', '', (float) $result['openingBalance'], '', '', (float) $result['openingBalanceKg']];
 
                 foreach ($result['rows'] as $row) {
@@ -207,7 +208,7 @@ class StockCardController extends Controller
     /**
      * @param  array<int, array<string, mixed>>  $customers
      * @param  array<int, array<string, mixed>>  $products
-     * @return array{selectedCustomerId: int|null, selectedProductId: int|null, customerName: string|null, productName: string|null}
+     * @return array{selectedCustomerId: int|null, selectedProductId: int|null, selectedProductIds: array<int, int>, customerName: string|null, productName: string|null}
      */
     private function resolveSelection(Request $request, array $customers, array $products): array
     {
@@ -218,20 +219,20 @@ class StockCardController extends Controller
             fn ($product) => (int) $product['customer_id'] === (int) $selectedCustomerId
         ));
 
-        $requestedProductId = $request->input('product_id');
-        $selectedProduct = null;
-        if ($requestedProductId !== null && $requestedProductId !== '') {
-            foreach ($selectedCustomerProducts as $product) {
-                if ((int) $product['product_id'] === (int) $requestedProductId) {
-                    $selectedProduct = $product;
-                    break;
-                }
-            }
-        }
-
-        $selectedProductId = $selectedProduct['product_id'] ?? null;
-        $productName = $selectedProductId !== null
-            ? ($selectedProduct['product_name'] ?? null)
+        $requestedProductIds = $request->input('product_id', []);
+        $requestedProductIds = is_array($requestedProductIds) ? $requestedProductIds : [$requestedProductIds];
+        $requestedProductIds = array_values(array_unique(array_filter(
+            array_map('intval', $requestedProductIds),
+            fn ($id) => $id > 0
+        )));
+        $selectedProducts = array_values(array_filter(
+            $selectedCustomerProducts,
+            fn ($product) => in_array((int) $product['product_id'], $requestedProductIds, true)
+        ));
+        $selectedProductIds = array_map(fn ($product) => (int) $product['product_id'], $selectedProducts);
+        $selectedProductId = count($selectedProductIds) === 1 ? $selectedProductIds[0] : null;
+        $productName = $selectedProducts
+            ? implode(', ', array_map(fn ($product) => $product['product_name'], $selectedProducts))
             : 'All Item';
 
         $selectedCustomerName = null;
@@ -246,6 +247,7 @@ class StockCardController extends Controller
         return [
             'selectedCustomerId' => $selectedCustomerId,
             'selectedProductId' => $selectedProductId,
+            'selectedProductIds' => $selectedProductIds,
             'customerName' => $customerName,
             'productName' => $productName,
         ];
@@ -329,7 +331,7 @@ class StockCardController extends Controller
      */
     private function buildStockRows(
         OdooXmlRpcService $odoo,
-        ?int $selectedProductId,
+        array $selectedProductIds,
         int $selectedCustomerId,
         array $products,
         ?string $openingStartDate,
@@ -348,7 +350,8 @@ class StockCardController extends Controller
             'finalSaldoKg' => 0.0,
         ];
 
-        if ($selectedProductId !== null) {
+        if (count($selectedProductIds) === 1) {
+            $selectedProductId = $selectedProductIds[0];
             $product = null;
             foreach ($products as $entry) {
                 if ((int) $entry['product_id'] === $selectedProductId) {
@@ -385,6 +388,9 @@ class StockCardController extends Controller
 
         foreach ($products as $product) {
             if ((int) $product['customer_id'] !== $selectedCustomerId) {
+                continue;
+            }
+            if ($selectedProductIds !== [] && ! in_array((int) $product['product_id'], $selectedProductIds, true)) {
                 continue;
             }
 

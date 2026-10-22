@@ -49,20 +49,16 @@
 
           <div class="flex items-center gap-3">
             <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="product_id">Product :</label>
-            <SearchableSelect
+            <SearchableMultiSelect
               id="product_id"
-              v-model="localProductId"
+              v-model="localProductIds"
+              @update:modelValue="onProductChange"
               variant="light"
-              class="min-w-0 flex-none"
-              style="width: calc(100% - 280px)"
+              class="min-w-0 flex-1"
               :options="availableProducts"
               option-value="product_id"
               option-label="label"
               placeholder="Ketik untuk mencari product..."
-              empty-label="Pilih product"
-              input-class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-              button-class="border-l border-slate-300"
-              @update:modelValue="onProductChange"
             />
             <button
               type="button"
@@ -148,6 +144,7 @@ import { computed, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import SearchableMultiSelect from '@/Components/SearchableMultiSelect.vue';
 
 const props = defineProps({
   pageTitle:            { type: String,   default: 'Cross Odoo - SOH' },
@@ -159,6 +156,7 @@ const props = defineProps({
   products:            { type: Array,    default: () => [] },
   selectedCustomerId:  { type: [String, Number], default: null },
   selectedProductId:   { type: [String, Number], default: null },
+  selectedProductIds:  { type: Array, default: () => [] },
   customerName:        { type: String,   default: 'Customer' },
   productName:         { type: String,   default: 'Product' },
   totalRows:           { type: Number,   default: 0 },
@@ -182,13 +180,15 @@ const availableProducts = computed(() => {
 });
 
 const localCustomerId = ref(props.selectedCustomerId);
-const localProductId  = ref(props.selectedProductId);
+const localProductIds = ref(props.selectedProductIds.length
+  ? props.selectedProductIds
+  : props.selectedProductId !== null && props.selectedProductId !== undefined ? [props.selectedProductId] : []);
 
 const exportUrl = computed(() => {
   if (!props.filtersApplied) return '#';
   const params = new URLSearchParams();
   if (localCustomerId.value !== null && localCustomerId.value !== undefined && localCustomerId.value !== '') params.set('customer_id', localCustomerId.value);
-  if (localProductId.value !== null && localProductId.value !== undefined && localProductId.value !== '') params.set('product_id', localProductId.value);
+  localProductIds.value.forEach((id) => params.append('product_id[]', id));
   params.set('filters_applied', '1');
   return `${props.basePath}/export?${params.toString()}`;
 });
@@ -201,7 +201,7 @@ function formatNumber(v) {
 function buildParams(overrides = {}) {
   return {
     customer_id: localCustomerId.value ?? undefined,
-    product_id:  localProductId.value  ?? undefined,
+    product_id:  localProductIds.value,
     filters_applied: 1,
     ...overrides,
   };
@@ -215,16 +215,18 @@ function reload(params, only) {
   });
 }
 
-const ONLY_FILTER = ['rows', 'filtersApplied', 'selectedCustomerId', 'selectedProductId', 'customerName', 'productName', 'totalRows', 'totalSoh', 'totalQtySoh', 'totalReserve', 'totalOnHandAvailable'];
+const ONLY_FILTER = ['rows', 'filtersApplied', 'selectedCustomerId', 'selectedProductId', 'selectedProductIds', 'customerName', 'productName', 'totalRows', 'totalSoh', 'totalQtySoh', 'totalReserve', 'totalOnHandAvailable'];
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;
   const first = availableProducts.value[0];
-  localProductId.value = first ? first.product_id : null;
+  localProductIds.value = first ? [first.product_id] : [];
 }
 
 function onProductChange(value) {
-  localProductId.value = value || null;
+  if (value.length) return;
+  const first = availableProducts.value[0];
+  localProductIds.value = first ? [first.product_id] : [];
 }
 
 function applyFilters() {
