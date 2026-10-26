@@ -112,7 +112,7 @@ class OvertimeController extends Controller
         if (Schema::hasColumn('overtimes', 'employee_id')) {
             $query = $query
                 ->with([
-                    'employee:id,name,nik,department_id,position_id',
+                    'employee:id,name,alias_name,nik,department_id,position_id',
                     'employee.department:id,name',
                     'employee.position:id,name',
                     'user:id,name,email,department_id',

@@ -176,8 +176,8 @@
                 </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ index + 1 }}</td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">{{ formatDate(item.created_at) }}</td>
-                <td class="py-2 pr-3 align-top break-words" :title="item.employee?.name || item.user?.name || '-'">
-                  {{ item.employee?.name || item.user?.name || '-' }}
+                <td class="py-2 pr-3 align-top break-words" :title="item.employee?.alias_name || item.employee?.name || item.user?.name || '-'">
+                  {{ item.employee?.alias_name || item.employee?.name || item.user?.name || '-' }}
                 </td>
                 <td class="py-2 pr-3 align-top truncate" :title="item.employee?.department?.name || item.user?.department?.name || '-'">
                   {{ item.employee?.department?.name || item.user?.department?.name || '-' }}
@@ -227,7 +227,7 @@
           >
             <div class="mb-3 flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <div class="font-semibold text-white">{{ item.employee?.name || item.user?.name || '-' }}</div>
+                <div class="font-semibold text-white">{{ item.employee?.alias_name || item.employee?.name || item.user?.name || '-' }}</div>
                 <div class="text-sm text-slate-400">{{ formatDate(item.overtime_date) }}</div>
               </div>
               <span :class="getStatusClass(item.status)" class="inline-flex rounded px-2 py-1 text-xs font-semibold">
