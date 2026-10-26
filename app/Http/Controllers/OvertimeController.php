@@ -288,7 +288,7 @@ class OvertimeController extends Controller
         $rowIndex = 2;
         foreach ($rows as $row) {
             $createdAt = $row->created_at instanceof Carbon ? $row->created_at->format('Y-m-d H:i:s') : (string) ($row->created_at ?? '');
-            $employeeName = (string) (optional($row->employee)->name ?? optional($row->user)->name ?? '-');
+            $employeeName = (string) (optional($row->employee)->alias_name ?? optional($row->employee)->name ?? optional($row->user)->name ?? '-');
             $departmentName = (string) (optional(optional($row->employee)->department)->name ?? optional(optional($row->user)->department)->name ?? '-');
             $overtimeDate = $row->overtime_date instanceof Carbon ? $row->overtime_date->format('Y-m-d') : (string) ($row->overtime_date ?? '');
             $reviewedAt = $row->reviewed_at instanceof Carbon ? $row->reviewed_at->format('Y-m-d H:i:s') : (string) ($row->reviewed_at ?? '');
