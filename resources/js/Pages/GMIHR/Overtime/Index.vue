@@ -83,24 +83,37 @@
             </label>
           </div>
 
-          <div class="md:col-span-2">
-            <label class="text-xs text-slate-300">Tanggal Dari</label>
+          <div class="md:col-span-2 relative">
             <input
               v-model="filters.start_date"
               type="date"
-              class="mt-1 h-[42px] w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              @change="fetchData"
+              placeholder=" "
+              class="peer w-full h-[52px] px-3 pt-5 pb-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100"
             />
+            <label class="pointer-events-none absolute left-3 z-10 px-1 transition-all text-xs text-slate-300 bg-slate-800 top-0 -translate-y-1/2 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-base peer-placeholder-shown:text-slate-400 peer-placeholder-shown:bg-transparent peer-placeholder-shown:px-0 peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-slate-200 peer-focus:bg-slate-800 peer-focus:px-1">
+              Tanggal Dari
+            </label>
           </div>
 
-          <div class="md:col-span-2">
-            <label class="text-xs text-slate-300">Sampai</label>
+          <div class="md:col-span-2 relative">
             <input
               v-model="filters.end_date"
               type="date"
-              class="mt-1 h-[42px] w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              @change="fetchData"
+              placeholder=" "
+              class="peer w-full h-[52px] px-3 pt-5 pb-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100"
             />
+            <label class="pointer-events-none absolute left-3 z-10 px-1 transition-all text-xs text-slate-300 bg-slate-800 top-0 -translate-y-1/2 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-base peer-placeholder-shown:text-slate-400 peer-placeholder-shown:bg-transparent peer-placeholder-shown:px-0 peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-slate-200 peer-focus:bg-slate-800 peer-focus:px-1">
+              Tanggal Sampai
+            </label>
+          </div>
+          <div class="md:col-span-2">
+            <button
+              type="button"
+              @click="fetchData"
+              class="w-full h-[52px] rounded bg-indigo-600 px-4 text-white hover:bg-indigo-500"
+            >
+              Filter
+            </button>
           </div>
         </div>
       </div>
