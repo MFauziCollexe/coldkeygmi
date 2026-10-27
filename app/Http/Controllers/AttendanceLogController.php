@@ -39,8 +39,11 @@ class AttendanceLogController extends Controller
 
     public function index(Request $request)
     {
+        $user = $request->user();
+        $canViewAll = $this->accessRules()->canViewAllHrData($user);
+        $employeeId = $user?->employee?->id;
         $canManageCorrections = $this->canManageCorrections($request->user());
-        $forcedDepartmentName = $this->resolveForcedAttendanceDepartment($request->user());
+        $forcedDepartmentName = $canViewAll ? null : $this->resolveForcedAttendanceDepartment($request->user());
 
         $monthInput = $request->input('month');
         $yearInput = $request->input('year');
@@ -778,6 +781,19 @@ class AttendanceLogController extends Controller
             })->values();
         }
 
+        if (!$canViewAll) {
+            $rows = $rows->filter(function (array $row) use ($employeeId, $employeeInfoByPin) {
+                $pin = $this->normalizePin((string) ($row['pin'] ?? ''));
+                return $employeeId
+                    && (int) ($employeeInfoByPin->get($pin)['employee_id'] ?? 0) === (int) $employeeId;
+            })->values();
+            $summaryRows = $summaryRows->filter(function (array $row) use ($employeeId, $employeeInfoByPin) {
+                $pin = $this->normalizePin((string) ($row['pin'] ?? ''));
+                return $employeeId
+                    && (int) ($employeeInfoByPin->get($pin)['employee_id'] ?? 0) === (int) $employeeId;
+            })->values();
+        }
+
         $normaliseAttendanceRow = function (array $row) {
             $row = $this->normalizeSaturdayAttendanceRow($row);
 
@@ -880,7 +896,9 @@ class AttendanceLogController extends Controller
             'department_attendance_by_department' => $departmentAttendanceSummaries,
         ];
 
-        $monthlyInsights = $this->buildMonthlyLateAbsentInsights($dateFrom, $dateTo, $forcedDepartmentName);
+        $monthlyInsights = $canViewAll
+            ? $this->buildMonthlyLateAbsentInsights($dateFrom, $dateTo, $forcedDepartmentName)
+            : [];
 
         $attendanceLogs = $this->paginateCollection($rows, $perPage, $request);
 

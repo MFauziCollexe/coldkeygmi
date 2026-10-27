@@ -231,6 +231,15 @@ ActivityLog::getByAction('delete');
 4. **Search & Filter**: Filter activity logs by date range, user, action type
 5. **Report Generation**: Generate audit reports from activity logs
 
+## GMIHR Attendance and Overtime Access
+
+- Each active employee profile must be linked to one unique user account. Resigned employee profiles may remain unlinked; if reactivated, link a User account first. The October 2026 migration enforces unique links and stops with IDs for active/unset-status profiles that still have no User, or with duplicate User links; resolve those records before rerunning `php artisan migrate`.
+- Fingerprint imports store fingerprint scans and update known employee NIK/name records, but do not create employee profiles without user accounts. Create/link employee profiles through Master Data > Employee.
+- Employees can view only their own attendance log and overtime request. Admin, Manager, SPV, HR, CFO, and IT roles can view all attendance logs and overtime requests.
+- Overtime requests move through `pending_spv` → `pending_manager` → `approved`. A rejection at either stage changes the final status to `rejected`; each stage retains its reviewer, timestamp, and notes.
+- The employee's **Reporting To** field selects the SPV who approves their overtime. That Employee must have an active User and an SPV position. Each department must also have an active Manager. Requests are rejected with a configuration error until both approvers are configured.
+- Admins can create requests for any department. Manager, SPV, HR, CFO, and IT accounts can create requests for employees in their assigned/managed department. Role recognition uses the user's or employee's department and position codes/names.
+
 ---
 
 **Created**: February 19, 2026

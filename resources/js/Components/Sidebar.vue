@@ -86,6 +86,13 @@ function itemAllowed(item) {
     return false;
   }
 
+  if (item.module_key === 'gmihr.attendance.log' && page.props.auth?.hr_access?.attendance_log) {
+    return true;
+  }
+  if (item.module_key === 'gmihr.attendance.overtime' && page.props.auth?.hr_access?.overtime) {
+    return true;
+  }
+
   // if item has explicit module_key, check permission strictly
   if (item.module_key) {
     const key = item.module_key;

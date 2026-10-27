@@ -77,7 +77,7 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'department_id']);
         
-        // Get users that don't have employee records yet
+        // Only offer accounts that are not already linked to an employee.
         $availableUsers = User::whereDoesntHave('employee')
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'account', 'department_id', 'position_id']);
@@ -110,7 +110,7 @@ class EmployeeController extends Controller
         ]);
 
         $validated = $request->validate([
-            'user_id' => 'nullable|exists:users,id',
+            'user_id' => 'required|exists:users,id|unique:employees,user_id',
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
             'reports_to' => 'nullable|exists:employees,id',
@@ -148,17 +148,13 @@ class EmployeeController extends Controller
 
         unset($validated['face_reference_photo'], $validated['face_reference_photo_data']);
 
-        // Create employee record
-        Employee::create($validated);
-
-        $departmentId = $validated['department_id'] ?? null;
-        $positionId = $validated['position_id'] ?? null;
-        if (!empty($validated['user_id'])) {
+        DB::transaction(function () use ($validated) {
+            Employee::create($validated);
             User::whereKey((int) $validated['user_id'])->update([
-                'department_id' => $departmentId,
-                'position_id' => $positionId,
+                'department_id' => $validated['department_id'] ?? null,
+                'position_id' => $validated['position_id'] ?? null,
             ]);
-        }
+        });
 
         return $this->redirectToRememberedIndex($request, 'employees', 'employees.index')
             ->with('message', [
@@ -235,8 +231,17 @@ class EmployeeController extends Controller
                 : null,
         ]);
 
+        $userIdRules = [
+            'nullable',
+            'exists:users,id',
+            \Illuminate\Validation\Rule::unique('employees', 'user_id')->ignore($employee->id),
+        ];
+        if ($employee->employment_status !== 'resigned') {
+            array_unshift($userIdRules, 'required');
+        }
+
         $validator = Validator::make($request->all(), [
-            'user_id' => 'nullable|exists:users,id',
+            'user_id' => $userIdRules,
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
             'reports_to' => 'nullable|exists:employees,id',
@@ -260,11 +265,6 @@ class EmployeeController extends Controller
         ]);
 
         $validated = $validator->validate();
-
-        // Avoid unintentionally clearing existing user link when user_id is left empty.
-        if (array_key_exists('user_id', $validated) && $validated['user_id'] === null) {
-            unset($validated['user_id']);
-        }
 
         if (!empty($validated['remove_face_reference'])) {
             $this->deleteFaceReferencePhoto($employee->face_reference_photo_path);
@@ -290,19 +290,20 @@ class EmployeeController extends Controller
 
         unset($validated['face_reference_photo'], $validated['face_reference_photo_data'], $validated['remove_face_reference']);
 
-        $targetUserId = (int) (($validated['user_id'] ?? null) ?: $employee->user_id);
+        $targetUserId = (int) ($validated['user_id'] ?? 0);
 
-        // Update employee record
-        $employee->update($validated);
+        DB::transaction(function () use ($employee, $validated, $targetUserId) {
+            $employee->update($validated);
 
-        if ($targetUserId > 0) {
-            $departmentId = $validated['department_id'] ?? null;
-            $positionId = $validated['position_id'] ?? null;
-            User::whereKey($targetUserId)->update([
-                'department_id' => $departmentId,
-                'position_id' => $positionId,
-            ]);
-        }
+            if ($targetUserId > 0) {
+                $departmentId = $validated['department_id'] ?? null;
+                $positionId = $validated['position_id'] ?? null;
+                User::whereKey($targetUserId)->update([
+                    'department_id' => $departmentId,
+                    'position_id' => $positionId,
+                ]);
+            }
+        });
 
         return $this->redirectToRememberedIndex($request, 'employees', 'employees.index')
             ->with('message', [
@@ -349,6 +350,12 @@ class EmployeeController extends Controller
 
     public function cancelResign(Request $request, Employee $employee)
     {
+        if (! $employee->user_id) {
+            return back()->withErrors([
+                'user_id' => 'Tautkan Employee ke akun User sebelum mengaktifkannya kembali.',
+            ]);
+        }
+
         DB::transaction(function () use ($employee) {
             $employee->update([
                 'employment_status' => 'active',

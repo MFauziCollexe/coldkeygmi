@@ -58,7 +58,7 @@
             </label>
           </div>
 
-          <div v-if="isAdmin" class="md:col-span-3 relative group">
+          <div v-if="canViewAllOvertime" class="md:col-span-3 relative group">
             <SearchableSelect
               v-model="filters.department_id"
               :options="departments"
@@ -201,7 +201,7 @@
                 </td>
                 <td class="py-2 pr-3 align-top whitespace-nowrap">
                   <span :class="getStatusClass(item.status)" class="inline-flex px-2 py-1 rounded text-xs font-semibold whitespace-nowrap">
-                    {{ item.status }}
+                    {{ item.approval_stage_label || formatStatus(item.status) }}
                   </span>
                 </td>
                 <td class="py-2 align-top">
@@ -231,7 +231,7 @@
                 <div class="text-sm text-slate-400">{{ formatDate(item.overtime_date) }}</div>
               </div>
               <span :class="getStatusClass(item.status)" class="inline-flex rounded px-2 py-1 text-xs font-semibold">
-                {{ item.status }}
+                {{ item.approval_stage_label || formatStatus(item.status) }}
               </span>
             </div>
 
@@ -338,7 +338,7 @@
             <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Status:</span>
               <span :class="getStatusClass(selectedItem?.status)" class="inline-flex px-2 py-1 rounded text-xs font-semibold">
-                {{ selectedItem?.status }}
+                {{ selectedItem?.approval_stage_label || formatStatus(selectedItem?.status) }}
               </span>
             </div>
             <div v-if="selectedItem?.review_notes" class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -347,8 +347,7 @@
             </div>
           </div>
 
-          <!-- Action buttons for manager/admin when status is pending -->
-          <div v-if="selectedItem?.status === 'pending' && selectedItem?.can_approve" class="mt-4 pt-4 border-t border-slate-700">
+          <div v-if="['pending_spv', 'pending_manager', 'pending'].includes(selectedItem?.status) && selectedItem?.can_approve" class="mt-4 pt-4 border-t border-slate-700">
             <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button @click="rejectRequest(selectedItem)" class="px-4 py-2 rounded bg-red-600 text-white">
                 Tolak
@@ -405,6 +404,7 @@ const props = defineProps({
   departments: Array,
   isAdmin: Boolean,
   isManager: Boolean,
+  canViewAllOvertime: Boolean,
   canDeleteOvertime: Boolean,
 });
 
@@ -428,7 +428,9 @@ const reasonTooltip = reactive({
   left: 0,
 });
 const statusOptions = [
-  { value: 'pending', label: 'Pending' },
+  { value: 'pending', label: 'Menunggu Approval' },
+  { value: 'pending_spv', label: 'Menunggu SPV' },
+  { value: 'pending_manager', label: 'Menunggu Manager' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
 ];
@@ -549,10 +551,22 @@ function formatDate(date) {
 function getStatusClass(status) {
   const classes = {
     'pending': 'bg-amber-600/30 text-amber-200',
+    'pending_spv': 'bg-amber-600/30 text-amber-200',
+    'pending_manager': 'bg-orange-600/30 text-orange-200',
     'approved': 'bg-emerald-600/30 text-emerald-200',
     'rejected': 'bg-rose-600/30 text-rose-200',
   };
   return classes[status] || 'bg-slate-600/30 text-slate-200';
+}
+
+function formatStatus(status) {
+  return {
+    pending: 'Menunggu SPV',
+    pending_spv: 'Menunggu SPV',
+    pending_manager: 'Menunggu Manager',
+    approved: 'Disetujui',
+    rejected: 'Ditolak',
+  }[status] || status || '-';
 }
 
 function viewDetail(item) {

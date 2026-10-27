@@ -665,19 +665,19 @@ Route::delete('gmihr/device/fingerprint/clear', [App\Http\Controllers\Fingerprin
 
 // GMIHR - Time & Attendance - Attendance Log
 Route::get('attendance-log', [App\Http\Controllers\AttendanceLogController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.log'])
+    ->middleware(['auth'])
     ->name('attendance-log.index');
 Route::post('attendance-log/corrections', [App\Http\Controllers\AttendanceLogController::class, 'storeCorrection'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.log'])
+    ->middleware(['auth'])
     ->name('attendance-log.corrections.store');
 Route::post('attendance-log/corrections/{correction}/approve', [App\Http\Controllers\AttendanceLogController::class, 'approveCorrection'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.log'])
+    ->middleware(['auth'])
     ->name('attendance-log.corrections.approve');
 Route::post('attendance-log/corrections/{correction}/reject', [App\Http\Controllers\AttendanceLogController::class, 'rejectCorrection'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.log'])
+    ->middleware(['auth'])
     ->name('attendance-log.corrections.reject');
 Route::delete('attendance-log/corrections/{correction}', [App\Http\Controllers\AttendanceLogController::class, 'destroyCorrection'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.log'])
+    ->middleware(['auth'])
     ->name('attendance-log.corrections.destroy');
 
 Route::get('absensi', [App\Http\Controllers\AbsensiController::class, 'index'])
@@ -740,43 +740,43 @@ Route::get('gmihr/attendance/leave-permission/{leavePermission}', [App\Http\Cont
 
 // GMIHR - Time & Attendance - Overtime
 Route::get('overtime', [App\Http\Controllers\OvertimeController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
+    ->middleware(['auth'])
     ->name('overtime.index');
 Route::get('overtime/create', [App\Http\Controllers\OvertimeController::class, 'create'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
+    ->middleware(['auth'])
     ->name('overtime.create');
 Route::post('overtime', [App\Http\Controllers\OvertimeController::class, 'store'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
+    ->middleware(['auth'])
     ->name('overtime.store');
 Route::put('overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'update'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
+    ->middleware(['auth'])
     ->name('overtime.update');
 Route::delete('overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'destroy'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
+    ->middleware(['auth'])
     ->name('overtime.destroy');
 Route::delete('overtime-batch', [App\Http\Controllers\OvertimeController::class, 'destroyMany'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
+    ->middleware(['auth'])
     ->name('overtime.destroyMany');
 
 // GMIHR - Time & Attendance - Overtime Show
 Route::get('overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'show'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime'])
+    ->middleware(['auth'])
     ->name('overtime.show');
 // Backward-compatible overtime routes
 Route::get('gmihr/attendance/overtime', [App\Http\Controllers\OvertimeController::class, 'index'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
+    ->middleware(['auth']);
 Route::get('gmihr/attendance/overtime/create', [App\Http\Controllers\OvertimeController::class, 'create'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
+    ->middleware(['auth']);
 Route::post('gmihr/attendance/overtime', [App\Http\Controllers\OvertimeController::class, 'store'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
+    ->middleware(['auth']);
 Route::put('gmihr/attendance/overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'update'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
+    ->middleware(['auth']);
 Route::delete('gmihr/attendance/overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'destroy'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
+    ->middleware(['auth']);
 Route::delete('gmihr/attendance/overtime-batch', [App\Http\Controllers\OvertimeController::class, 'destroyMany'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
+    ->middleware(['auth']);
 Route::get('gmihr/attendance/overtime/{overtime}', [App\Http\Controllers\OvertimeController::class, 'show'])
-    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmihr.attendance.overtime']);
+    ->middleware(['auth']);
 
 // GMIHR - Time & Attendance - Approval
 Route::get('attendance-approval', function () {

@@ -24,6 +24,12 @@ class Overtime extends Model
         'reviewed_by',
         'reviewed_at',
         'review_notes',
+        'spv_reviewed_by',
+        'spv_reviewed_at',
+        'spv_review_notes',
+        'manager_reviewed_by',
+        'manager_reviewed_at',
+        'manager_review_notes',
     ];
 
     protected $appends = [
@@ -35,6 +41,8 @@ class Overtime extends Model
         'start_time' => 'datetime:H:i',
         'end_time' => 'datetime:H:i',
         'reviewed_at' => 'datetime',
+        'spv_reviewed_at' => 'datetime',
+        'manager_reviewed_at' => 'datetime',
     ];
 
     /**
@@ -59,6 +67,16 @@ class Overtime extends Model
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function spvApprover()
+    {
+        return $this->belongsTo(User::class, 'spv_reviewed_by');
+    }
+
+    public function managerApprover()
+    {
+        return $this->belongsTo(User::class, 'manager_reviewed_by');
     }
 
     public function getAttachmentUrlAttribute(): ?string

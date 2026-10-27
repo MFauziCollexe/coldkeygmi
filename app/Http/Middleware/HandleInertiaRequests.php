@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Support\AccessRuleService;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -33,6 +34,10 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $canViewAllHrData = $user
+            ? app(AccessRuleService::class)->canViewAllHrData($user)
+            : false;
+        $hasEmployeeProfile = $user?->employee()->exists() ?? false;
 
         return [
             ...parent::share($request),
@@ -48,6 +53,10 @@ class HandleInertiaRequests extends Middleware
                     ? $user->modulePermissions()->pluck('module_key')->toArray()
                     : [],
                 'impersonation' => fn () => $request->session()->get('impersonation'),
+                'hr_access' => fn () => [
+                    'attendance_log' => $canViewAllHrData || $hasEmployeeProfile,
+                    'overtime' => $canViewAllHrData || $hasEmployeeProfile,
+                ],
             ],
             'roster_config' => [
                 'schedules' => [

@@ -104,9 +104,11 @@ return [
                 'view_list' => [
                     'all_if' => [
                         ['type' => 'admin'],
-                        ['type' => 'department_code', 'value' => 'HRD'],
-                        ['type' => 'department_name_contains', 'value' => 'HRD'],
-                        ['type' => 'user_email', 'value' => 'Andrian@coldkeygmi.com'],
+                        ['type' => 'manager'],
+                        ['type' => 'supervisor'],
+                        ['type' => 'hr'],
+                        ['type' => 'cfo'],
+                        ['type' => 'it'],
                     ],
                     'ids_from' => [
                         'managed_departments',
@@ -137,12 +139,24 @@ return [
                         ],
                     ],
                 ],
+                'submit_for_others' => [
+                    'all_if' => [
+                        ['type' => 'admin'],
+                    ],
+                    'ids_from' => [
+                        'managed_departments',
+                        'own_department',
+                    ],
+                ],
             ],
             'abilities' => [
                 'submit_for_others' => [
                     ['type' => 'admin'],
                     ['type' => 'manager'],
                     ['type' => 'supervisor'],
+                    ['type' => 'hr'],
+                    ['type' => 'cfo'],
+                    ['type' => 'it'],
                 ],
                 'delete_request' => [
                     ['type' => 'admin'],

@@ -3,18 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RemembersIndexUrl;
+use App\Models\ActivityLog;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Overtime;
-use App\Models\Department;
-use App\Models\ActivityLog;
+use App\Models\Position;
 use App\Support\AccessRuleService;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -32,7 +34,7 @@ class OvertimeController extends Controller
 
     protected function getActorEmployee($userId): ?Employee
     {
-        if (!$userId) {
+        if (! $userId) {
             return null;
         }
 
@@ -80,6 +82,16 @@ class OvertimeController extends Controller
         return $this->accessRules()->visibleDepartmentIds($userId, self::ACCESS_MODULE, 'view_list');
     }
 
+    protected function getSubmissionDepartmentIds($userId): array
+    {
+        return $this->accessRules()->visibleDepartmentIds($userId, self::ACCESS_MODULE, 'submit_for_others');
+    }
+
+    protected function canViewAllOvertime($userId): bool
+    {
+        return $this->accessRules()->canViewAllHrData($userId);
+    }
+
     protected function canSubmitForOthers($userId): bool
     {
         return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'submit_for_others');
@@ -95,6 +107,89 @@ class OvertimeController extends Controller
         return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'delete_request');
     }
 
+    private function canViewOvertime(Overtime $overtime, int $userId): bool
+    {
+        if ($this->canViewAllOvertime($userId)) {
+            return true;
+        }
+
+        $employeeId = (int) (Employee::where('user_id', $userId)->value('id') ?? 0);
+
+        return $employeeId > 0 && (
+            (int) $overtime->employee_id === $employeeId
+            || ((int) $overtime->employee_id <= 0 && (int) $overtime->user_id === $userId)
+        );
+    }
+
+    private function approvalConfigurationError(Employee $employee): ?string
+    {
+        $employee->loadMissing(['supervisor.user', 'supervisor.position']);
+        $supervisor = $employee->supervisor;
+
+        if (
+            ! $supervisor?->user
+            || $supervisor->user->status !== 'active'
+            || (Schema::hasColumn('employees', 'employment_status') && $supervisor->employment_status !== 'active')
+            || ! $this->isSupervisor($supervisor->user_id)
+        ) {
+            return 'Karyawan belum memiliki SPV aktif pada field Reporting To.';
+        }
+
+        $managerIds = Employee::query()
+            ->whereNotNull('user_id')
+            ->whereHas('position', fn ($query) => $query->where('is_manager', true))
+            ->whereHas('user', fn ($query) => $query->where('status', 'active'))
+            ->when(Schema::hasColumn('employees', 'employment_status'), fn ($query) => $query->where('employment_status', 'active'))
+            ->pluck('user_id');
+        $hasManager = $managerIds->contains(
+            fn ($managerId) => $this->accessRules()->canAccessDepartment(
+                (int) $managerId,
+                self::ACCESS_MODULE,
+                'approve',
+                (int) $employee->department_id
+            )
+        );
+
+        return $hasManager ? null : 'Departemen karyawan belum memiliki Manager aktif.';
+    }
+
+    private function canApproveStage(Overtime $overtime, int $userId): bool
+    {
+        if ((int) $overtime->user_id === $userId) {
+            return false;
+        }
+
+        $overtime->loadMissing(['employee.supervisor', 'employee.user']);
+        $employee = $overtime->employee;
+        if (! $employee) {
+            return false;
+        }
+
+        if ($overtime->status === 'pending_spv') {
+            $employee->loadMissing(['supervisor.user', 'supervisor.position']);
+            $supervisor = $employee->supervisor;
+
+            return $this->isSupervisor($userId)
+                && (int) ($supervisor?->user_id ?? 0) === $userId
+                && $supervisor?->user?->status === 'active'
+                && (! Schema::hasColumn('employees', 'employment_status') || $supervisor->employment_status === 'active');
+        }
+
+        if ($overtime->status !== 'pending_manager' || ! $this->isManager($userId)) {
+            return false;
+        }
+
+        $departmentId = (int) ($employee->department_id ?? 0);
+
+        return $departmentId > 0
+            && $this->accessRules()->canAccessDepartment(
+                $userId,
+                self::ACCESS_MODULE,
+                'approve',
+                $departmentId
+            );
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -103,8 +198,8 @@ class OvertimeController extends Controller
         $this->rememberIndexUrl($request, 'overtime');
 
         $userId = Auth::id();
-        
-        // Get visible department IDs
+
+        $canViewAll = $this->canViewAllOvertime($userId);
         $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
 
         $query = Overtime::query();
@@ -112,43 +207,30 @@ class OvertimeController extends Controller
         if (Schema::hasColumn('overtimes', 'employee_id')) {
             $query = $query
                 ->with([
-                    'employee:id,name,alias_name,nik,department_id,position_id',
+                    'employee:id,user_id,name,alias_name,nik,department_id,position_id,reports_to',
                     'employee.department:id,name',
                     'employee.position:id,name',
                     'user:id,name,email,department_id',
                     'user.department:id,name',
                     'reviewer',
-                ])
-                ->where(function ($q) use ($visibleDeptIds, $userId) {
-                    $q->whereHas('employee', function ($empQuery) use ($visibleDeptIds) {
-                        $empQuery->whereNotNull('department_id')
-                            ->whereIn('department_id', $visibleDeptIds);
-                    });
-
-                    // Fallback: if employee_id is null or employee record missing, still show own submissions.
-                    if ($userId) {
-                        $q->orWhere('user_id', (int) $userId);
+                    'spvApprover',
+                    'managerApprover',
+                ]);
+            if (! $canViewAll) {
+                $employeeId = (int) (Employee::where('user_id', $userId)->value('id') ?? 0);
+                $query->where(function ($q) use ($employeeId, $userId) {
+                    if ($employeeId > 0) {
+                        $q->where('employee_id', $employeeId);
                     }
+                    $q->orWhere(function ($legacy) use ($userId) {
+                        $legacy->whereNull('employee_id')->where('user_id', $userId);
+                    });
                 });
-        } else {
-            // Backward compatibility if migration hasn't been run yet.
-            $visibleUserIds = Employee::query()
-                ->whereNotNull('user_id')
-                ->whereIn('department_id', $visibleDeptIds)
-                ->pluck('user_id')
-                ->map(fn($id) => (int) $id)
-                ->filter(fn($id) => $id > 0)
-                ->unique()
-                ->values()
-                ->all();
-
-            if ($userId && !in_array((int) $userId, $visibleUserIds, true)) {
-                $visibleUserIds[] = (int) $userId;
             }
-
+        } else {
             $query = $query
                 ->with(['user', 'user.department', 'reviewer'])
-                ->whereIn('user_id', $visibleUserIds);
+                ->where('user_id', (int) $userId);
         }
 
         // Filters
@@ -193,8 +275,12 @@ class OvertimeController extends Controller
         }
 
         // Filter status - only apply if status is not empty
-        if (!empty($status)) {
-            $query->where('status', $status);
+        if (! empty($status)) {
+            if ($status === 'pending') {
+                $query->whereIn('status', ['pending', 'pending_spv', 'pending_manager']);
+            } else {
+                $query->where('status', $status);
+            }
         }
 
         if ($departmentId > 0) {
@@ -220,12 +306,13 @@ class OvertimeController extends Controller
         }
 
         $orderedQuery = $query
-            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN status IN ('pending', 'pending_spv', 'pending_manager') THEN 0 ELSE 1 END")
             ->orderBy('overtime_date', 'desc')
             ->orderBy('created_at', 'desc');
 
         if ($request->boolean('export')) {
             $rows = (clone $orderedQuery)->get();
+
             return $this->exportOvertimesToExcel($rows);
         }
 
@@ -234,12 +321,14 @@ class OvertimeController extends Controller
             ->withQueryString();
 
         $overtimes->getCollection()->transform(function (Overtime $overtime) use ($userId) {
-            $deptId = (int) optional($overtime->employee)->department_id;
-            if ($deptId <= 0) {
-                $deptId = (int) optional($overtime->user)->department_id;
-            }
-            $overtime->can_approve = $this->isAdmin($userId)
-                || ($deptId > 0 && $this->canApproveDepartment($userId, $deptId));
+            $overtime->can_approve = $this->canApproveStage($overtime, (int) $userId);
+            $overtime->approval_stage_label = match ($overtime->status) {
+                'pending_spv' => 'Menunggu SPV',
+                'pending_manager' => 'Menunggu Manager',
+                'pending' => 'Menunggu SPV',
+                default => ucfirst((string) $overtime->status),
+            };
+
             return $overtime;
         });
 
@@ -254,13 +343,14 @@ class OvertimeController extends Controller
             'departments' => $departments,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
+            'canViewAllOvertime' => $canViewAll,
             'canDeleteOvertime' => $this->canDeleteOvertime($userId),
         ]);
     }
 
     private function exportOvertimesToExcel(Collection $rows)
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Overtime');
 
@@ -281,7 +371,7 @@ class OvertimeController extends Controller
         ];
 
         foreach ($headers as $index => $header) {
-            $cell = Coordinate::stringFromColumnIndex($index + 1) . '1';
+            $cell = Coordinate::stringFromColumnIndex($index + 1).'1';
             $sheet->setCellValue($cell, $header);
         }
 
@@ -293,19 +383,19 @@ class OvertimeController extends Controller
             $overtimeDate = $row->overtime_date instanceof Carbon ? $row->overtime_date->format('Y-m-d') : (string) ($row->overtime_date ?? '');
             $reviewedAt = $row->reviewed_at instanceof Carbon ? $row->reviewed_at->format('Y-m-d H:i:s') : (string) ($row->reviewed_at ?? '');
 
-            $sheet->setCellValue('A' . $rowIndex, $createdAt);
-            $sheet->setCellValue('B' . $rowIndex, $employeeName);
-            $sheet->setCellValue('C' . $rowIndex, $departmentName);
-            $sheet->setCellValue('D' . $rowIndex, $overtimeDate);
-            $sheet->setCellValue('E' . $rowIndex, (string) ($row->start_time ?? '-'));
-            $sheet->setCellValue('F' . $rowIndex, (string) ($row->end_time ?? '-'));
-            $sheet->setCellValue('G' . $rowIndex, (string) ($row->hours ?? '-'));
-            $sheet->setCellValue('H' . $rowIndex, (string) ($row->reason ?? '-'));
-            $sheet->setCellValue('I' . $rowIndex, (string) ($row->status ?? '-'));
-            $sheet->setCellValue('J' . $rowIndex, (string) (optional($row->reviewer)->name ?? '-'));
-            $sheet->setCellValue('K' . $rowIndex, $reviewedAt !== '' ? $reviewedAt : '-');
-            $sheet->setCellValue('L' . $rowIndex, (string) ($row->review_notes ?? '-'));
-            $sheet->setCellValue('M' . $rowIndex, (string) ($row->attachment_url ?? '-'));
+            $sheet->setCellValue('A'.$rowIndex, $createdAt);
+            $sheet->setCellValue('B'.$rowIndex, $employeeName);
+            $sheet->setCellValue('C'.$rowIndex, $departmentName);
+            $sheet->setCellValue('D'.$rowIndex, $overtimeDate);
+            $sheet->setCellValue('E'.$rowIndex, (string) ($row->start_time ?? '-'));
+            $sheet->setCellValue('F'.$rowIndex, (string) ($row->end_time ?? '-'));
+            $sheet->setCellValue('G'.$rowIndex, (string) ($row->hours ?? '-'));
+            $sheet->setCellValue('H'.$rowIndex, (string) ($row->reason ?? '-'));
+            $sheet->setCellValue('I'.$rowIndex, (string) ($row->status ?? '-'));
+            $sheet->setCellValue('J'.$rowIndex, (string) (optional($row->reviewer)->name ?? '-'));
+            $sheet->setCellValue('K'.$rowIndex, $reviewedAt !== '' ? $reviewedAt : '-');
+            $sheet->setCellValue('L'.$rowIndex, (string) ($row->review_notes ?? '-'));
+            $sheet->setCellValue('M'.$rowIndex, (string) ($row->attachment_url ?? '-'));
             $rowIndex++;
         }
 
@@ -313,7 +403,7 @@ class OvertimeController extends Controller
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
-        $filename = 'overtime_' . now()->format('Ymd_His') . '.xlsx';
+        $filename = 'overtime_'.now()->format('Ymd_His').'.xlsx';
         $writer = new Xlsx($spreadsheet);
 
         return response()->streamDownload(function () use ($writer) {
@@ -337,9 +427,9 @@ class OvertimeController extends Controller
         $employees = [];
 
         if ($canSubmitForOthers) {
-            $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+            $visibleDeptIds = $this->getSubmissionDepartmentIds($userId);
 
-            if (!empty($visibleDeptIds)) {
+            if (! empty($visibleDeptIds)) {
                 $employeesQuery = Employee::query()
                     ->with([
                         'department:id,name',
@@ -362,10 +452,10 @@ class OvertimeController extends Controller
                         $dept = trim((string) optional($emp->department)->name);
                         $pos = trim((string) optional($emp->position)->name);
 
-                        $label = $name !== '' ? $name : ('Employee #' . $emp->id);
+                        $label = $name !== '' ? $name : ('Employee #'.$emp->id);
                         $metaParts = array_values(array_filter([$dept, $pos]));
-                        if (!empty($metaParts)) {
-                            $label .= ' - ' . implode(' / ', $metaParts);
+                        if (! empty($metaParts)) {
+                            $label .= ' - '.implode(' / ', $metaParts);
                         }
                         if ($nik !== '') {
                             $label .= " ({$nik})";
@@ -395,10 +485,10 @@ class OvertimeController extends Controller
                 $dept = trim((string) optional($actorEmployee->department)->name);
                 $pos = trim((string) optional($actorEmployee->position)->name);
 
-                $label = $name !== '' ? $name : ('Employee #' . $actorEmployee->id);
+                $label = $name !== '' ? $name : ('Employee #'.$actorEmployee->id);
                 $metaParts = array_values(array_filter([$dept, $pos]));
-                if (!empty($metaParts)) {
-                    $label .= ' - ' . implode(' / ', $metaParts);
+                if (! empty($metaParts)) {
+                    $label .= ' - '.implode(' / ', $metaParts);
                 }
                 if ($nik !== '') {
                     $label .= " ({$nik})";
@@ -412,7 +502,7 @@ class OvertimeController extends Controller
             }
         }
 
-        $canSelectEmployee = !empty($employees);
+        $canSelectEmployee = ! empty($employees);
         $defaultEmployeeId = Employee::where('user_id', $userId)->value('id') ?? '';
 
         return Inertia::render('GMIHR/Overtime/Create', [
@@ -429,7 +519,7 @@ class OvertimeController extends Controller
     public function show(Overtime $overtime)
     {
         $userId = Auth::id();
-        
+
         // Load the overtime with related data
         if (Schema::hasColumn('overtimes', 'employee_id')) {
             $overtime->load([
@@ -439,6 +529,8 @@ class OvertimeController extends Controller
                 'user',
                 'user.department',
                 'reviewer',
+                'spvApprover',
+                'managerApprover',
             ]);
         } else {
             $overtime->load(['user', 'user.department', 'reviewer']);
@@ -449,6 +541,7 @@ class OvertimeController extends Controller
             $targetDeptId = (int) optional($overtime->user)->department_id;
         }
 
+        abort_unless($this->canViewOvertime($overtime, (int) $userId), 403);
         $canEditDetails = $this->isAdmin($userId) || $this->canApproveDepartment($userId, $targetDeptId);
 
         return Inertia::render('GMIHR/Overtime/Show', [
@@ -456,6 +549,7 @@ class OvertimeController extends Controller
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
             'canEditDetails' => $canEditDetails,
+            'canApprove' => $this->canApproveStage($overtime, (int) $userId),
         ]);
     }
 
@@ -464,7 +558,7 @@ class OvertimeController extends Controller
      */
     public function store(Request $request)
     {
-        if (!Schema::hasColumn('overtimes', 'employee_id')) {
+        if (! Schema::hasColumn('overtimes', 'employee_id')) {
             return back()->withErrors([
                 'employee_id' => 'Fitur pilih karyawan (single/multi) butuh update database. Jalankan php artisan migrate terlebih dahulu.',
             ]);
@@ -497,8 +591,8 @@ class OvertimeController extends Controller
         $actorId = Auth::id();
         $requestedEmployeeId = $data['employee_id'] ?? null;
         $requestedEmployeeIds = collect($data['employee_ids'] ?? [])
-            ->map(fn($id) => (int) $id)
-            ->filter(fn($id) => $id > 0)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
             ->unique()
             ->values()
             ->all();
@@ -508,17 +602,17 @@ class OvertimeController extends Controller
             $requestedEmployeeId = (int) (Employee::where('user_id', $actorId)->value('id') ?? 0);
         }
 
-        if (!empty($requestedEmployeeIds) && !$canSubmitForOthers) {
+        if (! empty($requestedEmployeeIds) && ! $canSubmitForOthers) {
             return back()->withErrors([
                 'employee_ids' => 'Anda tidak memiliki izin untuk memilih banyak karyawan.',
             ]);
         }
 
-        $targetEmployeeIds = !empty($requestedEmployeeIds)
+        $targetEmployeeIds = ! empty($requestedEmployeeIds)
             ? $requestedEmployeeIds
             : [((int) $requestedEmployeeId)];
 
-        if (count($targetEmployeeIds) === 1 && $targetEmployeeIds[0] > 0 && !$canSubmitForOthers) {
+        if (count($targetEmployeeIds) === 1 && $targetEmployeeIds[0] > 0 && ! $canSubmitForOthers) {
             // Regular user may only submit for self (employee derived from account).
             $selfEmployeeId = (int) (Employee::where('user_id', $actorId)->value('id') ?? 0);
             if ($selfEmployeeId <= 0 || $targetEmployeeIds[0] !== $selfEmployeeId) {
@@ -535,31 +629,29 @@ class OvertimeController extends Controller
         }
 
         $employees = Employee::query()
-            ->select('id', 'department_id', 'employment_status')
+            ->select('id', 'user_id', 'department_id', 'position_id', 'reports_to', 'employment_status')
             ->whereIn('id', $targetEmployeeIds)
             ->get()
             ->keyBy('id');
 
         foreach ($targetEmployeeIds as $empId) {
-            if (!$employees->has($empId)) {
+            if (! $employees->has($empId)) {
                 return back()->withErrors([
                     'employee_id' => 'Ada karyawan yang tidak ditemukan.',
                 ]);
             }
         }
 
-        $visibleDeptIds = $this->isAdmin($actorId) ? [] : $this->getVisibleDepartmentIds($actorId);
+        $visibleDeptIds = $this->getSubmissionDepartmentIds($actorId);
         foreach ($targetEmployeeIds as $empId) {
             $employee = $employees->get($empId);
-            if (!$employee) {
+            if (! $employee) {
                 continue;
             }
 
-            if (!$this->isAdmin($actorId)) {
-                $deptId = (int) ($employee->department_id ?? 0);
-                if ($deptId <= 0 || !in_array($deptId, $visibleDeptIds, true)) {
-                    abort(403, 'Anda tidak memiliki izin untuk memilih karyawan departemen ini.');
-                }
+            $deptId = (int) ($employee->department_id ?? 0);
+            if ($deptId <= 0 || ! in_array($deptId, $visibleDeptIds, true)) {
+                abort(403, 'Anda tidak memiliki izin untuk memilih karyawan departemen ini.');
             }
 
             if (Schema::hasColumn('employees', 'employment_status')) {
@@ -569,12 +661,19 @@ class OvertimeController extends Controller
                     ]);
                 }
             }
+
+            $configurationError = $this->approvalConfigurationError($employee);
+            if ($configurationError !== null) {
+                return back()->withErrors([
+                    'employee_id' => $configurationError,
+                ]);
+            }
         }
 
         unset($data['employee_id'], $data['employee_ids']);
         $data['user_id'] = (int) $actorId;
         $data['hours'] = Overtime::calculateHours($data['start_time'], $data['end_time']);
-        $data['status'] = 'pending';
+        $data['status'] = 'pending_spv';
 
         $attachmentOriginalName = null;
         $attachmentPath = null;
@@ -601,12 +700,12 @@ class OvertimeController extends Controller
                 'created',
                 null,
                 $payload,
-                'Created overtime request for ' . $data['overtime_date']
+                'Created overtime request for '.$data['overtime_date']
             );
         }
 
         return $this->redirectToRememberedIndex($request, 'overtime', 'overtime.index')
-            ->with('success', 'Permintaan overtime berhasil diajukan (' . $createdCount . ' karyawan). Menunggu persetujuan.');
+            ->with('success', 'Permintaan overtime berhasil diajukan ('.$createdCount.' karyawan). Menunggu persetujuan.');
     }
 
     /**
@@ -615,18 +714,18 @@ class OvertimeController extends Controller
     public function update(Request $request, Overtime $overtime)
     {
         $userId = Auth::id();
-        if (!$userId) {
+        if (! $userId) {
             abort(403);
         }
 
         if ((string) $request->input('action') === 'edit') {
-            $overtime->loadMissing(['employee:id,department_id', 'user:id,department_id']);
+            $overtime->loadMissing(['employee:id,user_id,department_id,position_id,reports_to', 'user:id,department_id']);
             $editTargetDeptId = (int) optional($overtime->employee)->department_id;
             if ($editTargetDeptId <= 0) {
                 $editTargetDeptId = (int) optional($overtime->user)->department_id;
             }
 
-            if (!$this->isAdmin($userId) && !$this->canApproveDepartment($userId, $editTargetDeptId)) {
+            if (! $this->isAdmin($userId) && ! $this->canApproveDepartment($userId, $editTargetDeptId)) {
                 abort(403, 'Anda tidak memiliki izin untuk mengedit detail overtime ini.');
             }
 
@@ -695,42 +794,70 @@ class OvertimeController extends Controller
             return redirect()->back()->with('success', 'Detail overtime berhasil diperbarui.');
         }
 
-        $overtime->loadMissing(['employee:id,department_id', 'user:id,department_id']);
-        $targetDeptId = (int) optional($overtime->employee)->department_id;
-        if ($targetDeptId <= 0) {
-            $targetDeptId = (int) optional($overtime->user)->department_id;
-        }
-
-        // Only admin or manager of the requester's department can approve/reject.
-        if (!$this->canApproveDepartment($userId, $targetDeptId)) {
-            abort(403, 'Anda tidak memiliki izin untuk menyetujui/menolak overtime ini.');
-        }
-
         $data = $request->validate([
             'status' => 'required|in:approved,rejected',
             'review_notes' => 'nullable|string',
         ]);
 
-        $oldData = $overtime->toArray();
-        $data['reviewed_by'] = Auth::id();
-        $data['reviewed_at'] = now();
+        $reviewerId = (int) Auth::id();
+        $isApproval = $data['status'] === 'approved';
+        $newStatus = '';
 
-        $overtime->update($data);
+        DB::transaction(function () use ($overtime, $data, $reviewerId, $isApproval, $userId, &$newStatus) {
+            $lockedOvertime = Overtime::query()
+                ->whereKey($overtime->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $lockedOvertime->loadMissing(['employee:id,user_id,department_id,position_id,reports_to', 'user:id,department_id']);
 
-        // Activity Log for Update (approve/reject)
-        $action = $data['status'] === 'approved' ? 'approved' : 'rejected';
-        $this->logActivity(
-            'overtimes',
-            $overtime->id,
-            $action,
-            $oldData,
-            $overtime->toArray(),
-            ucfirst($action) . ' overtime request'
-        );
+            if (! $this->canApproveStage($lockedOvertime, (int) $userId)) {
+                abort(403, 'Pengajuan ini belum berada pada tahap persetujuan Anda.');
+            }
 
-        $message = $data['status'] === 'approved' 
-            ? 'Permintaan overtime telah disetujui.' 
-            : 'Permintaan overtime telah ditolak.';
+            $oldData = $lockedOvertime->toArray();
+            $reviewedAt = now();
+            $reviewData = $data;
+
+            if ($lockedOvertime->status === 'pending_spv') {
+                $reviewData['spv_reviewed_by'] = $reviewerId;
+                $reviewData['spv_reviewed_at'] = $reviewedAt;
+                $reviewData['spv_review_notes'] = $reviewData['review_notes'] ?? null;
+                $reviewData['status'] = $isApproval ? 'pending_manager' : 'rejected';
+            } elseif ($lockedOvertime->status === 'pending_manager') {
+                $reviewData['manager_reviewed_by'] = $reviewerId;
+                $reviewData['manager_reviewed_at'] = $reviewedAt;
+                $reviewData['manager_review_notes'] = $reviewData['review_notes'] ?? null;
+                $reviewData['status'] = $isApproval ? 'approved' : 'rejected';
+            } else {
+                abort(422, 'Status overtime ini sudah selesai diproses.');
+            }
+
+            if (in_array($reviewData['status'], ['approved', 'rejected'], true)) {
+                $reviewData['reviewed_by'] = $reviewerId;
+                $reviewData['reviewed_at'] = $reviewedAt;
+            }
+
+            $lockedOvertime->update($reviewData);
+            $newStatus = $reviewData['status'];
+            $action = $newStatus === 'pending_manager'
+                ? 'approved_by_spv'
+                : ($isApproval ? 'approved' : 'rejected');
+
+            $this->logActivity(
+                'overtimes',
+                $lockedOvertime->id,
+                $action,
+                $oldData,
+                $lockedOvertime->toArray(),
+                ucfirst($action).' overtime request'
+            );
+        });
+
+        $message = match ($newStatus) {
+            'pending_manager' => 'Persetujuan SPV selesai. Permintaan diteruskan ke Manager.',
+            'approved' => 'Permintaan overtime telah disetujui Manager.',
+            default => 'Permintaan overtime telah ditolak.',
+        };
 
         return redirect()->back()->with('success', $message);
     }
@@ -741,7 +868,7 @@ class OvertimeController extends Controller
     public function destroy(Overtime $overtime)
     {
         $userId = Auth::id();
-        if (!$userId || !$this->canDeleteOvertime($userId)) {
+        if (! $userId || ! $this->canDeleteOvertime($userId)) {
             abort(403, 'Anda tidak memiliki hak untuk menghapus data ini.');
         }
 
@@ -775,7 +902,7 @@ class OvertimeController extends Controller
     {
         $userId = Auth::id();
 
-        if (!$this->canDeleteOvertime($userId)) {
+        if (! $this->canDeleteOvertime($userId)) {
             return response()->json([
                 'message' => 'Anda tidak memiliki hak untuk menghapus data ini.',
             ], 403);
@@ -823,7 +950,7 @@ class OvertimeController extends Controller
     private function logActivity($tableName, $recordId, $action, $oldValues, $newValues, $description)
     {
         $user = Auth::user();
-        
+
         ActivityLog::create([
             'table_name' => $tableName,
             'record_id' => $recordId,

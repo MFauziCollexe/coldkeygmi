@@ -98,8 +98,24 @@
               <div class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
                 <div class="text-sm text-slate-400">Status</div>
                 <span :class="getStatusClass(overtime.status)">
-                  {{ overtime.status }}
+                  {{ overtime.approval_stage_label || formatStatus(overtime.status) }}
                 </span>
+              </div>
+
+              <div v-if="overtime.spv_reviewed_by" class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
+                <div class="text-sm text-slate-400">Review SPV</div>
+                <div class="max-w-[62%] text-right">
+                  {{ overtime.spv_approver?.name || '-' }} · {{ formatDate(overtime.spv_reviewed_at) }}
+                  <div v-if="overtime.spv_review_notes" class="whitespace-pre-wrap text-slate-300">{{ overtime.spv_review_notes }}</div>
+                </div>
+              </div>
+
+              <div v-if="overtime.manager_reviewed_by" class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
+                <div class="text-sm text-slate-400">Review Manager</div>
+                <div class="max-w-[62%] text-right">
+                  {{ overtime.manager_approver?.name || '-' }} · {{ formatDate(overtime.manager_reviewed_at) }}
+                  <div v-if="overtime.manager_review_notes" class="whitespace-pre-wrap text-slate-300">{{ overtime.manager_review_notes }}</div>
+                </div>
               </div>
 
               <div v-if="overtime.review_notes" class="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-3">
@@ -120,7 +136,7 @@
           </div>
         </div>
 
-        <div v-if="overtime.status === 'pending' && canEditDetails" class="mt-8 border-t border-slate-700 pt-6">
+        <div v-if="canApprove" class="mt-8 border-t border-slate-700 pt-6">
           <h3 class="mb-4 text-lg font-semibold">Tindakan</h3>
           <div class="flex flex-col gap-3 sm:flex-row">
             <button @click="rejectRequest" class="rounded bg-red-600 px-6 py-3 text-white hover:bg-red-700">
@@ -241,6 +257,7 @@ const props = defineProps({
   isAdmin: Boolean,
   isManager: Boolean,
   canEditDetails: Boolean,
+  canApprove: Boolean,
 });
 
 const isEditing = ref(false);
@@ -314,10 +331,22 @@ function formatDate(date) {
 function getStatusClass(status) {
   const classes = {
     pending: 'rounded bg-yellow-600 px-3 py-1 text-sm text-white',
+    pending_spv: 'rounded bg-yellow-600 px-3 py-1 text-sm text-white',
+    pending_manager: 'rounded bg-orange-600 px-3 py-1 text-sm text-white',
     approved: 'rounded bg-green-600 px-3 py-1 text-sm text-white',
     rejected: 'rounded bg-red-600 px-3 py-1 text-sm text-white',
   };
   return classes[status] || 'rounded bg-slate-600 px-3 py-1 text-sm text-white';
+}
+
+function formatStatus(status) {
+  return {
+    pending: 'Menunggu SPV',
+    pending_spv: 'Menunggu SPV',
+    pending_manager: 'Menunggu Manager',
+    approved: 'Disetujui',
+    rejected: 'Ditolak',
+  }[status] || status || '-';
 }
 
 function submitApproval() {

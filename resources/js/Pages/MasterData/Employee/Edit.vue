@@ -5,7 +5,9 @@
 
       <form @submit.prevent="submit">
         <div class="max-w-4xl rounded bg-slate-800 p-4 md:p-6">
-          <h3 class="text-lg font-semibold mb-4 text-indigo-400">Select User</h3>
+          <h3 class="text-lg font-semibold mb-4 text-indigo-400">
+            Select User ({{ employeeData.employment_status === 'resigned' ? 'Optional for resigned employees' : 'Required' }})
+          </h3>
           
           <!-- User Selection -->
           <div class="mb-4">
@@ -18,7 +20,11 @@
               placeholder="Select User"
               empty-label="Select User"
               input-class="bg-white dark:bg-gray-700"
+              :required="employeeData.employment_status !== 'resigned'"
             />
+            <p v-if="employeeData.employment_status === 'resigned'" class="mt-1 text-xs text-slate-400">
+              Employee resigned boleh tidak memiliki akun User. Tautkan User sebelum mengaktifkannya kembali.
+            </p>
             <p v-if="errors.user_id" class="text-red-500 text-sm mt-1">{{ errors.user_id }}</p>
           </div>
 

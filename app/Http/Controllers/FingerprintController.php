@@ -173,6 +173,7 @@ class FingerprintController extends Controller
         $skippedCount = 0;
         $employeeSavedCount = 0;
         $employeeUpdatedCount = 0;
+        $employeeUnlinkedCount = 0;
 
         // Track unique employees (PIN -> Name) to avoid duplicate employee records
         $processedEmployees = [];
@@ -220,15 +221,7 @@ class FingerprintController extends Controller
                         ]);
                         $employeeUpdatedCount++;
                     } else {
-                        // Create new employee record
-                        Employee::create([
-                            'nik' => $item['pin'],
-                            'name' => $item['name'],
-                            'phone' => '',
-                            'address' => '',
-                            'join_date' => $item['scan_date_only'] ?? null,
-                        ]);
-                        $employeeSavedCount++;
+                        $employeeUnlinkedCount++;
                     }
                 }
 
@@ -248,18 +241,20 @@ class FingerprintController extends Controller
                 'fingerprints_skipped' => $skippedCount,
                 'employees_saved' => $employeeSavedCount,
                 'employees_updated' => $employeeUpdatedCount,
+                'employee_profiles_not_found' => $employeeUnlinkedCount,
             ],
-            "Imported fingerprint data: {$savedCount} fingerprints saved, {$skippedCount} skipped. {$employeeSavedCount} employees created, {$employeeUpdatedCount} updated."
+            "Imported fingerprint data: {$savedCount} fingerprints saved, {$skippedCount} skipped. {$employeeSavedCount} employees created, {$employeeUpdatedCount} updated, {$employeeUnlinkedCount} PINs without employee profiles."
         );
 
         return response()->json([
             'message' => [
                 'type' => 'success',
-                'text' => "Data berhasil disimpan! {$savedCount} record fingerprint baru, {$skippedCount} duplikat dilewati. {$employeeSavedCount} employee baru, {$employeeUpdatedCount} employee diupdate.",
+                'text' => "Data berhasil disimpan! {$savedCount} record fingerprint baru, {$skippedCount} duplikat dilewati. {$employeeUpdatedCount} employee diupdate, {$employeeUnlinkedCount} PIN belum memiliki profil Employee/User; buat profil dari Master Data > Employee.",
                 'saved' => $savedCount,
                 'skipped' => $skippedCount,
                 'employees_saved' => $employeeSavedCount,
                 'employees_updated' => $employeeUpdatedCount,
+                'employee_profiles_not_found' => $employeeUnlinkedCount,
             ]
         ]);
     }

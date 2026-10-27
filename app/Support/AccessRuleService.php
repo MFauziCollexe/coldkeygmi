@@ -212,6 +212,48 @@ class AccessRuleService
             || $name === 'CFO';
     }
 
+    public function isHr(User|int|null $user): bool
+    {
+        $resolvedUser = $this->resolveUser($user);
+        $department = $this->resolveDepartment($resolvedUser, $this->resolveEmployee($resolvedUser));
+        $position = $this->resolvePosition($resolvedUser);
+
+        $positionCode = strtoupper(trim((string) ($position?->code ?? '')));
+        $positionName = strtoupper(trim((string) ($position?->name ?? '')));
+
+        return str_contains(strtoupper((string) ($department?->code ?? '')), 'HR')
+            || str_contains(strtoupper((string) ($department?->name ?? '')), 'HUMAN RESOURCE')
+            || str_starts_with($positionCode, 'HR')
+            || str_starts_with($positionName, 'HR ')
+            || str_contains($positionName, 'HUMAN RESOURCE');
+    }
+
+    public function isIt(User|int|null $user): bool
+    {
+        $resolvedUser = $this->resolveUser($user);
+        $department = $this->resolveDepartment($resolvedUser, $this->resolveEmployee($resolvedUser));
+        $position = $this->resolvePosition($resolvedUser);
+
+        $positionCode = strtoupper(trim((string) ($position?->code ?? '')));
+        $positionName = strtoupper(trim((string) ($position?->name ?? '')));
+
+        return strtoupper(trim((string) ($department?->code ?? ''))) === 'IT'
+            || str_contains(strtoupper((string) ($department?->name ?? '')), 'INFORMATION TECHNOLOGY')
+            || str_starts_with($positionCode, 'IT')
+            || str_starts_with($positionName, 'IT ')
+            || str_contains($positionName, 'INFORMATION TECHNOLOGY');
+    }
+
+    public function canViewAllHrData(User|int|null $user): bool
+    {
+        return $this->isAdmin($user)
+            || $this->isManager($user)
+            || $this->isSupervisor($user)
+            || $this->isHr($user)
+            || $this->isCfo($user)
+            || $this->isIt($user);
+    }
+
     public function isSupervisor(User|int|null $user): bool
     {
         $position = $this->resolvePosition($user);
@@ -351,6 +393,9 @@ class AccessRuleService
             'admin' => $this->isAdmin($user),
             'manager' => $this->isManager($user),
             'supervisor' => $this->isSupervisor($user),
+            'hr' => $this->isHr($user),
+            'cfo' => $this->isCfo($user),
+            'it' => $this->isIt($user),
             'user_id' => (string) $user->getKey() === trim((string) ($rule['value'] ?? '')),
             'user_email' => strtoupper(trim((string) $user->email)) === strtoupper(trim((string) ($rule['value'] ?? ''))),
             'user_account' => strtoupper(trim((string) ($user->account ?? ''))) === strtoupper(trim((string) ($rule['value'] ?? ''))),

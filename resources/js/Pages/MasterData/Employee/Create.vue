@@ -5,7 +5,7 @@
 
       <form @submit.prevent="submit">
         <div class="max-w-4xl rounded bg-slate-800 p-4 md:p-6">
-          <h3 class="text-lg font-semibold mb-4 text-indigo-400">User (Optional)</h3>
+          <h3 class="text-lg font-semibold mb-4 text-indigo-400">User (Required)</h3>
           
           <!-- User Selection -->
           <div class="mb-4">
