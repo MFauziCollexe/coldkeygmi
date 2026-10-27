@@ -104,23 +104,12 @@ return [
                 'view_list' => [
                     'all_if' => [
                         ['type' => 'admin'],
-                        ['type' => 'manager'],
-                        ['type' => 'supervisor'],
                         ['type' => 'hr'],
                         ['type' => 'cfo'],
                         ['type' => 'it'],
                     ],
                     'ids_from' => [
-                        'managed_departments',
                         'own_department',
-                    ],
-                    'append_ids_if' => [
-                        [
-                            'if' => [
-                                ['type' => 'manager_in_department_codes', 'values' => ['OPS']],
-                            ],
-                            'department_codes' => ['IT'],
-                        ],
                     ],
                 ],
                 'approve' => [
@@ -144,7 +133,6 @@ return [
                         ['type' => 'admin'],
                     ],
                     'ids_from' => [
-                        'managed_departments',
                         'own_department',
                     ],
                 ],

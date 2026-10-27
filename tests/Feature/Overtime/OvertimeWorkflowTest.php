@@ -269,6 +269,141 @@ class OvertimeWorkflowTest extends TestCase
         $this->assertSame(0, Overtime::query()->count());
     }
 
+    public function test_supervisor_can_approve_overtime_they_submitted_for_another_employee(): void
+    {
+        $department = $this->createDepartment(['name' => 'Operations', 'code' => 'OPS']);
+        $supervisorPosition = $this->createPosition($department, [
+            'name' => 'Operations Supervisor',
+            'code' => 'OPS-SPV',
+        ]);
+        $supervisor = $this->createUser([
+            'name' => 'Operations Supervisor',
+            'department' => $department,
+            'position' => $supervisorPosition,
+        ], 'gmihr_attendance_overtime');
+        $supervisorEmployee = $this->createEmployee($supervisor, [
+            'department_id' => $department->id,
+            'position_id' => $supervisorPosition->id,
+        ]);
+
+        $staff = $this->createUser([
+            'name' => 'Operations Staff',
+            'department' => $department,
+        ], 'gmihr_attendance_overtime');
+        $staffEmployee = $this->createEmployee($staff, [
+            'department_id' => $department->id,
+            'reports_to' => $supervisorEmployee->id,
+        ]);
+
+        $managerPosition = $this->createPosition($department, [
+            'name' => 'Operations Manager',
+            'code' => 'OPS-MGR',
+            'is_manager' => true,
+        ]);
+        $manager = $this->createUser([
+            'name' => 'Operations Manager',
+            'department' => $department,
+            'position' => $managerPosition,
+        ], 'gmihr_attendance_overtime');
+        $this->createEmployee($manager, [
+            'department_id' => $department->id,
+            'position_id' => $managerPosition->id,
+        ]);
+
+        $this->actingAs($supervisor)
+            ->post(route('overtime.store'), [
+                'employee_id' => $staffEmployee->id,
+                'overtime_date' => '2026-10-27',
+                'start_time' => '18:00',
+                'end_time' => '20:00',
+                'reason' => 'Overtime submitted by supervisor on behalf of staff.',
+            ])
+            ->assertRedirect(route('overtime.index'))
+            ->assertSessionHas('success');
+
+        $overtime = Overtime::query()->firstOrFail();
+        $this->assertSame($supervisor->id, $overtime->user_id);
+        $this->assertSame($staffEmployee->id, $overtime->employee_id);
+        $this->assertSame('pending_spv', $overtime->status);
+
+        $this->actingAs($supervisor)
+            ->get(route('overtime.show', $overtime))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('canApprove', true));
+
+        $this->actingAs($supervisor)
+            ->put(route('overtime.update', $overtime), [
+                'status' => 'approved',
+                'review_notes' => 'Approved by assigned supervisor.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame('pending_manager', $overtime->fresh()->status);
+        $this->assertSame($supervisor->id, $overtime->fresh()->spv_reviewed_by);
+    }
+
+    public function test_mtc_and_it_employee_overtime_goes_directly_to_manager(): void
+    {
+        foreach ([
+            ['name' => 'Maintanance', 'code' => 'MNT'],
+            ['name' => 'Information Technology', 'code' => 'IT'],
+        ] as $departmentAttributes) {
+            $department = $this->createDepartment($departmentAttributes);
+            $managerPosition = $this->createPosition($department, [
+                'name' => $departmentAttributes['name'].' Manager',
+                'code' => $departmentAttributes['code'].'-MGR',
+                'is_manager' => true,
+            ]);
+            $manager = $this->createUser([
+                'name' => $departmentAttributes['name'].' Manager',
+                'department' => $department,
+                'position' => $managerPosition,
+            ], 'gmihr_attendance_overtime');
+            $this->createEmployee($manager, [
+                'department_id' => $department->id,
+                'position_id' => $managerPosition->id,
+            ]);
+
+            $requester = $this->createUser([
+                'name' => $departmentAttributes['name'].' Staff',
+                'department' => $department,
+            ], 'gmihr_attendance_overtime');
+            $employee = $this->createEmployee($requester, [
+                'department_id' => $department->id,
+                'reports_to' => null,
+            ]);
+
+            $this->actingAs($requester)
+                ->post(route('overtime.store'), [
+                    'employee_id' => $employee->id,
+                    'overtime_date' => '2026-10-27',
+                    'start_time' => '18:00',
+                    'end_time' => '20:00',
+                    'reason' => $departmentAttributes['name'].' work after office hours.',
+                ])
+                ->assertRedirect(route('overtime.index'))
+                ->assertSessionHas('success');
+
+            $overtime = Overtime::query()->latest('id')->firstOrFail();
+            $this->assertSame('pending_manager', $overtime->status);
+
+            $this->actingAs($manager)
+                ->from(route('overtime.index'))
+                ->put(route('overtime.update', $overtime), [
+                    'status' => 'approved',
+                    'review_notes' => 'Approved by '.$departmentAttributes['name'].' Manager.',
+                ])
+                ->assertRedirect(route('overtime.index'))
+                ->assertSessionHas('success');
+
+            $overtime->refresh();
+            $this->assertSame('approved', $overtime->status);
+            $this->assertSame($manager->id, $overtime->manager_reviewed_by);
+            $this->assertNull($overtime->spv_reviewed_by);
+        }
+    }
+
     public function test_andrian_can_view_overtime_requests_from_all_departments(): void
     {
         $fat = $this->createDepartment(['name' => 'FAT', 'code' => 'FAT']);
@@ -310,6 +445,57 @@ class OvertimeWorkflowTest extends TestCase
                 ->where('overtimes.data', fn ($rows) => collect($rows)->contains('id', $regularOvertime->id)
                     && ! collect($rows)->contains('id', $fatOvertime->id)
                     && ! collect($rows)->contains('id', $maintenanceOvertime->id)));
+    }
+
+    public function test_manager_and_supervisor_can_only_view_overtime_in_their_department(): void
+    {
+        $operations = $this->createDepartment(['name' => 'Operations', 'code' => 'OPS']);
+        $finance = $this->createDepartment(['name' => 'Finance', 'code' => 'FIN']);
+        $managerPosition = $this->createPosition($operations, [
+            'name' => 'Operations Manager',
+            'code' => 'OPS-MGR',
+            'is_manager' => true,
+        ]);
+        $supervisorPosition = $this->createPosition($operations, [
+            'name' => 'Operations Supervisor',
+            'code' => 'OPS-SPV',
+        ]);
+
+        $manager = $this->createUser([
+            'name' => 'Operations Manager',
+            'department' => $operations,
+            'position' => $managerPosition,
+        ], 'gmihr_attendance_overtime');
+        $supervisor = $this->createUser([
+            'name' => 'Operations Supervisor',
+            'department' => $operations,
+            'position' => $supervisorPosition,
+        ], 'gmihr_attendance_overtime');
+
+        $operationsUser = $this->createUser(['department' => $operations], 'gmihr_attendance_overtime');
+        $operationsEmployee = $this->createEmployee($operationsUser, ['department_id' => $operations->id]);
+        $financeUser = $this->createUser(['department' => $finance], 'gmihr_attendance_overtime');
+        $financeEmployee = $this->createEmployee($financeUser, ['department_id' => $finance->id]);
+        $operationsOvertime = $this->createOvertime($operationsUser, $operationsEmployee);
+        $financeOvertime = $this->createOvertime($financeUser, $financeEmployee);
+
+        foreach ([$manager, $supervisor] as $viewer) {
+            $this->actingAs($viewer)
+                ->get(route('overtime.index'))
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->component('GMIHR/Overtime/Index')
+                    ->where('overtimes.data', fn ($rows) => collect($rows)->contains('id', $operationsOvertime->id)
+                        && ! collect($rows)->contains('id', $financeOvertime->id)));
+
+            $this->get(route('overtime.show', $operationsOvertime))->assertOk();
+            $this->get(route('overtime.show', $financeOvertime))->assertForbidden();
+
+            $this->get(route('overtime.create'))
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->where('employees', fn ($employees) => collect($employees)->pluck('id')->all() === [$operationsEmployee->id]));
+        }
     }
 
     private function createOvertime(\App\Models\User $user, \App\Models\Employee $employee): Overtime
