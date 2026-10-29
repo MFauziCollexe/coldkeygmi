@@ -47,6 +47,109 @@
           </article>
         </section>
 
+        <section class="space-y-4 border border-slate-800 bg-[#12151a] p-4 sm:p-5" aria-labelledby="history-title">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 id="history-title" class="text-lg font-semibold text-white">Laporan Historis Cold Storage</h2>
+              <p class="mt-1 text-xs text-slate-500">Snapshot harian · {{ history.startDate }} s/d {{ history.endDate }}</p>
+            </div>
+            <div class="flex flex-wrap gap-2" role="group" aria-label="Periode laporan historis">
+              <button
+                v-for="period in historyPeriods"
+                :key="period.value"
+                type="button"
+                class="rounded-full px-3 py-1.5 text-xs font-semibold transition"
+                :class="historyPeriod === period.value ? 'bg-sky-400 text-slate-950' : 'text-slate-300 hover:bg-white/10'"
+                @click="historyPeriod = period.value"
+              >
+                {{ period.label }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="historyComparison" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <article class="border-l-2 border-slate-500 bg-[#15181d] px-3 py-2.5">
+              <p class="text-[11px] text-slate-500">Jumlah snapshot</p>
+              <p class="mt-1 text-lg font-bold tabular-nums text-white">{{ visibleHistorySnapshots.length }} hari</p>
+            </article>
+            <article class="border-l-2 border-sky-400 bg-[#15181d] px-3 py-2.5">
+              <p class="text-[11px] text-slate-500">Perubahan slot terpakai</p>
+              <p class="mt-1 text-lg font-bold tabular-nums" :class="historyComparison.usedChange > 0 ? 'text-amber-300' : 'text-emerald-300'">
+                {{ historyComparison.usedChange > 0 ? '+' : '' }}{{ formatNumber(historyComparison.usedChange) }} slot
+              </p>
+              <p class="text-[10px] text-slate-500">{{ historyComparison.first.date }} → {{ historyComparison.last.date }}</p>
+            </article>
+            <article class="border-l-2 border-violet-400 bg-[#15181d] px-3 py-2.5">
+              <p class="text-[11px] text-slate-500">Perubahan okupansi</p>
+              <p class="mt-1 text-lg font-bold tabular-nums" :class="historyComparison.occupancyChange > 0 ? 'text-amber-300' : 'text-emerald-300'">
+                {{ historyComparison.occupancyChange > 0 ? '+' : '' }}{{ formatNumber(historyComparison.occupancyChange) }} poin
+              </p>
+              <p class="text-[10px] text-slate-500">Selisih poin persentase</p>
+            </article>
+          </div>
+
+          <div v-if="visibleHistorySnapshots.length" class="overflow-x-auto border-t border-slate-800 pt-4">
+            <div class="flex h-44 min-w-full w-max items-end gap-1.5 px-1">
+              <div
+                v-for="snapshot in visibleHistorySnapshots"
+                :key="snapshot.date"
+                class="group flex h-full w-4 flex-col items-center justify-end"
+                :title="`${snapshot.date}\nTerpakai: ${formatNumber(snapshot.used)} / ${formatNumber(snapshot.capacity)} slot\nOkupansi: ${formatPercent(snapshot.occupancy)}`"
+              >
+                <div class="flex h-full w-full items-end rounded-t-sm bg-slate-800">
+                  <div
+                    class="w-full rounded-t-sm bg-sky-400 transition group-hover:bg-sky-300"
+                    :style="{ height: `${Math.max(2, Math.min(100, Number(snapshot.occupancy)))}%` }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-2 flex justify-between text-[10px] text-slate-500">
+              <span>{{ visibleHistorySnapshots[0]?.date }}</span>
+              <span>{{ visibleHistorySnapshots[visibleHistorySnapshots.length - 1]?.date }}</span>
+            </div>
+          </div>
+          <p v-else class="border-t border-slate-800 py-8 text-center text-sm text-slate-500">
+            Belum ada snapshot pada periode ini. Snapshot pertama akan tersedia setelah command harian berhasil dijalankan.
+          </p>
+
+          <div v-if="historyComparison" class="grid grid-cols-1 gap-4 border-t border-slate-800 pt-4 xl:grid-cols-2">
+            <div>
+              <h3 class="mb-2 text-sm font-semibold text-white">Perbandingan per Cold Storage · snapshot terbaru</h3>
+              <div class="overflow-x-auto">
+                <table class="w-full min-w-[420px] text-left text-xs">
+                  <thead class="text-slate-500">
+                    <tr>
+                      <th class="py-2 pr-3 font-medium">Cold Storage</th>
+                      <th class="px-2 py-2 text-right font-medium">Terpakai</th>
+                      <th class="px-2 py-2 text-right font-medium">Kapasitas</th>
+                      <th class="py-2 pl-2 text-right font-medium">Okupansi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="storage in historyComparison.last.storages" :key="storage.name" class="border-t border-slate-800 text-slate-300">
+                      <td class="py-2 pr-3 font-medium text-white">{{ storage.name }}</td>
+                      <td class="px-2 py-2 text-right tabular-nums">{{ formatNumber(storage.used) }}</td>
+                      <td class="px-2 py-2 text-right tabular-nums">{{ formatNumber(storage.capacity) }}</td>
+                      <td class="py-2 pl-2 text-right tabular-nums">{{ formatPercent(storage.occupancy) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <h3 class="mb-2 text-sm font-semibold text-white">Pemakaian customer · snapshot terbaru</h3>
+              <div v-if="history.latestCustomers.length" class="max-h-52 space-y-2 overflow-auto">
+                <div v-for="customer in history.latestCustomers" :key="customer.id" class="flex items-center justify-between gap-3 border-t border-slate-800 pt-2 text-xs">
+                  <span class="truncate text-slate-300">{{ customer.customer }}</span>
+                  <span class="shrink-0 tabular-nums text-white">{{ formatNumber(customer.occupiedSlots) }} slot</span>
+                </div>
+              </div>
+              <p v-else class="border-t border-slate-800 pt-3 text-xs text-slate-500">Belum ada data pemakaian customer pada snapshot terbaru.</p>
+            </div>
+          </div>
+        </section>
+
         <section class="flex flex-col gap-4 border-y border-white/10 py-3 sm:flex-row sm:items-center">
           <div class="flex flex-wrap items-center gap-2" aria-label="Filter status">
             <span class="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Filter</span>
@@ -236,9 +339,14 @@ const props = defineProps({
   storages: { type: Array, default: () => [] },
   customerOccupancy: { type: Array, default: () => [] },
   updatedAt: { type: String, default: '' },
+  history: {
+    type: Object,
+    default: () => ({ snapshots: [], latestCustomers: [], startDate: '', endDate: '' }),
+  },
 });
 
 const statusFilter = ref('all');
+const historyPeriod = ref('week');
 const selectedStorage = ref(null);
 const slotFilter = ref('used');
 const refreshing = ref(false);
@@ -261,8 +369,31 @@ const slotFilters = [
   { value: 'all', label: 'Semua' },
 ];
 
+const historyPeriods = [
+  { value: 'week', label: '1 Minggu' },
+  { value: 'month', label: '1 Bulan' },
+  { value: 'year', label: '1 Tahun' },
+];
 const storages = computed(() => props.storages || []);
 const customerOccupancy = computed(() => props.customerOccupancy || []);
+const history = computed(() => props.history || { snapshots: [], latestCustomers: [] });
+const visibleHistorySnapshots = computed(() => {
+  const days = historyPeriod.value === 'month' ? 30 : historyPeriod.value === 'year' ? 365 : 7;
+  return history.value.snapshots.slice(-days);
+});
+const historyComparison = computed(() => {
+  const snapshots = visibleHistorySnapshots.value;
+  if (!snapshots.length) return null;
+
+  const first = snapshots[0];
+  const last = snapshots[snapshots.length - 1];
+  return {
+    first,
+    last,
+    usedChange: Number(last.used || 0) - Number(first.used || 0),
+    occupancyChange: Number(last.occupancy || 0) - Number(first.occupancy || 0),
+  };
+});
 const filteredStorages = computed(() => statusFilter.value === 'all'
   ? storages.value
   : storages.value.filter((storage) => storage.status === statusFilter.value));
