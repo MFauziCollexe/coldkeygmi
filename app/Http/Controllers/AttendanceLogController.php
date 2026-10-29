@@ -40,8 +40,25 @@ class AttendanceLogController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $canViewAll = $this->accessRules()->canViewAllHrData($user);
+        $accessRules = $this->accessRules();
+        $isSupervisor = $accessRules->isSupervisor($user);
+        $hasPrivilegedFullAccess = $accessRules->isAdmin($user)
+            || $accessRules->isHr($user)
+            || $accessRules->isCfo($user)
+            || $accessRules->isIt($user);
+        $canViewAll = $accessRules->canViewAllHrData($user)
+            && (! $isSupervisor || $hasPrivilegedFullAccess);
         $employeeId = $user?->employee?->id;
+        $visibleEmployeeIds = null;
+        if (! $canViewAll) {
+            $visibleEmployeeIds = $isSupervisor && $employeeId
+                ? DB::table('employees')
+                    ->where('reports_to', $employeeId)
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all()
+                : ($employeeId ? [(int) $employeeId] : []);
+        }
         $canManageCorrections = $this->canManageCorrections($request->user());
         $forcedDepartmentName = $canViewAll ? null : $this->resolveForcedAttendanceDepartment($request->user());
 
@@ -109,6 +126,7 @@ class AttendanceLogController extends Controller
             $employeeColumns[] = 'e.alias_name';
         }
         if (Schema::hasColumn('employees', 'reports_to')) {
+            $employeeColumns[] = 'e.reports_to';
             $employeeColumns[] = 'sup.alias_name as supervisor_name';
             $employeeColumns[] = 'sup.name as supervisor_fallback_name';
         }
@@ -128,6 +146,7 @@ class AttendanceLogController extends Controller
                 return [
                     $pin => [
                         'employee_id' => (int) ($row->employee_id ?? 0),
+                        'reports_to' => (int) ($row->reports_to ?? 0),
                         'nik' => trim((string) ($row->nik ?? '')),
                         'name' => trim((string) ($row->name ?? '')),
                         'alias_name' => trim((string) ($row->alias_name ?? '')),
@@ -781,17 +800,25 @@ class AttendanceLogController extends Controller
             })->values();
         }
 
-        if (!$canViewAll) {
-            $rows = $rows->filter(function (array $row) use ($employeeId, $employeeInfoByPin) {
-                $pin = $this->normalizePin((string) ($row['pin'] ?? ''));
-                return $employeeId
-                    && (int) ($employeeInfoByPin->get($pin)['employee_id'] ?? 0) === (int) $employeeId;
-            })->values();
-            $summaryRows = $summaryRows->filter(function (array $row) use ($employeeId, $employeeInfoByPin) {
-                $pin = $this->normalizePin((string) ($row['pin'] ?? ''));
-                return $employeeId
-                    && (int) ($employeeInfoByPin->get($pin)['employee_id'] ?? 0) === (int) $employeeId;
-            })->values();
+        $summaryEmployeeInfoByPin = $employeeInfoByPin;
+        if (! $canViewAll) {
+            $rows = $this->filterAttendanceRowsForEmployeeIds(
+                $rows,
+                $employeeInfoByPin,
+                $visibleEmployeeIds ?? []
+            );
+            $summaryRows = $this->filterAttendanceRowsForEmployeeIds(
+                $summaryRows,
+                $employeeInfoByPin,
+                $visibleEmployeeIds ?? []
+            );
+
+            if ($isSupervisor) {
+                $visibleEmployeeIdLookup = array_fill_keys($visibleEmployeeIds ?? [], true);
+                $summaryEmployeeInfoByPin = $employeeInfoByPin->filter(
+                    fn (array $info) => isset($visibleEmployeeIdLookup[(int) ($info['employee_id'] ?? 0)])
+                );
+            }
         }
 
         $normaliseAttendanceRow = function (array $row) {
@@ -869,7 +896,7 @@ class AttendanceLogController extends Controller
         $statusDateFrom = $today->copy()->startOfMonth()->toDateString();
         $statusDateTo = $today->copy()->subDay()->toDateString();
 
-        $departmentEmployeeCounts = collect($employeeInfoByPin)
+        $departmentEmployeeCounts = collect($summaryEmployeeInfoByPin)
             ->filter(fn(array $info, string $pin) => $pin !== ''
                 && (!isset($employeeStatusByPin[$pin]) || $employeeStatusByPin[$pin] === 'active'))
             ->groupBy(fn(array $info) => trim((string) ($info['department_name'] ?? '')))
@@ -1021,6 +1048,21 @@ class AttendanceLogController extends Controller
         $departmentName = trim((string) optional($user->department)->name);
 
         return $this->departmentMatches($departmentName, 'Security') ? 'Security' : null;
+    }
+
+    private function filterAttendanceRowsForEmployeeIds(
+        Collection $rows,
+        Collection $employeeInfoByPin,
+        array $visibleEmployeeIds
+    ): Collection {
+        $visibleEmployeeIdLookup = array_fill_keys(array_map('intval', $visibleEmployeeIds), true);
+
+        return $rows->filter(function (array $row) use ($employeeInfoByPin, $visibleEmployeeIdLookup) {
+            $pin = $this->normalizePin((string) ($row['pin'] ?? ''));
+            $employeeId = (int) ($employeeInfoByPin->get($pin)['employee_id'] ?? 0);
+
+            return isset($visibleEmployeeIdLookup[$employeeId]);
+        })->values();
     }
 
     private function departmentMatches(?string $left, ?string $right): bool

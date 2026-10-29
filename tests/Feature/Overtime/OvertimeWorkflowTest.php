@@ -230,6 +230,110 @@ class OvertimeWorkflowTest extends TestCase
         }
     }
 
+    public function test_admin_loket_overtime_uses_chandra_as_spv_approver(): void
+    {
+        $riskControl = $this->createDepartment(['name' => 'Risk Control', 'code' => 'RSC']);
+        $adminLoket = $this->createDepartment(['name' => 'Admin Loket', 'code' => 'ADL']);
+        $operations = $this->createDepartment(['name' => 'Operations', 'code' => 'OPS']);
+
+        $chandraPosition = $this->createPosition($riskControl, [
+            'name' => 'SPV Risk Control',
+            'code' => 'RSC-SPV',
+        ]);
+        $chandra = $this->createUser([
+            'name' => 'Chandra',
+            'department' => $riskControl,
+            'position' => $chandraPosition,
+        ], 'gmihr.attendance.overtime');
+        $chandraEmployee = $this->createEmployee($chandra, [
+            'department_id' => $riskControl->id,
+            'position_id' => $chandraPosition->id,
+        ]);
+
+        $adminLoketSpvPosition = $this->createPosition($adminLoket, [
+            'name' => 'Admin Loket Supervisor',
+            'code' => 'ADL-SPV',
+        ]);
+        $adminLoketSpv = $this->createUser([
+            'department' => $adminLoket,
+            'position' => $adminLoketSpvPosition,
+        ], 'gmihr.attendance.overtime');
+        $this->createEmployee($adminLoketSpv, [
+            'department_id' => $adminLoket->id,
+            'position_id' => $adminLoketSpvPosition->id,
+        ]);
+
+        $requester = $this->createUser([
+            'department' => $adminLoket,
+        ], 'gmihr.attendance.overtime');
+        $employee = $this->createEmployee($requester, [
+            'department_id' => $adminLoket->id,
+            'reports_to' => $chandraEmployee->id,
+        ]);
+
+        $managerPosition = $this->createPosition($operations, [
+            'name' => 'Operations Manager',
+            'code' => 'OPS-MGR',
+            'is_manager' => true,
+        ]);
+        $manager = $this->createUser([
+            'department' => $operations,
+            'position' => $managerPosition,
+        ], 'gmihr.attendance.overtime');
+        $this->createEmployee($manager, [
+            'department_id' => $operations->id,
+            'position_id' => $managerPosition->id,
+        ]);
+
+        $this->actingAs($requester)
+            ->post(route('overtime.store'), [
+                'employee_id' => $employee->id,
+                'overtime_date' => '2026-05-10',
+                'start_time' => '18:00',
+                'end_time' => '20:00',
+                'reason' => 'Admin Loket overtime approval routing.',
+            ])
+            ->assertRedirect(route('overtime.index'))
+            ->assertSessionHas('success');
+
+        $overtime = Overtime::query()->firstOrFail();
+
+        $this->actingAs($chandra)
+            ->get(route('overtime.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('overtimes.data', fn ($rows) => collect($rows)
+                    ->contains(fn ($row) => $row['id'] === $overtime->id && $row['can_approve'])));
+        $this->get(route('overtime.show', $overtime))->assertOk();
+
+        $this->actingAs($adminLoketSpv)
+            ->get(route('overtime.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('overtimes.data', fn ($rows) => ! collect($rows)->contains('id', $overtime->id)));
+        $this->get(route('overtime.show', $overtime))->assertForbidden();
+
+        $this->actingAs($adminLoketSpv)
+            ->from(route('overtime.index'))
+            ->put(route('overtime.update', $overtime), [
+                'status' => 'approved',
+                'review_notes' => 'The department Reporting To SPV is not assigned.',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($chandra)
+            ->from(route('overtime.index'))
+            ->put(route('overtime.update', $overtime), [
+                'status' => 'approved',
+                'review_notes' => 'Approved by Chandra, SPV Risk Control.',
+            ])
+            ->assertRedirect(route('overtime.index'))
+            ->assertSessionHas('success');
+
+        $this->assertSame('pending_manager', $overtime->fresh()->status);
+        $this->assertSame($chandra->id, $overtime->fresh()->spv_reviewed_by);
+    }
+
     public function test_regular_user_cannot_submit_overtime_for_other_employee(): void
     {
         $department = $this->createDepartment([
@@ -447,7 +551,7 @@ class OvertimeWorkflowTest extends TestCase
                     && ! collect($rows)->contains('id', $maintenanceOvertime->id)));
     }
 
-    public function test_manager_and_supervisor_can_only_view_overtime_in_their_department(): void
+    public function test_manager_and_supervisor_can_only_view_authorized_overtime(): void
     {
         $operations = $this->createDepartment(['name' => 'Operations', 'code' => 'OPS']);
         $finance = $this->createDepartment(['name' => 'Finance', 'code' => 'FIN']);
@@ -471,9 +575,16 @@ class OvertimeWorkflowTest extends TestCase
             'department' => $operations,
             'position' => $supervisorPosition,
         ], 'gmihr_attendance_overtime');
+        $supervisorEmployee = $this->createEmployee($supervisor, [
+            'department_id' => $operations->id,
+            'position_id' => $supervisorPosition->id,
+        ]);
 
         $operationsUser = $this->createUser(['department' => $operations], 'gmihr_attendance_overtime');
-        $operationsEmployee = $this->createEmployee($operationsUser, ['department_id' => $operations->id]);
+        $operationsEmployee = $this->createEmployee($operationsUser, [
+            'department_id' => $operations->id,
+            'reports_to' => $supervisorEmployee->id,
+        ]);
         $financeUser = $this->createUser(['department' => $finance], 'gmihr_attendance_overtime');
         $financeEmployee = $this->createEmployee($financeUser, ['department_id' => $finance->id]);
         $operationsOvertime = $this->createOvertime($operationsUser, $operationsEmployee);

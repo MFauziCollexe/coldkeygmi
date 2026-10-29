@@ -75,11 +75,33 @@ class OvertimeController extends Controller
      * Get department IDs that user can view
      * - Admin: all departments
      * - Manager: their managed department
+     * - Supervisor: departments of their direct reports
      * - Regular user: their own department only
      */
     protected function getVisibleDepartmentIds($userId)
     {
-        return $this->accessRules()->visibleDepartmentIds($userId, self::ACCESS_MODULE, 'view_list');
+        $departmentIds = $this->accessRules()->visibleDepartmentIds($userId, self::ACCESS_MODULE, 'view_list');
+
+        if ($this->isSupervisor($userId)) {
+            $supervisorEmployeeId = (int) (Employee::query()
+                ->where('user_id', $userId)
+                ->value('id') ?? 0);
+
+            if ($supervisorEmployeeId > 0) {
+                $departmentIds = array_merge(
+                    $departmentIds,
+                    Employee::query()
+                        ->where('reports_to', $supervisorEmployeeId)
+                        ->whereNotNull('department_id')
+                        ->distinct()
+                        ->pluck('department_id')
+                        ->map(fn ($id) => (int) $id)
+                        ->all()
+                );
+            }
+        }
+
+        return array_values(array_unique(array_map('intval', $departmentIds)));
     }
 
     protected function getSubmissionDepartmentIds($userId): array
@@ -121,6 +143,11 @@ class OvertimeController extends Controller
         return ! in_array($departmentCode, ['MNT', 'MTC', 'IT'], true);
     }
 
+    private function supervisorForApproval(Employee $employee): ?Employee
+    {
+        return $employee->loadMissing(['supervisor.user', 'supervisor.position'])->supervisor;
+    }
+
     private function canViewOvertime(Overtime $overtime, int $userId): bool
     {
         if ($this->canViewAllOvertime($userId)) {
@@ -132,13 +159,31 @@ class OvertimeController extends Controller
             $targetDepartmentId = (int) ($overtime->user?->department_id ?? 0);
         }
 
-        if ($this->isManager($userId) || $this->isSupervisor($userId)) {
+        if ($this->isManager($userId)) {
             return $this->accessRules()->canAccessDepartment(
                 $userId,
                 self::ACCESS_MODULE,
                 'view_list',
                 $targetDepartmentId
             );
+        }
+
+        if ($this->isSupervisor($userId)) {
+            $supervisorEmployeeId = (int) (Employee::query()
+                ->where('user_id', $userId)
+                ->value('id') ?? 0);
+            if ($supervisorEmployeeId <= 0) {
+                return false;
+            }
+
+            if ($overtime->employee) {
+                return (int) $overtime->employee->reports_to === $supervisorEmployeeId;
+            }
+
+            return Employee::query()
+                ->where('user_id', $overtime->user_id)
+                ->where('reports_to', $supervisorEmployeeId)
+                ->exists();
         }
 
         $employeeId = (int) (Employee::where('user_id', $userId)->value('id') ?? 0);
@@ -152,8 +197,7 @@ class OvertimeController extends Controller
     private function approvalConfigurationError(Employee $employee): ?string
     {
         if ($this->requiresSupervisorApproval($employee)) {
-            $employee->loadMissing(['supervisor.user', 'supervisor.position']);
-            $supervisor = $employee->supervisor;
+            $supervisor = $this->supervisorForApproval($employee);
 
             if (
                 ! $supervisor?->user
@@ -194,8 +238,7 @@ class OvertimeController extends Controller
         $isSubmitter = (int) $overtime->user_id === $userId;
 
         if ($overtime->status === 'pending_spv') {
-            $employee->loadMissing(['supervisor.user', 'supervisor.position']);
-            $supervisor = $employee->supervisor;
+            $supervisor = $this->supervisorForApproval($employee);
 
             return $this->isSupervisor($userId)
                 && (int) ($supervisor?->user_id ?? 0) === $userId
@@ -245,7 +288,7 @@ class OvertimeController extends Controller
                     'managerApprover',
                 ]);
             if (! $canViewAll) {
-                if ($this->isManager($userId) || $this->isSupervisor($userId)) {
+                if ($this->isManager($userId)) {
                     if (empty($visibleDeptIds)) {
                         $query->whereIn('id', []);
                     } else {
@@ -256,6 +299,31 @@ class OvertimeController extends Controller
                                 $legacy->whereNull('employee_id')
                                     ->whereHas('user', function ($userQuery) use ($visibleDeptIds) {
                                         $userQuery->whereIn('department_id', $visibleDeptIds);
+                                    });
+                            });
+                        });
+                    }
+                } elseif ($this->isSupervisor($userId)) {
+                    $supervisorEmployeeId = (int) (Employee::query()
+                        ->where('user_id', $userId)
+                        ->value('id') ?? 0);
+
+                    if ($supervisorEmployeeId <= 0) {
+                        $query->whereIn('id', []);
+                    } else {
+                        $query->where(function ($q) use ($supervisorEmployeeId) {
+                            $q->whereHas('employee', function ($employeeQuery) use ($supervisorEmployeeId) {
+                                $employeeQuery->where('reports_to', $supervisorEmployeeId);
+                            })->orWhere(function ($legacy) use ($supervisorEmployeeId) {
+                                $legacy->whereNull('employee_id')
+                                    ->whereHas('user', function ($userQuery) use ($supervisorEmployeeId) {
+                                        $userQuery->whereIn(
+                                            'id',
+                                            Employee::query()
+                                                ->select('user_id')
+                                                ->where('reports_to', $supervisorEmployeeId)
+                                                ->whereNotNull('user_id')
+                                        );
                                     });
                             });
                         });
@@ -275,9 +343,22 @@ class OvertimeController extends Controller
         } else {
             $query = $query->with(['user', 'user.department', 'reviewer']);
             if (! $canViewAll) {
-                if ($this->isManager($userId) || $this->isSupervisor($userId)) {
+                if ($this->isManager($userId)) {
                     $query->whereHas('user', function ($userQuery) use ($visibleDeptIds) {
                         $userQuery->whereIn('department_id', $visibleDeptIds);
+                    });
+                } elseif ($this->isSupervisor($userId)) {
+                    $supervisorEmployeeId = (int) (Employee::query()
+                        ->where('user_id', $userId)
+                        ->value('id') ?? 0);
+                    $query->whereHas('user', function ($userQuery) use ($supervisorEmployeeId) {
+                        $userQuery->whereIn(
+                            'id',
+                            Employee::query()
+                                ->select('user_id')
+                                ->where('reports_to', $supervisorEmployeeId)
+                                ->whereNotNull('user_id')
+                        );
                     });
                 } else {
                     $query->where('user_id', (int) $userId);

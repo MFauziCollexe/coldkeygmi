@@ -219,6 +219,27 @@ class AttendanceLogControllerTest extends TestCase
         $this->assertSame(['KBM26002'], $this->invokePinCandidatesForMatch($controller, 'KBM26002'));
     }
 
+    public function test_attendance_rows_can_be_scoped_to_reporting_to_employee_ids(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'filterAttendanceRowsForEmployeeIds');
+        $method->setAccessible(true);
+
+        $rows = collect([
+            ['pin' => 'EMP001', 'name' => 'Direct report'],
+            ['pin' => 'EMP002', 'name' => 'Other employee'],
+            ['pin' => 'UNKNOWN', 'name' => 'Unmatched fingerprint'],
+        ]);
+        $employeeInfoByPin = collect([
+            'EMP001' => ['employee_id' => 101],
+            'EMP002' => ['employee_id' => 202],
+        ]);
+
+        $filteredRows = $method->invoke($controller, $rows, $employeeInfoByPin, [101]);
+
+        $this->assertSame(['Direct report'], $filteredRows->pluck('name')->all());
+    }
+
     private function invokeResolveByScheduleWindows(
         AttendanceLogController $controller,
         Collection $scans,
