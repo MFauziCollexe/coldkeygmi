@@ -190,7 +190,7 @@
               <p class="mt-1 text-xs text-slate-500">Jumlah slot yang digunakan setiap customer pada snapshot terakhir.</p>
             </div>
             <div v-if="history.latestCustomers.length" class="space-y-3">
-              <div v-for="customer in history.latestCustomers" :key="customer.id" class="min-w-0">
+              <div v-for="customer in visibleHistoryCustomers" :key="customer.id" class="min-w-0">
                 <div class="mb-1.5 flex items-center justify-between gap-3 text-xs">
                   <span class="truncate font-medium text-slate-700">{{ customer.customer }}</span>
                   <span class="shrink-0 tabular-nums text-slate-600">{{ formatNumber(customer.occupiedSlots) }} slot</span>
@@ -199,6 +199,18 @@
                   <div class="h-full rounded-full bg-blue-500" :style="{ width: `${Math.min(100, historyComparison?.last.used ? customer.occupiedSlots / historyComparison.last.used * 100 : 0)}%` }"></div>
                 </div>
               </div>
+              <button
+                v-if="history.latestCustomers.length > customerPreviewLimit"
+                type="button"
+                class="flex w-full items-center justify-center gap-1 border-t border-slate-100 pt-3 text-xs font-semibold text-blue-600 transition hover:text-blue-800"
+                :aria-expanded="showAllHistoryCustomers"
+                @click="showAllHistoryCustomers = !showAllHistoryCustomers"
+              >
+                {{ showAllHistoryCustomers ? 'Tampilkan lebih sedikit' : `Tampilkan semua (${history.latestCustomers.length})` }}
+                <svg class="h-4 w-4 transition-transform" :class="{ 'rotate-180': showAllHistoryCustomers }" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M5.22 7.47a.75.75 0 0 1 1.06 0L10 11.19l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                </svg>
+              </button>
             </div>
             <p v-else class="rounded-lg bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">Belum ada data pemakaian customer pada snapshot terbaru.</p>
           </section>
@@ -404,6 +416,8 @@ const historyPeriod = ref('week');
 const selectedStorage = ref(null);
 const slotFilter = ref('used');
 const refreshing = ref(false);
+const showAllHistoryCustomers = ref(false);
+const customerPreviewLimit = 5;
 
 const statusFilters = [
   { value: 'all', label: 'Semua Unit' },
@@ -431,6 +445,9 @@ const historyPeriods = [
 const storages = computed(() => props.storages || []);
 const customerOccupancy = computed(() => props.customerOccupancy || []);
 const history = computed(() => props.history || { snapshots: [], latestCustomers: [] });
+const visibleHistoryCustomers = computed(() => showAllHistoryCustomers.value
+  ? history.value.latestCustomers
+  : history.value.latestCustomers.slice(0, customerPreviewLimit));
 const visibleHistorySnapshots = computed(() => {
   const days = historyPeriod.value === 'month' ? 30 : historyPeriod.value === 'year' ? 365 : 7;
   return history.value.snapshots.slice(-days);
