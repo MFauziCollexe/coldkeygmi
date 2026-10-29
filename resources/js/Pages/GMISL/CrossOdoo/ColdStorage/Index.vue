@@ -1,53 +1,85 @@
 <template>
   <AppLayout>
-    <main class="min-h-full p-4 text-slate-100 md:p-6">
+    <main class="cold-storage-report min-h-full bg-gradient-to-br from-sky-50 via-slate-50 to-blue-50 p-4 text-slate-900 md:p-6">
       <div class="mx-auto max-w-375 space-y-5">
-        <header class="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p class="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">GMISL / Cross Odoo</p>
-            <h1 class="text-2xl font-bold tracking-tight text-white md:text-3xl">Kapasitas Cold Storage</h1>
-            <p class="mt-1 text-sm text-slate-400">Visualisasi lokasi dan okupansi slot dari master location Odoo.</p>
+        <header class="flex flex-col gap-4 pb-1 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-start gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+              <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5V6.8a1.8 1.8 0 0 1 1-1.6l6-3a2.2 2.2 0 0 1 2 0l6 3a1.8 1.8 0 0 1 1 1.6v12.7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 8h8M8 12h8M8 16h4" />
+              </svg>
+            </span>
+            <div>
+              <p class="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">GMISL / Cross Odoo</p>
+              <h1 class="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">Laporan Cold Storage</h1>
+              <p class="mt-1 text-xs text-slate-500">Informasi kapasitas, penggunaan, dan aktivitas cold storage secara real-time.</p>
+            </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="text-right text-xs text-slate-500">Data Odoo diperbarui<br><span class="font-medium text-slate-300">{{ updatedAt }}</span></span>
-            <button type="button" class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-sky-500 hover:text-white disabled:opacity-50" :disabled="refreshing" @click="refreshData">
+            <span class="text-right text-[11px] text-slate-500">Data Odoo diperbarui<br><span class="font-semibold text-slate-700">{{ updatedAt }}</span></span>
+            <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50" :disabled="refreshing" @click="refreshData">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.542 2.77.75.75 0 0 0-1.114 1.006 7 7 0 0 0 12.134-3.525.75.75 0 1 0-1.478-.251ZM4.688 8.576a5.5 5.5 0 0 1 9.542-2.77.75.75 0 0 0 1.114-1.006A7 7 0 0 0 3.21 8.325a.75.75 0 1 0 1.478.251Z" clip-rule="evenodd" /></svg>
               {{ refreshing ? 'Memuat...' : 'Refresh' }}
             </button>
           </div>
         </header>
 
-        <section class="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Ringkasan kapasitas">
-          <article class="border-l-2 border-slate-500 bg-[#15181d] px-4 py-3.5">
-            <p class="text-sm font-medium text-slate-400">Total Kapasitas</p>
-            <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-              <p class="text-4xl font-bold tabular-nums text-white">{{ formatNumber(totals.capacity) }}</p>
-              <span class="ml-auto flex flex-col items-end text-right text-sm text-slate-400"><span class="text-4xl font-bold tabular-nums text-white">{{ storages.length }}</span><span>Cold Storage</span></span>
+        <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Ringkasan kapasitas">
+          <article class="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div class="flex items-center gap-3">
+              <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5V6.8a1.8 1.8 0 0 1 1-1.6l6-3a2.2 2.2 0 0 1 2 0l6 3a1.8 1.8 0 0 1 1 1.6v12.7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M8 8h8M8 12h8M8 16h4" /></svg>
+              </span>
+              <div>
+                <p class="text-[11px] font-semibold text-slate-700">Total Kapasitas</p>
+                <p class="mt-0.5 text-xl font-bold leading-tight tabular-nums text-slate-900">{{ formatNumber(totals.capacity) }} <span class="text-xs font-medium text-slate-500">slot</span></p>
+              </div>
             </div>
+            <p class="mt-2 text-[10px] text-slate-500">{{ storages.length }} lokasi Cold Storage</p>
           </article>
-          <article class="border-l-2 border-sky-400 bg-[#15181d] px-4 py-3.5">
-            <p class="text-sm font-medium text-slate-400">Slot Terpakai</p>
-            <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-              <p class="text-4xl font-bold tabular-nums text-sky-300">{{ formatNumber(totals.used) }}</p>
-              <span class="ml-auto flex flex-col items-end text-right text-sm text-slate-400"><span class="text-4xl font-bold tabular-nums text-sky-300">{{ formatPercent(totals.occupancy) }}</span><span>tingkat okupansi</span></span>
+          <article class="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div class="flex items-center gap-3">
+              <span class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" /><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5" /></svg>
+              </span>
+              <div>
+                <p class="text-[11px] font-semibold text-slate-700">Total Penggunaan</p>
+                <p class="mt-0.5 text-xl font-bold leading-tight tabular-nums text-slate-900">{{ formatNumber(totals.used) }} <span class="text-xs font-medium text-slate-500">slot</span></p>
+              </div>
             </div>
+            <p class="mt-2 text-[10px] text-emerald-700">{{ formatPercent(totals.occupancy) }} dari total kapasitas</p>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500 transition-all" :style="{ width: `${Math.min(100, totals.occupancy)}%` }"></div></div>
           </article>
-          <article class="border-l-2 border-emerald-400 bg-[#15181d] px-4 py-3.5">
-            <p class="text-sm font-medium text-slate-400">Slot Tersedia</p>
-            <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-              <p class="text-4xl font-bold tabular-nums text-emerald-300">{{ formatNumber(totals.available) }}</p>
-              <p class="ml-auto text-right text-sm text-slate-400">Slot internal tanpa stok</p>
+          <article class="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div class="flex items-center gap-3">
+              <span class="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-13Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M8 8h8M8 12h8M8 16h3" /></svg>
+              </span>
+              <div>
+                <p class="text-[11px] font-semibold text-slate-700">Total Tersedia</p>
+                <p class="mt-0.5 text-xl font-bold leading-tight tabular-nums text-slate-900">{{ formatNumber(totals.available) }} <span class="text-xs font-medium text-slate-500">slot</span></p>
+              </div>
             </div>
+            <p class="mt-2 text-[10px] text-slate-500">{{ formatPercent(totals.capacity ? totals.available / totals.capacity * 100 : 0) }} dari total kapasitas</p>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-violet-500 transition-all" :style="{ width: `${Math.min(100, totals.capacity ? totals.available / totals.capacity * 100 : 0)}%` }"></div></div>
           </article>
-          <article class="border-l-2 border-red-400 bg-[#15181d] px-4 py-3.5">
-            <p class="text-sm font-medium text-slate-400">Status Kritis</p>
-            <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-              <p class="text-4xl font-bold tabular-nums text-red-300">{{ totals.critical }}</p>
-              <span class="ml-auto flex flex-col items-end text-right text-sm text-slate-400"><span class="text-4xl font-bold tabular-nums text-red-300">85%</span><span>Cold Storage dengan okupansi ≥</span></span>
+          <article class="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div class="flex items-center gap-3">
+              <span class="flex h-9 w-9 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5 2.8 19.2A1.2 1.2 0 0 0 3.8 21h16.4a1.2 1.2 0 0 0 1-1.8L12 3.5Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 3h.01" /></svg>
+              </span>
+              <div>
+                <p class="text-[11px] font-semibold text-slate-700">Cold Storage Kritis</p>
+                <p class="mt-0.5 text-xl font-bold leading-tight tabular-nums text-red-600">{{ totals.critical }} <span class="text-xs font-medium text-slate-500">lokasi</span></p>
+              </div>
             </div>
+            <p class="mt-2 text-[10px] text-slate-500">Tingkat okupansi ≥ 85%</p>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-red-500 transition-all" :style="{ width: `${Math.min(100, storages.length ? totals.critical / storages.length * 100 : 0)}%` }"></div></div>
           </article>
         </section>
 
-        <section class="space-y-4 border border-slate-800 bg-[#12151a] p-4 sm:p-5" aria-labelledby="history-title">
+        <section class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="history-title">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 id="history-title" class="text-lg font-semibold text-white">Laporan Historis Cold Storage</h2>
@@ -59,7 +91,7 @@
                 :key="period.value"
                 type="button"
                 class="rounded-full px-3 py-1.5 text-xs font-semibold transition"
-                :class="historyPeriod === period.value ? 'bg-sky-400 text-slate-950' : 'text-slate-300 hover:bg-white/10'"
+                :class="historyPeriod === period.value ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'"
                 @click="historyPeriod = period.value"
               >
                 {{ period.label }}
@@ -150,16 +182,16 @@
           </div>
         </section>
 
-        <section class="flex flex-col gap-4 border-y border-white/10 py-3 sm:flex-row sm:items-center">
+        <section class="flex flex-col gap-4 border-y border-slate-200 py-3 sm:flex-row sm:items-center">
           <div class="flex flex-wrap items-center gap-2" aria-label="Filter status">
             <span class="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Filter</span>
-            <button v-for="filter in statusFilters" :key="filter.value" type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold transition" :class="statusFilter === filter.value ? 'bg-sky-400 text-slate-950' : 'text-slate-300 hover:bg-white/10'" @click="statusFilter = filter.value">
+            <button v-for="filter in statusFilters" :key="filter.value" type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold transition" :class="statusFilter === filter.value ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="statusFilter = filter.value">
               {{ filter.label }}
             </button>
           </div>
         </section>
 
-        <section class="border border-slate-800 bg-[#12151a] p-4 sm:p-5" aria-labelledby="chart-title">
+        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="chart-title">
           <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div>
               <h2 id="chart-title" class="text-lg font-semibold text-white">Perbandingan Kapasitas per Cold Storage</h2>
@@ -233,7 +265,7 @@
             <p v-else class="border border-slate-800 bg-[#12151a] py-8 text-center text-sm text-slate-500">Tidak ada Cold Storage yang cocok dengan filter.</p>
           </section>
 
-          <section class="mt-5 border-t border-slate-800 pt-4" aria-labelledby="customer-share-title">
+          <section class="mt-5 border-t border-slate-200 pt-4" aria-labelledby="customer-share-title">
             <div class="mb-4 flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h3 id="customer-share-title" class="text-base font-semibold text-white">Okupansi per Customer</h3>
@@ -261,15 +293,15 @@
         </p>
       </div>
 
-      <div v-if="selectedStorage" class="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-5" @click.self="selectedStorage = null" @keydown.esc="selectedStorage = null">
-        <section role="dialog" aria-modal="true" :aria-label="`Rincian ${selectedStorage.name}`" class="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden border border-slate-700 bg-[#11151a] shadow-2xl sm:rounded-lg">
+      <div v-if="selectedStorage" class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-5" @click.self="selectedStorage = null" @keydown.esc="selectedStorage = null">
+        <section role="dialog" aria-modal="true" :aria-label="`Rincian ${selectedStorage.name}`" class="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-xl border border-slate-200 bg-white shadow-2xl sm:rounded-xl">
           <header class="flex shrink-0 items-start justify-between border-b border-slate-800 px-5 py-4">
             <div>
               <p class="text-xs font-semibold uppercase tracking-widest text-sky-300">Rincian lokasi</p>
               <h2 class="mt-1 text-xl font-bold text-white">{{ selectedStorage.name }}</h2>
               <p class="mt-1 text-xs text-slate-500">{{ selectedStorage.completeName }}</p>
             </div>
-            <button type="button" aria-label="Tutup rincian" class="rounded-md border border-slate-700 px-2.5 py-1.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white" @click="selectedStorage = null">Tutup</button>
+            <button type="button" aria-label="Tutup rincian" class="rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900" @click="selectedStorage = null">Tutup</button>
           </header>
           <div class="shrink-0 border-b border-slate-800 p-4 sm:px-5 sm:py-4">
             <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -294,7 +326,7 @@
           <div class="shrink-0 border-b border-slate-800 px-4 py-3 sm:px-5">
             <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filter status slot">
               <span class="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tampilkan</span>
-              <button v-for="filter in slotFilters" :key="filter.value" type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold transition" :class="slotFilter === filter.value ? 'bg-sky-400 text-slate-950' : 'text-slate-300 hover:bg-white/10'" @click="slotFilter = filter.value">
+              <button v-for="filter in slotFilters" :key="filter.value" type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold transition" :class="slotFilter === filter.value ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="slotFilter = filter.value">
                 {{ filter.label }} <span class="ml-1 tabular-nums opacity-75">{{ slotFilterCounts[filter.value] }}</span>
               </button>
             </div>
@@ -444,14 +476,14 @@ function statusLabel(status) {
 
 function statusClasses(status) {
   return status === 'high'
-    ? 'bg-red-950 text-red-300'
+    ? 'bg-red-50 text-red-700'
     : status === 'normal'
-      ? 'bg-blue-950 text-blue-300'
-      : 'bg-emerald-950 text-emerald-300';
+      ? 'bg-blue-50 text-blue-700'
+      : 'bg-emerald-50 text-emerald-700';
 }
 
 function statusTextClass(status) {
-  return status === 'high' ? 'text-red-300' : status === 'normal' ? 'text-blue-300' : 'text-emerald-300';
+  return status === 'high' ? 'text-red-700' : status === 'normal' ? 'text-blue-700' : 'text-emerald-700';
 }
 
 function progressClasses(status) {
@@ -484,3 +516,84 @@ function refreshData() {
   });
 }
 </script>
+
+<style scoped>
+:deep(.text-white:not(button)) {
+  color: #0f172a;
+}
+
+:deep(.text-slate-100),
+:deep(.text-slate-200),
+:deep(.text-slate-300) {
+  color: #334155;
+}
+
+:deep(.text-slate-400) {
+  color: #64748b;
+}
+
+:deep(.text-sky-300) {
+  color: #0369a1;
+}
+
+:deep(.text-emerald-300) {
+  color: #047857;
+}
+
+:deep(.text-red-300) {
+  color: #b91c1c;
+}
+
+:deep(.text-blue-300) {
+  color: #1d4ed8;
+}
+
+:deep(.text-violet-300) {
+  color: #6d28d9;
+}
+
+:deep(.text-amber-300) {
+  color: #b45309;
+}
+
+:deep([class~="bg-[#15181d]"]) {
+  background-color: #f8fafc;
+}
+
+:deep([class~="bg-[#12151a]"]),
+:deep([class~="bg-[#11151a]"]) {
+  background-color: #fff;
+}
+
+:deep([class~="bg-[#171c22]"]) {
+  background-color: #f1f5f9;
+}
+
+:deep(.bg-slate-900) {
+  background-color: #fff;
+}
+
+:deep(.bg-slate-800) {
+  background-color: #e2e8f0;
+}
+
+:deep(.bg-slate-700) {
+  background-color: #cbd5e1;
+}
+
+:deep(.border-slate-800) {
+  border-color: #e2e8f0;
+}
+
+:deep(.border-slate-700) {
+  border-color: #cbd5e1;
+}
+
+:deep(.hover\:bg-slate-800:hover) {
+  background-color: #f1f5f9;
+}
+
+:deep(.hover\:bg-\[\#191d23\]:hover) {
+  background-color: #f8fafc;
+}
+</style>
