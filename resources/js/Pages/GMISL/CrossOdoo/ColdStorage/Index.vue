@@ -518,82 +518,82 @@ function refreshData() {
 </script>
 
 <style scoped>
-:deep(.text-white:not(button)) {
+.cold-storage-report .text-white:not(button) {
   color: #0f172a;
 }
 
-:deep(.text-slate-100),
-:deep(.text-slate-200),
-:deep(.text-slate-300) {
+.cold-storage-report .text-slate-100,
+.cold-storage-report .text-slate-200,
+.cold-storage-report .text-slate-300 {
   color: #334155;
 }
 
-:deep(.text-slate-400) {
+.cold-storage-report .text-slate-400 {
   color: #64748b;
 }
 
-:deep(.text-sky-300) {
+.cold-storage-report .text-sky-300 {
   color: #0369a1;
 }
 
-:deep(.text-emerald-300) {
+.cold-storage-report .text-emerald-300 {
   color: #047857;
 }
 
-:deep(.text-red-300) {
+.cold-storage-report .text-red-300 {
   color: #b91c1c;
 }
 
-:deep(.text-blue-300) {
+.cold-storage-report .text-blue-300 {
   color: #1d4ed8;
 }
 
-:deep(.text-violet-300) {
+.cold-storage-report .text-violet-300 {
   color: #6d28d9;
 }
 
-:deep(.text-amber-300) {
+.cold-storage-report .text-amber-300 {
   color: #b45309;
 }
 
-:deep([class~="bg-[#15181d]"]) {
+.cold-storage-report [class~="bg-[#15181d]"] {
   background-color: #f8fafc;
 }
 
-:deep([class~="bg-[#12151a]"]),
-:deep([class~="bg-[#11151a]"]) {
+.cold-storage-report [class~="bg-[#12151a]"],
+.cold-storage-report [class~="bg-[#11151a]"] {
   background-color: #fff;
 }
 
-:deep([class~="bg-[#171c22]"]) {
+.cold-storage-report [class~="bg-[#171c22]"] {
   background-color: #f1f5f9;
 }
 
-:deep(.bg-slate-900) {
+.cold-storage-report .bg-slate-900 {
   background-color: #fff;
 }
 
-:deep(.bg-slate-800) {
+.cold-storage-report .bg-slate-800 {
   background-color: #e2e8f0;
 }
 
-:deep(.bg-slate-700) {
+.cold-storage-report .bg-slate-700 {
   background-color: #cbd5e1;
 }
 
-:deep(.border-slate-800) {
+.cold-storage-report .border-slate-800 {
   border-color: #e2e8f0;
 }
 
-:deep(.border-slate-700) {
+.cold-storage-report .border-slate-700 {
   border-color: #cbd5e1;
 }
 
-:deep(.hover\:bg-slate-800:hover) {
+.cold-storage-report .hover\:bg-slate-800:hover {
   background-color: #f1f5f9;
 }
 
-:deep(.hover\:bg-\[\#191d23\]:hover) {
+.cold-storage-report .hover\:bg-\[\#191d23\]:hover {
   background-color: #f8fafc;
 }
 </style>
