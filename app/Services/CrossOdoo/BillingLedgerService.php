@@ -94,7 +94,7 @@ class BillingLedgerService
     }
 
     /**
-     * @return array{rows: array<int, array<string, mixed>>, totalRows: int}
+     * @return array{rows: array<int, array<string, mixed>>, totalRows: int, dailySummaries: array<string, array<string, float>>}
      */
     public function ledger(
         OdooXmlRpcService $odoo,
@@ -110,7 +110,7 @@ class BillingLedgerService
         $variantRows = $odoo->searchRead('product.product', ['id'], null, [['product_tmpl_id', '=', $templateId]]);
         $variantIds = array_map(fn ($row) => (int) $row['id'], $variantRows);
         if ($variantIds === []) {
-            return ['rows' => [], 'totalRows' => 0];
+            return ['rows' => [], 'totalRows' => 0, 'dailySummaries' => []];
         }
 
         $start = CarbonImmutable::parse($startDate)->startOfDay();
@@ -178,6 +178,7 @@ class BillingLedgerService
                     $details,
                     $openingDetails,
                 );
+
                 continue;
             }
             if ($date > $endDate) {
@@ -282,6 +283,7 @@ class BillingLedgerService
                             $allDetails !== [] ? $allDetails : $rowDetails,
                         );
                         $running[$location] = $closingBalance;
+
                         continue;
                     }
                     foreach ($movement['transactions'] as $transaction) {
@@ -353,6 +355,51 @@ class BillingLedgerService
         return ['rows' => $rows, 'totalRows' => count($rows), 'dailySummaries' => $dailySummaries];
     }
 
+    /**
+     * @param  array<int, int>  $templateIds
+     * @return array{rows: array<int, array<string, mixed>>, totalRows: int, dailySummaries: array<string, array<string, float>>}
+     */
+    public function ledgers(
+        OdooXmlRpcService $odoo,
+        array $templateIds,
+        int $customerId,
+        string $startDate,
+        string $endDate,
+    ): array {
+        $rows = [];
+        $dailySummaries = [];
+
+        foreach ($templateIds as $templateId) {
+            $ledger = $this->ledger($odoo, $templateId, $customerId, $startDate, $endDate);
+            $rows = array_merge($rows, $ledger['rows']);
+
+            foreach ($ledger['dailySummaries'] as $date => $summary) {
+                foreach (['opening', 'in', 'out', 'adjust', 'closing'] as $key) {
+                    $dailySummaries[$date][$key] = ($dailySummaries[$date][$key] ?? 0.0)
+                        + (float) ($summary[$key] ?? 0);
+                }
+            }
+        }
+
+        usort($rows, static function (array $left, array $right): int {
+            $dateComparison = strcmp((string) ($left['Date'] ?? ''), (string) ($right['Date'] ?? ''));
+            if ($dateComparison !== 0) {
+                return $dateComparison;
+            }
+
+            return strcmp(
+                (string) (($left['Times'][0] ?? '')),
+                (string) (($right['Times'][0] ?? '')),
+            );
+        });
+
+        return [
+            'rows' => $rows,
+            'totalRows' => count($rows),
+            'dailySummaries' => $dailySummaries,
+        ];
+    }
+
     /** @param array<int, array<string, mixed>> $lines */
     private function fetchLocationMap(OdooXmlRpcService $odoo, array $lines): array
     {
@@ -385,6 +432,7 @@ class BillingLedgerService
                 'usage' => (string) ($location['usage'] ?? ''),
             ];
         }
+
         return $map;
     }
 
@@ -410,6 +458,7 @@ class BillingLedgerService
                 'name' => strtoupper((string) ($type['name'] ?? '')),
             ];
         }
+
         return $map;
     }
 
@@ -569,6 +618,7 @@ class BillingLedgerService
             return null;
         }
         $id = (int) $reference[0];
+
         return $locationMap[$id]['complete_name'] ?? (string) ($reference[1] ?? $id);
     }
 
@@ -768,6 +818,7 @@ class BillingLedgerService
                     'location' => (string) $source,
                     'quantity' => $quantity,
                 ];
+
                 continue;
             }
 

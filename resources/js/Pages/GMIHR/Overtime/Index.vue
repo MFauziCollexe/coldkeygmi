@@ -279,7 +279,12 @@
       <OvertimeForm 
         v-if="showCreateModal" 
         title="Ajukan Permintaan Lembur"
+        :employees="employees"
+        :can-select-employee="canSelectEmployee"
+        :can-submit-for-others="canSubmitForOthers"
+        :default-employee-id="defaultEmployeeId"
         :earliest-overtime-date="earliestOvertimeDate"
+        :can-submit-any-date="canSubmitAnyDate"
         @close="showCreateModal = false"
         @success="fetchData"
       />
@@ -427,11 +432,16 @@ const props = defineProps({
   overtimes: Object,
   filters: Object,
   departments: Array,
+  employees: { type: Array, default: () => [] },
+  canSelectEmployee: { type: Boolean, default: false },
+  canSubmitForOthers: { type: Boolean, default: false },
+  defaultEmployeeId: { type: [String, Number], default: '' },
   isAdmin: Boolean,
   isManager: Boolean,
   canViewAllOvertime: Boolean,
   canDeleteOvertime: Boolean,
   earliestOvertimeDate: { type: String, default: '' },
+  canSubmitAnyDate: { type: Boolean, default: false },
 });
 
 const filters = reactive({

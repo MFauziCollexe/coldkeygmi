@@ -33,7 +33,7 @@
           <EnhancedDatePicker
             v-model="form.overtime_date"
             placeholder=" "
-            :min-date="earliestOvertimeDate"
+            :min-date="canSubmitAnyDate ? '' : earliestOvertimeDate"
             input-class="w-full px-3 pt-5 pb-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-transparent"
           />
           <label
@@ -48,7 +48,7 @@
             Tanggal Lembur
           </label>
           <div v-if="form.errors.overtime_date" class="mt-1 text-sm text-red-400">{{ form.errors.overtime_date }}</div>
-          <p class="mt-1 text-xs text-slate-400">Pengajuan paling lambat H+1 setelah tanggal lembur.</p>
+          <p v-if="!canSubmitAnyDate" class="mt-1 text-xs text-slate-400">Pengajuan paling lambat H+1 setelah tanggal lembur.</p>
         </div>
         
         <div class="relative">
@@ -134,6 +134,7 @@ const props = defineProps({
   canSubmitForOthers: { type: Boolean, default: false },
   defaultEmployeeId: { type: [String, Number], default: '' },
   earliestOvertimeDate: { type: String, default: '' },
+  canSubmitAnyDate: { type: Boolean, default: false },
   initialData: {
     type: Object,
     default: () => ({
@@ -177,7 +178,7 @@ function submit() {
     return;
   }
 
-  if (props.earliestOvertimeDate && form.overtime_date < props.earliestOvertimeDate) {
+  if (!props.canSubmitAnyDate && props.earliestOvertimeDate && form.overtime_date < props.earliestOvertimeDate) {
     Swal.fire({
       icon: 'warning',
       title: 'Tanggal lembur tidak dapat diajukan',

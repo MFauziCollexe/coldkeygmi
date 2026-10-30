@@ -104,9 +104,13 @@
 
         <div>
           <label class="block text-sm text-slate-300 mb-1">Tanggal Lembur</label>
-          <EnhancedDatePicker v-model="form.overtime_date" placeholder="dd/mm/yyyy" :min-date="earliestOvertimeDate" />
+          <EnhancedDatePicker
+            v-model="form.overtime_date"
+            placeholder="dd/mm/yyyy"
+            :min-date="canSubmitAnyDate ? '' : earliestOvertimeDate"
+          />
           <div v-if="form.errors.overtime_date" class="mt-1 text-sm text-red-400">{{ form.errors.overtime_date }}</div>
-          <p class="mt-1 text-xs text-slate-400">Pengajuan paling lambat H+1 setelah tanggal lembur.</p>
+          <p v-if="!canSubmitAnyDate" class="mt-1 text-xs text-slate-400">Pengajuan paling lambat H+1 setelah tanggal lembur.</p>
         </div>
 
         <div>
@@ -163,6 +167,7 @@ const props = defineProps({
   canSubmitForOthers: { type: Boolean, default: false },
   defaultEmployeeId: { type: [String, Number], default: '' },
   earliestOvertimeDate: { type: String, default: '' },
+  canSubmitAnyDate: { type: Boolean, default: false },
 });
 
 const activeTab = ref('single');
@@ -215,7 +220,7 @@ function submit() {
     return;
   }
 
-  if (props.earliestOvertimeDate && form.overtime_date < props.earliestOvertimeDate) {
+  if (!props.canSubmitAnyDate && props.earliestOvertimeDate && form.overtime_date < props.earliestOvertimeDate) {
     alert('Tanggal lembur hanya dapat diajukan paling lambat H+1 setelah tanggal lembur.');
     return;
   }

@@ -30,6 +30,71 @@ class OvertimeWorkflowTest extends TestCase
         $this->assertSame(0, Overtime::query()->count());
     }
 
+    public function test_hr_can_submit_overtime_for_any_employee_and_any_date(): void
+    {
+        $hrDepartment = $this->createDepartment([
+            'name' => 'Human Resources',
+            'code' => 'HRD',
+        ]);
+        $hrUser = $this->createUser([
+            'name' => 'HR Staff',
+            'department' => $hrDepartment,
+        ], 'gmihr.attendance.overtime');
+        $this->createEmployee($hrUser, [
+            'department_id' => $hrDepartment->id,
+        ]);
+
+        $maintenance = $this->createDepartment([
+            'name' => 'Maintenance',
+            'code' => 'MNT',
+        ]);
+        $targetUser = $this->createUser([
+            'name' => 'Maintenance Staff',
+            'department' => $maintenance,
+        ], 'gmihr.attendance.overtime');
+        $targetEmployee = $this->createEmployee($targetUser, [
+            'department_id' => $maintenance->id,
+        ]);
+
+        $managerPosition = $this->createPosition($maintenance, [
+            'name' => 'Maintenance Manager',
+            'code' => 'MNT-MGR',
+            'is_manager' => true,
+        ]);
+        $manager = $this->createUser([
+            'name' => 'Maintenance Manager',
+            'department' => $maintenance,
+            'position' => $managerPosition,
+        ], 'gmihr.attendance.overtime');
+        $this->createEmployee($manager, [
+            'department_id' => $maintenance->id,
+            'position_id' => $managerPosition->id,
+        ]);
+
+        $this->actingAs($hrUser)
+            ->get(route('overtime.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('canSubmitForOthers', true)
+                ->where('canSubmitAnyDate', true)
+                ->where('employees', fn ($employees) => collect($employees)
+                    ->contains(fn ($employee) => $employee['id'] === $targetEmployee->id)));
+
+        $this->post(route('overtime.store'), [
+            'employee_id' => $targetEmployee->id,
+            'overtime_date' => now('Asia/Jakarta')->subDays(3)->toDateString(),
+            'start_time' => '18:00',
+            'end_time' => '20:00',
+            'reason' => 'HR submits overtime for another department.',
+        ])
+            ->assertRedirect(route('overtime.index'))
+            ->assertSessionHas('success');
+
+        $overtime = Overtime::query()->firstOrFail();
+        $this->assertSame($targetEmployee->id, $overtime->employee_id);
+        $this->assertSame($hrUser->id, $overtime->user_id);
+    }
+
     public function test_overtime_requires_supervisor_then_manager_approval(): void
     {
         $department = $this->createDepartment([

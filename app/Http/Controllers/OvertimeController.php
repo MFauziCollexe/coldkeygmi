@@ -270,9 +270,47 @@ class OvertimeController extends Controller
         $this->rememberIndexUrl($request, 'overtime');
 
         $userId = Auth::id();
+        $isHr = $this->accessRules()->isHr($userId);
+        $canSubmitAnyDate = $isHr;
 
         $canViewAll = $this->canViewAllOvertime($userId);
         $visibleDeptIds = $this->getVisibleDepartmentIds($userId);
+        $submissionEmployees = [];
+
+        if ($isHr) {
+            $submissionEmployees = Employee::query()
+                ->with(['department:id,name', 'position:id,name'])
+                ->whereNotNull('department_id')
+                ->when(
+                    Schema::hasColumn('employees', 'employment_status'),
+                    fn ($query) => $query->where('employment_status', 'active')
+                )
+                ->select('id', 'name', 'nik', 'department_id', 'position_id')
+                ->orderBy('name')
+                ->get()
+                ->map(function (Employee $employee) {
+                    $label = trim((string) $employee->name) ?: 'Employee #'.$employee->id;
+                    $metaParts = array_values(array_filter([
+                        trim((string) optional($employee->department)->name),
+                        trim((string) optional($employee->position)->name),
+                    ]));
+
+                    if ($metaParts !== []) {
+                        $label .= ' - '.implode(' / ', $metaParts);
+                    }
+                    if (trim((string) $employee->nik) !== '') {
+                        $label .= ' ('.trim((string) $employee->nik).')';
+                    }
+
+                    return [
+                        'id' => $employee->id,
+                        'label' => $label,
+                        'department_id' => $employee->department_id,
+                    ];
+                })
+                ->values()
+                ->all();
+        }
 
         $query = Overtime::query();
 
@@ -475,7 +513,12 @@ class OvertimeController extends Controller
             'overtimes' => $overtimes,
             'filters' => request()->only(['search', 'status', 'department_id', 'start_date', 'end_date', 'page']),
             'departments' => $departments,
+            'employees' => $submissionEmployees,
+            'canSelectEmployee' => $isHr && $submissionEmployees !== [],
+            'canSubmitForOthers' => $isHr,
+            'defaultEmployeeId' => Employee::where('user_id', $userId)->value('id') ?? '',
             'earliestOvertimeDate' => now('Asia/Jakarta')->subDay()->toDateString(),
+            'canSubmitAnyDate' => $canSubmitAnyDate,
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
             'canViewAllOvertime' => $canViewAll,
@@ -557,12 +600,15 @@ class OvertimeController extends Controller
     public function create()
     {
         $userId = Auth::id();
-        $canSubmitForOthers = $this->canSubmitForOthers($userId);
+        $isHr = $this->accessRules()->isHr($userId);
+        $canSubmitForOthers = $this->canSubmitForOthers($userId) || $isHr;
 
         $employees = [];
 
         if ($canSubmitForOthers) {
-            $visibleDeptIds = $this->getSubmissionDepartmentIds($userId);
+            $visibleDeptIds = $isHr
+                ? Department::query()->pluck('id')->map(fn ($id) => (int) $id)->all()
+                : $this->getSubmissionDepartmentIds($userId);
 
             if (! empty($visibleDeptIds)) {
                 $employeesQuery = Employee::query()
@@ -646,6 +692,7 @@ class OvertimeController extends Controller
             'canSubmitForOthers' => $canSubmitForOthers,
             'defaultEmployeeId' => $defaultEmployeeId,
             'earliestOvertimeDate' => now('Asia/Jakarta')->subDay()->toDateString(),
+            'canSubmitAnyDate' => $isHr,
         ]);
     }
 
@@ -700,15 +747,19 @@ class OvertimeController extends Controller
             ]);
         }
 
+        $actorId = Auth::id();
+        $isHr = $this->accessRules()->isHr($actorId);
         $data = $request->validate([
             'employee_id' => 'nullable|integer|exists:employees,id',
             'employee_ids' => 'nullable|array',
             'employee_ids.*' => 'integer|exists:employees,id',
-            'overtime_date' => [
-                'required',
-                'date',
-                'after_or_equal:'.now('Asia/Jakarta')->subDay()->toDateString(),
-            ],
+            'overtime_date' => $isHr
+                ? ['required', 'date']
+                : [
+                    'required',
+                    'date',
+                    'after_or_equal:'.now('Asia/Jakarta')->subDay()->toDateString(),
+                ],
             'start_time' => 'required|date_format:H:i',
             'end_time' => [
                 'required',
@@ -730,7 +781,6 @@ class OvertimeController extends Controller
             'overtime_date.after_or_equal' => 'Pengajuan lembur hanya dapat dilakukan paling lambat H+1 setelah tanggal lembur.',
         ]);
 
-        $actorId = Auth::id();
         $requestedEmployeeId = $data['employee_id'] ?? null;
         $requestedEmployeeIds = collect($data['employee_ids'] ?? [])
             ->map(fn ($id) => (int) $id)
@@ -738,7 +788,7 @@ class OvertimeController extends Controller
             ->unique()
             ->values()
             ->all();
-        $canSubmitForOthers = $this->canSubmitForOthers($actorId);
+        $canSubmitForOthers = $this->canSubmitForOthers($actorId) || $isHr;
 
         if ($requestedEmployeeId === null && empty($requestedEmployeeIds)) {
             $requestedEmployeeId = (int) (Employee::where('user_id', $actorId)->value('id') ?? 0);
@@ -784,7 +834,9 @@ class OvertimeController extends Controller
             }
         }
 
-        $visibleDeptIds = $this->getSubmissionDepartmentIds($actorId);
+        $visibleDeptIds = $isHr
+            ? Department::query()->pluck('id')->map(fn ($id) => (int) $id)->all()
+            : $this->getSubmissionDepartmentIds($actorId);
         foreach ($targetEmployeeIds as $empId) {
             $employee = $employees->get($empId);
             if (! $employee) {

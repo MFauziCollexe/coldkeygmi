@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import SearchableMultiSelect from '@/Components/SearchableMultiSelect.vue';
 
 const props = defineProps({
   rows: { type: Array, default: () => [] },
@@ -11,6 +12,8 @@ const props = defineProps({
   products: { type: Array, default: () => [] },
   selectedCustomerId: { type: [String, Number], default: null },
   selectedProductId: { type: [String, Number], default: null },
+  selectedProductIds: { type: Array, default: () => [] },
+  allProducts: { type: Boolean, default: true },
   startDate: { type: String, default: '' },
   endDate: { type: String, default: '' },
   totalRows: { type: Number, default: 0 },
@@ -18,7 +21,9 @@ const props = defineProps({
 });
 
 const localCustomerId = ref(props.selectedCustomerId);
-const localProductId = ref(props.selectedProductId);
+const localProductIds = ref(props.allProducts
+  ? [0]
+  : (props.selectedProductIds.length ? props.selectedProductIds : [props.selectedProductId].filter(Boolean)));
 const startDateInput = ref(props.startDate);
 const endDateInput = ref(props.endDate);
 const expandedDates = ref(new Set());
@@ -45,18 +50,21 @@ const customerOptions = computed(() => props.customers.map((customer) => ({
 
 const productOptions = computed(() => {
   const customerId = Number(localCustomerId.value ?? -1);
-  return props.products
+  const products = props.products
     .filter((product) => Number(product.customer_id) === customerId)
     .map((product) => ({
       product_id: product.product_id,
       label: `${product.default_code ? `${product.default_code} - ` : ''}${product.product_name}`,
     }));
+  return [{ product_id: 0, label: 'All Item' }, ...products];
 });
 
 const exportUrl = computed(() => {
   const params = new URLSearchParams();
   if (localCustomerId.value) params.set('customer_id', localCustomerId.value);
-  if (localProductId.value) params.set('product_id', localProductId.value);
+  localProductIds.value
+    .filter((id) => Number(id) > 0)
+    .forEach((id) => params.append('product_id[]', id));
   if (startDateInput.value) params.set('start_date', startDateInput.value);
   if (endDateInput.value) params.set('end_date', endDateInput.value);
   return `/gmisl/cross-odoo/billing/export?${params.toString()}`;
@@ -184,8 +192,7 @@ const subtotal = computed(() => {
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;
-  const firstProduct = productOptions.value[0];
-  localProductId.value = firstProduct ? firstProduct.product_id : null;
+  localProductIds.value = [0];
 }
 
 function applyFilters() {
@@ -221,7 +228,7 @@ function applyFilters() {
 
   router.get('/gmisl/cross-odoo/billing', {
     customer_id: localCustomerId.value || undefined,
-    product_id: localProductId.value || undefined,
+    product_id: localProductIds.value.filter((id) => Number(id) > 0),
     start_date: startDateInput.value || undefined,
     end_date: endDateInput.value || undefined,
   }, {
@@ -314,7 +321,16 @@ function rowTone(row = {}) {
           </div>
           <div class="flex items-center gap-3">
             <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="billing_product">Product :</label>
-            <SearchableSelect id="billing_product" v-model="localProductId" variant="light" class="min-w-0 flex-none" style="width: calc(100% - 280px)" :options="productOptions" option-value="product_id" option-label="label" placeholder="Ketik untuk mencari product..." empty-label="Pilih product" input-class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-1 focus:ring-sky-500" button-class="border-l border-slate-300" />
+            <SearchableMultiSelect
+              id="billing_product"
+              v-model="localProductIds"
+              variant="light"
+              class="min-w-0 flex-1"
+              :options="productOptions"
+              option-value="product_id"
+              option-label="label"
+              placeholder="Ketik untuk mencari product..."
+            />
           </div>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="billing_start_date">Tanggal :</label>

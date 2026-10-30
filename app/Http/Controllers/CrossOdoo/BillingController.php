@@ -2,21 +2,19 @@
 
 namespace App\Http\Controllers\CrossOdoo;
 
-use App\Services\OdooXmlRpcService;
 use App\Services\CrossOdoo\BillingLedgerService;
+use App\Services\OdooXmlRpcService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Support\Carbon;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BillingController
 {
-    public function __construct(private BillingLedgerService $ledgerService)
-    {
-    }
+    public function __construct(private BillingLedgerService $ledgerService) {}
 
     public function index(Request $request): Response
     {
@@ -27,14 +25,16 @@ class BillingController
 
         $selection = $this->ledgerService->resolveSelection(
             $request->integer('customer_id') ?: null,
-            $request->integer('product_id') ?: null,
+            null,
             $customers,
             $products,
         );
         $selectedCustomerId = $selection['selectedCustomerId'];
-        $selectedProductId = $selection['selectedProductId'];
+        $productSelection = $this->resolveProductSelection($request, (int) $selectedCustomerId, $products);
+        $selectedProductIds = $productSelection['selectedProductIds'];
+        $selectedProductId = $productSelection['selectedProductId'];
         $customerName = $selection['customerName'];
-        $productName = $selection['productName'];
+        $productName = $productSelection['productName'];
         $today = now();
         $startDate = $today->copy()->startOfMonth()->toDateString();
         $endDate = $today->copy()->endOfMonth()->toDateString();
@@ -57,14 +57,22 @@ class BillingController
         $totalRows = 0;
         $dailySummaries = [];
 
-        if ($selectedProductId !== null && $selectedCustomerId !== null) {
-            $ledger = $this->ledgerService->ledger(
-                $odoo,
-                (int) $selectedProductId,
-                (int) $selectedCustomerId,
-                $startDate,
-                $endDate,
-            );
+        if ($selectedProductIds !== [] && $selectedCustomerId !== null) {
+            $ledger = count($selectedProductIds) === 1
+                ? $this->ledgerService->ledger(
+                    $odoo,
+                    $selectedProductIds[0],
+                    (int) $selectedCustomerId,
+                    $startDate,
+                    $endDate,
+                )
+                : $this->ledgerService->ledgers(
+                    $odoo,
+                    $selectedProductIds,
+                    (int) $selectedCustomerId,
+                    $startDate,
+                    $endDate,
+                );
             $totalRows = $ledger['totalRows'];
             $rows = $ledger['rows'];
             $dailySummaries = $ledger['dailySummaries'];
@@ -76,6 +84,8 @@ class BillingController
             'products' => $products,
             'selectedCustomerId' => $selectedCustomerId,
             'selectedProductId' => $selectedProductId,
+            'selectedProductIds' => $productSelection['selectedProductIdsForUi'],
+            'allProducts' => $productSelection['allProducts'],
             'customerName' => $customerName,
             'productName' => $productName,
             'startDate' => $startDate,
@@ -91,10 +101,16 @@ class BillingController
         $catalog = $this->ledgerService->catalog($odoo);
         $selection = $this->ledgerService->resolveSelection(
             $request->integer('customer_id') ?: null,
-            $request->integer('product_id') ?: null,
+            null,
             $catalog['customers'],
             $catalog['products'],
         );
+        $productSelection = $this->resolveProductSelection(
+            $request,
+            (int) $selection['selectedCustomerId'],
+            $catalog['products'],
+        );
+        $selectedProductIds = $productSelection['selectedProductIds'];
         [$startDate, $endDate] = $this->resolveDateRange($request);
         $headerColumns = [
             'Date', 'Start Qty', 'Start Pallet', 'Inbound Qty', 'Inbound_Pallet',
@@ -108,14 +124,22 @@ class BillingController
         $headerData = [];
         $detailData = [];
 
-        if ($selection['selectedProductId'] !== null && $selection['selectedCustomerId'] !== null) {
-            $ledger = $this->ledgerService->ledger(
-                $odoo,
-                (int) $selection['selectedProductId'],
-                (int) $selection['selectedCustomerId'],
-                $startDate,
-                $endDate,
-            );
+        if ($selectedProductIds !== [] && $selection['selectedCustomerId'] !== null) {
+            $ledger = count($selectedProductIds) === 1
+                ? $this->ledgerService->ledger(
+                    $odoo,
+                    $selectedProductIds[0],
+                    (int) $selection['selectedCustomerId'],
+                    $startDate,
+                    $endDate,
+                )
+                : $this->ledgerService->ledgers(
+                    $odoo,
+                    $selectedProductIds,
+                    (int) $selection['selectedCustomerId'],
+                    $startDate,
+                    $endDate,
+                );
             $palletValue = static function (float $quantity): int|string {
                 $pallets = (int) round($quantity / 40);
 
@@ -221,13 +245,70 @@ class BillingController
             $detailSheet->fromArray($detailData, null, 'A2');
         }
 
-        $safePart = preg_replace('/[^A-Za-z0-9\-_]+/', '_', (string) ($selection['productName'] ?? 'product'));
+        $safePart = preg_replace('/[^A-Za-z0-9\-_]+/', '_', (string) $productSelection['productName']);
         $filename = 'billing_'.($safePart !== '' ? $safePart : 'product').'_'.now()->format('Ymd_His').'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
         }, $filename, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $products
+     * @return array{selectedProductIds: array<int, int>, selectedProductIdsForUi: array<int, int>, selectedProductId: int|null, productName: string, allProducts: bool}
+     */
+    private function resolveProductSelection(Request $request, int $customerId, array $products): array
+    {
+        $customerProducts = array_values(array_filter(
+            $products,
+            fn (array $product): bool => (int) $product['customer_id'] === $customerId,
+        ));
+        $rawProductIds = $request->input('product_id');
+        $rawProductIds = $rawProductIds === null
+            ? []
+            : (is_array($rawProductIds) ? $rawProductIds : [$rawProductIds]);
+        $selectionProvided = $rawProductIds !== [];
+        $requestedProductIds = [];
+        foreach ($rawProductIds as $value) {
+            if (! is_scalar($value)) {
+                continue;
+            }
+
+            $productId = filter_var($value, FILTER_VALIDATE_INT);
+            if ($productId !== false && $productId >= 0) {
+                $requestedProductIds[] = $productId;
+            }
+        }
+        $requestedProductIds = array_values(array_unique($requestedProductIds));
+        $allProducts = ! $selectionProvided || in_array(0, $requestedProductIds, true);
+
+        $selectedProducts = $allProducts
+            ? $customerProducts
+            : array_values(array_filter(
+                $customerProducts,
+                fn (array $product): bool => in_array((int) $product['product_id'], $requestedProductIds, true),
+            ));
+        $selectedProductIds = array_map(
+            fn (array $product): int => (int) $product['product_id'],
+            $selectedProducts,
+        );
+        $productName = $allProducts
+            ? 'All Item'
+            : implode(', ', array_map(
+                fn (array $product): string => (string) $product['product_name'],
+                $selectedProducts,
+            ));
+
+        return [
+            'selectedProductIds' => $selectedProductIds,
+            'selectedProductIdsForUi' => $allProducts ? [] : $selectedProductIds,
+            'selectedProductId' => ! $allProducts && count($selectedProductIds) === 1
+                ? $selectedProductIds[0]
+                : null,
+            'productName' => $productName,
+            'allProducts' => $allProducts,
+        ];
     }
 
     /** @return array{0: string, 1: string} */
