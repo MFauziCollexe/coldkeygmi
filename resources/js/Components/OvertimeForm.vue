@@ -33,6 +33,7 @@
           <EnhancedDatePicker
             v-model="form.overtime_date"
             placeholder=" "
+            :min-date="earliestOvertimeDate"
             input-class="w-full px-3 pt-5 pb-2 rounded-lg bg-slate-800 border border-slate-700 placeholder-transparent"
           />
           <label
@@ -46,6 +47,8 @@
           >
             Tanggal Lembur
           </label>
+          <div v-if="form.errors.overtime_date" class="mt-1 text-sm text-red-400">{{ form.errors.overtime_date }}</div>
+          <p class="mt-1 text-xs text-slate-400">Pengajuan paling lambat H+1 setelah tanggal lembur.</p>
         </div>
         
         <div class="relative">
@@ -117,6 +120,7 @@
 
 <script setup>
 import { useForm } from '@inertiajs/vue3';
+import Swal from 'sweetalert2';
 import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
@@ -129,6 +133,7 @@ const props = defineProps({
   canSelectEmployee: { type: Boolean, default: false },
   canSubmitForOthers: { type: Boolean, default: false },
   defaultEmployeeId: { type: [String, Number], default: '' },
+  earliestOvertimeDate: { type: String, default: '' },
   initialData: {
     type: Object,
     default: () => ({
@@ -171,12 +176,32 @@ function submit() {
     alert('Mohon lengkapi semua field');
     return;
   }
+
+  if (props.earliestOvertimeDate && form.overtime_date < props.earliestOvertimeDate) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Tanggal lembur tidak dapat diajukan',
+      text: 'Pengajuan lembur hanya dapat dilakukan paling lambat H+1 setelah tanggal lembur.',
+      confirmButtonText: 'Mengerti',
+    });
+    return;
+  }
   
   form.post(props.submitUrl, {
     forceFormData: true,
     onSuccess: () => {
       emit('success');
       emit('close');
+    },
+    onError: (errors) => {
+      if (errors.overtime_date) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Tanggal lembur tidak dapat diajukan',
+          text: String(errors.overtime_date),
+          confirmButtonText: 'Mengerti',
+        });
+      }
     },
   });
 }

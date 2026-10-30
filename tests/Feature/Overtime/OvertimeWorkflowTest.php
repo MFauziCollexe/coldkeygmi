@@ -10,6 +10,26 @@ class OvertimeWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_overtime_cannot_be_submitted_more_than_one_day_after_its_date(): void
+    {
+        $requester = $this->createUser([], 'gmihr.attendance.overtime');
+
+        $this->actingAs($requester)
+            ->from(route('overtime.create'))
+            ->post(route('overtime.store'), [
+                'overtime_date' => now('Asia/Jakarta')->subDays(2)->toDateString(),
+                'start_time' => '18:00',
+                'end_time' => '20:00',
+                'reason' => 'Overtime submitted after the allowed window.',
+            ])
+            ->assertRedirect(route('overtime.create'))
+            ->assertSessionHasErrors([
+                'overtime_date' => 'Pengajuan lembur hanya dapat dilakukan paling lambat H+1 setelah tanggal lembur.',
+            ]);
+
+        $this->assertSame(0, Overtime::query()->count());
+    }
+
     public function test_overtime_requires_supervisor_then_manager_approval(): void
     {
         $department = $this->createDepartment([
@@ -55,7 +75,7 @@ class OvertimeWorkflowTest extends TestCase
             ->actingAs($requester)
             ->post(route('overtime.store'), [
                 'employee_id' => $employee->id,
-                'overtime_date' => '2026-05-10',
+                'overtime_date' => now('Asia/Jakarta')->subDay()->toDateString(),
                 'start_time' => '18:00',
                 'end_time' => '20:30',
                 'reason' => 'Support deployment after office hours.',
@@ -198,7 +218,7 @@ class OvertimeWorkflowTest extends TestCase
             $this->actingAs($requester)
                 ->post(route('overtime.store'), [
                     'employee_id' => $employee->id,
-                    'overtime_date' => '2026-05-10',
+                    'overtime_date' => now('Asia/Jakarta')->subDay()->toDateString(),
                     'start_time' => '18:00',
                     'end_time' => '20:00',
                     'reason' => 'Cross-department manager approval.',
@@ -288,7 +308,7 @@ class OvertimeWorkflowTest extends TestCase
         $this->actingAs($requester)
             ->post(route('overtime.store'), [
                 'employee_id' => $employee->id,
-                'overtime_date' => '2026-05-10',
+                'overtime_date' => now('Asia/Jakarta')->subDay()->toDateString(),
                 'start_time' => '18:00',
                 'end_time' => '20:00',
                 'reason' => 'Admin Loket overtime approval routing.',
@@ -361,7 +381,7 @@ class OvertimeWorkflowTest extends TestCase
             ->from(route('overtime.create'))
             ->post(route('overtime.store'), [
                 'employee_id' => $otherEmployee->id,
-                'overtime_date' => '2026-05-10',
+                'overtime_date' => now('Asia/Jakarta')->subDay()->toDateString(),
                 'start_time' => '18:00',
                 'end_time' => '19:00',
                 'reason' => 'Trying to submit for another employee.',
@@ -417,7 +437,7 @@ class OvertimeWorkflowTest extends TestCase
         $this->actingAs($supervisor)
             ->post(route('overtime.store'), [
                 'employee_id' => $staffEmployee->id,
-                'overtime_date' => '2026-10-27',
+                'overtime_date' => now('Asia/Jakarta')->subDay()->toDateString(),
                 'start_time' => '18:00',
                 'end_time' => '20:00',
                 'reason' => 'Overtime submitted by supervisor on behalf of staff.',
@@ -481,7 +501,7 @@ class OvertimeWorkflowTest extends TestCase
             $this->actingAs($requester)
                 ->post(route('overtime.store'), [
                     'employee_id' => $employee->id,
-                    'overtime_date' => '2026-10-27',
+                    'overtime_date' => now('Asia/Jakarta')->subDay()->toDateString(),
                     'start_time' => '18:00',
                     'end_time' => '20:00',
                     'reason' => $departmentAttributes['name'].' work after office hours.',

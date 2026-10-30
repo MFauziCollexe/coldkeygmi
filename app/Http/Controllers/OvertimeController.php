@@ -474,6 +474,7 @@ class OvertimeController extends Controller
             'overtimes' => $overtimes,
             'filters' => request()->only(['search', 'status', 'department_id', 'start_date', 'end_date', 'page']),
             'departments' => $departments,
+            'earliestOvertimeDate' => now('Asia/Jakarta')->subDay()->toDateString(),
             'isAdmin' => $this->isAdmin($userId),
             'isManager' => $this->isManager($userId),
             'canViewAllOvertime' => $canViewAll,
@@ -643,6 +644,7 @@ class OvertimeController extends Controller
             'canSelectEmployee' => $canSelectEmployee,
             'canSubmitForOthers' => $canSubmitForOthers,
             'defaultEmployeeId' => $defaultEmployeeId,
+            'earliestOvertimeDate' => now('Asia/Jakarta')->subDay()->toDateString(),
         ]);
     }
 
@@ -701,7 +703,11 @@ class OvertimeController extends Controller
             'employee_id' => 'nullable|integer|exists:employees,id',
             'employee_ids' => 'nullable|array',
             'employee_ids.*' => 'integer|exists:employees,id',
-            'overtime_date' => 'required|date',
+            'overtime_date' => [
+                'required',
+                'date',
+                'after_or_equal:'.now('Asia/Jakarta')->subDay()->toDateString(),
+            ],
             'start_time' => 'required|date_format:H:i',
             'end_time' => [
                 'required',
@@ -719,6 +725,8 @@ class OvertimeController extends Controller
             ],
             'reason' => 'required|string|min:5',
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+        ], [
+            'overtime_date.after_or_equal' => 'Pengajuan lembur hanya dapat dilakukan paling lambat H+1 setelah tanggal lembur.',
         ]);
 
         $actorId = Auth::id();

@@ -17,21 +17,14 @@ class ColdStorageController extends Controller
         $dateTo = now('Asia/Jakarta')->toDateString();
         $dateFrom = now('Asia/Jakarta')->subDays(364)->toDateString();
         $batches = ColdStorageSnapshotBatch::query()
-            ->with(['storages.customers'])
+            ->with('storages')
             ->whereBetween('snapshot_date', [$dateFrom, $dateTo])
             ->orderBy('snapshot_date')
             ->get();
 
         $historySnapshots = $batches->map(function (ColdStorageSnapshotBatch $batch): array {
-            $storages = $batch->storages->map(fn ($storage): array => [
-                'name' => $storage->name,
-                'capacity' => (int) $storage->capacity,
-                'used' => (int) $storage->used,
-                'available' => (int) $storage->available,
-                'occupancy' => (float) $storage->occupancy,
-            ])->values();
-            $capacity = (int) $storages->sum('capacity');
-            $used = (int) $storages->sum('used');
+            $capacity = (int) $batch->storages->sum('capacity');
+            $used = (int) $batch->storages->sum('used');
 
             return [
                 'date' => $batch->snapshot_date->toDateString(),
@@ -40,27 +33,8 @@ class ColdStorageController extends Controller
                 'used' => $used,
                 'available' => max(0, $capacity - $used),
                 'occupancy' => $capacity > 0 ? round($used / $capacity * 100, 1) : 0,
-                'storages' => $storages->all(),
             ];
         })->values();
-
-        $latestBatch = $batches->last();
-        $customerHistory = $latestBatch
-            ? $latestBatch->storages
-                ->flatMap(fn ($storage) => $storage->customers)
-                ->groupBy('odoo_owner_id')
-                ->map(function ($customers): array {
-                    $occupiedSlots = (int) $customers->sum('occupied_slots');
-
-                    return [
-                        'id' => (int) $customers->first()->odoo_owner_id,
-                        'customer' => $customers->first()->name,
-                        'occupiedSlots' => $occupiedSlots,
-                    ];
-                })
-                ->sortByDesc('occupiedSlots')
-                ->values()
-            : collect();
 
         return Inertia::render('GMISL/CrossOdoo/ColdStorage/Index', [
             'storages' => $data['storages'],
@@ -70,7 +44,6 @@ class ColdStorageController extends Controller
                 'startDate' => $dateFrom,
                 'endDate' => $dateTo,
                 'snapshots' => $historySnapshots,
-                'latestCustomers' => $customerHistory,
             ],
         ]);
     }

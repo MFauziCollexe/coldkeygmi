@@ -279,6 +279,7 @@
       <OvertimeForm 
         v-if="showCreateModal" 
         title="Ajukan Permintaan Lembur"
+        :earliest-overtime-date="earliestOvertimeDate"
         @close="showCreateModal = false"
         @success="fetchData"
       />
@@ -406,6 +407,7 @@ const props = defineProps({
   isManager: Boolean,
   canViewAllOvertime: Boolean,
   canDeleteOvertime: Boolean,
+  earliestOvertimeDate: { type: String, default: '' },
 });
 
 const filters = reactive({

@@ -104,7 +104,9 @@
 
         <div>
           <label class="block text-sm text-slate-300 mb-1">Tanggal Lembur</label>
-          <EnhancedDatePicker v-model="form.overtime_date" placeholder="dd/mm/yyyy" />
+          <EnhancedDatePicker v-model="form.overtime_date" placeholder="dd/mm/yyyy" :min-date="earliestOvertimeDate" />
+          <div v-if="form.errors.overtime_date" class="mt-1 text-sm text-red-400">{{ form.errors.overtime_date }}</div>
+          <p class="mt-1 text-xs text-slate-400">Pengajuan paling lambat H+1 setelah tanggal lembur.</p>
         </div>
 
         <div>
@@ -160,6 +162,7 @@ const props = defineProps({
   canSelectEmployee: { type: Boolean, default: false },
   canSubmitForOthers: { type: Boolean, default: false },
   defaultEmployeeId: { type: [String, Number], default: '' },
+  earliestOvertimeDate: { type: String, default: '' },
 });
 
 const activeTab = ref('single');
@@ -209,6 +212,11 @@ function clearSelected() {
 function submit() {
   if (!form.overtime_date || !form.start_time || !form.end_time || !form.reason) {
     alert('Mohon lengkapi semua field');
+    return;
+  }
+
+  if (props.earliestOvertimeDate && form.overtime_date < props.earliestOvertimeDate) {
+    alert('Tanggal lembur hanya dapat diajukan paling lambat H+1 setelah tanggal lembur.');
     return;
   }
 
