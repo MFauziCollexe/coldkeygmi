@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -897,12 +898,20 @@ class OvertimeController extends Controller
             ]);
 
             $oldData = $overtime->toArray();
+            $breakHours = (float) ($overtime->break_hours ?? 0);
+            $grossHours = Overtime::calculateHours($data['start_time'], $data['end_time']);
+            if ($breakHours >= $grossHours) {
+                return back()->withErrors([
+                    'end_time' => 'Jam lembur harus lebih lama dari durasi break yang sudah ditetapkan.',
+                ]);
+            }
+
             $payload = [
                 'overtime_date' => $data['overtime_date'],
                 'start_time' => $data['start_time'],
                 'end_time' => $data['end_time'],
                 'reason' => $data['reason'],
-                'hours' => Overtime::calculateHours($data['start_time'], $data['end_time']),
+                'hours' => round($grossHours - $breakHours, 2),
             ];
 
             $removeAttachment = $request->boolean('remove_attachment');
@@ -941,13 +950,17 @@ class OvertimeController extends Controller
         $data = $request->validate([
             'status' => 'required|in:approved,rejected',
             'review_notes' => 'nullable|string',
+            'break_taken' => 'nullable|boolean',
+            'break_hours' => $request->input('status') === 'approved' && $request->boolean('break_taken')
+                ? 'required|numeric|min:0.01'
+                : 'nullable|numeric|min:0',
         ]);
 
         $reviewerId = (int) Auth::id();
         $isApproval = $data['status'] === 'approved';
         $newStatus = '';
 
-        DB::transaction(function () use ($overtime, $data, $reviewerId, $isApproval, $userId, &$newStatus) {
+        DB::transaction(function () use ($request, $overtime, $data, $reviewerId, $isApproval, $userId, &$newStatus) {
             $lockedOvertime = Overtime::query()
                 ->whereKey($overtime->id)
                 ->lockForUpdate()
@@ -960,13 +973,40 @@ class OvertimeController extends Controller
 
             $oldData = $lockedOvertime->toArray();
             $reviewedAt = now();
-            $reviewData = $data;
+            $reviewData = [
+                'review_notes' => $data['review_notes'] ?? null,
+            ];
 
             if ($lockedOvertime->status === 'pending_spv') {
                 $reviewData['spv_reviewed_by'] = $reviewerId;
                 $reviewData['spv_reviewed_at'] = $reviewedAt;
                 $reviewData['spv_review_notes'] = $reviewData['review_notes'] ?? null;
                 $reviewData['status'] = $isApproval ? 'pending_manager' : 'rejected';
+
+                if ($isApproval) {
+                    $breakHours = $request->boolean('break_taken')
+                        ? (float) ($data['break_hours'] ?? 0)
+                        : 0;
+                    $grossHours = Overtime::calculateHours(
+                        $lockedOvertime->start_time->format('H:i'),
+                        $lockedOvertime->end_time->format('H:i')
+                    );
+
+                    if ($request->boolean('break_taken') && $breakHours <= 0) {
+                        throw ValidationException::withMessages([
+                            'break_hours' => 'Durasi break harus lebih dari 0 jam.',
+                        ]);
+                    }
+
+                    if ($breakHours >= $grossHours) {
+                        throw ValidationException::withMessages([
+                            'break_hours' => 'Durasi break harus lebih kecil dari total jam lembur.',
+                        ]);
+                    }
+
+                    $reviewData['break_hours'] = $breakHours;
+                    $reviewData['hours'] = round($grossHours - $breakHours, 2);
+                }
             } elseif ($lockedOvertime->status === 'pending_manager') {
                 $reviewData['manager_reviewed_by'] = $reviewerId;
                 $reviewData['manager_reviewed_at'] = $reviewedAt;

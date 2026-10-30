@@ -314,6 +314,10 @@
               <span class="text-slate-400">Jumlah Jam:</span>
               <span class="text-left sm:text-right">{{ selectedItem?.hours }} jam</span>
             </div>
+            <div v-if="Number(selectedItem?.break_hours || 0) > 0" class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+              <span class="text-slate-400">Break:</span>
+              <span class="text-left sm:text-right">{{ selectedItem.break_hours }} jam · jam lembur bersih</span>
+            </div>
             <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <span class="text-slate-400">Alasan:</span>
               <span class="whitespace-pre-wrap text-left sm:max-w-[60%] sm:text-right">{{ selectedItem?.reason }}</span>
@@ -349,6 +353,25 @@
           </div>
 
           <div v-if="['pending_spv', 'pending_manager', 'pending'].includes(selectedItem?.status) && selectedItem?.can_approve" class="mt-4 pt-4 border-t border-slate-700">
+            <div v-if="selectedItem?.status === 'pending_spv'" class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/50 p-3">
+              <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-200">
+                <input v-model="spvBreakTaken" type="checkbox" class="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500" />
+                Break
+              </label>
+              <input
+                v-model.number="spvBreakHours"
+                type="number"
+                min="0.01"
+                step="0.25"
+                :disabled="!spvBreakTaken"
+                aria-label="Durasi break dalam jam"
+                class="w-24 rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-sm text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <span class="text-xs text-slate-400">jam istirahat</span>
+              <span v-if="spvBreakTaken" class="w-full text-xs text-slate-400">
+                Jam lembur tercatat: {{ formatHoursAfterBreak(selectedItem?.hours, spvBreakHours) }} jam
+              </span>
+            </div>
             <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button @click="rejectRequest(selectedItem)" class="px-4 py-2 rounded bg-red-600 text-white">
                 Tolak
@@ -398,6 +421,7 @@ import OvertimeForm from '@/Components/OvertimeForm.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { swalConfirm } from '@/Utils/swalConfirm';
+import Swal from 'sweetalert2';
 
 const props = defineProps({
   overtimes: Object,
@@ -421,6 +445,8 @@ const filters = reactive({
 const showCreateModal = ref(false);
 const showDetailModal = ref(false);
 const selectedItem = ref(null);
+const spvBreakTaken = ref(false);
+const spvBreakHours = ref(1);
 const reasonElements = new Map();
 const reasonOverflow = reactive({});
 const reasonTooltip = reactive({
@@ -550,6 +576,12 @@ function formatDate(date) {
   return new Date(date).toLocaleDateString('id-ID');
 }
 
+function formatHoursAfterBreak(hours, breakHours) {
+  return Math.max(0, Number(hours || 0) - Number(breakHours || 0)).toLocaleString('id-ID', {
+    maximumFractionDigits: 2,
+  });
+}
+
 function getStatusClass(status) {
   const classes = {
     'pending': 'bg-amber-600/30 text-amber-200',
@@ -573,6 +605,8 @@ function formatStatus(status) {
 
 function viewDetail(item) {
   selectedItem.value = item;
+  spvBreakTaken.value = false;
+  spvBreakHours.value = 1;
   showDetailModal.value = true;
 }
 
@@ -656,21 +690,52 @@ function handleEscape(event) {
 }
 
 async function approveRequest(item) {
+  if (item.status === 'pending_spv' && spvBreakTaken.value) {
+    const breakDuration = Number(spvBreakHours.value);
+    if (!Number.isFinite(breakDuration) || breakDuration <= 0 || breakDuration >= Number(item.hours || 0)) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Durasi break tidak valid',
+        text: 'Durasi break harus lebih dari 0 dan lebih kecil dari total jam lembur.',
+        confirmButtonText: 'Mengerti',
+      });
+      return;
+    }
+  }
+
   const ok = await swalConfirm({
     title: 'Approve Request',
-    text: 'Apakah Anda yakin ingin menyetujui permintaan ini?',
+    text: item.status === 'pending_spv' && spvBreakTaken.value
+      ? `Pengajuan akan disetujui dengan break ${spvBreakHours.value} jam. Jam lembur tercatat ${formatHoursAfterBreak(item.hours, spvBreakHours.value)} jam.`
+      : 'Apakah Anda yakin ingin menyetujui permintaan ini?',
     confirmButtonText: 'Approve',
     confirmButtonColor: '#16a34a',
   });
   if (!ok) return;
   
-  router.put(`/overtime/${item.id}`, {
+  const payload = {
     status: 'approved',
     review_notes: '',
-  }, {
+  };
+  if (item.status === 'pending_spv') {
+    payload.break_taken = spvBreakTaken.value;
+    payload.break_hours = spvBreakHours.value;
+  }
+
+  router.put(`/overtime/${item.id}`, payload, {
     onSuccess: () => {
       showDetailModal.value = false;
       fetchData();
+    },
+    onError: (errors) => {
+      if (errors.break_hours) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Durasi break tidak valid',
+          text: String(errors.break_hours),
+          confirmButtonText: 'Mengerti',
+        });
+      }
     },
   });
 }

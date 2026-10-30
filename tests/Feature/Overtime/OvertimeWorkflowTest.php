@@ -147,7 +147,20 @@ class OvertimeWorkflowTest extends TestCase
             ->from(route('overtime.index'))
             ->put(route('overtime.update', $overtime), [
                 'status' => 'approved',
+                'review_notes' => 'Break cannot exceed submitted overtime.',
+                'break_taken' => true,
+                'break_hours' => 3,
+            ])
+            ->assertRedirect(route('overtime.index'))
+            ->assertSessionHasErrors('break_hours');
+
+        $this->actingAs($supervisor)
+            ->from(route('overtime.index'))
+            ->put(route('overtime.update', $overtime), [
+                'status' => 'approved',
                 'review_notes' => 'Approved by SPV.',
+                'break_taken' => true,
+                'break_hours' => 1,
             ])
             ->assertRedirect(route('overtime.index'))
             ->assertSessionHas('success');
@@ -155,6 +168,8 @@ class OvertimeWorkflowTest extends TestCase
         $overtime->refresh();
         $this->assertSame('pending_manager', $overtime->status);
         $this->assertSame($supervisor->id, $overtime->spv_reviewed_by);
+        $this->assertSame(1.5, (float) $overtime->hours);
+        $this->assertSame(1.0, (float) $overtime->break_hours);
 
         $approveResponse = $this
             ->actingAs($manager)

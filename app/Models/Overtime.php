@@ -17,6 +17,7 @@ class Overtime extends Model
         'start_time',
         'end_time',
         'hours',
+        'break_hours',
         'reason',
         'attachment_path',
         'attachment_original_name',
@@ -40,6 +41,7 @@ class Overtime extends Model
         'overtime_date' => 'date',
         'start_time' => 'datetime:H:i',
         'end_time' => 'datetime:H:i',
+        'break_hours' => 'decimal:2',
         'reviewed_at' => 'datetime',
         'spv_reviewed_at' => 'datetime',
         'manager_reviewed_at' => 'datetime',
@@ -96,13 +98,14 @@ class Overtime extends Model
     {
         $start = strtotime($startTime);
         $end = strtotime($endTime);
-        
+
         if ($end < $start) {
             // Overnight overtime
             $end += 86400; // Add 24 hours
         }
-        
+
         $diff = $end - $start;
+
         return round($diff / 3600, 2); // Convert to hours
     }
 }
