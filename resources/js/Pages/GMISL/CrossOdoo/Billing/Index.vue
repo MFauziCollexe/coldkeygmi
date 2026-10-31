@@ -18,6 +18,7 @@ const props = defineProps({
   endDate: { type: String, default: '' },
   totalRows: { type: Number, default: 0 },
   dailySummaries: { type: Object, default: () => ({}) },
+  dailyTransactionPallets: { type: Object, default: () => ({}) },
 });
 
 const localCustomerId = ref(props.selectedCustomerId);
@@ -54,7 +55,7 @@ const productOptions = computed(() => {
     .filter((product) => Number(product.customer_id) === customerId)
     .map((product) => ({
       product_id: product.product_id,
-      label: `${product.default_code ? `${product.default_code} - ` : ''}${product.product_name}`,
+      label: `${product.default_code ? `${product.default_code} - ` : ''}${product.product_name} (Full pallet: ${product.pallet_qty ?? '-'})`,
     }));
   return [{ product_id: 0, label: 'All Item' }, ...products];
 });
@@ -69,26 +70,6 @@ const exportUrl = computed(() => {
   if (endDateInput.value) params.set('end_date', endDateInput.value);
   return `/gmisl/cross-odoo/billing/export?${params.toString()}`;
 });
-
-function normalizePalletValue(value) {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric) || numeric <= 1) {
-    return null;
-  }
-
-  return numeric;
-}
-
-const standardPalletQty = 40;
-
-function toPallet(qty) {
-  const numeric = Number(qty ?? 0);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return null;
-  }
-
-  return Math.round(numeric / standardPalletQty);
-}
 
 const groupedRows = computed(() => {
   const groups = new Map();
@@ -137,32 +118,22 @@ const groupedRows = computed(() => {
   return orderedGroups.map((group) => {
     const openingQty = Number(group.opening ?? 0);
     const endQty = Number(group.closing ?? openingQty + Number(group.in || 0) - Number(group.out || 0) + Number(group.adjust || 0));
-    const startPallet = toPallet(openingQty);
-    const inPallet = toPallet(group.in);
-    const outPallet = toPallet(group.out);
+    const transactionPallets = props.dailyTransactionPallets[group.date] || {};
     const adjustQty = Number(group.adjust || 0);
-    const adjustPallet = adjustQty === 0
-      ? 0
-      : Math.sign(adjustQty) * (toPallet(Math.abs(adjustQty)) ?? 0);
-    const startPalletCount = startPallet ?? 0;
-    const inPalletCount = inPallet ?? 0;
-    const outPalletCount = outPallet ?? 0;
-    const endPallet = startPalletCount + inPalletCount - outPalletCount + adjustPallet;
-    const storage = startPalletCount + inPalletCount;
 
     const result = {
       ...group,
       startQty: openingQty,
-      startPallet,
+      startPallet: transactionPallets.start ?? null,
       inQty: Number(group.in || 0),
-      inPallet,
+      inPallet: transactionPallets.in ?? null,
       outQty: Number(group.out || 0),
-      outPallet,
+      outPallet: transactionPallets.out ?? null,
       adjustQty,
-      adjustPallet,
+      adjustPallet: transactionPallets.adjust ?? null,
       endQty,
-      endPallet,
-      storage,
+      endPallet: transactionPallets.end ?? null,
+      storage: transactionPallets.storage ?? null,
       locationCount: new Set(group.rows.map((row) => row.Location)).size,
     };
 
@@ -250,7 +221,7 @@ function formatOptionalNumber(value) {
 
 function formatPallet(value) {
   const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric) || numeric <= 1) {
+  if (value === null || value === undefined || !Number.isFinite(numeric) || numeric <= 0) {
     return '-';
   }
 
@@ -332,6 +303,9 @@ function rowTone(row = {}) {
               placeholder="Ketik untuk mencari product..."
             />
           </div>
+          <p class="pl-28 text-xs text-slate-500">
+            Perhitungan pallet mengikuti standar tiap produk di Odoo. Produk tanpa standar ditampilkan sebagai "-" dan tidak masuk subtotal pallet.
+          </p>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600" for="billing_start_date">Tanggal :</label>
             <input id="billing_start_date" v-model="startDateInput" type="date" class="min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" />

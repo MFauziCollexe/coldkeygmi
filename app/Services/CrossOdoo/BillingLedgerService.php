@@ -15,7 +15,7 @@ class BillingLedgerService
     {
         $templates = $odoo->searchRead(
             'product.template',
-            ['id', 'name', 'default_code', 'x_studio_customer'],
+            ['id', 'name', 'default_code', 'x_studio_customer', 'cdp_pallet_mezzanine_qty'],
             null,
             [['x_studio_customer', '!=', false]],
             ['lang' => 'en_US'],
@@ -44,6 +44,10 @@ class BillingLedgerService
                 'product_name' => (string) $template['name'],
                 'customer_id' => $customerId,
                 'customer_name' => $customerName,
+                'pallet_qty' => is_numeric($template['cdp_pallet_mezzanine_qty'] ?? null)
+                    && (float) $template['cdp_pallet_mezzanine_qty'] > 0
+                        ? (float) $template['cdp_pallet_mezzanine_qty']
+                        : null,
             ];
         }
 
@@ -357,7 +361,7 @@ class BillingLedgerService
 
     /**
      * @param  array<int, int>  $templateIds
-     * @return array{rows: array<int, array<string, mixed>>, totalRows: int, dailySummaries: array<string, array<string, float>>}
+     * @return array{rows: array<int, array<string, mixed>>, totalRows: int, dailySummaries: array<string, array<string, float>>, productDailySummaries: array<string, array<int, array<string, float>>>}
      */
     public function ledgers(
         OdooXmlRpcService $odoo,
@@ -368,12 +372,17 @@ class BillingLedgerService
     ): array {
         $rows = [];
         $dailySummaries = [];
+        $productDailySummaries = [];
 
         foreach ($templateIds as $templateId) {
             $ledger = $this->ledger($odoo, $templateId, $customerId, $startDate, $endDate);
-            $rows = array_merge($rows, $ledger['rows']);
+            foreach ($ledger['rows'] as $row) {
+                $row['product_id'] = $templateId;
+                $rows[] = $row;
+            }
 
             foreach ($ledger['dailySummaries'] as $date => $summary) {
+                $productDailySummaries[$date][$templateId] = $summary;
                 foreach (['opening', 'in', 'out', 'adjust', 'closing'] as $key) {
                     $dailySummaries[$date][$key] = ($dailySummaries[$date][$key] ?? 0.0)
                         + (float) ($summary[$key] ?? 0);
@@ -397,6 +406,7 @@ class BillingLedgerService
             'rows' => $rows,
             'totalRows' => count($rows),
             'dailySummaries' => $dailySummaries,
+            'productDailySummaries' => $productDailySummaries,
         ];
     }
 

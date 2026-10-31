@@ -64,7 +64,7 @@ class RosterController extends Controller
         $canViewAllDepartments = $this->canViewAllRosterDepartments($user);
         $canApproveAllDepartments = $this->canApproveAllRosterDepartments($user);
         $canApproveAnyBatch = $this->canApproveAnyRosterBatch($user);
-        $latestPendingBatchIdsByScope = $this->latestPendingBatchIdsByScope();
+        $latestBatchIdsByScope = $this->latestBatchIdsByScope();
         $effectiveCurrentBatchIds = $this->effectiveApprovedBatchIds(!empty($departmentIds) ? $departmentIds : null);
         $selectedMonth = request()->has('month')
             ? (int) request('month', 0)
@@ -121,8 +121,8 @@ class RosterController extends Controller
                 'created_at',
             ])
             ->withQueryString()
-            ->through(function ($batch) use ($user, $latestPendingBatchIdsByScope, $effectiveCurrentBatchIds) {
-                $isLatestPendingForScope = $this->isLatestPendingBatchForScope($batch, $latestPendingBatchIdsByScope);
+            ->through(function ($batch) use ($user, $latestBatchIdsByScope, $effectiveCurrentBatchIds) {
+                $isLatestPendingForScope = $this->isLatestBatchForScope($batch, $latestBatchIdsByScope);
                 $batch->is_current = in_array((int) $batch->id, $effectiveCurrentBatchIds, true);
                 $batch->is_latest_pending_for_department = $isLatestPendingForScope;
                 $batch->approval_locked_reason = $this->approvalLockedReason($batch, $isLatestPendingForScope);
@@ -407,7 +407,7 @@ class RosterController extends Controller
             ], 403);
         }
 
-        if (!$this->isLatestPendingBatchForScope($batch)) {
+        if (!$this->isLatestBatchForScope($batch)) {
             return response()->json([
                 'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.',
             ], 422);
@@ -502,7 +502,7 @@ class RosterController extends Controller
             ], 403);
         }
 
-        if (!$this->isLatestPendingBatchForScope($batch)) {
+        if (!$this->isLatestBatchForScope($batch)) {
             return response()->json([
                 'message' => 'Roster ini tidak bisa di-reject karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.',
             ], 422);
@@ -1847,15 +1847,14 @@ class RosterController extends Controller
         return "CASE WHEN id IN ({$ids}) THEN 1 ELSE 0 END DESC";
     }
 
-    private function latestPendingBatchIdsByScope(): array
+    private function latestBatchIdsByScope(): array
     {
         return RosterUploadBatch::query()
-            ->where('status', 'pending')
             ->selectRaw('department_id, month, year, uploaded_by, MAX(id) as latest_id')
             ->groupBy('department_id', 'month', 'year', 'uploaded_by')
             ->get()
             ->mapWithKeys(function ($row) {
-                $key = $this->latestPendingScopeKey(
+                $key = $this->batchScopeKey(
                     (int) ($row->department_id ?? 0),
                     (int) ($row->month ?? 0),
                     (int) ($row->year ?? 0),
@@ -1871,7 +1870,7 @@ class RosterController extends Controller
             ->all();
     }
 
-    private function latestPendingScopeKey(int $departmentId, int $month, int $year, int $uploadedBy): ?string
+    private function batchScopeKey(int $departmentId, int $month, int $year, int $uploadedBy): ?string
     {
         if ($departmentId <= 0 || $month <= 0 || $year <= 0) {
             return null;
@@ -1880,18 +1879,14 @@ class RosterController extends Controller
         return implode('|', [$departmentId, $month, $year, max(0, $uploadedBy)]);
     }
 
-    private function isLatestPendingBatchForScope(RosterUploadBatch $batch, ?array $latestPendingBatchIdsByScope = null): bool
+    private function isLatestBatchForScope(RosterUploadBatch $batch, ?array $latestBatchIdsByScope = null): bool
     {
-        if ($batch->status !== 'pending') {
-            return true;
-        }
-
         $departmentId = (int) $batch->department_id;
         if ($departmentId <= 0) {
             return true;
         }
 
-        $scopeKey = $this->latestPendingScopeKey(
+        $scopeKey = $this->batchScopeKey(
             $departmentId,
             (int) $batch->month,
             (int) $batch->year,
@@ -1901,8 +1896,8 @@ class RosterController extends Controller
             return true;
         }
 
-        $latestPendingBatchIdsByScope ??= $this->latestPendingBatchIdsByScope();
-        $latestBatchId = (int) ($latestPendingBatchIdsByScope[$scopeKey] ?? 0);
+        $latestBatchIdsByScope ??= $this->latestBatchIdsByScope();
+        $latestBatchId = (int) ($latestBatchIdsByScope[$scopeKey] ?? 0);
 
         return $latestBatchId > 0 && $latestBatchId === (int) $batch->id;
     }

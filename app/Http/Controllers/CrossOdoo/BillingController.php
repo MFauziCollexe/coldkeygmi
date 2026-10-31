@@ -56,26 +56,25 @@ class BillingController
         $rows = [];
         $totalRows = 0;
         $dailySummaries = [];
+        $dailyTransactionPallets = [];
 
         if ($selectedProductIds !== [] && $selectedCustomerId !== null) {
-            $ledger = count($selectedProductIds) === 1
-                ? $this->ledgerService->ledger(
-                    $odoo,
-                    $selectedProductIds[0],
-                    (int) $selectedCustomerId,
-                    $startDate,
-                    $endDate,
-                )
-                : $this->ledgerService->ledgers(
-                    $odoo,
-                    $selectedProductIds,
-                    (int) $selectedCustomerId,
-                    $startDate,
-                    $endDate,
-                );
+            $ledger = $this->ledgerService->ledgers(
+                $odoo,
+                $selectedProductIds,
+                (int) $selectedCustomerId,
+                $startDate,
+                $endDate,
+            );
             $totalRows = $ledger['totalRows'];
             $rows = $ledger['rows'];
             $dailySummaries = $ledger['dailySummaries'];
+            $dailyTransactionPallets = $this->calculateDailyTransactionPallets(
+                $ledger['rows'],
+                $productSelection['selectedProductIds'],
+                $products,
+                $ledger['productDailySummaries'],
+            );
         }
 
         return Inertia::render('GMISL/CrossOdoo/Billing/Index', [
@@ -92,6 +91,7 @@ class BillingController
             'endDate' => $endDate,
             'totalRows' => $totalRows,
             'dailySummaries' => $dailySummaries,
+            'dailyTransactionPallets' => $dailyTransactionPallets,
         ]);
     }
 
@@ -123,62 +123,61 @@ class BillingController
         ];
         $headerData = [];
         $detailData = [];
+        $productStandards = [];
+        foreach ($catalog['products'] as $product) {
+            $productId = (int) $product['product_id'];
+            if (in_array($productId, $selectedProductIds, true)) {
+                $productStandards[$productId] = $product['pallet_qty'];
+            }
+        }
 
         if ($selectedProductIds !== [] && $selection['selectedCustomerId'] !== null) {
-            $ledger = count($selectedProductIds) === 1
-                ? $this->ledgerService->ledger(
-                    $odoo,
-                    $selectedProductIds[0],
-                    (int) $selection['selectedCustomerId'],
-                    $startDate,
-                    $endDate,
-                )
-                : $this->ledgerService->ledgers(
-                    $odoo,
-                    $selectedProductIds,
-                    (int) $selection['selectedCustomerId'],
-                    $startDate,
-                    $endDate,
-                );
-            $palletValue = static function (float $quantity): int|string {
-                $pallets = (int) round($quantity / 40);
-
-                return $pallets > 1 ? $pallets : '-';
-            };
-            $palletCount = static fn (float $quantity): int => $quantity > 0
-                ? (int) round($quantity / 40)
-                : 0;
+            $ledger = $this->ledgerService->ledgers(
+                $odoo,
+                $selectedProductIds,
+                (int) $selection['selectedCustomerId'],
+                $startDate,
+                $endDate,
+            );
+            $dailyTransactionPallets = $this->calculateDailyTransactionPallets(
+                $ledger['rows'],
+                $selectedProductIds,
+                $catalog['products'],
+                $ledger['productDailySummaries'],
+            );
+            $palletValue = static fn (?int $count): int|string => $count !== null && $count > 0
+                ? $count
+                : '-';
             $date = Carbon::createFromFormat('!Y-m-d', $startDate);
             $lastDate = Carbon::createFromFormat('!Y-m-d', $endDate);
             while ($date->lte($lastDate)) {
                 $dateKey = $date->toDateString();
                 $summary = $ledger['dailySummaries'][$dateKey] ?? [];
+                $transactionPallets = $dailyTransactionPallets[$dateKey] ?? [];
+                $startPallet = $transactionPallets['start'] ?? null;
+                $inboundPallet = $transactionPallets['in'] ?? null;
+                $outboundPallet = $transactionPallets['out'] ?? null;
+                $adjustPallet = $transactionPallets['adjust'] ?? null;
+                $endPallet = $transactionPallets['end'] ?? null;
+                $storage = $transactionPallets['storage'] ?? null;
                 $opening = (float) ($summary['opening'] ?? 0);
                 $inbound = (float) ($summary['in'] ?? 0);
                 $outbound = (float) ($summary['out'] ?? 0);
                 $adjust = (float) ($summary['adjust'] ?? 0);
                 $closing = (float) ($summary['closing'] ?? ($opening + $inbound - $outbound + $adjust));
-                $startPallet = $palletCount($opening);
-                $inboundPallet = $palletCount($inbound);
-                $outboundPallet = $palletCount($outbound);
-                $adjustPallet = $adjust === 0.0
-                    ? 0
-                    : (int) (round(abs($adjust) / 40) * ($adjust < 0 ? -1 : 1));
-                $endPallet = $startPallet + $inboundPallet - $outboundPallet + $adjustPallet;
-                $storage = $startPallet + $inboundPallet;
                 $headerData[] = [
                     $dateKey,
                     $opening,
-                    $palletValue($opening),
+                    $palletValue($startPallet),
                     $inbound,
-                    $palletValue($inbound),
+                    $palletValue($transactionPallets['in'] ?? null),
                     $outbound,
-                    $palletValue($outbound),
+                    $palletValue($transactionPallets['out'] ?? null),
                     $adjust !== 0.0 ? $adjust : '-',
-                    $adjustPallet !== 0 ? $adjustPallet : '-',
+                    $palletValue($adjustPallet),
                     $closing,
-                    $endPallet > 1 ? $endPallet : '-',
-                    $storage > 1 ? $storage : '-',
+                    $palletValue($endPallet),
+                    $palletValue($storage),
                 ];
                 $date->addDay();
             }
@@ -197,16 +196,16 @@ class BillingController
                 $headerData[] = [
                     'SUB TOTAL',
                     $sumHeaderColumn(1),
-                    $subtotalStartPallet > 1 ? $subtotalStartPallet : '-',
+                    $subtotalStartPallet > 0 ? $subtotalStartPallet : '-',
                     $sumHeaderColumn(3),
-                    $subtotalInboundPallet > 1 ? $subtotalInboundPallet : '-',
+                    $subtotalInboundPallet > 0 ? $subtotalInboundPallet : '-',
                     $sumHeaderColumn(5),
-                    $subtotalOutboundPallet > 1 ? $subtotalOutboundPallet : '-',
+                    $subtotalOutboundPallet > 0 ? $subtotalOutboundPallet : '-',
                     $sumHeaderColumn(7) !== 0.0 ? $sumHeaderColumn(7) : '-',
                     $subtotalAdjustPallet !== 0.0 ? $subtotalAdjustPallet : '-',
                     $sumHeaderColumn(9),
-                    $subtotalEndPallet > 1 ? $subtotalEndPallet : '-',
-                    $subtotalStorage > 1 ? $subtotalStorage : '-',
+                    $subtotalEndPallet > 0 ? $subtotalEndPallet : '-',
+                    $subtotalStorage > 0 ? $subtotalStorage : '-',
                 ];
             }
 
@@ -309,6 +308,108 @@ class BillingController
             'productName' => $productName,
             'allProducts' => $allProducts,
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int, int>  $selectedProductIds
+     * @param  array<int, array<string, mixed>>  $products
+     * @param  array<string, array<int, array<string, float>>>  $productDailySummaries
+     * @return array<string, array{start: int|null, in: int|null, out: int|null, adjust: int|null, end: int|null, storage: int|null}>
+     */
+    private function calculateDailyTransactionPallets(
+        array $rows,
+        array $selectedProductIds,
+        array $products,
+        array $productDailySummaries,
+    ): array {
+        $productStandards = [];
+        foreach ($products as $product) {
+            $productId = (int) $product['product_id'];
+            if (in_array($productId, $selectedProductIds, true)) {
+                $productStandards[$productId] = $product['pallet_qty'] ?? null;
+            }
+        }
+
+        $inboundPallets = [];
+        foreach ($rows as $row) {
+            $date = (string) ($row['Date'] ?? '');
+            $productId = (int) ($row['product_id'] ?? 0);
+            $standard = $productStandards[$productId] ?? null;
+            if ($date === '' || ! is_numeric($standard) || (float) $standard <= 0) {
+                continue;
+            }
+
+            $quantity = (float) ($row['In'] ?? 0);
+            if ($quantity > 0) {
+                $inboundPallets[$date] = ($inboundPallets[$date] ?? 0)
+                    + (int) ceil($quantity / (float) $standard);
+            }
+        }
+
+        ksort($productDailySummaries);
+        $dailyPallets = [];
+        $previousEndPallet = null;
+        foreach ($productDailySummaries as $date => $productSummaries) {
+            $hasStandard = false;
+            $openingPallet = 0;
+            $outboundPallet = 0;
+            $adjustPallet = 0;
+
+            foreach ($productSummaries as $productId => $summary) {
+                $standard = $productStandards[(int) $productId] ?? null;
+                if (! is_numeric($standard) || (float) $standard <= 0) {
+                    continue;
+                }
+
+                $hasStandard = true;
+                $openingPallet += max(
+                    0,
+                    (int) floor((float) ($summary['opening'] ?? 0) / (float) $standard),
+                );
+                $outbound = (float) ($summary['out'] ?? 0);
+                if ($outbound > 0) {
+                    $outboundPallet += (int) floor($outbound / (float) $standard);
+                }
+
+                $adjust = (float) ($summary['adjust'] ?? 0);
+                if ($adjust !== 0.0) {
+                    $adjustPallet += (int) (
+                        ceil(abs($adjust) / (float) $standard)
+                        * ($adjust < 0 ? -1 : 1)
+                    );
+                }
+            }
+
+            if (! $hasStandard) {
+                $dailyPallets[$date] = [
+                    'start' => null,
+                    'in' => null,
+                    'out' => null,
+                    'adjust' => null,
+                    'end' => null,
+                    'storage' => null,
+                ];
+
+                continue;
+            }
+
+            $startPallet = $previousEndPallet ?? $openingPallet;
+            $inboundPallet = (int) ($inboundPallets[$date] ?? 0);
+            $storage = $startPallet + $inboundPallet;
+            $endPallet = $storage - $outboundPallet + $adjustPallet;
+            $dailyPallets[$date] = [
+                'start' => $startPallet,
+                'in' => $inboundPallet,
+                'out' => $outboundPallet,
+                'adjust' => $adjustPallet,
+                'end' => $endPallet,
+                'storage' => $storage,
+            ];
+            $previousEndPallet = $endPallet;
+        }
+
+        return $dailyPallets;
     }
 
     /** @return array{0: string, 1: string} */
