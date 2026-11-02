@@ -8,42 +8,30 @@
         </p>
       </div>
 
-      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+      <div v-if="!canViewCutiColumn" class="rounded-lg border border-slate-700 bg-slate-800 p-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p class="text-sm font-semibold text-slate-200">Ringkasan</p>
-            <p class="text-xs text-slate-400">Jumlah per status berdasarkan hasil evaluasi attendance.</p>
+            <p class="text-sm font-semibold text-slate-200">Informasi Cuti</p>
+            <p class="text-xs text-slate-400">Cuti terpakai berdasarkan pengajuan berstatus Approved pada tahun {{ leaveSummary.year }}.</p>
           </div>
           <div class="text-left sm:text-right">
-            <p class="text-[11px] text-slate-400">Total</p>
-            <p class="text-lg font-semibold text-slate-100">{{ summaryTotal }}</p>
+            <p class="text-[11px] text-slate-400">Kuota Tahunan</p>
+            <p class="text-lg font-semibold text-slate-100">{{ leaveSummary.quota }} hari</p>
           </div>
         </div>
 
-        <div v-if="!departmentSummaries.length" class="mt-4 text-sm text-slate-400">
-          Tidak ada ringkasan untuk filter ini.
-        </div>
-
-        <div v-else class="mt-4 space-y-4">
-          <div class="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900/40">
-            <table class="min-w-full text-sm text-left">
-              <thead class="border-b border-slate-700 bg-slate-950 text-slate-300">
-                <tr>
-                  <th class="px-3 py-3">Departemen</th>
-                  <th class="px-3 py-3 text-right">Total</th>
-                  <th class="px-3 py-3 text-right">Masuk</th>
-                  <th class="px-3 py-3 text-right">Tidak Masuk</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="summary in departmentSummaries" :key="summary.department_name" class="border-b border-slate-700 last:border-b-0">
-                  <td class="px-3 py-3 text-slate-100 font-semibold">{{ summary.department_name }}</td>
-                  <td class="px-3 py-3 text-right text-slate-200">{{ summary.total }}</td>
-                  <td class="px-3 py-3 text-right text-emerald-300">{{ summary.masuk }}</td>
-                  <td class="px-3 py-3 text-right text-rose-300">{{ summary.tidak_masuk }}</td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div class="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+            <p class="text-xs text-slate-400">Cuti Terpakai / Kuota</p>
+            <p class="mt-1 text-lg font-semibold text-sky-300">{{ leaveSummary.display }}</p>
+          </div>
+          <div class="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+            <p class="text-xs text-slate-400">Sisa Cuti</p>
+            <p class="mt-1 text-lg font-semibold text-emerald-300">{{ leaveSummary.remaining_days }} hari</p>
+          </div>
+          <div class="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+            <p class="text-xs text-slate-400">Tahun</p>
+            <p class="mt-1 text-lg font-semibold text-slate-100">{{ leaveSummary.year }}</p>
           </div>
         </div>
       </div>
@@ -151,6 +139,7 @@
                 </th>
                 <th class="text-left py-2 pr-3">Absensi</th>
                 <th class="text-left py-2 pr-3">Terlambat</th>
+                <th v-if="canViewCutiColumn" class="text-left py-2 pr-3">Cuti</th>
               </tr>
             </thead>
             <tbody>
@@ -166,10 +155,18 @@
                       {{ group.totalTerlambat }}
                     </span>
                   </td>
+                  <td v-if="canViewCutiColumn" class="py-2 pr-3">
+                    <span
+                      class="inline-flex min-w-[2.5rem] justify-center px-2 py-0.5 rounded-md text-xs font-semibold border bg-sky-500/20 text-sky-200 border-sky-400/40"
+                      :title="`Terpakai ${group.cutiTaken} hari, sisa ${group.cutiRemaining} hari`"
+                    >
+                      {{ group.cutiDisplay }}
+                    </span>
+                  </td>
                 </tr>
 
                 <tr v-if="isGroupExpanded(group.key)" class="border-b border-slate-700/50 bg-slate-900/30">
-                  <td colspan="6" class="py-3">
+                  <td :colspan="canViewCutiColumn ? 7 : 6" class="py-3">
                     <div class="overflow-auto">
                       <table class="w-full text-sm">
                         <thead class="border-b border-slate-700 text-slate-400">
@@ -323,6 +320,10 @@
               <div class="rounded-lg border border-amber-400/30 bg-amber-500/10 p-2">
                 <div class="text-[11px] text-amber-200">Terlambat</div>
                 <div class="font-semibold text-amber-100">{{ group.totalTerlambat }}</div>
+              </div>
+              <div v-if="canViewCutiColumn" class="rounded-lg border border-sky-400/30 bg-sky-500/10 p-2">
+                <div class="text-[11px] text-sky-200">Cuti</div>
+                <div class="font-semibold text-sky-100">{{ group.cutiDisplay }}</div>
               </div>
             </div>
 
@@ -697,6 +698,24 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  canViewCutiColumn: {
+    type: Boolean,
+    default: false,
+  },
+  cutiBalances: {
+    type: Object,
+    default: () => ({}),
+  },
+  leaveSummary: {
+    type: Object,
+    default: () => ({
+      year: '',
+      quota: 12,
+      taken_days: 0,
+      remaining_days: 12,
+      display: '0/12',
+    }),
+  },
   monthlyInsights: {
     type: Object,
     default: () => ({ months: [] }),
@@ -1031,6 +1050,9 @@ const allEmployeeGroups = computed(() => {
         totalTerlambat: 0,
         totalAbsen: 0,
         totalLain: 0,
+        cutiDisplay: String(props.cutiBalances?.[pin]?.display ?? '0/12'),
+        cutiTaken: Number(props.cutiBalances?.[pin]?.taken_days ?? 0),
+        cutiRemaining: Number(props.cutiBalances?.[pin]?.remaining_days ?? 12),
         rows: [],
       });
     }

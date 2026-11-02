@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLogCorrection;
+use App\Models\LeavePermission;
 use App\Models\User;
 use App\Support\AccessRuleService;
 use Dompdf\Dompdf;
@@ -45,6 +46,9 @@ class AttendanceLogController extends Controller
         $hasPrivilegedFullAccess = $accessRules->isAdmin($user)
             || $accessRules->isHr($user)
             || $accessRules->isCfo($user)
+            || $accessRules->isIt($user);
+        $isAdminHrIt = $accessRules->isAdmin($user)
+            || $accessRules->isHr($user)
             || $accessRules->isIt($user);
         $canViewAll = $accessRules->canViewAllHrData($user)
             && (! $isSupervisor || $hasPrivilegedFullAccess);
@@ -929,11 +933,46 @@ class AttendanceLogController extends Controller
 
         $attendanceLogs = $this->paginateCollection($rows, $perPage, $request);
 
+        $cutiYear = Carbon::now()->year;
+        $cutiQuota = 12;
+        $balancePins = $pinsInScope->merge(collect($rows)->pluck('pin'))->map(fn ($pin) => $this->normalizePin((string) $pin))->filter()->unique()->values();
+        $cutiBalances = $this->buildCutiBalancesByPin($balancePins, $cutiYear, $cutiQuota);
+
+        $selfPin = '';
+        if ($employeeId) {
+            foreach ($employeeInfoByPin as $pin => $info) {
+                if ((int) ($info['employee_id'] ?? 0) === (int) $employeeId) {
+                    $selfPin = (string) $pin;
+                    break;
+                }
+            }
+        }
+        $selfCuti = $cutiBalances[$selfPin] ?? null;
+        if ($selfCuti === null && $selfPin !== '') {
+            $selfOnlyBalances = $this->buildCutiBalancesByPin(collect([$selfPin]), $cutiYear, $cutiQuota);
+            $selfCuti = $selfOnlyBalances[$selfPin] ?? null;
+        }
+        $selfCuti ??= [
+            'taken_days' => 0,
+            'quota' => $cutiQuota,
+            'remaining_days' => $cutiQuota,
+            'display' => '0/' . $cutiQuota,
+        ];
+
         return Inertia::render('GMIHR/AttendanceLog/Index', [
             'attendanceLogs' => $attendanceLogs,
             'summary' => $summary,
             'monthlyInsights' => $monthlyInsights,
             'canManageCorrections' => $canManageCorrections,
+            'canViewCutiColumn' => $isAdminHrIt,
+            'cutiBalances' => $isAdminHrIt ? $cutiBalances : [],
+            'leaveSummary' => [
+                'year' => $cutiYear,
+                'quota' => $selfCuti['quota'],
+                'taken_days' => $selfCuti['taken_days'],
+                'remaining_days' => $selfCuti['remaining_days'],
+                'display' => $selfCuti['display'],
+            ],
             'lateToleranceMinutes' => $this->lateToleranceMinutes(),
             'filters' => [
                 'date_from' => $dateFrom,
@@ -946,6 +985,123 @@ class AttendanceLogController extends Controller
                 'departments' => $selectedDepartments,
             ],
         ]);
+    }
+
+    private function buildCutiBalancesByPin(Collection $pinsInScope, int $year, int $quota = 12): array
+    {
+        if ($pinsInScope->isEmpty()) {
+            return [];
+        }
+
+        $employeeIdByPin = [];
+        $pinByEmployeeId = [];
+        $userIdByPin = [];
+        $pinByUserId = [];
+        $employeePairs = DB::table('employees')
+            ->whereNotNull('nik')
+            ->where('nik', '<>', '')
+            ->get(['id', 'user_id', 'nik']);
+
+        foreach ($employeePairs as $row) {
+            $pin = $this->normalizePin((string) $row->nik);
+            if ($pin === '') {
+                continue;
+            }
+
+            $empId = (int) $row->id;
+            if ($empId > 0) {
+                $employeeIdByPin[$pin] = $empId;
+                if (!isset($pinByEmployeeId[$empId])) {
+                    $pinByEmployeeId[$empId] = $pin;
+                }
+            }
+
+            $userId = (int) ($row->user_id ?? 0);
+            if ($userId > 0) {
+                $userIdByPin[$pin] = $userId;
+                if (!isset($pinByUserId[$userId])) {
+                    $pinByUserId[$userId] = $pin;
+                }
+            }
+        }
+
+        $employeeIdsInScope = $pinsInScope
+            ->map(fn($pin) => $employeeIdByPin[(string) $pin] ?? null)
+            ->filter(fn($id) => $id !== null)
+            ->unique()
+            ->values();
+
+        $userIdsInScope = $pinsInScope
+            ->map(fn($pin) => $userIdByPin[(string) $pin] ?? null)
+            ->filter(fn($id) => $id !== null)
+            ->unique()
+            ->values();
+
+        if ($employeeIdsInScope->isEmpty() && $userIdsInScope->isEmpty()) {
+            return [];
+        }
+
+        $leaveRows = DB::table('leave_permissions')
+            ->where('status', 'approved')
+            ->where('type', 'cuti')
+            ->whereYear('start_date', $year)
+            ->where(function ($q) use ($employeeIdsInScope, $userIdsInScope) {
+                $hasEmp = !$employeeIdsInScope->isEmpty();
+                $hasUser = !$userIdsInScope->isEmpty();
+
+                if ($hasEmp && $hasUser) {
+                    $q->whereIn('employee_id', $employeeIdsInScope->all())
+                        ->orWhereIn('user_id', $userIdsInScope->all());
+                } elseif ($hasEmp) {
+                    $q->whereIn('employee_id', $employeeIdsInScope->all());
+                } elseif ($hasUser) {
+                    $q->whereIn('user_id', $userIdsInScope->all());
+                }
+            })
+            ->get(['employee_id', 'user_id', 'days', 'reason']);
+
+        $takenByPin = [];
+        foreach ($leaveRows as $leave) {
+            $pin = null;
+
+            $empId = (int) ($leave->employee_id ?? 0);
+            if ($empId > 0) {
+                $pin = $pinByEmployeeId[$empId] ?? null;
+            }
+
+            if (($pin === null || $pin === '') && !empty($leave->user_id)) {
+                $pin = $pinByUserId[(int) $leave->user_id] ?? null;
+            }
+            if ($pin === null || $pin === '') {
+                continue;
+            }
+
+            $takenByPin[$pin] = ($takenByPin[$pin] ?? 0)
+                + LeavePermission::quotaDaysFor((int) ($leave->days ?? 0), $leave->reason ?? null);
+        }
+
+        $result = [];
+        foreach ($pinsInScope as $pin) {
+            $pinNorm = $this->normalizePin((string) $pin);
+            if ($pinNorm === '') {
+                continue;
+            }
+            $taken = (int) ($takenByPin[$pinNorm] ?? 0);
+            $balance = [
+                'taken_days' => $taken,
+                'quota' => $quota,
+                'remaining_days' => max(0, $quota - $taken),
+                'display' => $taken . '/' . $quota,
+            ];
+            $result[$pinNorm] = $balance;
+            foreach ($this->pinCandidatesForMatch($pinNorm) as $candidate) {
+                if ($candidate !== '' && !array_key_exists($candidate, $result)) {
+                    $result[$candidate] = $balance;
+                }
+            }
+        }
+
+        return $result;
     }
 
     private function buildDepartmentAttendanceSummaries(
