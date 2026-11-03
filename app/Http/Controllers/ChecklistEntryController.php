@@ -17,7 +17,6 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use setasign\Fpdi\Fpdi;
@@ -365,18 +364,11 @@ class ChecklistEntryController extends Controller
     {
         $data = $request->validate([
             'period' => ['required', 'date_format:Y-m'],
-            'week' => ['required', 'integer', 'min:1'],
         ]);
 
         $period = $data['period'];
-        $week = (int) $data['week'];
         $template = $this->parseOptionalTemplateFilter($request);
-        $range = $this->parseWeekRange($period, $week);
-        if ($range === null) {
-            throw ValidationException::withMessages([
-                'week' => 'Minggu yang dipilih tidak valid untuk bulan tersebut.',
-            ]);
-        }
+        $range = $this->parseMonthRange($period);
 
         $entries = $this->getSavedChecklistEntries($request->user(), null, $template)
             ->filter(fn (array $entry) => $this->matchesChecklistRange($entry, $range['start'], $range['end']))
@@ -394,11 +386,20 @@ class ChecklistEntryController extends Controller
 
         return response()->json([
             'period' => $period,
-            'week' => $week,
             'start' => $range['start'],
             'end' => $range['end'],
             'entries' => $entries,
         ]);
+    }
+
+    private function parseMonthRange(string $period): array
+    {
+        $monthStart = Carbon::createFromFormat('!Y-m', $period);
+
+        return [
+            'start' => $monthStart->toDateString(),
+            'end' => $monthStart->copy()->endOfMonth()->toDateString(),
+        ];
     }
 
     private function resolvePreviewDate(array $entry, ?string $periodKey = null): string

@@ -277,6 +277,18 @@ class ChecklistPdfCreatedDateTest extends TestCase
         ], $range['start'], $range['end']));
     }
 
+    public function test_month_preview_range_covers_the_entire_selected_month(): void
+    {
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'parseMonthRange');
+        $method->setAccessible(true);
+
+        $range = $method->invoke($controller, '2026-10');
+
+        $this->assertSame('2026-10-01', $range['start']);
+        $this->assertSame('2026-10-31', $range['end']);
+    }
+
     public function test_pdf_templates_show_the_checklist_creation_date(): void
     {
         $header = new ChecklistHeader([

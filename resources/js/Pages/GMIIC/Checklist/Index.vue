@@ -210,7 +210,7 @@
 
           <div class="flex-1 overflow-y-auto p-3 sm:p-4">
             <p class="mb-3 rounded bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-              Pilih bulan dan minggu; klik Cek untuk melihat data checklist pada minggu tersebut.
+              Pilih bulan untuk mengecek seluruh data checklist dalam bulan tersebut. Download tetap berdasarkan minggu yang dipilih.
             </p>
 
             <div class="mb-3">
@@ -272,13 +272,13 @@
                 <p class="mb-2 text-sm text-slate-300">
                   Ditemukan
                   <span class="font-semibold text-emerald-300">{{ previewResults.length }}</span>
-                  checklist pada minggu {{ downloadWeek }} bulan {{ downloadPeriod }}.
+                  checklist pada bulan {{ downloadPeriod }}.
                 </p>
                 <p
                   v-if="!previewResults.length"
                   class="rounded bg-slate-900/60 px-3 py-2 text-sm text-amber-300"
                 >
-                  Tidak ada checklist tersimpan pada minggu tersebut.
+                  Tidak ada checklist tersimpan pada bulan tersebut.
                 </p>
                 <ul
                   v-else
@@ -456,7 +456,7 @@ watch(downloadPeriod, () => {
   }
 });
 
-watch([downloadPeriod, downloadWeek, downloadTemplateId], () => {
+watch([downloadPeriod, downloadTemplateId], () => {
   previewRequestId.value += 1;
   previewLoading.value = false;
   previewChecked.value = false;
@@ -527,7 +527,6 @@ async function checkDownloadPreview() {
 
   const requestId = ++previewRequestId.value;
   const requestedPeriod = downloadPeriod.value;
-  const requestedWeek = downloadWeek.value;
   const requestedTemplateId = downloadTemplateId.value;
   previewLoading.value = true;
   previewChecked.value = false;
@@ -538,7 +537,6 @@ async function checkDownloadPreview() {
     const response = await axios.get('/gmiic/checklist/entries/preview', {
       params: {
         period: requestedPeriod,
-        week: requestedWeek,
         template: requestedTemplateId,
       },
     });
