@@ -741,6 +741,10 @@ class StockCardController extends Controller
         foreach ($lines as $line) {
             $date = (string) ($line['date'] ?? '');
             $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
+            if (! $this->hasDisplayableOperationType($label)) {
+                continue;
+            }
+
             $reference = ($line['reference'] ?? false) !== false
                 ? strtoupper((string) $line['reference'])
                 : '';
@@ -1007,6 +1011,13 @@ class StockCardController extends Controller
         }
 
         return strtoupper($name);
+    }
+
+    private function hasDisplayableOperationType(?string $label): bool
+    {
+        return $label !== null
+            && trim($label) !== ''
+            && trim($label) !== '-';
     }
 
     private function isInboundLabel(string $label): bool
