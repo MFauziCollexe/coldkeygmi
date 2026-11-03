@@ -174,21 +174,24 @@ const customerOptions = computed(() =>
 
 const availableProducts = computed(() => {
   const cid = Number(localCustomerId.value ?? -1);
-  return (props.products || [])
+  const products = (props.products || [])
     .filter(p => Number(p.customer_id) === cid)
     .map(p => ({ product_id: p.product_id, label: (p.default_code ? p.default_code + ' - ' : '') + p.product_name }));
+  return [{ product_id: 0, label: 'All Item' }, ...products];
 });
 
 const localCustomerId = ref(props.selectedCustomerId);
 const localProductIds = ref(props.selectedProductIds.length
   ? props.selectedProductIds
-  : props.selectedProductId !== null && props.selectedProductId !== undefined ? [props.selectedProductId] : []);
+  : props.selectedProductId !== null && props.selectedProductId !== undefined ? [props.selectedProductId] : [0]);
 
 const exportUrl = computed(() => {
   if (!props.filtersApplied) return '#';
   const params = new URLSearchParams();
   if (localCustomerId.value !== null && localCustomerId.value !== undefined && localCustomerId.value !== '') params.set('customer_id', localCustomerId.value);
-  localProductIds.value.forEach((id) => params.append('product_id[]', id));
+  localProductIds.value
+    .filter((id) => Number(id) > 0)
+    .forEach((id) => params.append('product_id[]', id));
   params.set('filters_applied', '1');
   return `${props.basePath}/export?${params.toString()}`;
 });
@@ -201,7 +204,7 @@ function formatNumber(v) {
 function buildParams(overrides = {}) {
   return {
     customer_id: localCustomerId.value ?? undefined,
-    product_id:  localProductIds.value,
+    product_id:  localProductIds.value.filter((id) => Number(id) > 0),
     filters_applied: 1,
     ...overrides,
   };
@@ -219,14 +222,16 @@ const ONLY_FILTER = ['rows', 'filtersApplied', 'selectedCustomerId', 'selectedPr
 
 function onCustomerChange(value) {
   localCustomerId.value = value || null;
-  const first = availableProducts.value[0];
-  localProductIds.value = first ? [first.product_id] : [];
+  localProductIds.value = [0];
 }
 
 function onProductChange(value) {
-  if (value.length) return;
-  const first = availableProducts.value[0];
-  localProductIds.value = first ? [first.product_id] : [];
+  if (value.some((id) => Number(id) === 0)) {
+    localProductIds.value = [0];
+    return;
+  }
+
+  localProductIds.value = value.length ? value : [0];
 }
 
 function applyFilters() {

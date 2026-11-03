@@ -44,10 +44,19 @@ class StockOnHandController extends Controller
         $totalReserve = 0.0;
         $totalQtyAvailable = 0.0;
 
-        if ($filtersApplied && $selectedProductIds !== []) {
+        if ($filtersApplied && $selectedCustomerId !== null) {
             $odoo = app(OdooXmlRpcService::class);
+            $productIdsToProcess = $selectedProductIds !== []
+                ? $selectedProductIds
+                : array_map(
+                    fn ($product) => (int) $product['product_id'],
+                    array_filter(
+                        $products,
+                        fn ($product) => (int) $product['customer_id'] === (int) $selectedCustomerId
+                    )
+                );
 
-            foreach ($selectedProductIds as $selectedProductId) {
+            foreach ($productIdsToProcess as $selectedProductId) {
                 $rows = array_merge(
                     $rows,
                     $this->computeGroupedRows($odoo, $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName)
@@ -112,11 +121,20 @@ class StockOnHandController extends Controller
         ];
         $data = [];
 
-        if ($filtersApplied && $selectedProductIds !== []) {
+        if ($filtersApplied && $selectedCustomerId !== null) {
             $odoo = app(OdooXmlRpcService::class);
 
             $grouped = [];
-            foreach ($selectedProductIds as $selectedProductId) {
+            $productIdsToProcess = $selectedProductIds !== []
+                ? $selectedProductIds
+                : array_map(
+                    fn ($product) => (int) $product['product_id'],
+                    array_filter(
+                        $products,
+                        fn ($product) => (int) $product['customer_id'] === (int) $selectedCustomerId
+                    )
+                );
+            foreach ($productIdsToProcess as $selectedProductId) {
                 $grouped = array_merge(
                     $grouped,
                     $this->computeGroupedRows($odoo, $selectedProductId, (int) $selectedCustomerId, $endDate, $customerName)
@@ -180,15 +198,16 @@ class StockOnHandController extends Controller
             fn ($id) => $id > 0
         )));
         $selectedProducts = array_values(array_filter(
-            $selectedCustomerProducts,
-            fn ($product) => in_array((int) $product['product_id'], $requestedProductIds, true)
-        ));
-        if ($selectedProducts === [] && $selectedCustomerProducts !== []) {
-            $selectedProducts = [$selectedCustomerProducts[0]];
-        }
+                $selectedCustomerProducts,
+                fn ($product) => in_array((int) $product['product_id'], $requestedProductIds, true)
+            ));
         $selectedProductIds = array_map(fn ($product) => (int) $product['product_id'], $selectedProducts);
-        $selectedProductId = $selectedProductIds[0] ?? null;
-        $productName = implode(', ', array_map(fn ($product) => $product['product_name'], $selectedProducts));
+        $selectedProductId = count($selectedProductIds) === 1 ? $selectedProductIds[0] : null;
+        $productName = $requestedProductIds === []
+            ? 'All Item'
+            : ($selectedProducts !== []
+                ? implode(', ', array_map(fn ($product) => $product['product_name'], $selectedProducts))
+                : 'All Item');
 
         $selectedCustomerName = null;
         foreach ($customers as $customer) {
