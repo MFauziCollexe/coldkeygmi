@@ -557,6 +557,10 @@ async function checkDownloadPreview() {
     let message = 'Gagal memeriksa data. Silakan coba lagi.';
     if (error?.response?.data?.message) {
       message = error.response.data.message;
+    } else if (error?.response?.status) {
+      message = `Gagal memeriksa data (HTTP ${error.response.status}). Silakan coba lagi.`;
+    } else if (error?.message) {
+      message = `Gagal memeriksa data: ${error.message}`;
     }
     templateDownloadError.value = message;
     previewChecked.value = false;

@@ -326,7 +326,7 @@ class ChecklistEntryController extends Controller
         $start = $range['start'];
         $end = $range['end'];
 
-        $entries = $this->getSavedChecklistEntries($request->user(), null)
+        $entries = $this->getSavedChecklistEntries($request->user(), null, $template)
             ->filter(fn (array $entry) => $this->matchesChecklistRange($entry, $start, $end))
             ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
             ->values()
@@ -378,7 +378,7 @@ class ChecklistEntryController extends Controller
             ]);
         }
 
-        $entries = $this->getSavedChecklistEntries($request->user(), null)
+        $entries = $this->getSavedChecklistEntries($request->user(), null, $template)
             ->filter(fn (array $entry) => $this->matchesChecklistRange($entry, $range['start'], $range['end']))
             ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
             ->map(fn (array $entry) => [
@@ -593,12 +593,23 @@ class ChecklistEntryController extends Controller
         ];
     }
 
-    private function getSavedChecklistEntries($user = null, ?int $limit = 500): \Illuminate\Support\Collection
+    private function getSavedChecklistEntries(
+        $user = null,
+        ?int $limit = 500,
+        ?string $templateCode = null,
+    ): \Illuminate\Support\Collection
     {
         $allowedTemplateIds = $this->getAllowedChecklistTemplateIds($user, 'view');
 
         $baseQuery = fn ($query) => $query
             ->whereHas('template', fn ($templateQuery) => $templateQuery->where('module', self::CHECKLIST_MODULE))
+            ->when(
+                $templateCode !== null,
+                fn ($query) => $query->whereHas(
+                    'template',
+                    fn ($templateQuery) => $templateQuery->where('code', $templateCode)
+                )
+            )
             ->when(
                 ! empty($allowedTemplateIds),
                 fn ($query) => $query->whereHas('template', fn ($templateQuery) => $templateQuery->whereIn('code', $allowedTemplateIds)),
