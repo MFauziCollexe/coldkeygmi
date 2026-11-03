@@ -204,6 +204,49 @@
       </table>
     </div>
 
+    <div
+      v-if="previousMonthReference"
+      class="mt-4 rounded border border-sky-300 bg-sky-50 p-3"
+    >
+      <div class="mb-2 font-semibold text-slate-800">
+        Referensi bulan sebelumnya: {{ previousMonthReference.month_label }} (baca saja)
+      </div>
+      <template v-if="previousMonthLocationReference">
+        <div class="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+          <span>Status: {{ previousMonthLocationReference.status }}</span>
+          <span v-if="previousMonthLocationReference.check_date">
+            Tanggal check: {{ previousMonthLocationReference.check_date }}
+          </span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full border-collapse text-sm">
+            <thead>
+              <tr class="bg-sky-100">
+                <th class="border border-slate-300 px-2 py-1 text-left">Item Check</th>
+                <th class="border border-slate-300 px-2 py-1 text-center">Hasil bulan sebelumnya</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in currentLocationItems" :key="`previous-${item.id}`">
+                <td class="border border-slate-300 px-2 py-1">{{ item.name }}</td>
+                <td class="border border-slate-300 px-2 py-1 text-center font-semibold">
+                  <span v-if="previousMonthLocationReference.items?.[item.id] === 'yes'">✓</span>
+                  <span v-else-if="previousMonthLocationReference.items?.[item.id] === 'no'" class="text-rose-600">✕</span>
+                  <span v-else class="text-slate-400">-</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-if="previousMonthLocationReference.note" class="mt-2 whitespace-pre-wrap text-sm text-slate-700">
+          Catatan: {{ previousMonthLocationReference.note }}
+        </p>
+      </template>
+      <p v-else class="text-sm text-slate-600">
+        Belum ada data bulan sebelumnya untuk lokasi ini.
+      </p>
+    </div>
+
     <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
         <div class="mb-2 text-sm font-semibold">Keterangan Bulan {{ activeMonthLabel }}</div>
         <textarea
@@ -219,8 +262,9 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import ApprovalButton from '../Components/ApprovalButton.vue';
-defineProps({
+const props = defineProps({
   entry: {
     type: Object,
     required: true,
@@ -273,6 +317,10 @@ defineProps({
     type: Object,
     required: true,
   },
+  previousMonthReference: {
+    type: Object,
+    default: null,
+  },
   monthNote: {
     type: String,
     required: true,
@@ -293,6 +341,12 @@ defineProps({
     type: String,
     required: true,
   },
+});
+
+const previousMonthLocationReference = computed(() => {
+  const locationId = String(props.entry?.form?.location || '');
+
+  return props.previousMonthReference?.locations?.[locationId] || null;
 });
 
 defineEmits([

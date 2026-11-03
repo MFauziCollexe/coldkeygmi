@@ -289,6 +289,45 @@ class ChecklistPdfCreatedDateTest extends TestCase
         $this->assertSame('2026-10-31', $range['end']);
     }
 
+    public function test_previous_kotak_p3k_month_reference_is_grouped_by_location(): void
+    {
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'buildPreviousKotakP3KMonthReference');
+        $method->setAccessible(true);
+
+        $reference = $method->invoke($controller, [[
+            'form' => [
+                'location_entries' => [
+                    'ruang_kontrol' => [
+                        'items' => [
+                            ['id' => 'kasa', 'months' => ['oct' => 'yes']],
+                            ['id' => 'perban', 'months' => ['oct' => 'no']],
+                        ],
+                        'monthly_check_dates' => ['oct' => '28 Oktober 2026'],
+                        'monthly_notes' => ['oct' => 'Perban perlu diganti'],
+                        'submitted_months' => ['oct'],
+                        'approved_months' => [],
+                    ],
+                    'ruang_admin' => [
+                        'items' => [
+                            ['id' => 'kasa', 'months' => ['oct' => 'yes']],
+                        ],
+                        'monthly_check_dates' => ['oct' => '29 Oktober 2026'],
+                        'monthly_notes' => ['oct' => ''],
+                        'submitted_months' => [],
+                        'approved_months' => ['oct'],
+                    ],
+                ],
+            ],
+        ]], \Illuminate\Support\Carbon::parse('2026-10-01'));
+
+        $this->assertSame('Oktober 2026', $reference['month_label']);
+        $this->assertSame('no', $reference['locations']['ruang_kontrol']['items']['perban']);
+        $this->assertSame('Perban perlu diganti', $reference['locations']['ruang_kontrol']['note']);
+        $this->assertSame('Waiting HSE', $reference['locations']['ruang_kontrol']['status']);
+        $this->assertSame('Approved', $reference['locations']['ruang_admin']['status']);
+    }
+
     public function test_pdf_templates_show_the_checklist_creation_date(): void
     {
         $header = new ChecklistHeader([

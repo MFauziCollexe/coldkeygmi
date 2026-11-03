@@ -105,11 +105,27 @@ class ChecklistEntryController extends Controller
             }, []);
 
         $entryId = $request->string('entry_id')->toString();
+        $previousKotakP3KMonthReference = null;
+        if ($entryId === '' && $selectedTemplate === 'kotak_p3k') {
+            $previousMonth = now()->subMonthNoOverflow()->startOfMonth();
+            $previousMonthEntries = $this->getSavedChecklistEntries($user, null, 'kotak_p3k')
+                ->filter(function (array $entry) use ($previousMonth) {
+                    $year = trim((string) data_get($entry, 'form.year', ''));
+
+                    return $year === '' || $year === $previousMonth->format('Y');
+                })
+                ->all();
+            $previousKotakP3KMonthReference = $this->buildPreviousKotakP3KMonthReference(
+                $previousMonthEntries,
+                $previousMonth,
+            );
+        }
 
         return Inertia::render('GMIIC/Checklist/Create', [
             'selectedTemplate' => $selectedTemplate,
             'entryId' => $entryId,
             'savedEntry' => $entryId !== '' ? $this->findChecklistEntry($entryId, $user, true) : null,
+            'previousKotakP3KMonthReference' => $previousKotakP3KMonthReference,
             'existingEntries' => $this->getChecklistEntries($user),
             'checklistTemplatePermissions' => $checklistTemplatePermissions,
             'checklistAbilities' => $this->resolveChecklistAbilities($request),
@@ -399,6 +415,64 @@ class ChecklistEntryController extends Controller
         return [
             'start' => $monthStart->toDateString(),
             'end' => $monthStart->copy()->endOfMonth()->toDateString(),
+        ];
+    }
+
+    private function buildPreviousKotakP3KMonthReference(array $entries, Carbon $previousMonth): array
+    {
+        $monthKey = $this->monthNumberToKey((int) $previousMonth->month);
+        $locations = [];
+
+        foreach ($entries as $entry) {
+            $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+            $locationStates = is_array($form['location_entries'] ?? null)
+                ? $form['location_entries']
+                : [];
+            if ($locationStates === [] && trim((string) ($form['location'] ?? '')) !== '') {
+                $locationStates[(string) $form['location']] = $form;
+            }
+
+            foreach ($locationStates as $locationId => $state) {
+                if (! is_array($state) || isset($locations[$locationId])) {
+                    continue;
+                }
+
+                $items = is_array($state['items'] ?? null) ? $state['items'] : [];
+                $answers = [];
+                foreach ($items as $item) {
+                    if (! is_array($item) || trim((string) ($item['id'] ?? '')) === '') {
+                        continue;
+                    }
+
+                    $answer = strtolower(trim((string) data_get($item, "months.{$monthKey}", '')));
+                    if (in_array($answer, ['yes', 'no'], true)) {
+                        $answers[(string) $item['id']] = $answer;
+                    }
+                }
+
+                $checkDate = trim((string) data_get($state, "monthly_check_dates.{$monthKey}", ''));
+                $note = trim((string) data_get($state, "monthly_notes.{$monthKey}", ''));
+                $isSubmitted = in_array($monthKey, (array) ($state['submitted_months'] ?? []), true);
+                $isApproved = in_array($monthKey, (array) ($state['approved_months'] ?? []), true);
+
+                if ($answers === [] && $checkDate === '' && $note === '' && ! $isSubmitted && ! $isApproved) {
+                    continue;
+                }
+
+                $locations[(string) $locationId] = [
+                    'items' => $answers,
+                    'check_date' => $checkDate,
+                    'note' => $note,
+                    'status' => $isApproved ? 'Approved' : ($isSubmitted ? 'Waiting HSE' : 'Pending'),
+                ];
+            }
+        }
+
+        return [
+            'month_key' => $monthKey,
+            'month_label' => $this->indonesianMonthName((int) $previousMonth->month)
+                .' '.$previousMonth->format('Y'),
+            'locations' => $locations,
         ];
     }
 
