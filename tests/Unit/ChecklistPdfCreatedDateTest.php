@@ -136,6 +136,109 @@ class ChecklistPdfCreatedDateTest extends TestCase
         $this->assertStringContainsString('Area lain', $siteVisitHtml);
     }
 
+    public function test_kotak_p3k_pdf_includes_previous_month_answers_from_saved_entries(): void
+    {
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'buildMonthlyChecklistPdfEntry');
+        $method->setAccessible(true);
+
+        $entry = $method->invoke($controller, [[
+            'template_id' => 'kotak_p3k',
+            'form' => [
+                'location' => 'ruang_admin',
+                'year' => '2026',
+                'location_entries' => [
+                    'ruang_admin' => [
+                        'items' => [[
+                            'id' => 'kasa',
+                            'name' => 'Kasa steril terbungkus',
+                            'quantity' => 20,
+                            'months' => ['jun' => 'yes'],
+                        ]],
+                        'monthly_check_dates' => ['jun' => '28 Juni 2026'],
+                    ],
+                ],
+            ],
+        ], [
+            'template_id' => 'kotak_p3k',
+            'form' => [
+                'location' => 'ruang_admin',
+                'year' => '2026',
+                'location_entries' => [
+                    'ruang_admin' => [
+                        'items' => [[
+                            'id' => 'kasa',
+                            'name' => 'Kasa steril terbungkus',
+                            'quantity' => 20,
+                            'months' => ['jan' => 'yes'],
+                        ]],
+                        'monthly_check_dates' => ['jan' => '28 Januari 2026'],
+                    ],
+                ],
+            ],
+        ]], 'kotak_p3k', '2026-11');
+
+        $this->assertSame('nov', $entry['form']['active_month']);
+        $html = view('pdf.checklist', ['entry' => $entry])->render();
+
+        $this->assertSame(2, substr_count($html, '<span class="check-yes">'));
+        $this->assertStringContainsString('28 Januari 2026', $html);
+        $this->assertStringContainsString('28 Juni 2026', $html);
+    }
+
+    public function test_fire_safety_pdf_combines_saved_months_into_one_year_to_date_entry(): void
+    {
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'buildMonthlyChecklistPdfEntry');
+        $method->setAccessible(true);
+
+        $entry = $method->invoke($controller, [[
+            'template_id' => 'apar_smoke_detector_fire_alarm',
+            'name' => 'APAR Checklist',
+            'form' => [
+                'card_type' => 'apar',
+                'location' => 'lantai_1_admin_powder_3kg_001',
+                'year' => '2026',
+                'location_records' => [
+                    'apar::lantai_1_admin_powder_3kg_001' => [
+                        'rows' => [[
+                            'id' => 'tekanan',
+                            'name' => 'Indikator Tekanan',
+                            'months' => ['jun' => 'no'],
+                        ]],
+                        'monthly_check_dates' => ['jun' => '28 Juni 2026'],
+                    ],
+                ],
+            ],
+        ], [
+            'template_id' => 'apar_smoke_detector_fire_alarm',
+            'name' => 'APAR Checklist',
+            'form' => [
+                'card_type' => 'apar',
+                'location' => 'lantai_1_admin_powder_3kg_001',
+                'year' => '2026',
+                'location_records' => [
+                    'apar::lantai_1_admin_powder_3kg_001' => [
+                        'rows' => [[
+                            'id' => 'tekanan',
+                            'name' => 'Indikator Tekanan',
+                            'months' => ['jan' => 'yes'],
+                        ]],
+                        'monthly_check_dates' => ['jan' => '28 Januari 2026'],
+                    ],
+                ],
+            ],
+        ]], 'apar_smoke_detector_fire_alarm', '2026-11');
+
+        $html = view('pdf.checklist', ['entry' => $entry])->render();
+
+        $this->assertSame('nov', $entry['form']['active_month']);
+        $this->assertSame(1, substr_count($html, '<span class="check-yes">'));
+        $this->assertSame(1, substr_count($html, '<span class="check-no">'));
+        $this->assertStringContainsString('28 Januari 2026', $html);
+        $this->assertStringContainsString('28 Juni 2026', $html);
+    }
+
     public function test_inspeksi_loker_pdf_uses_dedicated_matrix_layout(): void
     {
         $html = view('pdf.checklist', [

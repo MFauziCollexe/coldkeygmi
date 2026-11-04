@@ -210,7 +210,12 @@
 
           <div class="flex-1 overflow-y-auto p-3 sm:p-4">
             <p class="mb-3 rounded bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-              Pilih bulan untuk mengecek seluruh data checklist dalam bulan tersebut. Download tetap berdasarkan minggu yang dipilih.
+              <template v-if="monthlyChecklistTemplates.includes(downloadTemplateId)">
+                Rekap Kotak P3K dan APAR akan diunduh menjadi satu PDF dari Januari sampai bulan yang dipilih.
+              </template>
+              <template v-else>
+                Pilih bulan untuk mengecek seluruh data checklist dalam bulan tersebut. Download berdasarkan minggu yang dipilih.
+              </template>
             </p>
 
             <div class="mb-3">
@@ -237,7 +242,7 @@
                 />
               </label>
 
-              <label class="text-sm text-slate-300">
+              <label v-if="!monthlyChecklistTemplates.includes(downloadTemplateId)" class="text-sm text-slate-300">
                 Minggu
                 <select
                   v-model="downloadWeek"

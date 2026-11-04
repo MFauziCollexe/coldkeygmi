@@ -291,6 +291,10 @@ class ChecklistEntryController extends Controller
         $templateName = (string) ($entry['name'] ?? 'checklist');
         $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $templateName) ?: 'checklist';
         $downloadName = $safeName . '_' . $entryCode . '.pdf';
+        $entry = $this->mergeMonthlyHistoryIntoPdfEntry(
+            $entry,
+            $this->getSavedChecklistEntries($user, null, $templateId)->all(),
+        );
 
         return $this->streamPdf(
             view('pdf.checklist', ['entry' => $this->normalizePdfEntry($entry)])->render(),
@@ -349,6 +353,7 @@ class ChecklistEntryController extends Controller
         if ($range === null) {
             $monthStart = Carbon::parse($period.'-01');
             $maxWeeks = (int) ceil($monthStart->daysInMonth / 7);
+
             return response()->json([
                 'message' => "Minggu {$week} tidak berlaku di periode {$period}. Bulan ini hanya memiliki {$maxWeeks} minggu.",
             ], 422);
@@ -357,14 +362,27 @@ class ChecklistEntryController extends Controller
         $start = $range['start'];
         $end = $range['end'];
 
-        $entries = $this->getSavedChecklistEntries($request->user(), null, $template)
+        $allEntries = $this->getSavedChecklistEntries($request->user(), null, $template);
+        $monthlyTemplateIds = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
+        $entries = $allEntries
+            ->filter(fn (array $entry) => ! in_array((string) ($entry['template_id'] ?? ''), $monthlyTemplateIds, true))
             ->filter(fn (array $entry) => $this->matchesChecklistRange($entry, $start, $end))
-            ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
             ->values()
             ->all();
 
-        if (count($entries) === 0) {
-            return response()->json(['message' => 'Tidak ada checklist tersimpan pada minggu periode tersebut.'], 422);
+        foreach ($monthlyTemplateIds as $monthlyTemplateId) {
+            $templateEntries = $allEntries
+                ->filter(fn (array $entry) => (string) ($entry['template_id'] ?? '') === $monthlyTemplateId)
+                ->values()
+                ->all();
+            $annualEntry = $this->buildMonthlyChecklistPdfEntry($templateEntries, $monthlyTemplateId, $period);
+            if ($annualEntry !== null) {
+                $entries[] = $annualEntry;
+            }
+        }
+
+        if ($entries === []) {
+            return response()->json(['message' => 'Tidak ada checklist tersimpan pada periode yang dipilih.'], 422);
         }
 
         $orientation = collect($entries)->contains(
@@ -392,6 +410,276 @@ class ChecklistEntryController extends Controller
         }
     }
 
+    private function buildMonthlyChecklistPdfEntry(array $entries, string $templateId, string $period): ?array
+    {
+        if (! in_array($templateId, ['kotak_p3k', 'apar_smoke_detector_fire_alarm'], true) || $entries === []) {
+            return null;
+        }
+
+        $periodMonth = Carbon::createFromFormat('!Y-m', $period);
+        $year = $periodMonth->format('Y');
+        $entries = collect($entries)
+            ->filter(fn (array $entry) => trim((string) data_get($entry, 'form.year', '')) === '' ||
+                trim((string) data_get($entry, 'form.year', '')) === $year)
+            ->values()
+            ->all();
+        if ($entries === []) {
+            return null;
+        }
+
+        $referenceMonth = $periodMonth->copy()->startOfMonth();
+        $reference = $templateId === 'kotak_p3k'
+            ? $this->buildPreviousKotakP3KMonthReference($entries, $referenceMonth)
+            : $this->buildPreviousFireSafetyMonthReference($entries, $referenceMonth);
+        $hasMonthlyData = $templateId === 'kotak_p3k'
+            ? ! empty($reference['locations'])
+            : ! empty($reference['records']);
+        if (! $hasMonthlyData) {
+            return null;
+        }
+
+        $entry = $entries[0];
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $form['year'] = $year;
+        $form['active_month'] = $this->monthNumberToKey((int) $periodMonth->month);
+
+        if ($templateId === 'kotak_p3k') {
+            $locationEntries = [];
+            foreach ($entries as $savedEntry) {
+                $savedForm = is_array($savedEntry['form'] ?? null) ? $savedEntry['form'] : [];
+                $savedLocations = is_array($savedForm['location_entries'] ?? null) ? $savedForm['location_entries'] : [];
+                $legacyLocationId = trim((string) ($savedForm['location'] ?? ''));
+                if ($savedLocations === [] && $legacyLocationId !== '') {
+                    $savedLocations[$legacyLocationId] = $savedForm;
+                }
+
+                foreach ($savedLocations as $locationId => $state) {
+                    if (! is_array($state)) {
+                        continue;
+                    }
+
+                    $locationEntries[(string) $locationId] = isset($locationEntries[(string) $locationId])
+                        ? $this->mergeMonthlyChecklistState($locationEntries[(string) $locationId], $state, 'items')
+                        : $state;
+                }
+            }
+            $form['location_entries'] = $locationEntries;
+        } else {
+            $locationRecords = [];
+            foreach ($entries as $savedEntry) {
+                $savedForm = is_array($savedEntry['form'] ?? null) ? $savedEntry['form'] : [];
+                $savedRecords = is_array($savedForm['location_records'] ?? null) ? $savedForm['location_records'] : [];
+                $cardType = trim((string) ($savedForm['card_type'] ?? ''));
+                $locationId = trim((string) ($savedForm['location'] ?? ''));
+                $legacyRecordKey = $cardType . '::' . $locationId;
+                if ($savedRecords === [] && $cardType !== '' && $locationId !== '') {
+                    $savedRecords[$legacyRecordKey] = $savedForm;
+                }
+
+                foreach ($savedRecords as $recordKey => $state) {
+                    if (! is_array($state)) {
+                        continue;
+                    }
+
+                    $locationRecords[(string) $recordKey] = isset($locationRecords[(string) $recordKey])
+                        ? $this->mergeMonthlyChecklistState($locationRecords[(string) $recordKey], $state, 'rows')
+                        : $state;
+                }
+            }
+            $form['location_records'] = $locationRecords;
+        }
+
+        $entry['form'] = $form;
+
+        return $this->mergeMonthlyHistoryIntoPdfEntry($entry, $entries);
+    }
+
+    private function mergeMonthlyChecklistState(array $current, array $incoming, string $rowsKey): array
+    {
+        foreach ($incoming as $key => $value) {
+            if (! array_key_exists($key, $current) || $current[$key] === '' || $current[$key] === null) {
+                $current[$key] = $value;
+            }
+        }
+
+        $currentRows = is_array($current[$rowsKey] ?? null) ? $current[$rowsKey] : [];
+        $rowIndexes = [];
+        foreach ($currentRows as $index => $row) {
+            if (is_array($row) && trim((string) ($row['id'] ?? '')) !== '') {
+                $rowIndexes[(string) $row['id']] = $index;
+            }
+        }
+
+        foreach ((array) ($incoming[$rowsKey] ?? []) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $rowId = trim((string) ($row['id'] ?? ''));
+            if ($rowId === '' || ! isset($rowIndexes[$rowId])) {
+                $currentRows[] = $row;
+                if ($rowId !== '') {
+                    $rowIndexes[$rowId] = array_key_last($currentRows);
+                }
+                continue;
+            }
+
+            $index = $rowIndexes[$rowId];
+            $currentMonths = is_array($currentRows[$index]['months'] ?? null) ? $currentRows[$index]['months'] : [];
+            foreach ((array) ($row['months'] ?? []) as $monthKey => $answer) {
+                if (! in_array($currentMonths[$monthKey] ?? '', ['yes', 'no'], true) &&
+                    in_array($answer, ['yes', 'no'], true)) {
+                    $currentMonths[$monthKey] = $answer;
+                }
+            }
+            $currentRows[$index]['months'] = $currentMonths;
+        }
+
+        $current[$rowsKey] = $currentRows;
+        foreach (['monthly_check_dates', 'monthly_notes'] as $key) {
+            $current[$key] = is_array($current[$key] ?? null) ? $current[$key] : [];
+            foreach ((array) ($incoming[$key] ?? []) as $monthKey => $value) {
+                if (trim((string) ($current[$key][$monthKey] ?? '')) === '' && trim((string) $value) !== '') {
+                    $current[$key][$monthKey] = $value;
+                }
+            }
+        }
+        foreach (['submitted_months', 'approved_months'] as $key) {
+            $current[$key] = array_values(array_unique(array_merge(
+                (array) ($current[$key] ?? []),
+                (array) ($incoming[$key] ?? []),
+            )));
+        }
+
+        return $current;
+    }
+
+    private function mergeMonthlyHistoryIntoPdfEntry(array $entry, array $historyEntries): array
+    {
+        $templateId = (string) ($entry['template_id'] ?? '');
+        if (! in_array($templateId, ['kotak_p3k', 'apar_smoke_detector_fire_alarm'], true)) {
+            return $entry;
+        }
+
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $year = trim((string) ($form['year'] ?? ''));
+        $monthKey = trim((string) ($form['active_month'] ?? ''));
+        $monthNumber = $this->monthKeyToNumber($monthKey);
+        if ($monthNumber === null) {
+            $monthNumber = 1;
+        }
+        $referenceYear = $year !== '' && ctype_digit($year) ? (int) $year : (int) now()->year;
+        $referenceMonth = Carbon::create($referenceYear, $monthNumber, 1)->startOfMonth();
+        $historyEntries = collect($historyEntries)
+            ->filter(fn (array $historyEntry) => trim((string) data_get($historyEntry, 'form.year', '')) === '' ||
+                trim((string) data_get($historyEntry, 'form.year', '')) === (string) $referenceYear)
+            ->all();
+
+        $reference = $templateId === 'kotak_p3k'
+            ? $this->buildPreviousKotakP3KMonthReference($historyEntries, $referenceMonth)
+            : $this->buildPreviousFireSafetyMonthReference($historyEntries, $referenceMonth);
+
+        if ($templateId === 'kotak_p3k') {
+            $locationEntries = is_array($form['location_entries'] ?? null) ? $form['location_entries'] : [];
+            $legacyLocationId = trim((string) ($form['location'] ?? ''));
+            if ($legacyLocationId !== '' && ! isset($locationEntries[$legacyLocationId])) {
+                $locationEntries[$legacyLocationId] = $form;
+            }
+
+            foreach ($reference['locations'] as $locationId => $locationReference) {
+                if (! isset($locationEntries[$locationId]) || ! is_array($locationEntries[$locationId])) {
+                    continue;
+                }
+
+                $state = $locationEntries[$locationId];
+                $items = is_array($state['items'] ?? null) ? $state['items'] : [];
+                foreach ($items as &$item) {
+                    if (! is_array($item) || trim((string) ($item['id'] ?? '')) === '') {
+                        continue;
+                    }
+
+                    $item['months'] = is_array($item['months'] ?? null) ? $item['months'] : [];
+                    foreach ((array) ($locationReference['months'] ?? []) as $key => $month) {
+                        $answer = $month['items'][$item['id']] ?? '';
+                        if (! in_array($item['months'][$key] ?? '', ['yes', 'no'], true) &&
+                            in_array($answer, ['yes', 'no'], true)) {
+                            $item['months'][$key] = $answer;
+                        }
+                    }
+                }
+                unset($item);
+
+                $state['items'] = $items;
+                $state['monthly_check_dates'] = is_array($state['monthly_check_dates'] ?? null)
+                    ? $state['monthly_check_dates']
+                    : [];
+                foreach ((array) ($locationReference['months'] ?? []) as $key => $month) {
+                    if (trim((string) ($state['monthly_check_dates'][$key] ?? '')) === '' &&
+                        trim((string) ($month['check_date'] ?? '')) !== '') {
+                        $state['monthly_check_dates'][$key] = $month['check_date'];
+                    }
+                }
+                $locationEntries[$locationId] = $state;
+            }
+
+            if ($legacyLocationId !== '' && isset($locationEntries[$legacyLocationId])) {
+                $form = array_merge($form, $locationEntries[$legacyLocationId]);
+            }
+            $form['location_entries'] = $locationEntries;
+        } else {
+            $locationRecords = is_array($form['location_records'] ?? null) ? $form['location_records'] : [];
+            $legacyRecordKey = trim((string) ($form['card_type'] ?? '')).'::'.trim((string) ($form['location'] ?? ''));
+            if ($legacyRecordKey !== '::' && ! isset($locationRecords[$legacyRecordKey])) {
+                $locationRecords[$legacyRecordKey] = $form;
+            }
+
+            foreach ($reference['records'] as $recordKey => $recordReference) {
+                if (! isset($locationRecords[$recordKey]) || ! is_array($locationRecords[$recordKey])) {
+                    continue;
+                }
+
+                $state = $locationRecords[$recordKey];
+                $rows = is_array($state['rows'] ?? null) ? $state['rows'] : [];
+                foreach ($rows as &$row) {
+                    if (! is_array($row) || trim((string) ($row['id'] ?? '')) === '') {
+                        continue;
+                    }
+
+                    $row['months'] = is_array($row['months'] ?? null) ? $row['months'] : [];
+                    foreach ((array) ($recordReference['months'] ?? []) as $key => $month) {
+                        $answer = $month['items'][$row['id']] ?? '';
+                        if (! in_array($row['months'][$key] ?? '', ['yes', 'no'], true) &&
+                            in_array($answer, ['yes', 'no'], true)) {
+                            $row['months'][$key] = $answer;
+                        }
+                    }
+                }
+                unset($row);
+
+                $state['rows'] = $rows;
+                $state['monthly_check_dates'] = is_array($state['monthly_check_dates'] ?? null)
+                    ? $state['monthly_check_dates']
+                    : [];
+                foreach ((array) ($recordReference['months'] ?? []) as $key => $month) {
+                    if (trim((string) ($state['monthly_check_dates'][$key] ?? '')) === '' &&
+                        trim((string) ($month['check_date'] ?? '')) !== '') {
+                        $state['monthly_check_dates'][$key] = $month['check_date'];
+                    }
+                }
+                $locationRecords[$recordKey] = $state;
+            }
+
+            if ($legacyRecordKey !== '::' && isset($locationRecords[$legacyRecordKey])) {
+                $form = array_merge($form, $locationRecords[$legacyRecordKey]);
+            }
+            $form['location_records'] = $locationRecords;
+        }
+
+        $entry['form'] = $form;
+
+        return $entry;
+    }
+
     public function preview(Request $request)
     {
         $data = $request->validate([
@@ -402,9 +690,11 @@ class ChecklistEntryController extends Controller
         $template = $this->parseOptionalTemplateFilter($request);
         $range = $this->parseMonthRange($period);
 
-        $entries = $this->getSavedChecklistEntries($request->user(), null, $template)
+        $allEntries = $this->getSavedChecklistEntries($request->user(), null, $template);
+        $monthlyTemplateIds = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
+        $entries = $allEntries
+            ->filter(fn (array $entry) => ! in_array((string) ($entry['template_id'] ?? ''), $monthlyTemplateIds, true))
             ->filter(fn (array $entry) => $this->matchesChecklistRange($entry, $range['start'], $range['end']))
-            ->filter(fn (array $entry) => $template === null || (string) ($entry['template_id'] ?? '') === $template)
             ->map(fn (array $entry) => [
                 'template_id' => (string) ($entry['template_id'] ?? ''),
                 'template_name' => (string) ($entry['name'] ?? ''),
@@ -415,6 +705,25 @@ class ChecklistEntryController extends Controller
             ->sortBy('date')
             ->values()
             ->all();
+
+        foreach ($monthlyTemplateIds as $monthlyTemplateId) {
+            $templateEntries = $allEntries
+                ->filter(fn (array $entry) => (string) ($entry['template_id'] ?? '') === $monthlyTemplateId)
+                ->values()
+                ->all();
+            $annualEntry = $this->buildMonthlyChecklistPdfEntry($templateEntries, $monthlyTemplateId, $period);
+            if ($annualEntry === null) {
+                continue;
+            }
+
+            $entries[] = [
+                'template_id' => $monthlyTemplateId,
+                'template_name' => (string) ($annualEntry['name'] ?? ''),
+                'date' => 'Januari - '.$this->indonesianMonthName((int) substr($period, 5, 2)).' '.substr($period, 0, 4),
+                'user' => (string) ($annualEntry['user'] ?? ''),
+                'status' => $this->resolveHeaderStatus($annualEntry),
+            ];
+        }
 
         return response()->json([
             'period' => $period,
@@ -782,6 +1091,7 @@ class ChecklistEntryController extends Controller
     private function parseOptionalTemplateFilter(Request $request): ?string
     {
         $value = trim((string) $request->query('template', ''));
+
         return $value === '' ? null : $value;
     }
 
@@ -907,6 +1217,7 @@ class ChecklistEntryController extends Controller
             if ($end !== null && $iso > $end) {
                 return false;
             }
+
             return true;
         }
 
@@ -931,6 +1242,7 @@ class ChecklistEntryController extends Controller
                         if ($end !== null && $checkIso > $end) {
                             continue;
                         }
+
                         return true;
                     }
                 }
@@ -1074,6 +1386,7 @@ class ChecklistEntryController extends Controller
             $month = $monthNames[ucfirst($matches[2])] ?? null;
             if ($month !== null) {
                 $day = str_pad((string) (int) $matches[1], 2, '0', STR_PAD_LEFT);
+
                 return sprintf('%s-%s-%s', $matches[3], $month, $day);
             }
         }
@@ -1266,6 +1579,7 @@ class ChecklistEntryController extends Controller
 
         return $entry;
     }
+
     private function renderPdf(string $html, string $orientation): string
     {
         $options = new Options();
@@ -1323,6 +1637,7 @@ class ChecklistEntryController extends Controller
             'sarana_dan_prasarana', 'inspeksi_loker', 'kotak_p3k', 'apar_smoke_detector_fire_alarm',
         ];
         $tid = (string) ($entry['template_id'] ?? '');
+
         return in_array($tid, $landscapeTemplates, true) ? 'landscape' : 'portrait';
     }
 
@@ -1332,6 +1647,7 @@ class ChecklistEntryController extends Controller
         if (!is_dir($path) && !@mkdir($path, 0775, true) && !is_dir($path)) {
             throw new \RuntimeException('Failed to create Dompdf directory: ' . $path);
         }
+
         return $path;
     }
 
