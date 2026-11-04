@@ -135,18 +135,35 @@ class OvertimeController extends Controller
         return $this->accessRules()->allows($userId, self::ACCESS_MODULE, 'delete_request');
     }
 
-    private function requiresSupervisorApproval(Employee $employee): bool
+    private function initialApprovalStatus(Employee $employee): string
+    {
+        $reportingTo = $this->reportingToEmployee($employee);
+        if ($reportingTo?->user && $this->isSupervisor($reportingTo->user_id)) {
+            return 'pending_spv';
+        }
+
+        return 'pending_manager';
+    }
+
+    private function reportingToEmployee(Employee $employee): ?Employee
+    {
+        return $employee->loadMissing(['supervisor.user', 'supervisor.position'])->supervisor;
+    }
+
+    private function isActiveReportingApprover(?Employee $employee): bool
+    {
+        return $employee?->user?->status === 'active'
+            && (! Schema::hasColumn('employees', 'employment_status') || $employee->employment_status === 'active')
+            && ($employee->position?->is_active ?? true);
+    }
+
+    private function supportsDirectManagerApproval(Employee $employee): bool
     {
         $departmentCode = strtoupper((string) Department::query()
             ->whereKey($employee->department_id)
             ->value('code'));
 
-        return ! in_array($departmentCode, ['MNT', 'MTC', 'IT'], true);
-    }
-
-    private function supervisorForApproval(Employee $employee): ?Employee
-    {
-        return $employee->loadMissing(['supervisor.user', 'supervisor.position'])->supervisor;
+        return in_array($departmentCode, ['MNT', 'MTC', 'IT'], true);
     }
 
     private function canViewOvertime(Overtime $overtime, int $userId): bool
@@ -197,35 +214,51 @@ class OvertimeController extends Controller
 
     private function approvalConfigurationError(Employee $employee): ?string
     {
-        if ($this->requiresSupervisorApproval($employee)) {
-            $supervisor = $this->supervisorForApproval($employee);
+        $reportingTo = $this->reportingToEmployee($employee);
+        $hasReportingTo = (int) ($employee->reports_to ?? 0) > 0;
+        $hasActiveAssignedApprover = $this->isActiveReportingApprover($reportingTo);
+        $assignedApproverIsSupervisor = $hasActiveAssignedApprover
+            && $this->isSupervisor($reportingTo->user_id);
+        $assignedApproverIsManager = $hasActiveAssignedApprover
+            && $this->isManager($reportingTo->user_id);
 
-            if (
-                ! $supervisor?->user
-                || $supervisor->user->status !== 'active'
-                || (Schema::hasColumn('employees', 'employment_status') && $supervisor->employment_status !== 'active')
-                || ! $this->isSupervisor($supervisor->user_id)
-            ) {
-                return 'Karyawan belum memiliki SPV aktif pada field Reporting To.';
+        if ($hasReportingTo && ! $assignedApproverIsSupervisor && ! $assignedApproverIsManager) {
+            return 'Karyawan harus memiliki SPV atau Manager aktif pada field Reporting To.';
+        }
+
+        if (! $hasReportingTo && ! $this->supportsDirectManagerApproval($employee)) {
+            return 'Karyawan belum memiliki SPV atau Manager aktif pada field Reporting To.';
+        }
+
+        if ($assignedApproverIsManager && ! $this->canApproveDepartment(
+            (int) $reportingTo->user_id,
+            (int) $employee->department_id
+        )) {
+            return 'Manager pada field Reporting To tidak memiliki akses approval untuk departemen karyawan.';
+        }
+
+        if (! $assignedApproverIsManager) {
+            $managerIds = Employee::query()
+                ->whereNotNull('user_id')
+                ->whereHas('position', fn ($query) => $query->where('is_manager', true))
+                ->whereHas('user', fn ($query) => $query->where('status', 'active'))
+                ->when(Schema::hasColumn('employees', 'employment_status'), fn ($query) => $query->where('employment_status', 'active'))
+                ->pluck('user_id');
+            $hasManager = $managerIds->contains(
+                fn ($managerId) => $this->accessRules()->canAccessDepartment(
+                    (int) $managerId,
+                    self::ACCESS_MODULE,
+                    'approve',
+                    (int) $employee->department_id
+                )
+            );
+
+            if (! $hasManager) {
+                return 'Departemen karyawan belum memiliki Manager aktif.';
             }
         }
 
-        $managerIds = Employee::query()
-            ->whereNotNull('user_id')
-            ->whereHas('position', fn ($query) => $query->where('is_manager', true))
-            ->whereHas('user', fn ($query) => $query->where('status', 'active'))
-            ->when(Schema::hasColumn('employees', 'employment_status'), fn ($query) => $query->where('employment_status', 'active'))
-            ->pluck('user_id');
-        $hasManager = $managerIds->contains(
-            fn ($managerId) => $this->accessRules()->canAccessDepartment(
-                (int) $managerId,
-                self::ACCESS_MODULE,
-                'approve',
-                (int) $employee->department_id
-            )
-        );
-
-        return $hasManager ? null : 'Departemen karyawan belum memiliki Manager aktif.';
+        return null;
     }
 
     private function canApproveStage(Overtime $overtime, int $userId): bool
@@ -239,12 +272,11 @@ class OvertimeController extends Controller
         $isSubmitter = (int) $overtime->user_id === $userId;
 
         if ($overtime->status === 'pending_spv') {
-            $supervisor = $this->supervisorForApproval($employee);
+            $supervisor = $this->reportingToEmployee($employee);
 
             return $this->isSupervisor($userId)
                 && (int) ($supervisor?->user_id ?? 0) === $userId
-                && $supervisor?->user?->status === 'active'
-                && (! Schema::hasColumn('employees', 'employment_status') || $supervisor->employment_status === 'active');
+                && $this->isActiveReportingApprover($supervisor);
         }
 
         if ($overtime->status !== 'pending_manager' || ! $this->isManager($userId) || $isSubmitter) {
@@ -252,6 +284,15 @@ class OvertimeController extends Controller
         }
 
         $departmentId = (int) ($employee->department_id ?? 0);
+        $reportingTo = $this->reportingToEmployee($employee);
+        if (
+            (int) ($overtime->spv_reviewed_by ?? 0) <= 0
+            && $reportingTo
+            && $this->isManager($reportingTo->user_id)
+        ) {
+            return (int) $reportingTo->user_id === $userId
+                && $this->isActiveReportingApprover($reportingTo);
+        }
 
         return $departmentId > 0
             && $this->accessRules()->canAccessDepartment(
@@ -881,8 +922,8 @@ class OvertimeController extends Controller
             $payload = $data;
             $payload['employee_id'] = (int) $empId;
             $employee = $employees->get($empId);
-            $payload['status'] = $employee && $this->requiresSupervisorApproval($employee)
-                ? 'pending_spv'
+            $payload['status'] = $employee
+                ? $this->initialApprovalStatus($employee)
                 : 'pending_manager';
             $payload['attachment_original_name'] = $attachmentOriginalName;
             $payload['attachment_path'] = $attachmentPath;

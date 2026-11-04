@@ -483,7 +483,11 @@ function canShowApprovalActions(batch) {
 }
 
 function statusClass(batch) {
-  if (batch?.status === 'approved') return 'bg-emerald-600/30 text-emerald-200';
+  if (batch?.status === 'approved') {
+    return batch?.is_current
+      ? 'bg-emerald-600/30 text-emerald-200'
+      : 'bg-slate-600/30 text-slate-300';
+  }
   if (isLatestPending(batch)) return 'bg-emerald-600/30 text-emerald-200';
   if (batch?.status === 'pending') return 'bg-amber-600/30 text-amber-200';
   if (batch?.status === 'rejected') return 'bg-rose-600/30 text-rose-200';
@@ -491,7 +495,7 @@ function statusClass(batch) {
 }
 
 function statusLabel(batch) {
-  if (batch?.status === 'approved') return 'Approved';
+  if (batch?.status === 'approved') return batch?.is_current ? 'Approved' : 'Approved (Tergantikan)';
   if (isLatestPending(batch)) return 'Pending Approval';
   if (batch?.status === 'pending') return 'Pending Lama';
   if (batch?.status === 'rejected') return 'Rejected';

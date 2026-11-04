@@ -2,26 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Department;
 use App\Models\RosterEntry;
 use App\Models\RosterUploadBatch;
-use App\Models\Department;
 use App\Models\User;
 use App\Support\AccessRuleService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
-use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class RosterController extends Controller
 {
@@ -65,7 +65,7 @@ class RosterController extends Controller
         $canApproveAllDepartments = $this->canApproveAllRosterDepartments($user);
         $canApproveAnyBatch = $this->canApproveAnyRosterBatch($user);
         $latestBatchIdsByScope = $this->latestBatchIdsByScope();
-        $effectiveCurrentBatchIds = $this->effectiveApprovedBatchIds(!empty($departmentIds) ? $departmentIds : null);
+        $effectiveCurrentBatchIds = $this->effectiveApprovedBatchIds(! empty($departmentIds) ? $departmentIds : null);
         $selectedMonth = request()->has('month')
             ? (int) request('month', 0)
             : (int) now()->month;
@@ -82,7 +82,7 @@ class RosterController extends Controller
                 'approver:id,name',
                 'revisionOf:id,version',
             ])
-            ->when(!empty($departmentIds), function ($query) use ($departmentIds) {
+            ->when(! empty($departmentIds), function ($query) use ($departmentIds) {
                 $query->whereIn('department_id', $departmentIds);
             }, function ($query) {
                 $query->whereRaw('1 = 0');
@@ -90,15 +90,17 @@ class RosterController extends Controller
             ->when($selectedMonth > 0, function ($query) use ($selectedMonth) {
                 $query->where('month', $selectedMonth);
             })
-            ->when(!$canApproveAnyBatch && !$canApproveAllDepartments, function ($query) use ($user) {
+            ->when(! $canApproveAnyBatch && ! $canApproveAllDepartments, function ($query) use ($user) {
                 $query->where(function ($nested) use ($user) {
                     $nested
                         ->where('status', 'approved')
                         ->orWhere('uploaded_by', $user->id);
                 });
             })
-            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
-            ->orderByRaw($this->effectiveCurrentOrderBySql($effectiveCurrentBatchIds))
+            ->orderByRaw($this->rosterListPriorityOrderSql(
+                array_values($latestBatchIdsByScope),
+                $effectiveCurrentBatchIds
+            ))
             ->orderByDesc('id')
             ->paginate(8, [
                 'id',
@@ -127,6 +129,7 @@ class RosterController extends Controller
                 $batch->is_latest_pending_for_department = $isLatestPendingForScope;
                 $batch->approval_locked_reason = $this->approvalLockedReason($batch, $isLatestPendingForScope);
                 $batch->can_approve = $this->canApproveBatch($user, $batch) && $isLatestPendingForScope;
+
                 return $batch;
             });
 
@@ -161,7 +164,7 @@ class RosterController extends Controller
         }
 
         $user = Auth::user()->loadMissing(['department', 'position']);
-        if (!$this->canUploadTemplate($user, $templateType)) {
+        if (! $this->canUploadTemplate($user, $templateType)) {
             return response()->json([
                 'message' => "Anda tidak berhak upload template {$templateType}.",
             ], 403);
@@ -190,9 +193,9 @@ class RosterController extends Controller
                 ], 422);
             }
 
-            $previewKey = 'roster_preview_' . Str::uuid();
+            $previewKey = 'roster_preview_'.Str::uuid();
             $originalFilename = basename((string) $file->getClientOriginalName());
-            $tempUploadedFilePath = "roster_previews/files/{$previewKey}_" . Str::random(8) . "_{$originalFilename}";
+            $tempUploadedFilePath = "roster_previews/files/{$previewKey}_".Str::random(8)."_{$originalFilename}";
             Storage::disk('local')->putFileAs('roster_previews/files', $file, basename($tempUploadedFilePath));
 
             $previewPayload = [
@@ -265,7 +268,7 @@ class RosterController extends Controller
         $previewKey = $request->input('preview_key');
         $previewPath = "roster_previews/{$previewKey}.json";
 
-        if (!Storage::disk('local')->exists($previewPath)) {
+        if (! Storage::disk('local')->exists($previewPath)) {
             return response()->json([
                 'message' => 'Upload ditolak. Klik preview dulu sebelum upload.',
             ], 422);
@@ -301,7 +304,7 @@ class RosterController extends Controller
         }
 
         $user = Auth::user()->loadMissing(['department', 'position']);
-        if (!$this->canUploadTemplate($user, $templateType)) {
+        if (! $this->canUploadTemplate($user, $templateType)) {
             return response()->json([
                 'message' => "Anda tidak berhak upload template {$templateType}.",
             ], 403);
@@ -379,7 +382,7 @@ class RosterController extends Controller
         $tempUploadedFilePath = (string) ($previewData['source_file_path_temp'] ?? '');
         if ($tempUploadedFilePath !== '' && Storage::disk('local')->exists($tempUploadedFilePath)) {
             $originalFilename = basename((string) ($previewData['filename'] ?? 'roster.csv'));
-            $finalPath = "roster_upload_files/{$batch->id}_" . Str::random(8) . "_{$originalFilename}";
+            $finalPath = "roster_upload_files/{$batch->id}_".Str::random(8)."_{$originalFilename}";
 
             // Copy first to keep original binary intact, then remove temp file.
             $copied = Storage::disk('local')->copy($tempUploadedFilePath, $finalPath);
@@ -401,13 +404,13 @@ class RosterController extends Controller
     public function approve(Request $request, RosterUploadBatch $batch)
     {
         $user = Auth::user()->loadMissing(['department', 'position']);
-        if (!$this->canApproveBatch($user, $batch)) {
+        if (! $this->canApproveBatch($user, $batch)) {
             return response()->json([
                 'message' => 'Anda tidak berhak approve roster ini.',
             ], 403);
         }
 
-        if (!$this->isLatestBatchForScope($batch)) {
+        if (! $this->isLatestBatchForScope($batch)) {
             return response()->json([
                 'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.',
             ], 422);
@@ -420,7 +423,7 @@ class RosterController extends Controller
         }
 
         $draftPath = $batch->draft_payload_path;
-        if (!$draftPath || !Storage::disk('local')->exists($draftPath)) {
+        if (! $draftPath || ! Storage::disk('local')->exists($draftPath)) {
             return response()->json([
                 'message' => 'Draft roster tidak ditemukan. Upload ulang diperlukan.',
             ], 422);
@@ -496,13 +499,13 @@ class RosterController extends Controller
         ]);
 
         $user = Auth::user()->loadMissing(['department', 'position']);
-        if (!$this->canApproveBatch($user, $batch)) {
+        if (! $this->canApproveBatch($user, $batch)) {
             return response()->json([
                 'message' => 'Anda tidak berhak reject roster ini.',
             ], 403);
         }
 
-        if (!$this->isLatestBatchForScope($batch)) {
+        if (! $this->isLatestBatchForScope($batch)) {
             return response()->json([
                 'message' => 'Roster ini tidak bisa di-reject karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.',
             ], 422);
@@ -531,7 +534,7 @@ class RosterController extends Controller
     public function view(Request $request, RosterUploadBatch $batch)
     {
         $user = Auth::user()->loadMissing(['department', 'position']);
-        if (!$this->canViewBatch($user, $batch)) {
+        if (! $this->canViewBatch($user, $batch)) {
             return response()->json([
                 'message' => 'Anda tidak berhak melihat roster ini.',
             ], 403);
@@ -580,7 +583,7 @@ class RosterController extends Controller
                             'is_valid' => isset($row['is_valid']) ? (bool) $row['is_valid'] : true,
                         ];
                     })
-                    ->filter(fn($row) => !empty($row['employee_key']) && !empty($row['roster_date']))
+                    ->filter(fn ($row) => ! empty($row['employee_key']) && ! empty($row['roster_date']))
                     ->values()
                     ->all();
             }
@@ -605,12 +608,13 @@ class RosterController extends Controller
     public function download(Request $request, RosterUploadBatch $batch)
     {
         $user = Auth::user()->loadMissing(['department', 'position']);
-        if (!$this->canViewBatch($user, $batch)) {
+        if (! $this->canViewBatch($user, $batch)) {
             abort(403, 'Anda tidak berhak mengunduh file roster ini.');
         }
 
         if ($batch->source_file_path && Storage::disk('local')->exists($batch->source_file_path)) {
             $downloadName = (string) ($batch->filename ?: basename((string) $batch->source_file_path));
+
             return Storage::disk('local')->download($batch->source_file_path, $downloadName);
         }
 
@@ -664,7 +668,7 @@ class RosterController extends Controller
         }
 
         if (in_array($extension, ['xlsx', 'xls'], true)) {
-            return $this->downloadAsSpreadsheet($rows, preg_replace('/\.(xlsx|xls)$/i', '', $filename) . '.xlsx');
+            return $this->downloadAsSpreadsheet($rows, preg_replace('/\.(xlsx|xls)$/i', '', $filename).'.xlsx');
         }
 
         return $this->downloadAsCsv($rows, $filename, (string) ($batch->delimiter ?: ';'));
@@ -685,7 +689,7 @@ class RosterController extends Controller
         $type = $this->normalizeTemplateType((string) $request->input('type', 'inventory_said'));
 
         $user = Auth::user()->loadMissing(['department', 'position']);
-        if (!$this->canUploadTemplate($user, $type)) {
+        if (! $this->canUploadTemplate($user, $type)) {
             return response()->json([
                 'message' => "Anda tidak berhak mengunduh template {$type}.",
             ], 403);
@@ -696,7 +700,7 @@ class RosterController extends Controller
 
         $employees = $this->getFixedTemplateEmployees($type);
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Template Roster');
 
@@ -707,7 +711,7 @@ class RosterController extends Controller
         $sheet->setCellValue('A1', $type === 'security' ? 'PIN' : 'NRP');
         $sheet->setCellValue('B1', 'Nama');
         $sheet->mergeCells("C1:{$endColLetter}1");
-        $sheet->setCellValue("C1", "{$monthLabel} {$year}");
+        $sheet->setCellValue('C1', "{$monthLabel} {$year}");
 
         $dayNames = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
         for ($day = 1; $day <= $daysInMonth; $day++) {
@@ -761,21 +765,21 @@ class RosterController extends Controller
         $delimiter = ';';
 
         if (in_array($extension, ['xlsx', 'xls'], true)) {
-            if (!class_exists(\ZipArchive::class)) {
+            if (! class_exists(\ZipArchive::class)) {
                 throw new \RuntimeException('ZipArchive extension is required to read Excel files.');
             }
 
             $spreadsheet = IOFactory::load($path);
             $sheet = $spreadsheet->getSheet(0);
             $rows = $sheet->toArray(null, true, true, false);
-            $rows = array_map(fn($line) => array_map(fn($v) => $this->cleanCellValue($v), $line), $rows);
+            $rows = array_map(fn ($line) => array_map(fn ($v) => $this->cleanCellValue($v), $line), $rows);
             $delimiter = 'excel';
         } else {
             $firstLine = (string) (fgets(fopen($path, 'r')) ?: '');
             $delimiter = $this->detectDelimiter($firstLine);
             $handle = fopen($path, 'r');
             while (($line = fgetcsv($handle, 0, $delimiter)) !== false) {
-                $rows[] = array_map(fn($v) => $this->cleanCellValue($v), $line);
+                $rows[] = array_map(fn ($v) => $this->cleanCellValue($v), $line);
             }
             fclose($handle);
         }
@@ -812,7 +816,7 @@ class RosterController extends Controller
 
         $dataStartRow = $dayHeaderRowIndex + 1;
         if (isset($rows[$dayHeaderRowIndex + 1])) {
-            $nextRow = array_map(static fn($v) => strtoupper(trim((string) $v)), $rows[$dayHeaderRowIndex + 1]);
+            $nextRow = array_map(static fn ($v) => strtoupper(trim((string) $v)), $rows[$dayHeaderRowIndex + 1]);
             $dayNameCount = 0;
             foreach ($nextRow as $value) {
                 if (in_array($value, ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB', 'SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'], true)) {
@@ -838,7 +842,7 @@ class RosterController extends Controller
 
             $employeeKey = $employeeNrp !== '' ? $employeeNrp : Str::slug($employeeName);
             if ($employeeKey === '') {
-                $employeeKey = 'unknown-' . $rowIndex;
+                $employeeKey = 'unknown-'.$rowIndex;
             }
 
             foreach ($dayColumnMap as $colIndex => $day) {
@@ -1009,9 +1013,10 @@ class RosterController extends Controller
         $letter = '';
         while ($index > 0) {
             $index--;
-            $letter = chr(65 + ($index % 26)) . $letter;
+            $letter = chr(65 + ($index % 26)).$letter;
             $index = (int) floor($index / 26);
         }
+
         return $letter;
     }
 
@@ -1075,19 +1080,20 @@ class RosterController extends Controller
         if ($type === 'maintenance') {
             $type = 'maintanance';
         }
-        if (!in_array($type, self::SUPPORTED_TEMPLATE_TYPES, true)) {
+        if (! in_array($type, self::SUPPORTED_TEMPLATE_TYPES, true)) {
             // Default-deny: tipe tak dikenal tidak boleh jatuh ke template
             // tertentu, karena itu memberi akses di luar hak yang seharusnya.
             throw ValidationException::withMessages([
                 'template_type' => "Template roster tidak dikenal: {$type}.",
             ]);
         }
+
         return $type;
     }
 
     private function canUploadTemplate(?User $user, string $templateType): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -1114,6 +1120,7 @@ class RosterController extends Controller
         }
 
         $userDepartmentCode = strtoupper(trim((string) ($user->department->code ?? '')));
+
         return $userDepartmentCode !== '' && in_array($userDepartmentCode, $allowedCodes, true);
     }
 
@@ -1140,7 +1147,7 @@ class RosterController extends Controller
             'office' => self::OFFICE_DEPARTMENT_CODE,
         ];
         $departmentCode = $codeMap[$normalized] ?? null;
-        if (!$departmentCode) {
+        if (! $departmentCode) {
             return null;
         }
 
@@ -1274,6 +1281,7 @@ class RosterController extends Controller
         if (strlen($text) >= 2 && $text[0] === '"' && $text[strlen($text) - 1] === '"') {
             $text = substr($text, 1, -1);
         }
+
         return trim(str_replace('""', '"', $text));
     }
 
@@ -1300,7 +1308,7 @@ class RosterController extends Controller
 
     private function downloadAsSpreadsheet(array $rows, string $filename)
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Roster');
         $sheet->fromArray(['employee_nrp', 'employee_name', 'roster_date', 'shift_code'], null, 'A1');
@@ -1461,7 +1469,7 @@ class RosterController extends Controller
             ];
         }
 
-        if (!is_numeric($rawCode)) {
+        if (! is_numeric($rawCode)) {
             return [
                 'is_off' => false,
                 'start_time' => null,
@@ -1509,7 +1517,7 @@ class RosterController extends Controller
 
     private function normalizeSaturdayRosterTiming(Carbon $rosterDate, ?int $departmentId, array $timing): array
     {
-        if (($timing['is_off'] ?? false) || !$rosterDate->isSaturday()) {
+        if (($timing['is_off'] ?? false) || ! $rosterDate->isSaturday()) {
             return $timing;
         }
 
@@ -1543,7 +1551,7 @@ class RosterController extends Controller
 
     private function isMaintananceDepartment(?int $departmentId): bool
     {
-        if (!$departmentId) {
+        if (! $departmentId) {
             return false;
         }
 
@@ -1559,7 +1567,7 @@ class RosterController extends Controller
 
     private function isSecurityDepartment(?int $departmentId): bool
     {
-        if (!$departmentId) {
+        if (! $departmentId) {
             return false;
         }
 
@@ -1607,7 +1615,7 @@ class RosterController extends Controller
             return;
         }
 
-        $label = strtoupper(Carbon::create($year, $month, 1)->locale('id')->translatedFormat('F')) . ' ' . $year;
+        $label = strtoupper(Carbon::create($year, $month, 1)->locale('id')->translatedFormat('F')).' '.$year;
 
         throw ValidationException::withMessages([
             'month' => "Roster Office baru berlaku mulai periode efektif. Periode {$label} belum diizinkan.",
@@ -1616,7 +1624,7 @@ class RosterController extends Controller
 
     private function isOfficeDepartment(?int $departmentId): bool
     {
-        if (!$departmentId) {
+        if (! $departmentId) {
             return false;
         }
 
@@ -1669,13 +1677,13 @@ class RosterController extends Controller
             $employees = $this->getFixedTemplateEmployees('maintanance');
             $maintananceNrps = collect($employees)
                 ->pluck('nrp')
-                ->map(fn($nrp) => strtoupper(trim((string) $nrp)))
+                ->map(fn ($nrp) => strtoupper(trim((string) $nrp)))
                 ->filter()
                 ->values()
                 ->all();
             $maintananceNames = collect($employees)
                 ->pluck('name')
-                ->map(fn($name) => strtoupper(trim((string) $name)))
+                ->map(fn ($name) => strtoupper(trim((string) $name)))
                 ->filter()
                 ->values()
                 ->all();
@@ -1690,7 +1698,7 @@ class RosterController extends Controller
 
     private function isDepartmentManager($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -1699,14 +1707,14 @@ class RosterController extends Controller
 
     private function canApproveBatch($user, RosterUploadBatch $batch): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
         // Batch OFFICE dikunci ke manajer departemen approver yang ditentukan di
         // config, sehingga aturan all_if (admin/IT/HRD) tidak ikut membuka approve.
         if ($this->isOfficeDepartment($batch->department_id)) {
-            if (!$this->isDepartmentManager($user)) {
+            if (! $this->isDepartmentManager($user)) {
                 return false;
             }
 
@@ -1728,7 +1736,7 @@ class RosterController extends Controller
             return true;
         }
 
-        if (!$this->isDepartmentManager($user)) {
+        if (! $this->isDepartmentManager($user)) {
             return false;
         }
 
@@ -1737,7 +1745,7 @@ class RosterController extends Controller
 
     private function canApproveAnyRosterBatch($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -1745,16 +1753,16 @@ class RosterController extends Controller
             return true;
         }
 
-        if (!$this->isDepartmentManager($user)) {
+        if (! $this->isDepartmentManager($user)) {
             return false;
         }
 
-        return !empty($this->accessRules()->visibleDepartmentIds($user, self::ACCESS_MODULE, 'approve'));
+        return ! empty($this->accessRules()->visibleDepartmentIds($user, self::ACCESS_MODULE, 'approve'));
     }
 
     private function canApproveAllRosterDepartments($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -1763,7 +1771,7 @@ class RosterController extends Controller
 
     private function visibleDepartmentIdsForList($user): array
     {
-        if (!$user) {
+        if (! $user) {
             return [];
         }
 
@@ -1772,7 +1780,7 @@ class RosterController extends Controller
 
     private function canViewBatch($user, RosterUploadBatch $batch): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -1781,7 +1789,7 @@ class RosterController extends Controller
         }
 
         $visibleDepartmentIds = $this->visibleDepartmentIdsForList($user);
-        if (!in_array((int) $batch->department_id, $visibleDepartmentIds, true)) {
+        if (! in_array((int) $batch->department_id, $visibleDepartmentIds, true)) {
             return false;
         }
 
@@ -1798,7 +1806,7 @@ class RosterController extends Controller
 
     private function canViewAllRosterDepartments($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -1809,7 +1817,7 @@ class RosterController extends Controller
     {
         return RosterUploadBatch::query()
             ->where('status', 'approved')
-            ->when(!empty($departmentIds), function ($query) use ($departmentIds) {
+            ->when(! empty($departmentIds), function ($query) use ($departmentIds) {
                 $query->whereIn('department_id', array_map('intval', $departmentIds));
             })
             // Include uploaded_by so the effective current batch is determined per uploader
@@ -1836,15 +1844,18 @@ class RosterController extends Controller
             ->first();
     }
 
-    private function effectiveCurrentOrderBySql(array $effectiveCurrentBatchIds): string
+    private function rosterListPriorityOrderSql(array $latestBatchIds, array $effectiveApprovedBatchIds): string
     {
-        if (empty($effectiveCurrentBatchIds)) {
-            return '0 DESC';
-        }
+        $latestBatchIds = implode(',', array_map('intval', $latestBatchIds)) ?: '0';
+        $effectiveApprovedBatchIds = implode(',', array_map('intval', $effectiveApprovedBatchIds)) ?: '0';
 
-        $ids = implode(',', array_map('intval', $effectiveCurrentBatchIds));
-
-        return "CASE WHEN id IN ({$ids}) THEN 1 ELSE 0 END DESC";
+        return "CASE
+            WHEN status = 'pending' AND id IN ({$latestBatchIds}) THEN 1
+            WHEN status = 'approved' AND id IN ({$effectiveApprovedBatchIds}) THEN 2
+            WHEN status = 'pending' THEN 3
+            WHEN status = 'approved' THEN 4
+            ELSE 5
+        END ASC";
     }
 
     private function latestBatchIdsByScope(): array

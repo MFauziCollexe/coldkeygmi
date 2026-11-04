@@ -434,6 +434,85 @@ class OvertimeWorkflowTest extends TestCase
         $this->assertSame($chandra->id, $overtime->fresh()->spv_reviewed_by);
     }
 
+    public function test_reporting_to_manager_approves_overtime_directly(): void
+    {
+        $department = $this->createDepartment(['name' => 'HSE', 'code' => 'HSE']);
+        $managerPosition = $this->createPosition($department, [
+            'name' => 'HSE Manager',
+            'code' => 'HSE-MGR',
+            'is_manager' => true,
+        ]);
+        $manager = $this->createUser([
+            'name' => 'HSE Manager',
+            'department' => $department,
+            'position' => $managerPosition,
+        ], 'gmihr.attendance.overtime');
+        $managerEmployee = $this->createEmployee($manager, [
+            'department_id' => $department->id,
+            'position_id' => $managerPosition->id,
+        ]);
+
+        $otherManagerPosition = $this->createPosition($department, [
+            'name' => 'Other HSE Manager',
+            'code' => 'HSE-MGR-2',
+            'is_manager' => true,
+        ]);
+        $otherManager = $this->createUser([
+            'name' => 'Other HSE Manager',
+            'department' => $department,
+            'position' => $otherManagerPosition,
+        ], 'gmihr.attendance.overtime');
+        $this->createEmployee($otherManager, [
+            'department_id' => $department->id,
+            'position_id' => $otherManagerPosition->id,
+        ]);
+
+        $requester = $this->createUser([
+            'name' => 'HSE Staff',
+            'department' => $department,
+        ], 'gmihr.attendance.overtime');
+        $employee = $this->createEmployee($requester, [
+            'department_id' => $department->id,
+            'reports_to' => $managerEmployee->id,
+        ]);
+
+        $this->actingAs($requester)
+            ->post(route('overtime.store'), [
+                'employee_id' => $employee->id,
+                'overtime_date' => now('Asia/Jakarta')->subDay()->toDateString(),
+                'start_time' => '18:00',
+                'end_time' => '20:00',
+                'reason' => 'HSE work after office hours.',
+            ])
+            ->assertRedirect(route('overtime.index'))
+            ->assertSessionHas('success');
+
+        $overtime = Overtime::query()->firstOrFail();
+        $this->assertSame('pending_manager', $overtime->status);
+
+        $this->actingAs($otherManager)
+            ->from(route('overtime.index'))
+            ->put(route('overtime.update', $overtime), [
+                'status' => 'approved',
+                'review_notes' => 'A different manager cannot approve this request.',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($manager)
+            ->from(route('overtime.index'))
+            ->put(route('overtime.update', $overtime), [
+                'status' => 'approved',
+                'review_notes' => 'Approved directly by the assigned Reporting To Manager.',
+            ])
+            ->assertRedirect(route('overtime.index'))
+            ->assertSessionHas('success');
+
+        $overtime->refresh();
+        $this->assertSame('approved', $overtime->status);
+        $this->assertSame($manager->id, $overtime->manager_reviewed_by);
+        $this->assertNull($overtime->spv_reviewed_by);
+    }
+
     public function test_regular_user_cannot_submit_overtime_for_other_employee(): void
     {
         $department = $this->createDepartment([
