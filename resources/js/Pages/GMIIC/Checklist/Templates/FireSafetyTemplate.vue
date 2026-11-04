@@ -206,7 +206,7 @@
               <tr class="bg-sky-100">
                 <th class="border border-slate-300 px-2 py-1 text-left">Item Check</th>
                 <th
-                  v-for="month in previousMonthReference.months"
+                  v-for="month in previousReferenceMonths"
                   :key="`reference-month-${month.key}`"
                   class="border border-slate-300 px-2 py-1 text-center"
                 >
@@ -218,7 +218,7 @@
               <tr v-for="row in entry.form.rows" :key="`reference-${row.id}`">
                 <td class="border border-slate-300 px-2 py-1 font-semibold">{{ row.name }}</td>
                 <td
-                  v-for="month in previousMonthReference.months"
+                  v-for="month in previousReferenceMonths"
                   :key="`reference-${row.id}-${month.key}`"
                   class="border border-slate-300 px-2 py-1 text-center font-semibold"
                 >
@@ -230,7 +230,7 @@
               <tr class="bg-sky-50 text-xs">
                 <td class="border border-slate-300 px-2 py-1 font-semibold">Status / Tanggal check</td>
                 <td
-                  v-for="month in previousMonthReference.months"
+                  v-for="month in previousReferenceMonths"
                   :key="`reference-meta-${month.key}`"
                   class="border border-slate-300 px-2 py-1 text-center"
                 >
@@ -251,7 +251,7 @@
           class="mt-2 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-3"
         >
           <p
-            v-for="month in previousMonthReference.months.filter((item) => previousMonthLocationReference.months?.[item.key]?.note)"
+            v-for="month in previousReferenceMonths.filter((item) => previousMonthLocationReference.months?.[item.key]?.note)"
             :key="`reference-note-${month.key}`"
             class="whitespace-pre-wrap"
           >
@@ -356,9 +356,11 @@ const previousMonthLocationReference = computed(() => {
   return props.previousMonthReference?.records?.[recordKey] || null;
 });
 
-const hasPreviousMonthNotes = computed(() => props.previousMonthReference?.months?.some(
+const previousReferenceMonths = computed(() => Object.values(props.previousMonthReference?.months || {}));
+
+const hasPreviousMonthNotes = computed(() => previousReferenceMonths.value.some(
   (month) => Boolean(previousMonthLocationReference.value?.months?.[month.key]?.note),
-) || false);
+));
 
 defineEmits([
   'approve',
