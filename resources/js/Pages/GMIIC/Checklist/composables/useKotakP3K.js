@@ -28,7 +28,10 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
         if (Array.isArray(form.items) && form.items.length) {
             locationState.items = form.items.map((item) => ({
                 ...item,
-                months: normalizeKotakP3KQuantityMonths(item.months),
+                months:
+                    item.id === "kondisi_kotak_p3k"
+                        ? normalizeKotakP3KConditionMonths(item.months)
+                        : normalizeKotakP3KQuantityMonths(item.months),
             }));
         }
 
@@ -87,7 +90,11 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
             locationState.items = createKotakP3KLocationState().items;
         } else {
             for (const item of locationState.items) {
-                if (!hasKotakP3KQuantityMonths(item.months)) {
+                if (item.id === "kondisi_kotak_p3k") {
+                    if (!hasKotakP3KConditionMonths(item.months)) {
+                        item.months = normalizeKotakP3KConditionMonths(item.months);
+                    }
+                } else if (!hasKotakP3KQuantityMonths(item.months)) {
                     item.months = normalizeKotakP3KQuantityMonths(item.months);
                 }
             }
@@ -200,13 +207,18 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
                 hasRequiredNote: false,
                 canScan: false,
             };
-        const answers = currentLocationItems.value.map(
-            (item) => item.months?.[activeKotakP3KMonth.value] || {},
+        const answers = currentLocationItems.value.map((item) => ({
+            isCondition: item.id === "kondisi_kotak_p3k",
+            value: item.months?.[activeKotakP3KMonth.value],
+        }));
+        const allAnswersFilled = answers.every(({ isCondition, value }) =>
+            isCondition
+                ? value === "yes" || value === "no"
+                : isNonNegativeInteger(value?.a) && isNonNegativeInteger(value?.r),
         );
-        const allAnswersFilled = answers.every(
-            (answer) => isNonNegativeInteger(answer.a) && isNonNegativeInteger(answer.r),
+        const hasNoAnswer = answers.some(({ isCondition, value }) =>
+            isCondition ? value === "no" : Number(value?.r) > 0,
         );
-        const hasNoAnswer = answers.some((answer) => Number(answer.r) > 0);
         const hasRequiredNote =
             String(kotakP3KMonthNote.value || "").trim() !== "";
         const canScan =
@@ -268,6 +280,47 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
         };
     }
 
+    function updateKotakP3KMonthCondition(item, monthKey, value) {
+        if (
+            item?.id !== "kondisi_kotak_p3k" ||
+            !["", "yes", "no"].includes(value) ||
+            isActiveKotakP3KMonthApproved.value ||
+            isActiveKotakP3KMonthSubmitted.value ||
+            monthKey !== activeKotakP3KMonth.value
+        ) {
+            return;
+        }
+
+        item.months = { ...item.months, [monthKey]: value };
+        const items = currentLocationItems.value;
+        if (value === "") {
+            for (const monthItem of items) {
+                if (monthItem.id === "kondisi_kotak_p3k") continue;
+
+                monthItem.months = {
+                    ...monthItem.months,
+                    [monthKey]: { a: "", r: "" },
+                };
+            }
+            return;
+        }
+
+        for (const monthItem of items) {
+            if (monthItem.id === "kondisi_kotak_p3k") continue;
+
+            const quantity = String(monthItem.quantity ?? "").trim();
+            if (quantity === "") continue;
+
+            monthItem.months = {
+                ...monthItem.months,
+                [monthKey]: {
+                    ...(monthItem.months?.[monthKey] || { a: "", r: "" }),
+                    a: quantity,
+                },
+            };
+        }
+    }
+
     function updateKotakP3KMonthNote(value) {
         kotakP3KMonthNote.value = value;
     }
@@ -296,6 +349,7 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
         selectLocation,
         setKotakP3KActiveMonth,
         updateKotakP3KMonthQuantity,
+        updateKotakP3KMonthCondition,
         updateKotakP3KMonthNote,
     };
 }
@@ -313,6 +367,32 @@ function normalizeKotakP3KQuantityMonths(months) {
                 },
             ];
         }),
+    );
+}
+
+function normalizeKotakP3KConditionMonths(months) {
+    return Object.fromEntries(
+        Object.keys(createKotakP3KQuantityMonthValue()).map((monthKey) => {
+            const value = months?.[monthKey];
+            const status =
+                typeof value === "string"
+                    ? value
+                    : value?.status ?? "";
+
+            return [monthKey, ["yes", "no"].includes(status) ? status : ""];
+        }),
+    );
+}
+
+function hasKotakP3KConditionMonths(months) {
+    return (
+        months &&
+        typeof months === "object" &&
+        Object.keys(createKotakP3KQuantityMonthValue()).every(
+            (monthKey) =>
+                typeof months[monthKey] === "string" &&
+                ["", "yes", "no"].includes(months[monthKey]),
+        )
     );
 }
 

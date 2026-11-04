@@ -18,6 +18,9 @@
         foreach ($items as $item) {
             $values = is_array($item['months'] ?? null) ? $item['months'] : [];
             foreach ($values as $monthValue) {
+                if (($item['id'] ?? '') === 'kondisi_kotak_p3k' && in_array($monthValue, ['yes', 'no'], true)) {
+                    return true;
+                }
                 if (is_array($monthValue) &&
                     (trim((string) ($monthValue['a'] ?? '')) !== '' || trim((string) ($monthValue['r'] ?? '')) !== '')) {
                     return true;
@@ -102,9 +105,16 @@
                 <tr>
                     <td class="center">{{ $index + 1 }}</td><td>{{ $item['name'] ?? '' }}</td><td class="center">{{ $item['quantity'] ?? '' }}</td>
                     @foreach($months as $month)
-                        @php $quantities = is_array($item['months'][$month['key']] ?? null) ? $item['months'][$month['key']] : []; @endphp
-                        <td class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">{{ $quantities['a'] ?? '' }}</td>
-                        <td class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">{{ $quantities['r'] ?? '' }}</td>
+                        @if(($item['id'] ?? '') === 'kondisi_kotak_p3k')
+                            @php $status = $item['months'][$month['key']] ?? ''; @endphp
+                            <td colspan="2" class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">
+                                {{ $status === 'yes' ? '✓' : ($status === 'no' ? '✕' : '') }}
+                            </td>
+                        @else
+                            @php $quantities = is_array($item['months'][$month['key']] ?? null) ? $item['months'][$month['key']] : []; @endphp
+                            <td class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">{{ $quantities['a'] ?? '' }}</td>
+                            <td class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">{{ $quantities['r'] ?? '' }}</td>
+                        @endif
                     @endforeach
                 </tr>
             @endforeach

@@ -237,6 +237,92 @@ class ChecklistPdfCreatedDateTest extends TestCase
         ]);
     }
 
+    public function test_kotak_p3k_condition_uses_one_check_or_cross_cell_in_pdf(): void
+    {
+        $html = view('pdf.checklist', ['entry' => [
+            'template_id' => 'kotak_p3k',
+            'created_date' => '09/10/2026',
+            'form' => [
+                'location' => 'ruang_admin',
+                'active_month' => 'jan',
+                'year' => '2026',
+                'items' => [[
+                    'id' => 'kondisi_kotak_p3k',
+                    'name' => 'Kondisi kotak P3K',
+                    'months' => ['jan' => 'yes'],
+                ]],
+            ],
+        ]])->render();
+
+        $this->assertStringContainsString('Kondisi kotak P3K', $html);
+        $this->assertMatchesRegularExpression(
+            '/<td colspan="2" class="center active-month">\s*✓\s*<\/td>/u',
+            $html,
+        );
+    }
+
+    public function test_kotak_p3k_condition_validation_accepts_check_and_cross_only(): void
+    {
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'normalizeKotakP3KQuantities');
+        $method->setAccessible(true);
+
+        $form = $method->invoke($controller, [
+            'items' => [[
+                'id' => 'kondisi_kotak_p3k',
+                'months' => ['jan' => 'no'],
+            ]],
+        ]);
+
+        $this->assertSame('no', $form['items'][0]['months']['jan']);
+    }
+
+    public function test_kotak_p3k_approval_rejects_unfilled_month_answers(): void
+    {
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'ensureKotakP3KMonthComplete');
+        $method->setAccessible(true);
+        $method->invoke($controller, [
+            'form' => [
+                'active_month' => 'nov',
+                'location' => 'ruang_admin',
+                'location_entries' => [
+                    'ruang_admin' => [
+                        'items' => [
+                            ['id' => 'kondisi_kotak_p3k', 'months' => ['nov' => 'yes']],
+                            ['id' => 'kasa_steril_terbungkus', 'months' => ['nov' => ['a' => '20', 'r' => '']]],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    public function test_kotak_p3k_approval_accepts_filled_month_answers(): void
+    {
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'ensureKotakP3KMonthComplete');
+        $method->setAccessible(true);
+        $method->invoke($controller, [
+            'form' => [
+                'active_month' => 'nov',
+                'location' => 'ruang_admin',
+                'location_entries' => [
+                    'ruang_admin' => [
+                        'items' => [
+                            ['id' => 'kondisi_kotak_p3k', 'months' => ['nov' => 'yes']],
+                            ['id' => 'kasa_steril_terbungkus', 'months' => ['nov' => ['a' => '20', 'r' => '0']]],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertTrue(true);
+    }
+
     public function test_fire_safety_pdf_combines_saved_months_into_one_year_to_date_entry(): void
     {
         $controller = new ChecklistEntryController();

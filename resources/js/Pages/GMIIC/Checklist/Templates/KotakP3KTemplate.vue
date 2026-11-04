@@ -39,7 +39,7 @@
           </div>
         </div>
         <div class="text-xs text-slate-600">
-          Isi A untuk jumlah tersedia dan R untuk jumlah yang perlu diisi ulang/diganti. Isi 0 jika tidak ada.
+          Untuk Kondisi kotak P3K, klik kolom gabungan untuk memilih centang atau silang. Item lain: A = jumlah tersedia, R = jumlah perlu diisi ulang/diganti; isi 0 jika tidak ada.
         </div>
       </div>
 
@@ -181,26 +181,45 @@
             <td class="border border-black px-2 py-1 text-center">{{ item.quantity }}</td>
             <template v-for="month in months" :key="`${item.id}-${month.key}`">
               <td
-                v-for="column in quantityColumns"
-                :key="`${item.id}-${month.key}-${column.key}`"
+                v-if="item.id === 'kondisi_kotak_p3k'"
+                colspan="2"
                 class="border border-black p-0 text-center"
                 :class="month.key === activeMonth ? 'bg-amber-50' : ''"
               >
-                <input
-                  v-if="month.key === activeMonth"
-                  :value="getDisplayedMonthQuantity(item, month.key, column.key)"
-                  type="text"
-                  inputmode="numeric"
-                  pattern="[0-9]*"
-                  class="h-10 w-full border-0 bg-transparent px-1 text-center text-sm text-slate-900 focus:ring-1 focus:ring-inset focus:ring-sky-500 disabled:text-slate-500"
-                  :aria-label="`${item.name}, ${month.label}, ${column.label}`"
-                  :disabled="isActiveMonthLocked"
-                  @input="$emit('update-month-quantity', item, month.key, column.key, $event.target.value)"
-                />
-                <span v-else class="flex h-10 items-center justify-center text-sm">
-                  {{ getDisplayedMonthQuantity(item, month.key, column.key) }}
-                </span>
+                <button
+                  type="button"
+                  class="flex h-10 w-full items-center justify-center text-base font-semibold"
+                  :disabled="month.key !== activeMonth || isActiveMonthLocked"
+                  :aria-label="`${item.name}, ${month.label}`"
+                  @click="$emit('update-month-condition', item, month.key, getNextConditionStatus(item, month.key))"
+                >
+                  <span v-if="getDisplayedConditionStatus(item, month.key) === 'yes'">✓</span>
+                  <span v-else-if="getDisplayedConditionStatus(item, month.key) === 'no'" class="text-rose-600">✕</span>
+                </button>
               </td>
+              <template v-else>
+                <td
+                  v-for="column in quantityColumns"
+                  :key="`${item.id}-${month.key}-${column.key}`"
+                  class="border border-black p-0 text-center"
+                  :class="month.key === activeMonth ? 'bg-amber-50' : ''"
+                >
+                  <input
+                    v-if="month.key === activeMonth"
+                    :value="getDisplayedMonthQuantity(item, month.key, column.key)"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    class="h-10 w-full border-0 bg-transparent px-1 text-center text-sm text-slate-900 focus:ring-1 focus:ring-inset focus:ring-sky-500 disabled:text-slate-500"
+                    :aria-label="`${item.name}, ${month.label}, ${column.label}`"
+                    :disabled="isActiveMonthLocked"
+                    @input="$emit('update-month-quantity', item, month.key, column.key, $event.target.value)"
+                  />
+                  <span v-else class="flex h-10 items-center justify-center text-sm">
+                    {{ getDisplayedMonthQuantity(item, month.key, column.key) }}
+                  </span>
+                </td>
+              </template>
             </template>
           </tr>
           <tr>
@@ -339,6 +358,24 @@ const getDisplayedMonthQuantity = (item, monthKey, columnKey) => {
   return previousMonthLocationReference.value?.months?.[monthKey]?.items?.[item.id]?.[columnKey] || '';
 };
 
+const getDisplayedConditionStatus = (item, monthKey) => {
+  const currentValue = item.months?.[monthKey];
+  if (currentValue === 'yes' || currentValue === 'no') {
+    return currentValue;
+  }
+
+  if (monthKey === props.activeMonth) {
+    return '';
+  }
+
+  return previousMonthLocationReference.value?.months?.[monthKey]?.items?.[item.id] || '';
+};
+
+const getNextConditionStatus = (item, monthKey) => {
+  const currentStatus = getDisplayedConditionStatus(item, monthKey);
+  return currentStatus === '' ? 'yes' : currentStatus === 'yes' ? 'no' : '';
+};
+
 const getDisplayedCheckDate = (monthKey) => {
   const currentDate = props.currentLocationMonthlyCheckDates?.[monthKey];
   if (currentDate || monthKey === props.activeMonth) {
@@ -355,6 +392,7 @@ defineEmits([
   'select-location',
   'set-active-month',
   'update-month-quantity',
+  'update-month-condition',
   'update-month-note',
 ]);
 </script>

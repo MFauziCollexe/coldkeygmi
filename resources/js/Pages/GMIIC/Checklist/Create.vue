@@ -281,9 +281,10 @@ const currentTemplateProps = computed(() => {
     previousMonthReference: props.previousKotakP3KMonthReference,
     onApprove: approveChecklist, onScanBarcode: scanner.scanBarcode,
     onToggleLocationMenu: () => { locationMenuOpen.value = !locationMenuOpen.value },
-    onSelectLocation: (id) => { if (entry.value) entry.value.form.location = id; locationMenuOpen.value = false },
+    onSelectLocation: (id) => { kotakP3K.selectLocation(id); locationMenuOpen.value = false },
     onSetActiveMonth: kotakP3K.setKotakP3KActiveMonth,
     onUpdateMonthQuantity: kotakP3K.updateKotakP3KMonthQuantity,
+    onUpdateMonthCondition: kotakP3K.updateKotakP3KMonthCondition,
     onUpdateMonthNote: kotakP3K.updateKotakP3KMonthNote,
   }
 
@@ -808,12 +809,13 @@ const canApproveEntry = computed(() => {
 
   if (tid === 'kotak_p3k') {
     if (!canApproveCurrentTemplate.value) return false
+    const validation = kotakP3K.kotakP3KMonthValidation.value
+    if (!validation.allAnswersFilled) return false
+    if (validation.hasNoAnswer && !validation.hasRequiredNote) return false
     if (kotakP3K.isActiveKotakP3KMonthApproved.value) return canApproveKotakP3KHse.value
     if (kotakP3K.isActiveKotakP3KMonthSubmitted.value) return canApproveKotakP3KHse.value
     if (canApproveKotakP3KHse.value) return true
-    return kotakP3K.kotakP3KMonthValidation.value.allAnswersFilled
-      && (!kotakP3K.kotakP3KMonthValidation.value.hasNoAnswer || kotakP3K.kotakP3KMonthValidation.value.hasRequiredNote)
-      && (showQrScanner.value ? String(kotakP3K.currentKotakP3KBarcode.value || '').trim() !== '' : true)
+    return showQrScanner.value ? String(kotakP3K.currentKotakP3KBarcode.value || '').trim() !== '' : true
   }
 
   if (tid === 'genset_running') {

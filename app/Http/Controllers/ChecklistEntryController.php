@@ -187,6 +187,13 @@ class ChecklistEntryController extends Controller
             $this->authorizeChecklistTemplate($request->user(), $entry['template_id'], 'approve');
         }
 
+        if (
+            ((bool) ($payload['approval_action'] ?? false) || $requiresWorkflowAuthorization)
+            && $entry['template_id'] === 'kotak_p3k'
+        ) {
+            $this->ensureKotakP3KMonthComplete($entry);
+        }
+
         if ($requiresWorkflowAuthorization) {
             $this->ensureQrRequirementSatisfied($entry);
         }
@@ -665,6 +672,14 @@ class ChecklistEntryController extends Controller
                     $item['months'] = is_array($item['months'] ?? null) ? $item['months'] : [];
                     foreach ((array) ($locationReference['months'] ?? []) as $key => $month) {
                         $quantities = $month['items'][$item['id']] ?? [];
+                        if (($item['id'] ?? '') === 'kondisi_kotak_p3k') {
+                            $currentStatus = trim((string) ($item['months'][$key] ?? ''));
+                            if ($currentStatus === '' && in_array($quantities, ['yes', 'no'], true)) {
+                                $item['months'][$key] = $quantities;
+                            }
+                            continue;
+                        }
+
                         $currentQuantities = is_array($item['months'][$key] ?? null) ? $item['months'][$key] : [];
                         foreach (['a', 'r'] as $column) {
                             if (trim((string) ($currentQuantities[$column] ?? '')) === '' &&
@@ -861,6 +876,13 @@ class ChecklistEntryController extends Controller
                         }
 
                         $value = data_get($item, "months.{$monthKey}", []);
+                        if (($item['id'] ?? '') === 'kondisi_kotak_p3k') {
+                            $status = trim((string) $value);
+                            if (in_array($status, ['yes', 'no'], true)) {
+                                $answers[(string) $item['id']] = $status;
+                            }
+                            continue;
+                        }
                         if (! is_array($value)) {
                             continue;
                         }
@@ -2156,6 +2178,20 @@ class ChecklistEntryController extends Controller
                 }
 
                 $months = is_array($item['months'] ?? null) ? $item['months'] : [];
+                if (($item['id'] ?? '') === 'kondisi_kotak_p3k') {
+                    foreach ($months as $monthKey => $value) {
+                        $status = is_array($value)
+                            ? trim((string) ($value['status'] ?? ''))
+                            : trim((string) $value);
+                        if ($status !== '' && ! in_array($status, ['yes', 'no'], true)) {
+                            abort(422, 'Kondisi kotak P3K harus berupa centang atau silang.');
+                        }
+                        $months[$monthKey] = $status;
+                    }
+                    $item['months'] = $months;
+                    continue;
+                }
+
                 foreach ($months as $monthKey => $value) {
                     if (! is_array($value)) {
                         abort(422, 'Jumlah A dan R Kotak P3K harus berupa bilangan bulat non-negatif.');
@@ -2404,6 +2440,63 @@ class ChecklistEntryController extends Controller
 
         if (!$hasRequiredQr) {
             abort(422, 'QRCode wajib discan sebelum approval saat QR bypass tidak aktif.');
+        }
+    }
+
+    private function ensureKotakP3KMonthComplete(array $entry): void
+    {
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $month = trim((string) ($form['active_month'] ?? ''));
+        $locationId = trim((string) ($form['location'] ?? ''));
+        $locationStates = is_array($form['location_entries'] ?? null) ? $form['location_entries'] : [];
+        $state = $locationId !== '' && is_array($locationStates[$locationId] ?? null)
+            ? $locationStates[$locationId]
+            : $form;
+        $items = is_array($state['items'] ?? null) ? $state['items'] : [];
+
+        if ($month === '' || $items === []) {
+            abort(422, 'Semua kolom bulan aktif Kotak P3K harus diisi sebelum approval.');
+        }
+
+        $hasCondition = false;
+        $hasUnfilledAnswer = false;
+        $hasNoAnswer = false;
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                $hasUnfilledAnswer = true;
+                continue;
+            }
+
+            $value = data_get($item, "months.{$month}");
+            if (($item['id'] ?? '') === 'kondisi_kotak_p3k') {
+                $hasCondition = true;
+                if (! in_array($value, ['yes', 'no'], true)) {
+                    $hasUnfilledAnswer = true;
+                } elseif ($value === 'no') {
+                    $hasNoAnswer = true;
+                }
+                continue;
+            }
+
+            if (! is_array($value) ||
+                ! preg_match('/^\d+$/', (string) ($value['a'] ?? '')) ||
+                ! preg_match('/^\d+$/', (string) ($value['r'] ?? ''))) {
+                $hasUnfilledAnswer = true;
+                continue;
+            }
+
+            if ((int) $value['r'] > 0) {
+                $hasNoAnswer = true;
+            }
+        }
+
+        if (! $hasCondition || $hasUnfilledAnswer) {
+            abort(422, 'Semua kolom A/R dan kondisi kotak P3K bulan aktif harus diisi sebelum approval.');
+        }
+
+        $note = trim((string) data_get($state, "monthly_notes.{$month}", ''));
+        if ($hasNoAnswer && $note === '') {
+            abort(422, 'Isi keterangan jika kondisi kotak P3K silang atau ada item yang perlu diisi ulang.');
         }
     }
 

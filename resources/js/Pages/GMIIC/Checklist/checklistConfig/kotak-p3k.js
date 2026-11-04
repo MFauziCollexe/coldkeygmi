@@ -36,7 +36,10 @@ export function createKotakP3KLocationState() {
     return {
         items: kotakP3KItems.map((item) => ({
             ...item,
-            months: createKotakP3KQuantityMonthValue(),
+            months:
+                item.id === "kondisi_kotak_p3k"
+                    ? createKotakP3KMonthValue("")
+                    : createKotakP3KQuantityMonthValue(),
         })),
         submitted_months: [],
         approved_months: [],
@@ -82,7 +85,10 @@ export function createKotakP3KEntry(userName) {
             check_date: formatDateDisplay(now),
             items: kotakP3KItems.map((item) => ({
                 ...item,
-                months: createKotakP3KQuantityMonthValue(),
+                months:
+                    item.id === "kondisi_kotak_p3k"
+                        ? createKotakP3KMonthValue("")
+                        : createKotakP3KQuantityMonthValue(),
             })),
             location_entries,
         },
