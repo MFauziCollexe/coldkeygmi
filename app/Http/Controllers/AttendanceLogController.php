@@ -60,6 +60,9 @@ class AttendanceLogController extends Controller
                     ->where('reports_to', $employeeId)
                     ->pluck('id')
                     ->map(fn ($id) => (int) $id)
+                    ->push((int) $employeeId)
+                    ->unique()
+                    ->values()
                     ->all()
                 : ($employeeId ? [(int) $employeeId] : []);
         }
