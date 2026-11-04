@@ -25,11 +25,18 @@ export function createKotakP3KMonthValue(initialValue = "") {
     }, {});
 }
 
+export function createKotakP3KQuantityMonthValue() {
+    return kotakP3KMonths.reduce((result, month) => {
+        result[month.key] = { a: "", r: "" };
+        return result;
+    }, {});
+}
+
 export function createKotakP3KLocationState() {
     return {
         items: kotakP3KItems.map((item) => ({
             ...item,
-            months: createKotakP3KMonthValue(""),
+            months: createKotakP3KQuantityMonthValue(),
         })),
         submitted_months: [],
         approved_months: [],
@@ -75,7 +82,7 @@ export function createKotakP3KEntry(userName) {
             check_date: formatDateDisplay(now),
             items: kotakP3KItems.map((item) => ({
                 ...item,
-                months: createKotakP3KMonthValue(""),
+                months: createKotakP3KQuantityMonthValue(),
             })),
             location_entries,
         },

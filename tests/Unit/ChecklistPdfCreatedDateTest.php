@@ -23,7 +23,7 @@ class ChecklistPdfCreatedDateTest extends TestCase
                 'items' => [[
                     'name' => 'Kasa steril terbungkus',
                     'quantity' => 20,
-                    'months' => ['jul' => 'yes'],
+                    'months' => ['jul' => ['a' => '1', 'r' => '0']],
                 ]],
                 'location_entries' => [
                     'ruang_admin' => ['items' => []],
@@ -36,7 +36,7 @@ class ChecklistPdfCreatedDateTest extends TestCase
         $this->assertStringContainsString('Lantai 1 Belakang (R.Kontrol)', $html);
         $this->assertStringContainsString('Kasa steril terbungkus', $html);
         $this->assertStringContainsString('30 Juli 2026', $html);
-        $this->assertStringContainsString('check-yes', $html);
+        $this->assertStringContainsString('>1</td>', $html);
     }
 
     public function test_listed_hse_pdf_views_match_their_saved_form_shapes(): void
@@ -49,11 +49,11 @@ class ChecklistPdfCreatedDateTest extends TestCase
                 'document_no' => 'FRM.HSE.11.01', 'rev' => '00', 'date' => '09 Oktober 2026', 'page' => '1',
                 'active_month' => 'may',
                 'location_entries' => ['ruang_admin' => [
-                    'items' => [['name' => 'Kasa steril terbungkus', 'quantity' => 20, 'months' => ['may' => 'yes']]],
+                    'items' => [['name' => 'Kasa steril terbungkus', 'quantity' => 20, 'months' => ['may' => ['a' => '20', 'r' => '0']]]],
                     'monthly_check_dates' => ['may' => '12 Mei 2026'], 'monthly_notes' => ['may' => 'Catatan Mei'],
                     'approved_months' => ['may'], 'submitted_months' => [],
                 ], 'ruang_kontrol' => [
-                    'items' => [['name' => 'Perban 5 cm', 'quantity' => 2, 'months' => ['may' => 'no']]],
+                    'items' => [['name' => 'Perban 5 cm', 'quantity' => 2, 'months' => ['may' => ['a' => '1', 'r' => '1']]]],
                     'monthly_check_dates' => ['may' => '15 Mei 2026'], 'monthly_notes' => ['may' => 'Catatan Kontrol'],
                     'approved_months' => [], 'submitted_months' => ['may'],
                 ]],
@@ -63,7 +63,10 @@ class ChecklistPdfCreatedDateTest extends TestCase
         $this->assertStringContainsString('Kasa steril terbungkus', $kotakHtml);
         $this->assertStringContainsString('12 Mei 2026', $kotakHtml);
         $this->assertStringContainsString('Catatan Mei', $kotakHtml);
-        $this->assertStringContainsString('check-yes', $kotakHtml);
+        $this->assertStringContainsString('>20</td>', $kotakHtml);
+        $this->assertStringContainsString('colspan="2">Mei</th>', $kotakHtml);
+        $this->assertStringContainsString('>A</th>', $kotakHtml);
+        $this->assertStringContainsString('>R</th>', $kotakHtml);
         $this->assertStringContainsString('Lantai 1 Belakang (R.Kontrol)', $kotakHtml);
         $this->assertStringContainsString('Perban 5 cm', $kotakHtml);
         $this->assertStringContainsString('Catatan Kontrol', $kotakHtml);
@@ -153,7 +156,7 @@ class ChecklistPdfCreatedDateTest extends TestCase
                             'id' => 'kasa',
                             'name' => 'Kasa steril terbungkus',
                             'quantity' => 20,
-                            'months' => ['jun' => 'yes'],
+                            'months' => ['jun' => ['a' => '20', 'r' => '0'], 'dec' => ['a' => '99', 'r' => '0']],
                         ]],
                         'monthly_check_dates' => ['jun' => '28 Juni 2026'],
                     ],
@@ -170,7 +173,7 @@ class ChecklistPdfCreatedDateTest extends TestCase
                             'id' => 'kasa',
                             'name' => 'Kasa steril terbungkus',
                             'quantity' => 20,
-                            'months' => ['jan' => 'yes'],
+                            'months' => ['jan' => ['a' => '20', 'r' => '0']],
                         ]],
                         'monthly_check_dates' => ['jan' => '28 Januari 2026'],
                     ],
@@ -179,11 +182,59 @@ class ChecklistPdfCreatedDateTest extends TestCase
         ]], 'kotak_p3k', '2026-11');
 
         $this->assertSame('nov', $entry['form']['active_month']);
+        $this->assertArrayNotHasKey(
+            'dec',
+            $entry['form']['location_entries']['ruang_admin']['items'][0]['months'],
+        );
         $html = view('pdf.checklist', ['entry' => $entry])->render();
 
-        $this->assertSame(2, substr_count($html, '<span class="check-yes">'));
+        $this->assertStringContainsString('<th colspan="2">Jan</th>', $html);
+        $this->assertStringContainsString('<th colspan="2">Nov</th>', $html);
+        $this->assertSame(0, substr_count($html, '<span class="check-yes">'));
+        $this->assertSame(3, substr_count($html, '>20</td>'));
+        $this->assertSame(2, substr_count($html, '>0</td>'));
+        $this->assertStringNotContainsString('>99</td>', $html);
         $this->assertStringContainsString('28 Januari 2026', $html);
         $this->assertStringContainsString('28 Juni 2026', $html);
+    }
+
+    public function test_kotak_p3k_quantity_validation_accepts_non_negative_integers(): void
+    {
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'normalizeKotakP3KQuantities');
+        $method->setAccessible(true);
+
+        $form = $method->invoke($controller, [
+            'location_entries' => [
+                'ruang_admin' => [
+                    'items' => [[
+                        'months' => [
+                            'jan' => ['a' => '20', 'r' => '0'],
+                            'feb' => ['a' => '', 'r' => ''],
+                        ],
+                    ]],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('20', $form['location_entries']['ruang_admin']['items'][0]['months']['jan']['a']);
+        $this->assertSame('0', $form['location_entries']['ruang_admin']['items'][0]['months']['jan']['r']);
+    }
+
+    public function test_kotak_p3k_quantity_validation_rejects_non_numeric_values(): void
+    {
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'normalizeKotakP3KQuantities');
+        $method->setAccessible(true);
+        $method->invoke($controller, [
+            'items' => [[
+                'months' => [
+                    'jan' => ['a' => '-', 'r' => '1.5'],
+                ],
+            ]],
+        ]);
     }
 
     public function test_fire_safety_pdf_combines_saved_months_into_one_year_to_date_entry(): void
@@ -404,8 +455,8 @@ class ChecklistPdfCreatedDateTest extends TestCase
                 'location_entries' => [
                     'ruang_kontrol' => [
                         'items' => [
-                            ['id' => 'kasa', 'months' => ['jan' => 'yes', 'mar' => 'yes', 'oct' => 'yes']],
-                            ['id' => 'perban', 'months' => ['jan' => 'no', 'mar' => 'no', 'oct' => 'no']],
+                            ['id' => 'kasa', 'months' => ['jan' => ['a' => '20', 'r' => '0'], 'mar' => ['a' => '20', 'r' => '0'], 'oct' => ['a' => '20', 'r' => '0']]],
+                            ['id' => 'perban', 'months' => ['jan' => ['a' => '1', 'r' => '1'], 'mar' => ['a' => '0', 'r' => '2'], 'oct' => ['a' => '0', 'r' => '2']]],
                         ],
                         'monthly_check_dates' => [
                             'jan' => '28 Januari 2026',
@@ -435,8 +486,8 @@ class ChecklistPdfCreatedDateTest extends TestCase
         $this->assertSame('2026', $reference['year']);
         $this->assertSame('Januari', $reference['months']['jan']['label']);
         $this->assertSame('September', $reference['months']['sep']['label']);
-        $this->assertSame('yes', $reference['locations']['ruang_kontrol']['months']['jan']['items']['kasa']);
-        $this->assertSame('no', $reference['locations']['ruang_kontrol']['months']['mar']['items']['perban']);
+        $this->assertSame(['a' => '20', 'r' => '0'], $reference['locations']['ruang_kontrol']['months']['jan']['items']['kasa']);
+        $this->assertSame(['a' => '0', 'r' => '2'], $reference['locations']['ruang_kontrol']['months']['mar']['items']['perban']);
         $this->assertSame('Catatan bulan Maret', $reference['locations']['ruang_kontrol']['months']['mar']['note']);
         $this->assertSame('Waiting HSE', $reference['locations']['ruang_kontrol']['months']['mar']['status']);
         $this->assertSame('Approved', $reference['locations']['ruang_kontrol']['months']['jan']['status']);

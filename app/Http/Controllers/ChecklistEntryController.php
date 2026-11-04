@@ -491,7 +491,57 @@ class ChecklistEntryController extends Controller
 
         $entry['form'] = $form;
 
-        return $this->mergeMonthlyHistoryIntoPdfEntry($entry, $entries);
+        $entry = $this->mergeMonthlyHistoryIntoPdfEntry($entry, $entries);
+
+        return $this->limitMonthlyChecklistPdfEntry($entry, (int) $periodMonth->month);
+    }
+
+    private function limitMonthlyChecklistPdfEntry(array $entry, int $lastMonth): array
+    {
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $templateId = (string) ($entry['template_id'] ?? '');
+        $rowKey = $templateId === 'kotak_p3k' ? 'items' : 'rows';
+        $stateGroups = $templateId === 'kotak_p3k' ? ['location_entries'] : ['location_records'];
+
+        foreach ($stateGroups as $groupKey) {
+            $states = is_array($form[$groupKey] ?? null) ? $form[$groupKey] : [];
+            foreach ($states as &$state) {
+                if (! is_array($state)) {
+                    continue;
+                }
+
+                $rows = is_array($state[$rowKey] ?? null) ? $state[$rowKey] : [];
+                foreach ($rows as &$row) {
+                    if (! is_array($row) || ! is_array($row['months'] ?? null)) {
+                        continue;
+                    }
+
+                    foreach (array_keys($row['months']) as $monthKey) {
+                        $monthNumber = $this->monthKeyToNumber((string) $monthKey);
+                        if ($monthNumber !== null && $monthNumber > $lastMonth) {
+                            unset($row['months'][$monthKey]);
+                        }
+                    }
+                }
+                unset($row);
+                $state[$rowKey] = $rows;
+
+                foreach (['monthly_check_dates', 'monthly_notes', 'monthly_barcodes'] as $key) {
+                    foreach (array_keys((array) ($state[$key] ?? [])) as $monthKey) {
+                        $monthNumber = $this->monthKeyToNumber((string) $monthKey);
+                        if ($monthNumber !== null && $monthNumber > $lastMonth) {
+                            unset($state[$key][$monthKey]);
+                        }
+                    }
+                }
+            }
+            unset($state);
+            $form[$groupKey] = $states;
+        }
+
+        $entry['form'] = $form;
+
+        return $entry;
     }
 
     private function mergeMonthlyChecklistState(array $current, array $incoming, string $rowsKey): array
@@ -526,10 +576,24 @@ class ChecklistEntryController extends Controller
 
             $index = $rowIndexes[$rowId];
             $currentMonths = is_array($currentRows[$index]['months'] ?? null) ? $currentRows[$index]['months'] : [];
-            foreach ((array) ($row['months'] ?? []) as $monthKey => $answer) {
-                if (! in_array($currentMonths[$monthKey] ?? '', ['yes', 'no'], true) &&
-                    in_array($answer, ['yes', 'no'], true)) {
-                    $currentMonths[$monthKey] = $answer;
+            foreach ($row as $key => $value) {
+                if ($key !== 'months' && (! array_key_exists($key, $currentRows[$index]) || $currentRows[$index][$key] === '' || $currentRows[$index][$key] === null)) {
+                    $currentRows[$index][$key] = $value;
+                }
+            }
+
+            foreach ((array) ($row['months'] ?? []) as $monthKey => $value) {
+                if (is_array($value)) {
+                    $monthValues = is_array($currentMonths[$monthKey] ?? null) ? $currentMonths[$monthKey] : [];
+                    foreach (['a', 'r'] as $column) {
+                        if (trim((string) ($monthValues[$column] ?? '')) === '' && trim((string) ($value[$column] ?? '')) !== '') {
+                            $monthValues[$column] = $value[$column];
+                        }
+                    }
+                    $currentMonths[$monthKey] = $monthValues;
+                } elseif (! in_array($currentMonths[$monthKey] ?? '', ['yes', 'no'], true) &&
+                    in_array($value, ['yes', 'no'], true)) {
+                    $currentMonths[$monthKey] = $value;
                 }
             }
             $currentRows[$index]['months'] = $currentMonths;
@@ -600,11 +664,15 @@ class ChecklistEntryController extends Controller
 
                     $item['months'] = is_array($item['months'] ?? null) ? $item['months'] : [];
                     foreach ((array) ($locationReference['months'] ?? []) as $key => $month) {
-                        $answer = $month['items'][$item['id']] ?? '';
-                        if (! in_array($item['months'][$key] ?? '', ['yes', 'no'], true) &&
-                            in_array($answer, ['yes', 'no'], true)) {
-                            $item['months'][$key] = $answer;
+                        $quantities = $month['items'][$item['id']] ?? [];
+                        $currentQuantities = is_array($item['months'][$key] ?? null) ? $item['months'][$key] : [];
+                        foreach (['a', 'r'] as $column) {
+                            if (trim((string) ($currentQuantities[$column] ?? '')) === '' &&
+                                trim((string) ($quantities[$column] ?? '')) !== '') {
+                                $currentQuantities[$column] = $quantities[$column];
+                            }
                         }
+                        $item['months'][$key] = $currentQuantities;
                     }
                 }
                 unset($item);
@@ -792,9 +860,17 @@ class ChecklistEntryController extends Controller
                             continue;
                         }
 
-                        $answer = strtolower(trim((string) data_get($item, "months.{$monthKey}", '')));
-                        if (in_array($answer, ['yes', 'no'], true)) {
-                            $answers[(string) $item['id']] = $answer;
+                        $value = data_get($item, "months.{$monthKey}", []);
+                        if (! is_array($value)) {
+                            continue;
+                        }
+
+                        $quantities = [
+                            'a' => trim((string) ($value['a'] ?? '')),
+                            'r' => trim((string) ($value['r'] ?? '')),
+                        ];
+                        if ($quantities['a'] !== '' || $quantities['r'] !== '') {
+                            $answers[(string) $item['id']] = $quantities;
                         }
                     }
 
@@ -2064,8 +2140,56 @@ class ChecklistEntryController extends Controller
         $entry['template_id'] = $templateCode;
         $entry['name'] = trim((string) ($entry['name'] ?? $templateCode));
         $entry['form'] = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        if ($templateCode === 'kotak_p3k') {
+            $entry['form'] = $this->normalizeKotakP3KQuantities($entry['form']);
+        }
 
         return $entry;
+    }
+
+    private function normalizeKotakP3KQuantities(array $form): array
+    {
+        $normalizeItems = function (array $items): array {
+            foreach ($items as &$item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $months = is_array($item['months'] ?? null) ? $item['months'] : [];
+                foreach ($months as $monthKey => $value) {
+                    if (! is_array($value)) {
+                        abort(422, 'Jumlah A dan R Kotak P3K harus berupa bilangan bulat non-negatif.');
+                    }
+
+                    foreach (['a', 'r'] as $column) {
+                        $quantity = trim((string) ($value[$column] ?? ''));
+                        if ($quantity !== '' && ! preg_match('/^\d+$/', $quantity)) {
+                            abort(422, 'Jumlah A dan R Kotak P3K harus berupa bilangan bulat non-negatif.');
+                        }
+                        $value[$column] = $quantity;
+                    }
+                    $months[$monthKey] = $value;
+                }
+                $item['months'] = $months;
+            }
+            unset($item);
+
+            return $items;
+        };
+
+        if (is_array($form['items'] ?? null)) {
+            $form['items'] = $normalizeItems($form['items']);
+        }
+        if (is_array($form['location_entries'] ?? null)) {
+            foreach ($form['location_entries'] as &$locationState) {
+                if (is_array($locationState) && is_array($locationState['items'] ?? null)) {
+                    $locationState['items'] = $normalizeItems($locationState['items']);
+                }
+            }
+            unset($locationState);
+        }
+
+        return $form;
     }
 
     private function persistEntry(array $entry, Request $request): array

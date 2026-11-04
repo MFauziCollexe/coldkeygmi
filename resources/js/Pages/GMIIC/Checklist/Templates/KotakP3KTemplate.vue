@@ -39,7 +39,7 @@
           </div>
         </div>
         <div class="text-xs text-slate-600">
-          Klik kolom bulan aktif untuk ganti status item: kosong -> centang -> silang.
+          Isi A untuk jumlah tersedia dan R untuk jumlah yang perlu diisi ulang/diganti. Isi 0 jika tidak ada.
         </div>
       </div>
 
@@ -151,17 +151,24 @@
       <table class="min-w-full border-collapse text-sm">
         <thead>
           <tr class="bg-slate-200">
-            <th class="w-12 border border-black px-2 py-1 text-center">No</th>
-            <th class="w-[28rem] border border-black px-2 py-1 text-left">Item Check</th>
-            <th class="w-20 border border-black px-2 py-1 text-center">Jumlah</th>
+            <th rowspan="2" class="w-12 border border-black px-2 py-1 text-center">No</th>
+            <th rowspan="2" class="w-[28rem] border border-black px-2 py-1 text-left">Item Check</th>
+            <th rowspan="2" class="w-20 border border-black px-2 py-1 text-center">Jumlah</th>
             <th
               v-for="month in months"
               :key="month.key"
-              class="w-16 border border-black px-2 py-1 text-center"
+              colspan="2"
+              class="border border-black px-2 py-1 text-center"
               :class="month.key === activeMonth ? 'bg-amber-100' : ''"
             >
               {{ month.label }}
             </th>
+          </tr>
+          <tr class="bg-slate-100 text-xs">
+            <template v-for="month in months" :key="`quantity-columns-${month.key}`">
+              <th class="w-10 border border-black px-1 py-1 text-center" :class="month.key === activeMonth ? 'bg-amber-100' : ''">A</th>
+              <th class="w-10 border border-black px-1 py-1 text-center" :class="month.key === activeMonth ? 'bg-amber-100' : ''">R</th>
+            </template>
           </tr>
         </thead>
         <tbody>
@@ -172,27 +179,35 @@
             <td class="border border-black px-2 py-1 text-center">{{ index + 1 }}</td>
             <td class="border border-black px-2 py-1">{{ item.name }}</td>
             <td class="border border-black px-2 py-1 text-center">{{ item.quantity }}</td>
-            <td
-              v-for="month in months"
-              :key="`${item.id}-${month.key}`"
-              class="border border-black p-0 text-center"
-              :class="month.key === activeMonth ? 'bg-amber-50' : ''"
-            >
-              <button
-                type="button"
-                class="flex h-10 w-full items-center justify-center text-sm font-semibold"
-                :disabled="month.key !== activeMonth || isActiveMonthLocked"
-                @click="$emit('cycle-month-answer', item, month.key)"
+            <template v-for="month in months" :key="`${item.id}-${month.key}`">
+              <td
+                v-for="column in quantityColumns"
+                :key="`${item.id}-${month.key}-${column.key}`"
+                class="border border-black p-0 text-center"
+                :class="month.key === activeMonth ? 'bg-amber-50' : ''"
               >
-                <span v-if="getDisplayedMonthAnswer(item, month.key) === 'yes'">✓</span>
-                <span v-else-if="getDisplayedMonthAnswer(item, month.key) === 'no'" class="text-rose-600">✕</span>
-              </button>
-            </td>
+                <input
+                  v-if="month.key === activeMonth"
+                  :value="getDisplayedMonthQuantity(item, month.key, column.key)"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  class="h-10 w-full border-0 bg-transparent px-1 text-center text-sm text-slate-900 focus:ring-1 focus:ring-inset focus:ring-sky-500 disabled:text-slate-500"
+                  :aria-label="`${item.name}, ${month.label}, ${column.label}`"
+                  :disabled="isActiveMonthLocked"
+                  @input="$emit('update-month-quantity', item, month.key, column.key, $event.target.value)"
+                />
+                <span v-else class="flex h-10 items-center justify-center text-sm">
+                  {{ getDisplayedMonthQuantity(item, month.key, column.key) }}
+                </span>
+              </td>
+            </template>
           </tr>
           <tr>
             <td colspan="3" class="border border-black px-2 py-1 text-right font-semibold">Tanggal Check</td>
             <td
               v-for="month in months"
+              colspan="2"
               :key="`check-date-${month.key}`"
               class="border border-black px-2 py-1 text-center text-xs"
               :class="month.key === activeMonth ? 'bg-amber-50' : ''"
@@ -300,23 +315,28 @@ const props = defineProps({
   },
 });
 
+const quantityColumns = [
+  { key: 'a', label: 'A' },
+  { key: 'r', label: 'R' },
+];
+
 const previousMonthLocationReference = computed(() => {
   const locationId = String(props.entry?.form?.location || '');
 
   return props.previousMonthReference?.locations?.[locationId] || null;
 });
 
-const getDisplayedMonthAnswer = (item, monthKey) => {
-  const currentAnswer = item.months?.[monthKey];
-  if (currentAnswer === 'yes' || currentAnswer === 'no') {
-    return currentAnswer;
+const getDisplayedMonthQuantity = (item, monthKey, columnKey) => {
+  const currentValue = item.months?.[monthKey]?.[columnKey];
+  if (currentValue !== undefined && currentValue !== null && currentValue !== '') {
+    return currentValue;
   }
 
   if (monthKey === props.activeMonth) {
     return '';
   }
 
-  return previousMonthLocationReference.value?.months?.[monthKey]?.items?.[item.id] || '';
+  return previousMonthLocationReference.value?.months?.[monthKey]?.items?.[item.id]?.[columnKey] || '';
 };
 
 const getDisplayedCheckDate = (monthKey) => {
@@ -334,7 +354,7 @@ defineEmits([
   'toggle-location-menu',
   'select-location',
   'set-active-month',
-  'cycle-month-answer',
+  'update-month-quantity',
   'update-month-note',
 ]);
 </script>

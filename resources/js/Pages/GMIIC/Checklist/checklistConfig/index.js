@@ -87,6 +87,7 @@ export {
     getCurrentKotakP3KMonthKey,
     getKotakP3KMonthLabel,
     createKotakP3KMonthValue,
+    createKotakP3KQuantityMonthValue,
     createKotakP3KLocationState,
     createKotakP3KEntry,
 } from "./kotak-p3k";

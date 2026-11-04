@@ -7,6 +7,7 @@ import {
     getLocationBarcodeAliases,
     locationOptions,
     createKotakP3KMonthValue,
+    createKotakP3KQuantityMonthValue,
     createKotakP3KLocationState,
 } from "../checklistConfig";
 
@@ -27,7 +28,7 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
         if (Array.isArray(form.items) && form.items.length) {
             locationState.items = form.items.map((item) => ({
                 ...item,
-                months: { ...(item.months || createKotakP3KMonthValue("")) },
+                months: normalizeKotakP3KQuantityMonths(item.months),
             }));
         }
 
@@ -84,6 +85,12 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
             !locationState.items.length
         ) {
             locationState.items = createKotakP3KLocationState().items;
+        } else {
+            for (const item of locationState.items) {
+                if (!hasKotakP3KQuantityMonths(item.months)) {
+                    item.months = normalizeKotakP3KQuantityMonths(item.months);
+                }
+            }
         }
 
         locationState.monthly_notes =
@@ -194,12 +201,12 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
                 canScan: false,
             };
         const answers = currentLocationItems.value.map(
-            (item) => item.months?.[activeKotakP3KMonth.value] || "",
+            (item) => item.months?.[activeKotakP3KMonth.value] || {},
         );
         const allAnswersFilled = answers.every(
-            (answer) => answer === "yes" || answer === "no",
+            (answer) => isNonNegativeInteger(answer.a) && isNonNegativeInteger(answer.r),
         );
-        const hasNoAnswer = answers.includes("no");
+        const hasNoAnswer = answers.some((answer) => Number(answer.r) > 0);
         const hasRequiredNote =
             String(kotakP3KMonthNote.value || "").trim() !== "";
         const canScan =
@@ -242,17 +249,23 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
         entry.value.form.active_month = monthKey;
     }
 
-    function cycleKotakP3KMonthAnswer(item, monthKey) {
+    function updateKotakP3KMonthQuantity(item, monthKey, column, value) {
         if (
             !item?.months ||
+            !["a", "r"].includes(column) ||
             isActiveKotakP3KMonthApproved.value ||
+            isActiveKotakP3KMonthSubmitted.value ||
             monthKey !== activeKotakP3KMonth.value
-        )
+        ) {
             return;
-        const currentValue = item.months?.[monthKey] || "";
-        const nextValue =
-            currentValue === "" ? "yes" : currentValue === "yes" ? "no" : "";
-        item.months = { ...item.months, [monthKey]: nextValue };
+        }
+
+        const sanitizedValue = String(value ?? "").replace(/\D/g, "");
+        const monthValue = item.months?.[monthKey] || { a: "", r: "" };
+        item.months = {
+            ...item.months,
+            [monthKey]: { ...monthValue, [column]: sanitizedValue },
+        };
     }
 
     function updateKotakP3KMonthNote(value) {
@@ -282,7 +295,51 @@ export function useKotakP3K(entry, { showQrScanner, canApproveHse }) {
         toggleLocationMenu,
         selectLocation,
         setKotakP3KActiveMonth,
-        cycleKotakP3KMonthAnswer,
+        updateKotakP3KMonthQuantity,
         updateKotakP3KMonthNote,
     };
+}
+
+function normalizeKotakP3KQuantityMonths(months) {
+    return Object.fromEntries(
+        Object.keys(createKotakP3KQuantityMonthValue()).map((monthKey) => {
+            const value = months?.[monthKey];
+
+            return [
+                monthKey,
+                {
+                    a: normalizeNonNegativeInteger(value?.a),
+                    r: normalizeNonNegativeInteger(value?.r),
+                },
+            ];
+        }),
+    );
+}
+
+function hasKotakP3KQuantityMonths(months) {
+    return (
+        months &&
+        typeof months === "object" &&
+        Object.keys(createKotakP3KQuantityMonthValue()).every((monthKey) => {
+            const value = months[monthKey];
+
+            return (
+                value &&
+                typeof value === "object" &&
+                ["a", "r"].every((column) =>
+                    value[column] === "" || /^\d+$/.test(String(value[column])),
+                )
+            );
+        })
+    );
+}
+
+function normalizeNonNegativeInteger(value) {
+    const text = String(value ?? "");
+
+    return /^\d+$/.test(text) ? text : "";
+}
+
+function isNonNegativeInteger(value) {
+    return /^\d+$/.test(String(value ?? ""));
 }

@@ -283,7 +283,7 @@ const currentTemplateProps = computed(() => {
     onToggleLocationMenu: () => { locationMenuOpen.value = !locationMenuOpen.value },
     onSelectLocation: (id) => { if (entry.value) entry.value.form.location = id; locationMenuOpen.value = false },
     onSetActiveMonth: kotakP3K.setKotakP3KActiveMonth,
-    onCycleMonthAnswer: kotakP3K.cycleKotakP3KMonthAnswer,
+    onUpdateMonthQuantity: kotakP3K.updateKotakP3KMonthQuantity,
     onUpdateMonthNote: kotakP3K.updateKotakP3KMonthNote,
   }
 

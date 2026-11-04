@@ -17,8 +17,9 @@
     $hasAnswers = static function (array $items): bool {
         foreach ($items as $item) {
             $values = is_array($item['months'] ?? null) ? $item['months'] : [];
-            foreach ($values as $value) {
-                if (in_array($value, ['yes', 'no'], true)) {
+            foreach ($values as $monthValue) {
+                if (is_array($monthValue) &&
+                    (trim((string) ($monthValue['a'] ?? '')) !== '' || trim((string) ($monthValue['r'] ?? '')) !== '')) {
                     return true;
                 }
             }
@@ -90,23 +91,24 @@
 
     <table class="kotak-matrix">
         <thead>
-            <tr><th>No</th><th>Item Check</th><th>Jumlah</th>@foreach($months as $month)<th>{{ $month['label'] }}</th>@endforeach</tr>
+            <tr>
+                <th rowspan="2">No</th><th rowspan="2">Item Check</th><th rowspan="2">Jumlah</th>
+                @foreach($months as $month)<th colspan="2">{{ $month['label'] }}</th>@endforeach
+            </tr>
+            <tr>@foreach($months as $month)<th>A</th><th>R</th>@endforeach</tr>
         </thead>
         <tbody>
             @foreach($items as $index => $item)
                 <tr>
                     <td class="center">{{ $index + 1 }}</td><td>{{ $item['name'] ?? '' }}</td><td class="center">{{ $item['quantity'] ?? '' }}</td>
                     @foreach($months as $month)
-                        @php $status = $item['months'][$month['key']] ?? ''; @endphp
-                        <td class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">
-                            @if($status === 'yes') <span class="check-yes">&#10003;</span>
-                            @elseif($status === 'no') <span class="check-no">&#10005;</span>
-                            @endif
-                        </td>
+                        @php $quantities = is_array($item['months'][$month['key']] ?? null) ? $item['months'][$month['key']] : []; @endphp
+                        <td class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">{{ $quantities['a'] ?? '' }}</td>
+                        <td class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">{{ $quantities['r'] ?? '' }}</td>
                     @endforeach
                 </tr>
             @endforeach
-            <tr><td colspan="3" class="right"><strong>Tanggal Check</strong></td>@foreach($months as $month)<td class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">{{ $checkDates[$month['key']] ?? '' }}</td>@endforeach</tr>
+            <tr><td colspan="3" class="right"><strong>Tanggal Check</strong></td>@foreach($months as $month)<td colspan="2" class="center {{ $month['key'] === $activeMonth ? 'active-month' : '' }}">{{ $checkDates[$month['key']] ?? '' }}</td>@endforeach</tr>
         </tbody>
     </table>
 
@@ -134,6 +136,7 @@
     .kotak-matrix th:nth-child(1) { width: 4%; }
     .kotak-matrix th:nth-child(2) { width: 28%; text-align: left; }
     .kotak-matrix th:nth-child(3) { width: 7%; }
+    .kotak-matrix th:nth-child(n+4) { width: 2.54%; }
     .kotak-matrix td.active-month { background: #fffbeb; }
     .kotak-matrix th { background: #e5e7eb; }
     .kotak-matrix .right { text-align: right; }
