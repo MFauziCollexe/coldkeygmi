@@ -192,6 +192,79 @@
       </table>
     </div>
 
+    <div
+      v-if="previousMonthReference"
+      class="mt-4 rounded border border-sky-300 bg-sky-50 p-3"
+    >
+      <div class="mb-2 font-semibold text-slate-800">
+        Referensi checklist sebelumnya tahun {{ previousMonthReference.year }} (baca saja)
+      </div>
+      <template v-if="previousMonthLocationReference">
+        <div class="overflow-x-auto">
+          <table class="min-w-full border-collapse text-sm">
+            <thead>
+              <tr class="bg-sky-100">
+                <th class="border border-slate-300 px-2 py-1 text-left">Item Check</th>
+                <th
+                  v-for="month in previousMonthReference.months"
+                  :key="`reference-month-${month.key}`"
+                  class="border border-slate-300 px-2 py-1 text-center"
+                >
+                  {{ month.label }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in entry.form.rows" :key="`reference-${row.id}`">
+                <td class="border border-slate-300 px-2 py-1 font-semibold">{{ row.name }}</td>
+                <td
+                  v-for="month in previousMonthReference.months"
+                  :key="`reference-${row.id}-${month.key}`"
+                  class="border border-slate-300 px-2 py-1 text-center font-semibold"
+                >
+                  <span v-if="previousMonthLocationReference.months?.[month.key]?.items?.[row.id] === 'yes'">✓</span>
+                  <span v-else-if="previousMonthLocationReference.months?.[month.key]?.items?.[row.id] === 'no'" class="text-rose-600">✕</span>
+                  <span v-else class="text-slate-400">-</span>
+                </td>
+              </tr>
+              <tr class="bg-sky-50 text-xs">
+                <td class="border border-slate-300 px-2 py-1 font-semibold">Status / Tanggal check</td>
+                <td
+                  v-for="month in previousMonthReference.months"
+                  :key="`reference-meta-${month.key}`"
+                  class="border border-slate-300 px-2 py-1 text-center"
+                >
+                  <template v-if="previousMonthLocationReference.months?.[month.key]">
+                    <div>{{ previousMonthLocationReference.months[month.key].status }}</div>
+                    <div v-if="previousMonthLocationReference.months[month.key].check_date" class="text-slate-500">
+                      {{ previousMonthLocationReference.months[month.key].check_date }}
+                    </div>
+                  </template>
+                  <span v-else class="text-slate-400">-</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div
+          v-if="hasPreviousMonthNotes"
+          class="mt-2 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          <p
+            v-for="month in previousMonthReference.months.filter((item) => previousMonthLocationReference.months?.[item.key]?.note)"
+            :key="`reference-note-${month.key}`"
+            class="whitespace-pre-wrap"
+          >
+            <span class="font-semibold">{{ month.label }}:</span>
+            {{ previousMonthLocationReference.months[month.key].note }}
+          </p>
+        </div>
+      </template>
+      <p v-else class="text-sm text-slate-600">
+        Belum ada data checklist sebelumnya untuk jenis kartu dan lokasi ini.
+      </p>
+    </div>
+
     <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
       <div class="mb-2 text-sm font-semibold">Keterangan Bulan {{ activeMonthLabel }}</div>
       <textarea
@@ -207,9 +280,10 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import ApprovalButton from '../Components/ApprovalButton.vue';
 
-defineProps({
+const props = defineProps({
   entry: {
     type: Object,
     required: true,
@@ -266,11 +340,25 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  previousMonthReference: {
+    type: Object,
+    default: null,
+  },
   canApproveHse: {
     type: Boolean,
     default: false,
   },
 });
+
+const previousMonthLocationReference = computed(() => {
+  const recordKey = `${String(props.entry?.form?.card_type || '').trim()}::${String(props.entry?.form?.location || '').trim()}`;
+
+  return props.previousMonthReference?.records?.[recordKey] || null;
+});
+
+const hasPreviousMonthNotes = computed(() => props.previousMonthReference?.months?.some(
+  (month) => Boolean(previousMonthLocationReference.value?.months?.[month.key]?.note),
+) || false);
 
 defineEmits([
   'approve',

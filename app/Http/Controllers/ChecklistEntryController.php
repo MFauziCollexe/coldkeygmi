@@ -106,18 +106,33 @@ class ChecklistEntryController extends Controller
 
         $entryId = $request->string('entry_id')->toString();
         $previousKotakP3KMonthReference = null;
+        $previousFireSafetyMonthReference = null;
         if ($entryId === '' && $selectedTemplate === 'kotak_p3k') {
-            $previousMonth = now()->subMonthNoOverflow()->startOfMonth();
+            $referenceMonth = now()->startOfMonth();
             $previousMonthEntries = $this->getSavedChecklistEntries($user, null, 'kotak_p3k')
-                ->filter(function (array $entry) use ($previousMonth) {
+                ->filter(function (array $entry) use ($referenceMonth) {
                     $year = trim((string) data_get($entry, 'form.year', ''));
 
-                    return $year === '' || $year === $previousMonth->format('Y');
+                    return $year === '' || $year === $referenceMonth->format('Y');
                 })
                 ->all();
             $previousKotakP3KMonthReference = $this->buildPreviousKotakP3KMonthReference(
                 $previousMonthEntries,
-                $previousMonth,
+                $referenceMonth,
+            );
+        }
+        if ($entryId === '' && $selectedTemplate === 'apar_smoke_detector_fire_alarm') {
+            $referenceMonth = now()->startOfMonth();
+            $previousMonthEntries = $this->getSavedChecklistEntries($user, null, 'apar_smoke_detector_fire_alarm')
+                ->filter(function (array $entry) use ($referenceMonth) {
+                    $year = trim((string) data_get($entry, 'form.year', ''));
+
+                    return $year === '' || $year === $referenceMonth->format('Y');
+                })
+                ->all();
+            $previousFireSafetyMonthReference = $this->buildPreviousFireSafetyMonthReference(
+                $previousMonthEntries,
+                $referenceMonth,
             );
         }
 
@@ -126,6 +141,7 @@ class ChecklistEntryController extends Controller
             'entryId' => $entryId,
             'savedEntry' => $entryId !== '' ? $this->findChecklistEntry($entryId, $user, true) : null,
             'previousKotakP3KMonthReference' => $previousKotakP3KMonthReference,
+            'previousFireSafetyMonthReference' => $previousFireSafetyMonthReference,
             'existingEntries' => $this->getChecklistEntries($user),
             'checklistTemplatePermissions' => $checklistTemplatePermissions,
             'checklistAbilities' => $this->resolveChecklistAbilities($request),
@@ -418,13 +434,31 @@ class ChecklistEntryController extends Controller
         ];
     }
 
-    private function buildPreviousKotakP3KMonthReference(array $entries, Carbon $previousMonth): array
+    private function buildPreviousKotakP3KMonthReference(array $entries, Carbon $referenceMonth): array
     {
-        $monthKey = $this->monthNumberToKey((int) $previousMonth->month);
+        $referenceYear = $referenceMonth->format('Y');
+        $months = [];
+        for ($monthNumber = 1; $monthNumber <= (int) $referenceMonth->month; $monthNumber++) {
+            $monthKey = $this->monthNumberToKey($monthNumber);
+            if ($monthKey === null) {
+                continue;
+            }
+
+            $months[$monthKey] = [
+                'key' => $monthKey,
+                'label' => $this->indonesianMonthName($monthNumber),
+            ];
+        }
+
         $locations = [];
 
         foreach ($entries as $entry) {
             $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+            $year = trim((string) ($form['year'] ?? ''));
+            if ($year !== '' && $year !== $referenceYear) {
+                continue;
+            }
+
             $locationStates = is_array($form['location_entries'] ?? null)
                 ? $form['location_entries']
                 : [];
@@ -433,46 +467,147 @@ class ChecklistEntryController extends Controller
             }
 
             foreach ($locationStates as $locationId => $state) {
-                if (! is_array($state) || isset($locations[$locationId])) {
+                if (! is_array($state)) {
                     continue;
                 }
 
                 $items = is_array($state['items'] ?? null) ? $state['items'] : [];
-                $answers = [];
-                foreach ($items as $item) {
-                    if (! is_array($item) || trim((string) ($item['id'] ?? '')) === '') {
+                foreach ($months as $monthKey => $month) {
+                    if (isset($locations[(string) $locationId]['months'][$monthKey])) {
                         continue;
                     }
 
-                    $answer = strtolower(trim((string) data_get($item, "months.{$monthKey}", '')));
-                    if (in_array($answer, ['yes', 'no'], true)) {
-                        $answers[(string) $item['id']] = $answer;
+                    $answers = [];
+                    foreach ($items as $item) {
+                        if (! is_array($item) || trim((string) ($item['id'] ?? '')) === '') {
+                            continue;
+                        }
+
+                        $answer = strtolower(trim((string) data_get($item, "months.{$monthKey}", '')));
+                        if (in_array($answer, ['yes', 'no'], true)) {
+                            $answers[(string) $item['id']] = $answer;
+                        }
                     }
+
+                    $checkDate = trim((string) data_get($state, "monthly_check_dates.{$monthKey}", ''));
+                    $note = trim((string) data_get($state, "monthly_notes.{$monthKey}", ''));
+                    $isSubmitted = in_array($monthKey, (array) ($state['submitted_months'] ?? []), true);
+                    $isApproved = in_array($monthKey, (array) ($state['approved_months'] ?? []), true);
+
+                    if ($answers === [] && $checkDate === '' && $note === '' && ! $isSubmitted && ! $isApproved) {
+                        continue;
+                    }
+
+                    $locations[(string) $locationId]['months'][$monthKey] = [
+                        'label' => $month['label'],
+                        'items' => $answers,
+                        'check_date' => $checkDate,
+                        'note' => $note,
+                        'status' => $isApproved ? 'Approved' : ($isSubmitted ? 'Waiting HSE' : 'Pending'),
+                    ];
                 }
-
-                $checkDate = trim((string) data_get($state, "monthly_check_dates.{$monthKey}", ''));
-                $note = trim((string) data_get($state, "monthly_notes.{$monthKey}", ''));
-                $isSubmitted = in_array($monthKey, (array) ($state['submitted_months'] ?? []), true);
-                $isApproved = in_array($monthKey, (array) ($state['approved_months'] ?? []), true);
-
-                if ($answers === [] && $checkDate === '' && $note === '' && ! $isSubmitted && ! $isApproved) {
-                    continue;
-                }
-
-                $locations[(string) $locationId] = [
-                    'items' => $answers,
-                    'check_date' => $checkDate,
-                    'note' => $note,
-                    'status' => $isApproved ? 'Approved' : ($isSubmitted ? 'Waiting HSE' : 'Pending'),
-                ];
             }
         }
 
         return [
-            'month_key' => $monthKey,
-            'month_label' => $this->indonesianMonthName((int) $previousMonth->month)
-                .' '.$previousMonth->format('Y'),
+            'year' => $referenceYear,
+            'months' => $months,
             'locations' => $locations,
+        ];
+    }
+
+    private function buildPreviousFireSafetyMonthReference(array $entries, Carbon $referenceMonth): array
+    {
+        $referenceYear = $referenceMonth->format('Y');
+        $months = [];
+        for ($monthNumber = 1; $monthNumber <= (int) $referenceMonth->month; $monthNumber++) {
+            $monthKey = $this->monthNumberToKey($monthNumber);
+            if ($monthKey === null) {
+                continue;
+            }
+
+            $months[$monthKey] = [
+                'key' => $monthKey,
+                'label' => $this->indonesianMonthName($monthNumber),
+            ];
+        }
+
+        $records = [];
+        foreach ($entries as $entry) {
+            $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+            $year = trim((string) ($form['year'] ?? ''));
+            if ($year !== '' && $year !== $referenceYear) {
+                continue;
+            }
+
+            $locationRecords = is_array($form['location_records'] ?? null)
+                ? $form['location_records']
+                : [];
+            if ($locationRecords === [] && trim((string) ($form['card_type'] ?? '')) !== '') {
+                $cardType = trim((string) $form['card_type']);
+                $locationId = trim((string) ($form['location'] ?? ''));
+                if ($locationId !== '') {
+                    $locationRecords[$cardType.'::'.$locationId] = $form;
+                }
+            }
+
+            foreach ($locationRecords as $recordKey => $state) {
+                if (! is_array($state)) {
+                    continue;
+                }
+
+                $parts = explode('::', (string) $recordKey, 2);
+                $cardType = trim((string) ($parts[0] ?? ''));
+                $locationId = trim((string) ($parts[1] ?? ''));
+                if ($cardType === '' || $locationId === '') {
+                    continue;
+                }
+
+                foreach ($months as $monthKey => $month) {
+                    if (isset($records[$recordKey]['months'][$monthKey])) {
+                        continue;
+                    }
+
+                    $answers = [];
+                    foreach ((array) ($state['rows'] ?? []) as $row) {
+                        if (! is_array($row) || trim((string) ($row['id'] ?? '')) === '') {
+                            continue;
+                        }
+
+                        $answer = strtolower(trim((string) data_get($row, "months.{$monthKey}", '')));
+                        if (in_array($answer, ['yes', 'no'], true)) {
+                            $answers[(string) $row['id']] = $answer;
+                        }
+                    }
+
+                    $checkDate = trim((string) data_get($state, "monthly_check_dates.{$monthKey}", ''));
+                    $note = trim((string) data_get($state, "monthly_notes.{$monthKey}", ''));
+                    $isSubmitted = in_array($monthKey, (array) ($state['submitted_months'] ?? []), true);
+                    $isApproved = in_array($monthKey, (array) ($state['approved_months'] ?? []), true);
+                    if ($answers === [] && $checkDate === '' && $note === '' && ! $isSubmitted && ! $isApproved) {
+                        continue;
+                    }
+
+                    $records[$recordKey] = [
+                        'card_type' => $cardType,
+                        'location_id' => $locationId,
+                        'months' => $records[$recordKey]['months'] ?? [],
+                    ];
+                    $records[$recordKey]['months'][$monthKey] = [
+                        'label' => $month['label'],
+                        'items' => $answers,
+                        'check_date' => $checkDate,
+                        'note' => $note,
+                        'status' => $isApproved ? 'Approved' : ($isSubmitted ? 'Waiting HSE' : 'Pending'),
+                    ];
+                }
+            }
+        }
+
+        return [
+            'year' => $referenceYear,
+            'months' => $months,
+            'records' => $records,
         ];
     }
 

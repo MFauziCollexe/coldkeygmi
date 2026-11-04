@@ -289,7 +289,7 @@ class ChecklistPdfCreatedDateTest extends TestCase
         $this->assertSame('2026-10-31', $range['end']);
     }
 
-    public function test_previous_kotak_p3k_month_reference_is_grouped_by_location(): void
+    public function test_kotak_p3k_reference_includes_all_saved_months_by_location(): void
     {
         $controller = new ChecklistEntryController();
         $method = new ReflectionMethod($controller, 'buildPreviousKotakP3KMonthReference');
@@ -297,35 +297,90 @@ class ChecklistPdfCreatedDateTest extends TestCase
 
         $reference = $method->invoke($controller, [[
             'form' => [
+                'year' => '2026',
                 'location_entries' => [
                     'ruang_kontrol' => [
                         'items' => [
-                            ['id' => 'kasa', 'months' => ['oct' => 'yes']],
-                            ['id' => 'perban', 'months' => ['oct' => 'no']],
+                            ['id' => 'kasa', 'months' => ['jan' => 'yes', 'mar' => 'yes', 'oct' => 'yes']],
+                            ['id' => 'perban', 'months' => ['jan' => 'no', 'mar' => 'no', 'oct' => 'no']],
                         ],
-                        'monthly_check_dates' => ['oct' => '28 Oktober 2026'],
-                        'monthly_notes' => ['oct' => 'Perban perlu diganti'],
-                        'submitted_months' => ['oct'],
-                        'approved_months' => [],
+                        'monthly_check_dates' => [
+                            'jan' => '28 Januari 2026',
+                            'mar' => '28 Maret 2026',
+                            'oct' => '28 Oktober 2026',
+                        ],
+                        'monthly_notes' => [
+                            'mar' => 'Catatan bulan Maret',
+                            'oct' => 'Perban perlu diganti',
+                        ],
+                        'submitted_months' => ['mar', 'oct'],
+                        'approved_months' => ['jan'],
                     ],
                     'ruang_admin' => [
                         'items' => [
                             ['id' => 'kasa', 'months' => ['oct' => 'yes']],
                         ],
-                        'monthly_check_dates' => ['oct' => '29 Oktober 2026'],
+                        'monthly_check_dates' => ['oct' => '28 Oktober 2026'],
                         'monthly_notes' => ['oct' => ''],
                         'submitted_months' => [],
-                        'approved_months' => ['oct'],
+                        'approved_months' => [],
                     ],
                 ],
             ],
-        ]], \Illuminate\Support\Carbon::parse('2026-10-01'));
+        ]], \Illuminate\Support\Carbon::parse('2026-09-01'));
 
-        $this->assertSame('Oktober 2026', $reference['month_label']);
-        $this->assertSame('no', $reference['locations']['ruang_kontrol']['items']['perban']);
-        $this->assertSame('Perban perlu diganti', $reference['locations']['ruang_kontrol']['note']);
-        $this->assertSame('Waiting HSE', $reference['locations']['ruang_kontrol']['status']);
-        $this->assertSame('Approved', $reference['locations']['ruang_admin']['status']);
+        $this->assertSame('2026', $reference['year']);
+        $this->assertSame('Januari', $reference['months']['jan']['label']);
+        $this->assertSame('September', $reference['months']['sep']['label']);
+        $this->assertSame('yes', $reference['locations']['ruang_kontrol']['months']['jan']['items']['kasa']);
+        $this->assertSame('no', $reference['locations']['ruang_kontrol']['months']['mar']['items']['perban']);
+        $this->assertSame('Catatan bulan Maret', $reference['locations']['ruang_kontrol']['months']['mar']['note']);
+        $this->assertSame('Waiting HSE', $reference['locations']['ruang_kontrol']['months']['mar']['status']);
+        $this->assertSame('Approved', $reference['locations']['ruang_kontrol']['months']['jan']['status']);
+        $this->assertArrayNotHasKey('oct', $reference['months']);
+        $this->assertArrayNotHasKey('oct', $reference['locations']['ruang_kontrol']['months']);
+    }
+
+    public function test_fire_safety_reference_includes_months_by_card_type_and_location(): void
+    {
+        $controller = new ChecklistEntryController();
+        $method = new ReflectionMethod($controller, 'buildPreviousFireSafetyMonthReference');
+        $method->setAccessible(true);
+
+        $reference = $method->invoke($controller, [[
+            'form' => [
+                'year' => '2026',
+                'location_records' => [
+                    'fire_alarm::warehouse' => [
+                        'rows' => [
+                            ['id' => 'alarm', 'months' => ['jan' => 'yes', 'mar' => 'no', 'oct' => 'yes']],
+                        ],
+                        'monthly_check_dates' => ['jan' => '28 Januari 2026', 'mar' => '28 Maret 2026'],
+                        'monthly_notes' => ['mar' => 'Alarm perlu diperiksa'],
+                        'submitted_months' => ['mar'],
+                        'approved_months' => ['jan'],
+                    ],
+                    'apar::warehouse' => [
+                        'rows' => [
+                            ['id' => 'apar', 'months' => ['mar' => 'yes']],
+                        ],
+                        'monthly_check_dates' => [],
+                        'monthly_notes' => [],
+                        'submitted_months' => [],
+                        'approved_months' => [],
+                    ],
+                ],
+            ],
+        ]], \Illuminate\Support\Carbon::parse('2026-09-01'));
+
+        $this->assertSame('2026', $reference['year']);
+        $this->assertSame('September', $reference['months']['sep']['label']);
+        $this->assertSame('yes', $reference['records']['fire_alarm::warehouse']['months']['jan']['items']['alarm']);
+        $this->assertSame('no', $reference['records']['fire_alarm::warehouse']['months']['mar']['items']['alarm']);
+        $this->assertSame('Approved', $reference['records']['fire_alarm::warehouse']['months']['jan']['status']);
+        $this->assertSame('Alarm perlu diperiksa', $reference['records']['fire_alarm::warehouse']['months']['mar']['note']);
+        $this->assertSame('yes', $reference['records']['apar::warehouse']['months']['mar']['items']['apar']);
+        $this->assertArrayNotHasKey('oct', $reference['months']);
     }
 
     public function test_pdf_templates_show_the_checklist_creation_date(): void

@@ -209,41 +209,71 @@
       class="mt-4 rounded border border-sky-300 bg-sky-50 p-3"
     >
       <div class="mb-2 font-semibold text-slate-800">
-        Referensi bulan sebelumnya: {{ previousMonthReference.month_label }} (baca saja)
+        Referensi checklist sebelumnya tahun {{ previousMonthReference.year }} (baca saja)
       </div>
       <template v-if="previousMonthLocationReference">
-        <div class="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
-          <span>Status: {{ previousMonthLocationReference.status }}</span>
-          <span v-if="previousMonthLocationReference.check_date">
-            Tanggal check: {{ previousMonthLocationReference.check_date }}
-          </span>
-        </div>
         <div class="overflow-x-auto">
           <table class="min-w-full border-collapse text-sm">
             <thead>
               <tr class="bg-sky-100">
                 <th class="border border-slate-300 px-2 py-1 text-left">Item Check</th>
-                <th class="border border-slate-300 px-2 py-1 text-center">Hasil bulan sebelumnya</th>
+                <th
+                  v-for="month in previousMonthReference.months"
+                  :key="`reference-month-${month.key}`"
+                  class="border border-slate-300 px-2 py-1 text-center"
+                >
+                  {{ month.label }}
+                </th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="item in currentLocationItems" :key="`previous-${item.id}`">
                 <td class="border border-slate-300 px-2 py-1">{{ item.name }}</td>
-                <td class="border border-slate-300 px-2 py-1 text-center font-semibold">
-                  <span v-if="previousMonthLocationReference.items?.[item.id] === 'yes'">✓</span>
-                  <span v-else-if="previousMonthLocationReference.items?.[item.id] === 'no'" class="text-rose-600">✕</span>
+                <td
+                  v-for="month in previousMonthReference.months"
+                  :key="`previous-${item.id}-${month.key}`"
+                  class="border border-slate-300 px-2 py-1 text-center font-semibold"
+                >
+                  <span v-if="previousMonthLocationReference.months?.[month.key]?.items?.[item.id] === 'yes'">✓</span>
+                  <span v-else-if="previousMonthLocationReference.months?.[month.key]?.items?.[item.id] === 'no'" class="text-rose-600">✕</span>
+                  <span v-else class="text-slate-400">-</span>
+                </td>
+              </tr>
+              <tr class="bg-sky-50 text-xs">
+                <td class="border border-slate-300 px-2 py-1 font-semibold">Status / Tanggal check</td>
+                <td
+                  v-for="month in previousMonthReference.months"
+                  :key="`previous-meta-${month.key}`"
+                  class="border border-slate-300 px-2 py-1 text-center"
+                >
+                  <template v-if="previousMonthLocationReference.months?.[month.key]">
+                    <div>{{ previousMonthLocationReference.months[month.key].status }}</div>
+                    <div v-if="previousMonthLocationReference.months[month.key].check_date" class="text-slate-500">
+                      {{ previousMonthLocationReference.months[month.key].check_date }}
+                    </div>
+                  </template>
                   <span v-else class="text-slate-400">-</span>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p v-if="previousMonthLocationReference.note" class="mt-2 whitespace-pre-wrap text-sm text-slate-700">
-          Catatan: {{ previousMonthLocationReference.note }}
-        </p>
+        <div
+          v-if="hasPreviousMonthNotes"
+          class="mt-2 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          <p
+            v-for="month in previousMonthReference.months.filter((item) => previousMonthLocationReference.months?.[item.key]?.note)"
+            :key="`previous-note-${month.key}`"
+            class="whitespace-pre-wrap"
+          >
+            <span class="font-semibold">{{ month.label }}:</span>
+            {{ previousMonthLocationReference.months[month.key].note }}
+          </p>
+        </div>
       </template>
       <p v-else class="text-sm text-slate-600">
-        Belum ada data bulan sebelumnya untuk lokasi ini.
+        Belum ada data checklist sebelumnya untuk lokasi ini.
       </p>
     </div>
 
@@ -348,6 +378,10 @@ const previousMonthLocationReference = computed(() => {
 
   return props.previousMonthReference?.locations?.[locationId] || null;
 });
+
+const hasPreviousMonthNotes = computed(() => props.previousMonthReference?.months?.some(
+  (month) => Boolean(previousMonthLocationReference.value?.months?.[month.key]?.note),
+) || false);
 
 defineEmits([
   'approve',
