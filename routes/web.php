@@ -670,6 +670,9 @@ Route::get('attendance-log', [App\Http\Controllers\AttendanceLogController::clas
 Route::post('attendance-log/corrections', [App\Http\Controllers\AttendanceLogController::class, 'storeCorrection'])
     ->middleware(['auth'])
     ->name('attendance-log.corrections.store');
+Route::post('attendance-log/correction-requests', [App\Http\Controllers\AttendanceLogController::class, 'storeCorrectionRequest'])
+    ->middleware(['auth'])
+    ->name('attendance-log.correction-requests.store');
 Route::post('attendance-log/corrections/{correction}/approve', [App\Http\Controllers\AttendanceLogController::class, 'approveCorrection'])
     ->middleware(['auth'])
     ->name('attendance-log.corrections.approve');

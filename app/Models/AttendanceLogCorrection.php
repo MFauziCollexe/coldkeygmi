@@ -10,6 +10,7 @@ class AttendanceLogCorrection extends Model
     use HasFactory;
 
     protected $fillable = [
+        'request_group_id',
         'log_date',
         'pin',
         'corrected_first_scan',
@@ -21,6 +22,13 @@ class AttendanceLogCorrection extends Model
         'approved_at',
         'rejected_at',
         'rejection_reason',
+        'approval_stage',
+        'spv_reviewed_by',
+        'spv_reviewed_at',
+        'spv_review_notes',
+        'manager_reviewed_by',
+        'manager_reviewed_at',
+        'manager_review_notes',
     ];
 
     protected $casts = [
@@ -29,5 +37,7 @@ class AttendanceLogCorrection extends Model
         'corrected_last_scan' => 'datetime',
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
+        'spv_reviewed_at' => 'datetime',
+        'manager_reviewed_at' => 'datetime',
     ];
 }

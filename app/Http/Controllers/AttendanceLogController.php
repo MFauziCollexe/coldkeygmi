@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLogCorrection;
+use App\Models\Employee;
 use App\Models\LeavePermission;
 use App\Models\User;
 use App\Support\AccessRuleService;
@@ -15,6 +16,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -107,6 +110,12 @@ class AttendanceLogController extends Controller
             ->when($dateTo !== null, fn($query) => $query->whereDate('log_date', '<=', $dateTo))
             ->get();
 
+        $correctionRequestCountsByPin = $corrections
+            ->filter(fn (AttendanceLogCorrection $correction) => filled($correction->request_group_id))
+            ->groupBy(fn (AttendanceLogCorrection $correction) => $this->normalizePin((string) $correction->pin))
+            ->map(fn (Collection $items) => $items->count())
+            ->all();
+
         $correctionMap = $corrections->keyBy(function (AttendanceLogCorrection $correction) {
             return $correction->log_date->format('Y-m-d') . '|' . $this->normalizePin((string) $correction->pin);
         });
@@ -162,6 +171,18 @@ class AttendanceLogController extends Controller
                     ],
                 ];
             });
+        $correctionEmployeesByUserId = Employee::query()
+            ->with(['supervisor.user', 'supervisor.position', 'user', 'position'])
+            ->whereIn('user_id', $corrections->pluck('requested_by')->filter()->unique()->values())
+            ->get()
+            ->keyBy('user_id');
+        $currentEmployee = $user
+            ? Employee::query()->with('position:id,name')->where('user_id', $user->id)->first()
+            : null;
+        $canReviewCorrections = $user && (
+            $accessRules->isSupervisor($user)
+            || $accessRules->isManager($user)
+        );
         $employeeDepartmentByPin = $employeeInfoByPin->mapWithKeys(function (array $info, string $pin) {
             return [$pin => trim((string) ($info['department_name'] ?? ''))];
         });
@@ -496,7 +517,14 @@ class AttendanceLogController extends Controller
                 'overtime_label' => $overtimeLabel,
                 'overtime_form_label' => $overtimeFormByPinDate[$pin][$logDate] ?? '-',
                 'overtime_request' => $overtimeDetailsByPinDate[$pin][$logDate] ?? null,
-                'correction' => $this->formatCorrection($correction),
+                'correction' => $this->formatCorrection(
+                    $correction,
+                    $this->canReviewCorrection(
+                        $correction,
+                        $correctionEmployeesByUserId->get($correction?->requested_by),
+                        $user
+                    )
+                ),
             ]);
         }
 
@@ -727,7 +755,14 @@ class AttendanceLogController extends Controller
                         'overtime_label' => $overtimeLabel,
                         'overtime_form_label' => $overtimeFormByPinDate[$pin][$logDate] ?? '-',
                         'overtime_request' => $overtimeDetailsByPinDate[$pin][$logDate] ?? null,
-                        'correction' => $this->formatCorrection($correction),
+                        'correction' => $this->formatCorrection(
+                            $correction,
+                            $this->canReviewCorrection(
+                                $correction,
+                                $correctionEmployeesByUserId->get($correction?->requested_by),
+                                $user
+                            )
+                        ),
                     ]);
                 }
             }
@@ -880,6 +915,8 @@ class AttendanceLogController extends Controller
             ->values();
 
         if ((string) $request->input('export') === 'dummy') {
+            abort_unless($this->isItDepartment($user), 403, 'Export dummy hanya tersedia untuk departemen IT.');
+
             return $this->exportRowsToDummyExcel($rows);
         }
 
@@ -967,6 +1004,14 @@ class AttendanceLogController extends Controller
             'summary' => $summary,
             'monthlyInsights' => $monthlyInsights,
             'canManageCorrections' => $canManageCorrections,
+            'correctionRequestCountsByPin' => $correctionRequestCountsByPin,
+            'canSubmitCorrections' => $currentEmployee !== null && trim((string) $currentEmployee->nik) !== '',
+            'canReviewCorrections' => (bool) $canReviewCorrections,
+            'currentEmployee' => $currentEmployee ? [
+                'name' => $currentEmployee->name,
+                'nik' => $currentEmployee->nik,
+                'position' => $currentEmployee->position?->name,
+            ] : null,
             'canViewCutiColumn' => $isAdminHrIt,
             'cutiBalances' => $isAdminHrIt ? $cutiBalances : [],
             'leaveSummary' => [
@@ -1195,6 +1240,21 @@ class AttendanceLogController extends Controller
         $department = strtolower(trim((string) ($selectedDepartments[0] ?? '')));
 
         return $department === 'security';
+    }
+
+    private function isItDepartment(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        $user->loadMissing('department:id,name,code');
+        $departmentCode = strtoupper(trim((string) optional($user->department)->code));
+        $departmentName = strtoupper(trim((string) optional($user->department)->name));
+
+        return $departmentCode === 'IT'
+            || $departmentName === 'IT'
+            || str_contains($departmentName, 'INFORMATION TECHNOLOGY');
     }
 
     private function resolveForcedAttendanceDepartment(?User $user): ?string
@@ -1938,6 +1998,113 @@ class AttendanceLogController extends Controller
         return $fallback;
     }
 
+    public function storeCorrectionRequest(Request $request)
+    {
+        $user = $request->user();
+        $employee = Employee::query()
+            ->with(['supervisor.user', 'supervisor.position'])
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $employee || trim((string) $employee->nik) === '') {
+            throw ValidationException::withMessages([
+                'employee' => 'Data karyawan atau NIK belum tersedia untuk akun Anda.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'items' => ['required', 'array', 'min:1', 'max:5'],
+            'items.*.log_date' => ['required', 'date'],
+            'items.*.corrected_first_time' => ['nullable', 'date_format:H:i'],
+            'items.*.corrected_last_time' => ['nullable', 'date_format:H:i'],
+            'items.*.note' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $seenDates = [];
+        foreach ($validated['items'] as $index => $item) {
+            if (empty($item['corrected_first_time']) && empty($item['corrected_last_time'])) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.corrected_first_time" => 'Isi minimal salah satu jam koreksi: masuk atau pulang.',
+                ]);
+            }
+
+            $date = Carbon::parse($item['log_date'])->format('Y-m-d');
+            if (isset($seenDates[$date])) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.log_date" => 'Tanggal koreksi tidak boleh duplikat dalam satu pengajuan.',
+                ]);
+            }
+            $seenDates[$date] = true;
+        }
+
+        $approvalStage = $this->initialCorrectionApprovalStage($employee);
+        $pin = $this->normalizePin((string) $employee->nik);
+        $requestGroupId = (string) Str::uuid();
+        $createdCount = 0;
+
+        DB::transaction(function () use ($validated, $employee, $approvalStage, $pin, $requestGroupId, &$createdCount) {
+            foreach ($validated['items'] as $item) {
+                $logDate = Carbon::parse($item['log_date'])->format('Y-m-d');
+                $correction = AttendanceLogCorrection::query()
+                    ->whereDate('log_date', $logDate)
+                    ->where('pin', $pin)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($correction && $correction->status !== 'rejected') {
+                    throw ValidationException::withMessages([
+                        'items' => "Sudah ada pengajuan koreksi untuk tanggal {$logDate}.",
+                    ]);
+                }
+
+                $correction ??= new AttendanceLogCorrection([
+                    'log_date' => $logDate,
+                    'pin' => $pin,
+                ]);
+
+                $correction->fill([
+                    'request_group_id' => $requestGroupId,
+                    'corrected_first_scan' => $this->buildCorrectionDateTime(
+                        $logDate,
+                        $item['corrected_first_time'] ?? null,
+                        null,
+                        null,
+                        false
+                    ),
+                    'corrected_last_scan' => $this->buildCorrectionDateTime(
+                        $logDate,
+                        $item['corrected_last_time'] ?? null,
+                        null,
+                        null,
+                        true
+                    ),
+                    'note' => trim($item['note']),
+                    'status' => 'pending',
+                    'approval_stage' => $approvalStage,
+                    'requested_by' => $employee->user_id,
+                    'approved_by' => null,
+                    'approved_at' => null,
+                    'rejected_at' => null,
+                    'rejection_reason' => null,
+                    'spv_reviewed_by' => null,
+                    'spv_reviewed_at' => null,
+                    'spv_review_notes' => null,
+                    'manager_reviewed_by' => null,
+                    'manager_reviewed_at' => null,
+                    'manager_review_notes' => null,
+                ]);
+                $correction->save();
+                $createdCount++;
+            }
+        });
+
+        $message = $approvalStage === 'spv'
+            ? 'Pengajuan koreksi attendance berhasil dikirim ke SPV.'
+            : 'Pengajuan koreksi attendance berhasil dikirim ke Manager.';
+
+        return redirect()->back()->with('success', $message . ' (' . $createdCount . ' tanggal).');
+    }
+
     public function storeCorrection(Request $request)
     {
         if (!$this->canManageCorrections($request->user())) {
@@ -1980,15 +2147,23 @@ class AttendanceLogController extends Controller
                 'pin' => $pin,
             ],
             [
+                'request_group_id' => null,
                 'corrected_first_scan' => $firstScan,
                 'corrected_last_scan' => $lastScan,
                 'note' => $validated['note'] ?? null,
                 'status' => 'approved',
+                'approval_stage' => 'completed',
                 'requested_by' => optional($request->user())->id,
                 'approved_by' => optional($request->user())->id,
                 'approved_at' => now(),
                 'rejected_at' => null,
                 'rejection_reason' => null,
+                'spv_reviewed_by' => null,
+                'spv_reviewed_at' => null,
+                'spv_review_notes' => null,
+                'manager_reviewed_by' => null,
+                'manager_reviewed_at' => null,
+                'manager_review_notes' => null,
             ]
         );
 
@@ -1997,8 +2172,30 @@ class AttendanceLogController extends Controller
 
     public function approveCorrection(Request $request, AttendanceLogCorrection $correction)
     {
+        $user = $request->user();
+        $employee = $this->correctionSubmitterEmployee($correction);
+        if ($this->canReviewCorrection($correction, $employee, $user)) {
+            $nextStage = $this->reviewCorrectionRequest(
+                $correction,
+                $employee,
+                $user,
+                true,
+                null
+            );
+
+            $message = $nextStage === 'manager'
+                ? 'Persetujuan SPV selesai. Pengajuan diteruskan ke Manager.'
+                : 'Pengajuan koreksi attendance telah disetujui Manager.';
+
+            return redirect()->back()->with('success', $message);
+        }
+
+        if (in_array($correction->approval_stage, ['spv', 'manager'], true)) {
+            abort(403, 'Pengajuan ini belum berada pada tahap persetujuan Anda.');
+        }
+
         if (!$this->canManageCorrections($request->user())) {
-            abort(403, 'Hanya IT/HRD yang dapat menyetujui koreksi attendance.');
+            abort(403, 'Pengajuan ini belum berada pada tahap persetujuan Anda.');
         }
 
         $correction->update([
@@ -2014,8 +2211,29 @@ class AttendanceLogController extends Controller
 
     public function rejectCorrection(Request $request, AttendanceLogCorrection $correction)
     {
+        $user = $request->user();
+        $employee = $this->correctionSubmitterEmployee($correction);
+        if ($this->canReviewCorrection($correction, $employee, $user)) {
+            $validated = $request->validate([
+                'rejection_reason' => ['nullable', 'string', 'max:1000'],
+            ]);
+            $this->reviewCorrectionRequest(
+                $correction,
+                $employee,
+                $user,
+                false,
+                $validated['rejection_reason'] ?? null
+            );
+
+            return redirect()->back()->with('success', 'Pengajuan koreksi attendance ditolak.');
+        }
+
+        if (in_array($correction->approval_stage, ['spv', 'manager'], true)) {
+            abort(403, 'Pengajuan ini belum berada pada tahap persetujuan Anda.');
+        }
+
         if (!$this->canManageCorrections($request->user())) {
-            abort(403, 'Hanya IT/HRD yang dapat menolak koreksi attendance.');
+            abort(403, 'Pengajuan ini belum berada pada tahap persetujuan Anda.');
         }
 
         $validated = $request->validate([
@@ -2039,7 +2257,13 @@ class AttendanceLogController extends Controller
             abort(403, 'Hanya IT/HRD yang dapat menghapus koreksi attendance.');
         }
 
-        $correction->delete();
+        if ($correction->request_group_id) {
+            AttendanceLogCorrection::query()
+                ->where('request_group_id', $correction->request_group_id)
+                ->delete();
+        } else {
+            $correction->delete();
+        }
 
         return redirect()->back()->with('success', 'Koreksi attendance berhasil dihapus.');
     }
@@ -3875,19 +4099,34 @@ class AttendanceLogController extends Controller
             ->values();
     }
 
-    private function formatCorrection(?AttendanceLogCorrection $correction): ?array
+    private function formatCorrection(?AttendanceLogCorrection $correction, bool $canReview = false): ?array
     {
         if (!$correction) {
             return null;
         }
 
+        $statusLabel = $correction->status;
+        if ($correction->status === 'pending') {
+            $statusLabel = match ($correction->approval_stage) {
+                'spv' => 'pending_spv',
+                'manager' => 'pending_manager',
+                default => 'pending',
+            };
+        }
+
         return [
             'id' => $correction->id,
             'status' => $correction->status,
+            'status_label' => $statusLabel,
+            'approval_stage' => $correction->approval_stage,
+            'can_review' => $canReview,
+            'request_group_id' => $correction->request_group_id,
             'first_scan' => optional($correction->corrected_first_scan)->format('Y-m-d H:i:s'),
             'last_scan' => optional($correction->corrected_last_scan)->format('Y-m-d H:i:s'),
             'note' => $correction->note,
             'rejection_reason' => $correction->rejection_reason,
+            'spv_review_notes' => $correction->spv_review_notes,
+            'manager_review_notes' => $correction->manager_review_notes,
         ];
     }
 
@@ -5039,6 +5278,227 @@ class AttendanceLogController extends Controller
     private function canManageCorrections($user): bool
     {
         return $this->accessRules()->allows($user, self::ACCESS_MODULE, 'manage_corrections');
+    }
+
+    private function correctionSubmitterEmployee(AttendanceLogCorrection $correction): ?Employee
+    {
+        if (! $correction->requested_by) {
+            return null;
+        }
+
+        return Employee::query()
+            ->with(['supervisor.user', 'supervisor.position'])
+            ->where('user_id', $correction->requested_by)
+            ->first();
+    }
+
+    private function initialCorrectionApprovalStage(Employee $employee): string
+    {
+        $employee->loadMissing(['supervisor.user', 'supervisor.position']);
+        $reportingTo = $employee->supervisor;
+        $departmentId = (int) ($employee->department_id ?? 0);
+
+        if ($reportingTo) {
+            if (! $this->isActiveCorrectionApprover($reportingTo)) {
+                throw ValidationException::withMessages([
+                    'employee' => 'SPV atau Manager pada field Reporting To harus aktif.',
+                ]);
+            }
+
+            if ($this->accessRules()->isSupervisor($reportingTo->user_id)) {
+                if (! $this->hasCorrectionDepartmentManager($departmentId)) {
+                    throw ValidationException::withMessages([
+                        'employee' => 'Tidak ditemukan Manager aktif yang memiliki akses approval untuk departemen Anda.',
+                    ]);
+                }
+
+                return 'spv';
+            }
+
+            if (
+                $this->accessRules()->isManager($reportingTo->user_id)
+                && $this->accessRules()->canAccessDepartment(
+                    (int) $reportingTo->user_id,
+                    'overtime',
+                    'approve',
+                    $departmentId
+                )
+            ) {
+                return 'manager';
+            }
+
+            throw ValidationException::withMessages([
+                'employee' => 'Karyawan harus memiliki SPV atau Manager aktif pada field Reporting To.',
+            ]);
+        }
+
+        $departmentCode = strtoupper((string) DB::table('departments')->where('id', $departmentId)->value('code'));
+        if (! in_array($departmentCode, ['MNT', 'MTC', 'IT'], true) || ! $this->hasCorrectionDepartmentManager($departmentId)) {
+            throw ValidationException::withMessages([
+                'employee' => 'Karyawan belum memiliki SPV atau Manager aktif pada field Reporting To.',
+            ]);
+        }
+
+        return 'manager';
+    }
+
+    private function hasCorrectionDepartmentManager(int $departmentId): bool
+    {
+        return Employee::query()
+            ->whereNotNull('user_id')
+            ->whereHas('position', fn ($query) => $query->where('is_manager', true))
+            ->whereHas('user', fn ($query) => $query->where('status', 'active'))
+            ->when(
+                Schema::hasColumn('employees', 'employment_status'),
+                fn ($query) => $query->where('employment_status', 'active')
+            )
+            ->pluck('user_id')
+            ->contains(fn ($userId) => $this->accessRules()->canAccessDepartment(
+                (int) $userId,
+                'overtime',
+                'approve',
+                $departmentId
+            ));
+    }
+
+    private function isActiveCorrectionApprover(?Employee $employee): bool
+    {
+        return $employee?->user?->status === 'active'
+            && (! Schema::hasColumn('employees', 'employment_status') || $employee->employment_status === 'active')
+            && ($employee->position?->is_active ?? true);
+    }
+
+    private function canReviewCorrection(
+        ?AttendanceLogCorrection $correction,
+        ?Employee $employee,
+        $user
+    ): bool {
+        if (
+            ! $correction
+            || ! $employee
+            || ! $user
+            || $correction->status !== 'pending'
+            || (int) $correction->requested_by === (int) $user->id
+        ) {
+            return false;
+        }
+
+        $employee->loadMissing(['supervisor.user', 'supervisor.position']);
+        $reportingTo = $employee->supervisor;
+        $userId = (int) $user->id;
+
+        if ($correction->approval_stage === 'spv') {
+            return $this->accessRules()->isSupervisor($userId)
+                && (int) ($reportingTo?->user_id ?? 0) === $userId
+                && $this->isActiveCorrectionApprover($reportingTo);
+        }
+
+        if ($correction->approval_stage !== 'manager' || ! $this->accessRules()->isManager($userId)) {
+            return false;
+        }
+
+        if (
+            (int) ($correction->spv_reviewed_by ?? 0) <= 0
+            && $reportingTo
+            && $this->accessRules()->isManager($reportingTo->user_id)
+        ) {
+            return (int) $reportingTo->user_id === $userId
+                && $this->isActiveCorrectionApprover($reportingTo);
+        }
+
+        $departmentId = (int) ($employee->department_id ?? 0);
+
+        return $departmentId > 0
+            && $this->accessRules()->canAccessDepartment(
+                $userId,
+                'overtime',
+                'approve',
+                $departmentId
+            );
+    }
+
+    private function reviewCorrectionRequest(
+        AttendanceLogCorrection $correction,
+        ?Employee $employee,
+        $user,
+        bool $approve,
+        ?string $rejectionReason
+    ): ?string {
+        return DB::transaction(function () use ($correction, $employee, $user, $approve, $rejectionReason) {
+            $query = AttendanceLogCorrection::query();
+            if ($correction->request_group_id) {
+                $query->where('request_group_id', $correction->request_group_id);
+            } else {
+                $query->whereKey($correction->id);
+            }
+            $items = $query->lockForUpdate()->get();
+            if ($items->isEmpty()) {
+                abort(404);
+            }
+
+            $stage = $items->first()->approval_stage;
+            if (! in_array($stage, ['spv', 'manager'], true)) {
+                abort(422, 'Tahap persetujuan koreksi attendance tidak valid.');
+            }
+
+            foreach ($items as $item) {
+                if (
+                    $item->status !== 'pending'
+                    || $item->approval_stage !== $stage
+                    || ! $this->canReviewCorrection($item, $employee, $user)
+                ) {
+                    abort(403, 'Pengajuan ini belum berada pada tahap persetujuan Anda.');
+                }
+            }
+
+            $reviewedAt = now();
+            foreach ($items as $item) {
+                if (! $approve) {
+                    $rejectionData = [
+                        'status' => 'rejected',
+                        'approval_stage' => 'completed',
+                        'approved_by' => null,
+                        'approved_at' => null,
+                        'rejected_at' => $reviewedAt,
+                        'rejection_reason' => $rejectionReason,
+                    ];
+                    if ($stage === 'spv') {
+                        $rejectionData['spv_reviewed_by'] = $user->id;
+                        $rejectionData['spv_reviewed_at'] = $reviewedAt;
+                        $rejectionData['spv_review_notes'] = $rejectionReason;
+                    } else {
+                        $rejectionData['manager_reviewed_by'] = $user->id;
+                        $rejectionData['manager_reviewed_at'] = $reviewedAt;
+                        $rejectionData['manager_review_notes'] = $rejectionReason;
+                    }
+                    $item->update($rejectionData);
+                    continue;
+                }
+
+                if ($stage === 'spv') {
+                    $item->update([
+                        'approval_stage' => 'manager',
+                        'spv_reviewed_by' => $user->id,
+                        'spv_reviewed_at' => $reviewedAt,
+                        'spv_review_notes' => null,
+                    ]);
+                    continue;
+                }
+
+                $item->update([
+                    'status' => 'approved',
+                    'approval_stage' => 'completed',
+                    'approved_by' => $user->id,
+                    'approved_at' => $reviewedAt,
+                    'rejected_at' => null,
+                    'rejection_reason' => null,
+                    'manager_reviewed_by' => $user->id,
+                    'manager_reviewed_at' => $reviewedAt,
+                ]);
+            }
+
+            return $approve && $stage === 'spv' ? 'manager' : null;
+        });
     }
 
     private function lateToleranceMinutes(): int

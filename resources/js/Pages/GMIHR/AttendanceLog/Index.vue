@@ -1,11 +1,21 @@
 <template>
   <AppLayout>
     <div class="space-y-6 p-4 md:p-6">
-      <div>
-        <h2 class="text-2xl font-bold">Attendance Logs</h2>
-        <p class="text-slate-400 text-sm">
-          Perbandingan absensi fingerprint dengan roster karyawan.
-        </p>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-bold">Attendance Logs</h2>
+          <p class="text-slate-400 text-sm">
+            Perbandingan absensi fingerprint dengan roster karyawan.
+          </p>
+        </div>
+        <button
+          v-if="canSubmitCorrections"
+          type="button"
+          class="shrink-0 rounded bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+          @click="openCorrectionRequest"
+        >
+          Koreksi
+        </button>
       </div>
 
       <div v-if="!canViewCutiColumn" class="rounded-lg border border-slate-700 bg-slate-800 p-4">
@@ -81,7 +91,7 @@
               <button class="min-w-[126px] rounded bg-emerald-600 px-4 py-2 text-sm font-semibold hover:bg-emerald-500" @click="exportExcel">
                 Export Excel
               </button>
-              <button class="min-w-[126px] rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-400" @click="exportDummy">
+              <button v-if="isCurrentUserItDepartment" class="min-w-[126px] rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-400" @click="exportDummy">
                 Export Dummy
               </button>
             </div>
@@ -137,7 +147,7 @@
                     </button>
                   </div>
                 </th>
-                <th class="text-left py-2 pr-3">Absensi</th>
+                <th class="text-left py-2 pr-3">Koreksi</th>
                 <th class="text-left py-2 pr-3">Terlambat</th>
                 <th v-if="canViewCutiColumn" class="text-left py-2 pr-3">Cuti</th>
               </tr>
@@ -149,7 +159,7 @@
                   <td class="py-2 pr-3">{{ group.name }}</td>
                   <td class="py-2 pr-3">{{ group.departmentName || '-' }}</td>
                   <td class="py-2 pr-3">{{ group.supervisorName || '-' }}</td>
-                  <td class="py-2 pr-3">{{ group.totalAbsensi }}</td>
+                  <td class="py-2 pr-3">{{ group.totalKoreksi }}</td>
                   <td class="py-2 pr-3">
                     <span class="inline-flex min-w-[2rem] justify-center px-2 py-0.5 rounded-md text-xs font-semibold border bg-amber-500/20 text-amber-200 border-amber-400/40">
                       {{ group.totalTerlambat }}
@@ -240,31 +250,33 @@
                             </td>
                             <td v-if="canShowCorrectionColumn" class="py-2">
                               <div class="flex flex-col gap-1.5">
-                                <div v-if="row.correction" class="flex flex-wrap items-center gap-2">
+                                <div v-if="row.correction?.request_group_id" class="flex flex-wrap items-center gap-2">
                                   <span
-                                    :class="correctionPillClass(row.correction.status)"
+                                    :class="correctionPillClass(row.correction.status_label)"
                                     class="inline-flex px-2 py-0.5 rounded-md text-xs font-semibold border"
-                                    :title="row.correction.rejection_reason || ''"
+                                    :title="row.correction.rejection_reason || row.correction.note || ''"
                                   >
-                                    {{ correctionLabel(row.correction.status) }}
+                                    {{ correctionLabel(row.correction.status_label) }}
                                   </span>
                                   <span class="text-[11px] text-slate-400">
                                     {{ formatTimeOnly(row.correction.first_scan) }} - {{ formatTimeOnly(row.correction.last_scan) }}
                                   </span>
                                 </div>
+                                <span v-else-if="row.correction" class="text-[11px] text-slate-500">-</span>
+                                <span v-if="row.correction?.request_group_id && row.correction?.note" class="text-[11px] text-slate-400">{{ row.correction.note }}</span>
 
                                 <div class="flex flex-wrap items-center gap-2">
                                   <button
-                                    v-if="canShowCorrectionColumn"
+                                    v-if="canManageCorrectionActions"
                                     type="button"
                                     class="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-[12px] font-semibold"
                                     @click="openCorrectionSwal(row)"
                                   >
-                                    Koreksi
+                                    Koreksi manual
                                   </button>
 
                                   <button
-                                    v-if="canShowCorrectionColumn && row.correction?.id"
+                                    v-if="canManageCorrectionActions && row.correction?.id"
                                     type="button"
                                     class="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-[12px] font-semibold"
                                     @click="deleteCorrection(row)"
@@ -272,7 +284,23 @@
                                     Hapus Koreksi
                                   </button>
 
-                                  <span v-if="!canShowCorrectionColumn && !row.correction" class="text-[11px] text-slate-500">-</span>
+                                  <template v-if="row.correction?.can_review && isCorrectionGroupLead(row)">
+                                    <button
+                                      type="button"
+                                      class="rounded bg-emerald-700 px-2.5 py-1 text-[12px] font-semibold hover:bg-emerald-600"
+                                      @click="reviewCorrection(row, 'approve')"
+                                    >
+                                      {{ row.correction.approval_stage === 'spv' ? 'Setujui ke Manager' : 'Setujui' }}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      class="rounded bg-rose-700 px-2.5 py-1 text-[12px] font-semibold hover:bg-rose-600"
+                                      @click="reviewCorrection(row, 'reject')"
+                                    >
+                                      Tolak
+                                    </button>
+                                  </template>
+                                  <span v-if="!row.correction && !canManageCorrectionActions" class="text-[11px] text-slate-500">-</span>
                                 </div>
                               </div>
                             </td>
@@ -314,8 +342,8 @@
 
             <div class="mt-4 grid grid-cols-2 gap-2 text-center text-sm">
               <div class="rounded-lg border border-slate-700 bg-slate-800/80 p-2">
-                <div class="text-[11px] text-slate-400">Absensi</div>
-                <div class="font-semibold text-white">{{ group.totalAbsensi }}</div>
+                <div class="text-[11px] text-slate-400">Koreksi</div>
+                <div class="font-semibold text-white">{{ group.totalKoreksi }}</div>
               </div>
               <div class="rounded-lg border border-amber-400/30 bg-amber-500/10 p-2">
                 <div class="text-[11px] text-amber-200">Terlambat</div>
@@ -404,38 +432,56 @@
                   </div>
                   <div v-if="canShowCorrectionColumn" class="flex items-start justify-between gap-3">
                     <div class="text-slate-400">Koreksi</div>
-                    <div v-if="row.correction" class="space-y-1 text-right">
+                    <div v-if="row.correction?.request_group_id" class="space-y-1 text-right">
                       <span
-                        :class="correctionPillClass(row.correction.status)"
+                        :class="correctionPillClass(row.correction.status_label)"
                         class="inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold"
-                        :title="row.correction.rejection_reason || ''"
+                        :title="row.correction.rejection_reason || row.correction.note || ''"
                       >
-                        {{ correctionLabel(row.correction.status) }}
+                        {{ correctionLabel(row.correction.status_label) }}
                       </span>
                       <div class="text-[11px] text-slate-400">
                         {{ formatTimeOnly(row.correction.first_scan) }} - {{ formatTimeOnly(row.correction.last_scan) }}
                       </div>
+                      <div v-if="row.correction.note" class="max-w-56 text-[11px] text-slate-400">{{ row.correction.note }}</div>
                     </div>
                     <div v-else class="text-right text-slate-500">-</div>
                   </div>
                 </div>
 
-                <div v-if="canShowCorrectionColumn" class="mt-4">
-                  <div class="grid gap-2" :class="row.correction?.id ? 'grid-cols-2' : 'grid-cols-1'">
+                <div v-if="canShowCorrectionColumn && (canManageCorrectionActions || row.correction?.can_review)" class="mt-4">
+                  <div class="grid gap-2" :class="canManageCorrectionActions && row.correction?.id ? 'grid-cols-2' : 'grid-cols-1'">
                     <button
+                      v-if="canManageCorrectionActions"
                       type="button"
                       class="w-full rounded bg-indigo-600 px-3 py-2 text-[12px] font-semibold hover:bg-indigo-500"
                       @click="openCorrectionSwal(row)"
                     >
-                      Koreksi
+                      Koreksi manual
                     </button>
                     <button
-                      v-if="row.correction?.id"
+                      v-if="canManageCorrectionActions && row.correction?.id"
                       type="button"
                       class="w-full rounded bg-rose-600 px-3 py-2 text-[12px] font-semibold hover:bg-rose-500"
                       @click="deleteCorrection(row)"
                     >
                       Hapus Koreksi
+                    </button>
+                    <button
+                      v-if="row.correction?.can_review && isCorrectionGroupLead(row)"
+                      type="button"
+                      class="w-full rounded bg-emerald-700 px-3 py-2 text-[12px] font-semibold hover:bg-emerald-600"
+                      @click="reviewCorrection(row, 'approve')"
+                    >
+                      {{ row.correction.approval_stage === 'spv' ? 'Setujui ke Manager' : 'Setujui' }}
+                    </button>
+                    <button
+                      v-if="row.correction?.can_review && isCorrectionGroupLead(row)"
+                      type="button"
+                      class="w-full rounded bg-rose-700 px-3 py-2 text-[12px] font-semibold hover:bg-rose-600"
+                      @click="reviewCorrection(row, 'reject')"
+                    >
+                      Tolak
                     </button>
                   </div>
                 </div>
@@ -446,6 +492,90 @@
 
         <div v-if="attendanceLogs.last_page > 1" class="mt-4 flex justify-end border-t border-slate-700 pt-4 text-sm">
           <Pagination :paginator="attendanceLogs" :onPageChange="goToPage" />
+        </div>
+
+        <div
+          v-if="showCorrectionRequestModal"
+          class="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-3 sm:p-6"
+          @click.self="closeCorrectionRequest"
+        >
+          <div class="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-300 bg-white text-black shadow-2xl" style="color-scheme: light">
+            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h3 class="text-lg font-bold">Permohonan Koreksi Absen</h3>
+                <p class="text-xs text-black">Pengajuan diteruskan ke SPV lalu Manager sesuai Reporting To.</p>
+              </div>
+              <button
+                type="button"
+                class="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100"
+                @click="closeCorrectionRequest"
+              >
+                Tutup
+              </button>
+            </div>
+
+            <form class="max-h-[82vh] overflow-y-auto p-5" @submit.prevent="submitCorrectionRequest">
+              <div class="grid gap-2 text-sm sm:grid-cols-2">
+                <div><span class="font-semibold">Nama Karyawan</span><span class="px-3">:</span>{{ props.currentEmployee?.name || '-' }}</div>
+                <div><span class="font-semibold">NIK</span><span class="px-3">:</span>{{ props.currentEmployee?.nik || '-' }}</div>
+                <div><span class="font-semibold">Jabatan</span><span class="px-3">:</span>{{ props.currentEmployee?.position || '-' }}</div>
+              </div>
+
+              <p class="mt-6 border-y border-slate-300 py-2 text-sm font-medium">
+                Dengan ini mengajukan permohonan Koreksi Absen:
+                <span class="font-bold">Lupa absen In/Out</span>
+              </p>
+
+              <div class="mt-3 overflow-x-auto bg-white">
+                <table class="w-full min-w-[720px] border-collapse text-sm">
+                  <thead>
+                    <tr class="bg-white">
+                      <th class="w-12 border border-slate-400 px-2 py-2">No</th>
+                      <th class="w-48 border border-slate-400 px-2 py-2">Tanggal absen</th>
+                      <th class="w-64 border border-slate-400 px-2 py-2">Koreksi absen</th>
+                      <th class="border border-slate-400 px-2 py-2">Alasan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, index) in correctionRequestRows" :key="index">
+                      <td class="border border-slate-400 px-2 py-2 text-center">{{ index + 1 }}</td>
+                      <td class="border border-slate-400 p-1">
+                        <EnhancedDatePicker
+                          v-model="row.log_date"
+                          placeholder="dd/mm/yyyy"
+                          input-class="w-full rounded bg-white text-black !min-h-0 !border-0 !bg-white !px-2 !py-2 !text-black placeholder:text-slate-400"
+                        />
+                      </td>
+                      <td class="border border-slate-400 p-1">
+                        <div class="flex items-center gap-1">
+                          <input v-model="row.corrected_first_time" type="time" aria-label="Jam masuk koreksi" class="min-w-0 flex-1 rounded border-0 bg-white px-1 py-2 text-black" />
+                          <span>-</span>
+                          <input v-model="row.corrected_last_time" type="time" aria-label="Jam pulang koreksi" class="min-w-0 flex-1 rounded border-0 bg-white px-1 py-2 text-black" />
+                        </div>
+                      </td>
+                      <td class="border border-slate-400 p-1">
+                        <input v-model="row.note" type="text" maxlength="1000" placeholder="Jelaskan alasan koreksi" class="w-full rounded border-0 bg-white px-2 py-2 text-black placeholder:text-black" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="mt-4 text-xs text-black">
+                Isi tanggal, minimal salah satu jam masuk/pulang, dan alasan pada setiap baris yang digunakan. Baris kosong tidak diajukan.
+              </p>
+              <div class="mt-5 flex justify-end gap-2 border-t border-slate-200 pt-4">
+                <button type="button" class="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100" @click="closeCorrectionRequest">Batal</button>
+                <button
+                  type="submit"
+                  :disabled="isSubmittingCorrectionRequest"
+                  class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {{ isSubmittingCorrectionRequest ? 'Mengirim...' : 'Ajukan Koreksi' }}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
 
         <div
@@ -683,6 +813,7 @@ import { router, usePage } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
+import EnhancedDatePicker from '@/Components/EnhancedDatePicker.vue';
 
 const props = defineProps({
   attendanceLogs: {
@@ -733,6 +864,22 @@ const props = defineProps({
   canManageCorrections: {
     type: Boolean,
     default: false,
+  },
+  correctionRequestCountsByPin: {
+    type: Object,
+    default: () => ({}),
+  },
+  canSubmitCorrections: {
+    type: Boolean,
+    default: false,
+  },
+  canReviewCorrections: {
+    type: Boolean,
+    default: false,
+  },
+  currentEmployee: {
+    type: Object,
+    default: null,
   },
   lateToleranceMinutes: {
     type: Number,
@@ -796,7 +943,10 @@ const isCurrentUserItDepartment = computed(() => {
     || departmentName === 'IT'
     || departmentName.includes('INFORMATION TECHNOLOGY');
 });
-const canShowCorrectionColumn = computed(() => canManageCorrections && isCurrentUserItDepartment.value);
+const canManageCorrectionActions = computed(() => canManageCorrections && isCurrentUserItDepartment.value);
+const canShowCorrectionColumn = computed(() =>
+  canManageCorrectionActions.value || props.canSubmitCorrections || props.canReviewCorrections
+);
 const MIN_HIGHLIGHT_COUNT = 5;
 const activeHeaderFilter = ref('');
 const headerFilterPosition = reactive({ left: 0, top: 0 });
@@ -1029,6 +1179,9 @@ const selectedOvertimeContext = ref({});
 const showLeaveModal = ref(false);
 const selectedLeave = ref(null);
 const selectedLeaveContext = ref({});
+const showCorrectionRequestModal = ref(false);
+const correctionRequestRows = ref(createCorrectionRequestRows());
+const isSubmittingCorrectionRequest = ref(false);
 const allEmployeeGroups = computed(() => {
   const grouped = new Map();
   const rows = attendanceRows.value || [];
@@ -1046,7 +1199,7 @@ const allEmployeeGroups = computed(() => {
         nrp: String(row?.nrp || row?.employee_nrp || row?.pin || '-'),
         departmentName: String(row?.department_name || '-'),
         supervisorName: normalizeReportingToName(row?.supervisor_name),
-        totalAbsensi: 0,
+        totalKoreksi: Number(props.correctionRequestCountsByPin?.[pin] ?? 0),
         totalTerlambat: 0,
         totalAbsen: 0,
         totalLain: 0,
@@ -1058,7 +1211,6 @@ const allEmployeeGroups = computed(() => {
     }
 
     const item = grouped.get(key);
-    item.totalAbsensi += 1;
     item.rows.push(row);
 
     const expected = String(getDisplayExpected(row) || '').toLowerCase().trim();
@@ -1771,6 +1923,144 @@ function hasLeaveRequest(row) {
   return Boolean(row?.leave_request?.id);
 }
 
+function createCorrectionRequestRows() {
+  return Array.from({ length: 5 }, () => ({
+    log_date: '',
+    corrected_first_time: '',
+    corrected_last_time: '',
+    note: '',
+  }));
+}
+
+function openCorrectionRequest() {
+  correctionRequestRows.value = createCorrectionRequestRows();
+  showCorrectionRequestModal.value = true;
+}
+
+function closeCorrectionRequest() {
+  showCorrectionRequestModal.value = false;
+}
+
+function submitCorrectionRequest() {
+  const rows = correctionRequestRows.value
+    .map((row, index) => ({ ...row, index }))
+    .filter((row) => row.log_date || row.corrected_first_time || row.corrected_last_time || row.note.trim());
+
+  if (!rows.length) {
+    Swal.fire({ icon: 'warning', title: 'Data belum lengkap', text: 'Isi minimal satu baris koreksi.' });
+    return;
+  }
+
+  for (const row of rows) {
+    if (!row.log_date || (!row.corrected_first_time && !row.corrected_last_time) || !row.note.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: `Baris ${row.index + 1} belum lengkap`,
+        text: 'Isi tanggal, minimal salah satu jam masuk/pulang, dan alasan.',
+      });
+      return;
+    }
+  }
+
+  isSubmittingCorrectionRequest.value = true;
+  router.post('/attendance-log/correction-requests', {
+    items: rows.map(({ log_date, corrected_first_time, corrected_last_time, note }) => ({
+      log_date,
+      corrected_first_time: corrected_first_time || null,
+      corrected_last_time: corrected_last_time || null,
+      note: note.trim(),
+    })),
+  }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      closeCorrectionRequest();
+      Swal.fire({
+        icon: 'success',
+        title: 'Pengajuan terkirim',
+        text: 'Pengajuan koreksi attendance sedang menunggu persetujuan.',
+      });
+    },
+    onError: (errors) => {
+      const messages = Object.values(errors || {})
+        .flat()
+        .map((message) => String(message || '').trim())
+        .filter(Boolean);
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Pengajuan Gagal',
+        text: messages[0] || 'Pengajuan koreksi belum berhasil dikirim.',
+      });
+    },
+    onFinish: () => {
+      isSubmittingCorrectionRequest.value = false;
+    },
+  });
+}
+
+function isCorrectionGroupLead(row) {
+  const correction = row?.correction;
+  if (!correction?.request_group_id) return true;
+
+  const groupCorrections = attendanceRows.value
+    .filter((item) => item?.correction?.request_group_id === correction.request_group_id)
+    .map((item) => Number(item.correction.id))
+    .filter(Number.isFinite);
+
+  return !groupCorrections.some((id) => id < Number(correction.id));
+}
+
+async function reviewCorrection(row, action) {
+  const correction = row?.correction;
+  if (!correction?.id || !correction.can_review) return;
+
+  let rejectionReason = '';
+  if (action === 'reject') {
+    const result = await Swal.fire({
+      title: 'Tolak pengajuan koreksi?',
+      input: 'textarea',
+      inputLabel: 'Alasan penolakan',
+      inputPlaceholder: 'Tuliskan alasan penolakan',
+      showCancelButton: true,
+      confirmButtonText: 'Tolak',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!result.isConfirmed) return;
+    rejectionReason = String(result.value || '').trim();
+  } else {
+    const isSpvApproval = correction.approval_stage === 'spv';
+    const result = await Swal.fire({
+      icon: 'question',
+      title: isSpvApproval ? 'Teruskan ke Manager?' : 'Setujui koreksi?',
+      text: isSpvApproval
+        ? 'Semua tanggal dalam pengajuan ini diteruskan sekaligus ke Manager.'
+        : 'Semua tanggal dalam pengajuan ini akan disetujui dan diterapkan ke Attendance Log.',
+      showCancelButton: true,
+      confirmButtonText: isSpvApproval ? 'Teruskan' : 'Setujui',
+      cancelButtonText: 'Batal',
+    });
+    if (!result.isConfirmed) return;
+  }
+
+  router.post(`/attendance-log/corrections/${encodeURIComponent(correction.id)}/${action}`, {
+    rejection_reason: rejectionReason || null,
+  }, {
+    preserveScroll: true,
+    onError: (errors) => {
+      const messages = Object.values(errors || {})
+        .flat()
+        .map((message) => String(message || '').trim())
+        .filter(Boolean);
+      Swal.fire({
+        icon: 'error',
+        title: 'Approval Gagal',
+        text: messages[0] || 'Pengajuan belum berhasil diproses.',
+      });
+    },
+  });
+}
+
 function openOvertimeDetail(row) {
   if (!hasOvertimeRequest(row)) return;
 
@@ -2094,6 +2384,8 @@ function escapeHtmlValue(value) {
 function correctionLabel(status) {
   if (status === 'approved') return 'Approved';
   if (status === 'rejected') return 'Rejected';
+  if (status === 'pending_spv') return 'Menunggu SPV';
+  if (status === 'pending_manager') return 'Menunggu Manager';
   if (status === 'pending') return 'Pending';
   return '-';
 }
@@ -2101,7 +2393,7 @@ function correctionLabel(status) {
 function correctionPillClass(status) {
   if (status === 'approved') return 'bg-emerald-600/20 text-emerald-200 border-emerald-500/40';
   if (status === 'rejected') return 'bg-rose-600/20 text-rose-200 border-rose-500/40';
-  if (status === 'pending') return 'bg-amber-500/20 text-amber-200 border-amber-400/40';
+  if (status === 'pending' || status === 'pending_spv' || status === 'pending_manager') return 'bg-amber-500/20 text-amber-200 border-amber-400/40';
   return 'bg-slate-600/20 text-slate-200 border-slate-500/30';
 }
 

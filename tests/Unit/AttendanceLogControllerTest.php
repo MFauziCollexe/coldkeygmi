@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Http\Controllers\AttendanceLogController;
+use App\Models\AttendanceLogCorrection;
 use Illuminate\Support\Collection;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use ReflectionMethod;
@@ -12,6 +13,29 @@ use Tests\TestCase;
 
 class AttendanceLogControllerTest extends TestCase
 {
+    public function test_correction_status_label_tracks_multilevel_approval_stage(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'formatCorrection');
+        $method->setAccessible(true);
+
+        $spvCorrection = $method->invoke(
+            $controller,
+            new AttendanceLogCorrection(['status' => 'pending', 'approval_stage' => 'spv']),
+            true
+        );
+        $managerCorrection = $method->invoke(
+            $controller,
+            new AttendanceLogCorrection(['status' => 'pending', 'approval_stage' => 'manager']),
+            false
+        );
+
+        $this->assertSame('pending_spv', $spvCorrection['status_label']);
+        $this->assertTrue($spvCorrection['can_review']);
+        $this->assertSame('pending_manager', $managerCorrection['status_label']);
+        $this->assertFalse($managerCorrection['can_review']);
+    }
+
     public function test_attendance_log_export_returns_xlsx_download(): void
     {
         $controller = new AttendanceLogController();
