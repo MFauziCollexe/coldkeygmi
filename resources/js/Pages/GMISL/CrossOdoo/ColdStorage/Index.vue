@@ -45,10 +45,10 @@
               </span>
               <div>
                 <p class="text-[11px] font-semibold text-slate-700">Total Penggunaan</p>
-                <p class="mt-0.5 text-xl font-bold leading-tight tabular-nums text-slate-900">{{ formatNumber(totals.used) }} <span class="text-xs font-medium text-slate-500">slot</span></p>
+                <p class="mt-0.5 text-xl font-bold leading-tight tabular-nums text-slate-900">{{ formatPercent(totals.occupancy) }} <span class="text-xs font-medium text-slate-500">used</span></p>
               </div>
             </div>
-            <p class="mt-2 text-[10px] text-emerald-700">{{ formatPercent(totals.occupancy) }} dari total kapasitas</p>
+            <p class="mt-2 text-[10px] text-emerald-700">{{ formatNumber(totals.used) }} slot digunakan</p>
             <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500 transition-all" :style="{ width: `${Math.min(100, totals.occupancy)}%` }"></div></div>
           </article>
           <article class="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -83,23 +83,39 @@
           <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 id="history-title" class="text-lg font-semibold text-white">Laporan Historis Cold Storage</h2>
-              <p class="mt-1 text-xs text-slate-500">Snapshot harian · {{ history.startDate }} s/d {{ history.endDate }}</p>
+              <p class="mt-1 text-xs text-slate-500">Snapshot harian · {{ historyStartDate }} s/d {{ historyEndDate }}</p>
             </div>
-            <div class="flex flex-wrap gap-2" role="group" aria-label="Periode laporan historis">
-              <button
-                v-for="period in historyPeriods"
-                :key="period.value"
-                type="button"
-                class="rounded-full px-3 py-1.5 text-xs font-semibold transition"
-                :class="historyPeriod === period.value ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'"
-                @click="historyPeriod = period.value"
-              >
-                {{ period.label }}
-              </button>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="text-[11px] font-medium text-slate-600">
+                Tanggal mulai
+                <input
+                  v-model="historyStartDate"
+                  type="date"
+                  :min="history.startDate"
+                  :max="history.endDate"
+                  class="mt-1 block rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900"
+                  aria-label="Tanggal mulai laporan historis"
+                />
+              </label>
+              <label class="text-[11px] font-medium text-slate-600">
+                Tanggal akhir
+                <input
+                  v-model="historyEndDate"
+                  type="date"
+                  :min="history.startDate"
+                  :max="history.endDate"
+                  class="mt-1 block rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900"
+                  aria-label="Tanggal akhir laporan historis"
+                />
+              </label>
             </div>
           </div>
 
-          <div v-if="historyComparison" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <p v-if="historyStartDate > historyEndDate" class="text-xs text-red-600">
+            Tanggal mulai tidak boleh melewati tanggal akhir.
+          </p>
+
+          <div v-else-if="historyComparison" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <article class="border-l-2 border-slate-500 bg-[#15181d] px-3 py-2.5">
               <p class="text-[11px] text-slate-500">Jumlah snapshot</p>
               <p class="mt-1 text-lg font-bold tabular-nums text-white">{{ visibleHistorySnapshots.length }} hari</p>
@@ -120,7 +136,7 @@
             </article>
           </div>
 
-          <div v-if="visibleHistorySnapshots.length" class="overflow-x-auto border-t border-slate-800 pt-4">
+          <div v-if="historyStartDate <= historyEndDate && visibleHistorySnapshots.length" class="overflow-x-auto border-t border-slate-200 pt-4">
             <div class="flex h-44 min-w-full w-max items-end gap-1.5 px-1">
               <div
                 v-for="snapshot in visibleHistorySnapshots"
@@ -141,7 +157,7 @@
               <span>{{ visibleHistorySnapshots[visibleHistorySnapshots.length - 1]?.date }}</span>
             </div>
           </div>
-          <p v-else class="border-t border-slate-800 py-8 text-center text-sm text-slate-500">
+          <p v-else-if="historyStartDate <= historyEndDate" class="border-t border-slate-200 py-8 text-center text-sm text-slate-500">
             Belum ada snapshot pada periode ini. Snapshot pertama akan tersedia setelah command harian berhasil dijalankan.
           </p>
 
@@ -343,10 +359,11 @@ const props = defineProps({
 });
 
 const statusFilter = ref('all');
-const historyPeriod = ref('week');
 const selectedStorage = ref(null);
 const slotFilter = ref('used');
 const refreshing = ref(false);
+const historyEndDate = ref(props.history?.endDate || '');
+const historyStartDate = ref(getDefaultHistoryStartDate());
 
 const statusFilters = [
   { value: 'all', label: 'Semua Unit' },
@@ -366,18 +383,12 @@ const slotFilters = [
   { value: 'all', label: 'Semua' },
 ];
 
-const historyPeriods = [
-  { value: 'week', label: '1 Minggu' },
-  { value: 'month', label: '1 Bulan' },
-  { value: 'year', label: '1 Tahun' },
-];
 const storages = computed(() => props.storages || []);
 const customerOccupancy = computed(() => props.customerOccupancy || []);
 const history = computed(() => props.history || { snapshots: [] });
-const visibleHistorySnapshots = computed(() => {
-  const days = historyPeriod.value === 'month' ? 30 : historyPeriod.value === 'year' ? 365 : 7;
-  return history.value.snapshots.slice(-days);
-});
+const visibleHistorySnapshots = computed(() => (history.value.snapshots || []).filter((snapshot) =>
+  snapshot.date >= historyStartDate.value && snapshot.date <= historyEndDate.value
+));
 const historyComparison = computed(() => {
   const snapshots = visibleHistorySnapshots.value;
   if (!snapshots.length) return null;
@@ -424,6 +435,16 @@ function formatNumber(value) {
 
 function formatPercent(value) {
   return `${Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`;
+}
+
+function getDefaultHistoryStartDate() {
+  const endDate = props.history?.endDate;
+  if (!endDate) return '';
+
+  const date = new Date(`${endDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 6);
+  const startDate = date.toISOString().slice(0, 10);
+  return startDate < (props.history?.startDate || startDate) ? props.history.startDate : startDate;
 }
 
 function customerColor(customerName) {
