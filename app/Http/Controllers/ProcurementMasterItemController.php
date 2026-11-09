@@ -7,6 +7,7 @@ use App\Models\ProcurementMasterItem;
 use App\Models\StockCardItemType;
 use App\Models\StockCardUnit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ProcurementMasterItemController extends Controller
@@ -70,14 +71,12 @@ class ProcurementMasterItemController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request);
-        
-        $itemCode = $request->input('item_code');
-        if (!$itemCode || $itemCode === '') {
-            $itemCode = $this->generateItemCodeForType($data['item_type'] ?? null);
-        }
-        $data['item_code'] = $itemCode;
 
-        ProcurementMasterItem::create($data);
+        DB::transaction(function () use ($data) {
+            StockCardItemType::query()->orderBy('id')->lockForUpdate()->get(['id']);
+            $data['item_code'] = $this->generateItemCodeForType($data['item_type']);
+            ProcurementMasterItem::create($data);
+        });
 
         return $this->redirectToRememberedIndex($request, 'procurement-master-items', 'procurement-master-item.index')
             ->with('success', 'Master item berhasil dibuat.');
@@ -86,6 +85,7 @@ class ProcurementMasterItemController extends Controller
     public function update(Request $request, ProcurementMasterItem $procurementMasterItem)
     {
         $data = $this->validated($request);
+        $data['item_code'] = $procurementMasterItem->item_code;
 
         $procurementMasterItem->update($data);
 
@@ -111,20 +111,19 @@ class ProcurementMasterItemController extends Controller
             }
         }
 
-        $lastItem = ProcurementMasterItem::where('item_code', 'like', $prefix . '-%')
-            ->orderBy('id', 'desc')
-            ->first();
-        
         $lastNumber = 0;
-        if ($lastItem) {
-            $parts = explode('-', $lastItem->item_code);
-            if (count($parts) === 2 && is_numeric($parts[1])) {
-                $lastNumber = (int) $parts[1];
+        $pattern = '/^' . preg_quote($prefix, '/') . '-(\d+)$/i';
+        foreach (ProcurementMasterItem::query()->pluck('item_code') as $existingCode) {
+            if (preg_match($pattern, (string) $existingCode, $matches)) {
+                $lastNumber = max($lastNumber, (int) $matches[1]);
             }
         }
-        
-        $newNumber = $lastNumber + 1;
-        return $prefix . '-' . str_pad((string) $newNumber, 5, '0', STR_PAD_LEFT);
+
+        do {
+            $itemCode = $prefix . '-' . str_pad((string) ++$lastNumber, 5, '0', STR_PAD_LEFT);
+        } while (ProcurementMasterItem::where('item_code', $itemCode)->exists());
+
+        return $itemCode;
     }
 
     public function destroy(Request $request, ProcurementMasterItem $procurementMasterItem)
