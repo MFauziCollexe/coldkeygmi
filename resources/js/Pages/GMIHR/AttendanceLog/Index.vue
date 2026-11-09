@@ -272,7 +272,7 @@
                                     class="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-[12px] font-semibold"
                                     @click="openCorrectionSwal(row)"
                                   >
-                                    Koreksi manual
+                                    Koreksi
                                   </button>
 
                                   <button
@@ -457,7 +457,7 @@
                       class="w-full rounded bg-indigo-600 px-3 py-2 text-[12px] font-semibold hover:bg-indigo-500"
                       @click="openCorrectionSwal(row)"
                     >
-                      Koreksi manual
+                      Koreksi
                     </button>
                     <button
                       v-if="canManageCorrectionActions && row.correction?.id"
