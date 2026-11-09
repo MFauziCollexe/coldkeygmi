@@ -20,6 +20,12 @@ return Application::configure(basePath: dirname(__DIR__))
             ->timezone('Asia/Jakarta')
             ->withoutOverlapping()
             ->runInBackground();
+
+        $schedule->command('cold-storage:export-locations')
+            ->dailyAt('23:59')
+            ->timezone('Asia/Jakarta')
+            ->withoutOverlapping()
+            ->runInBackground();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(
