@@ -384,14 +384,6 @@ class AttendanceLogController extends Controller
                 [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate, $nextDayStartTime);
             }
             $correction = $correctionMap->get($logDate . '|' . $pin);
-            if ($correction && $correction->status === 'approved') {
-                if ($correction->corrected_first_scan !== null) {
-                    $firstScan = $correction->corrected_first_scan->format('Y-m-d H:i:s');
-                }
-                if ($correction->corrected_last_scan !== null) {
-                    $lastScan = $correction->corrected_last_scan->format('Y-m-d H:i:s');
-                }
-            }
             if ($isOff) {
                 if ($firstScan === null && $lastScan === null) {
                     $firstScan = null;
