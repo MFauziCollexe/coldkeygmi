@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Http\Controllers\RosterController;
+use App\Models\RosterUploadBatch;
 use Carbon\Carbon;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -70,5 +71,35 @@ class RosterControllerTest extends TestCase
         $emptyOrderSql = $method->invoke($controller, [], []);
         $this->assertStringContainsString('id IN (0)', $emptyOrderSql);
         $this->assertStringNotContainsString('id IN ()', $emptyOrderSql);
+    }
+
+    public function test_latest_batch_scope_is_shared_across_uploaders(): void
+    {
+        $controller = new RosterController;
+        $scopeKeyMethod = new ReflectionMethod($controller, 'batchScopeKey');
+        $scopeKeyMethod->setAccessible(true);
+        $isLatestMethod = new ReflectionMethod($controller, 'isLatestBatchForScope');
+        $isLatestMethod->setAccessible(true);
+
+        $olderBatch = new RosterUploadBatch([
+            'department_id' => 12,
+            'month' => 11,
+            'year' => 2026,
+            'uploaded_by' => 4,
+        ]);
+        $olderBatch->id = 40;
+        $latestBatch = new RosterUploadBatch([
+            'department_id' => 12,
+            'month' => 11,
+            'year' => 2026,
+            'uploaded_by' => 9,
+        ]);
+        $latestBatch->id = 41;
+        $latestBatchIdByScope = [
+            $scopeKeyMethod->invoke($controller, 12, 11, 2026) => 41,
+        ];
+
+        $this->assertFalse($isLatestMethod->invoke($controller, $olderBatch, $latestBatchIdByScope));
+        $this->assertTrue($isLatestMethod->invoke($controller, $latestBatch, $latestBatchIdByScope));
     }
 }

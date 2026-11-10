@@ -121,7 +121,7 @@
                       v-if="isLockedPending(batch)"
                       class="text-xs text-amber-300"
                     >
-                      Hanya pending terbaru yang bisa di-approve
+                      Hanya upload terbaru untuk departemen dan periode ini yang bisa diproses
                     </span>
                   </div>
                 </td>
@@ -221,7 +221,7 @@
                 v-if="isLockedPending(batch)"
                 class="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
               >
-                Pending lama. Approval hanya muncul di batch pending terbaru.
+                Upload lebih lama. Approval hanya tersedia untuk upload terbaru pada departemen dan periode ini.
               </div>
             </div>
           </div>

@@ -346,6 +346,8 @@ class RosterController extends Controller
         $version = $currentApprovedBatch ? ((int) $currentApprovedBatch->version + 1) : 1;
 
         $batch = DB::transaction(function () use ($previewData, $validRows, $month, $year, $user, $revisionOfId, $version, $changeReason, $targetDepartmentId) {
+            Department::query()->whereKey($targetDepartmentId)->lockForUpdate()->first();
+
             $batch = RosterUploadBatch::create([
                 'revision_of_batch_id' => $revisionOfId,
                 'month' => $month,
@@ -412,7 +414,7 @@ class RosterController extends Controller
 
         if (! $this->isLatestBatchForScope($batch)) {
             return response()->json([
-                'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.',
+                'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru untuk departemen dan periode ini.',
             ], 422);
         }
 
@@ -438,7 +440,18 @@ class RosterController extends Controller
         }
 
         $saved = 0;
-        DB::transaction(function () use (&$saved, $rows, $batch, $user) {
+        $approved = DB::transaction(function () use (&$saved, $rows, $batch, $user) {
+            Department::query()->whereKey($batch->department_id)->lockForUpdate()->first();
+            $latestBatchId = RosterUploadBatch::query()
+                ->where('department_id', $batch->department_id)
+                ->where('year', $batch->year)
+                ->where('month', $batch->month)
+                ->max('id');
+
+            if ((int) $latestBatchId !== (int) $batch->id) {
+                return false;
+            }
+
             foreach ($rows as $row) {
                 RosterEntry::updateOrCreate(
                     [
@@ -463,14 +476,11 @@ class RosterController extends Controller
                 $saved++;
             }
 
-            // Only clear `is_current` for approved batches uploaded by the same uploader
-            // so different uploaders can each have their own "current" approved batch
             RosterUploadBatch::query()
                 ->where('department_id', $batch->department_id)
                 ->where('year', $batch->year)
                 ->where('month', $batch->month)
                 ->where('status', 'approved')
-                ->where('uploaded_by', $batch->uploaded_by)
                 ->update(['is_current' => false]);
 
             $batch->update([
@@ -482,7 +492,15 @@ class RosterController extends Controller
                 'reject_reason' => null,
                 'is_current' => true,
             ]);
+
+            return true;
         });
+
+        if (! $approved) {
+            return response()->json([
+                'message' => 'Roster ini tidak bisa di-approve karena sudah ada upload roster yang lebih baru untuk departemen dan periode ini.',
+            ], 422);
+        }
 
         Storage::disk('local')->delete($draftPath);
 
@@ -507,7 +525,7 @@ class RosterController extends Controller
 
         if (! $this->isLatestBatchForScope($batch)) {
             return response()->json([
-                'message' => 'Roster ini tidak bisa di-reject karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.',
+                'message' => 'Roster ini tidak bisa di-reject karena sudah ada upload roster yang lebih baru untuk departemen dan periode ini.',
             ], 422);
         }
 
@@ -1820,9 +1838,8 @@ class RosterController extends Controller
             ->when(! empty($departmentIds), function ($query) use ($departmentIds) {
                 $query->whereIn('department_id', array_map('intval', $departmentIds));
             })
-            // Include uploaded_by so the effective current batch is determined per uploader
-            ->selectRaw('department_id, year, month, uploaded_by, MAX(id) as latest_id')
-            ->groupBy('department_id', 'year', 'month', 'uploaded_by')
+            ->selectRaw('department_id, year, month, MAX(id) as latest_id')
+            ->groupBy('department_id', 'year', 'month')
             ->pluck('latest_id')
             ->map(fn ($id) => (int) $id)
             ->values()
@@ -1861,15 +1878,14 @@ class RosterController extends Controller
     private function latestBatchIdsByScope(): array
     {
         return RosterUploadBatch::query()
-            ->selectRaw('department_id, month, year, uploaded_by, MAX(id) as latest_id')
-            ->groupBy('department_id', 'month', 'year', 'uploaded_by')
+            ->selectRaw('department_id, month, year, MAX(id) as latest_id')
+            ->groupBy('department_id', 'month', 'year')
             ->get()
             ->mapWithKeys(function ($row) {
                 $key = $this->batchScopeKey(
                     (int) ($row->department_id ?? 0),
                     (int) ($row->month ?? 0),
-                    (int) ($row->year ?? 0),
-                    (int) ($row->uploaded_by ?? 0)
+                    (int) ($row->year ?? 0)
                 );
 
                 if ($key === null) {
@@ -1881,13 +1897,13 @@ class RosterController extends Controller
             ->all();
     }
 
-    private function batchScopeKey(int $departmentId, int $month, int $year, int $uploadedBy): ?string
+    private function batchScopeKey(int $departmentId, int $month, int $year): ?string
     {
         if ($departmentId <= 0 || $month <= 0 || $year <= 0) {
             return null;
         }
 
-        return implode('|', [$departmentId, $month, $year, max(0, $uploadedBy)]);
+        return implode('|', [$departmentId, $month, $year]);
     }
 
     private function isLatestBatchForScope(RosterUploadBatch $batch, ?array $latestBatchIdsByScope = null): bool
@@ -1900,8 +1916,7 @@ class RosterController extends Controller
         $scopeKey = $this->batchScopeKey(
             $departmentId,
             (int) $batch->month,
-            (int) $batch->year,
-            (int) $batch->uploaded_by
+            (int) $batch->year
         );
         if ($scopeKey === null) {
             return true;
@@ -1919,6 +1934,6 @@ class RosterController extends Controller
             return null;
         }
 
-        return 'Approval dinonaktifkan karena sudah ada upload roster yang lebih baru dari uploader yang sama untuk periode ini.';
+        return 'Approval dinonaktifkan karena sudah ada upload roster yang lebih baru untuk departemen dan periode ini.';
     }
 }
