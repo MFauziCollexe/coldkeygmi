@@ -115,6 +115,12 @@ class AttendanceLogController extends Controller
             ->groupBy(fn (AttendanceLogCorrection $correction) => $this->normalizePin((string) $correction->pin))
             ->map(fn (Collection $items) => $items->count())
             ->all();
+        $pendingCorrectionRequestCountsByPin = $corrections
+            ->filter(fn (AttendanceLogCorrection $correction) => $correction->status === 'pending'
+                && filled($correction->request_group_id))
+            ->groupBy(fn (AttendanceLogCorrection $correction) => $this->normalizePin((string) $correction->pin))
+            ->map(fn (Collection $items) => $items->count())
+            ->all();
 
         $correctionMap = $corrections->keyBy(function (AttendanceLogCorrection $correction) {
             return $correction->log_date->format('Y-m-d') . '|' . $this->normalizePin((string) $correction->pin);
@@ -997,6 +1003,7 @@ class AttendanceLogController extends Controller
             'monthlyInsights' => $monthlyInsights,
             'canManageCorrections' => $canManageCorrections,
             'correctionRequestCountsByPin' => $correctionRequestCountsByPin,
+            'pendingCorrectionRequestCountsByPin' => $pendingCorrectionRequestCountsByPin,
             'canSubmitCorrections' => $currentEmployee !== null && trim((string) $currentEmployee->nik) !== '',
             'canReviewCorrections' => (bool) $canReviewCorrections,
             'currentEmployee' => $currentEmployee ? [
@@ -5417,79 +5424,71 @@ class AttendanceLogController extends Controller
         ?string $rejectionReason
     ): ?string {
         return DB::transaction(function () use ($correction, $employee, $user, $approve, $rejectionReason) {
-            $query = AttendanceLogCorrection::query();
-            if ($correction->request_group_id) {
-                $query->where('request_group_id', $correction->request_group_id);
-            } else {
-                $query->whereKey($correction->id);
-            }
-            $items = $query->lockForUpdate()->get();
-            if ($items->isEmpty()) {
+            $item = AttendanceLogCorrection::query()
+                ->whereKey($correction->id)
+                ->lockForUpdate()
+                ->first();
+            if (! $item) {
                 abort(404);
             }
 
-            $stage = $items->first()->approval_stage;
+            $stage = $item->approval_stage;
             if (! in_array($stage, ['spv', 'manager'], true)) {
                 abort(422, 'Tahap persetujuan koreksi attendance tidak valid.');
             }
 
-            foreach ($items as $item) {
-                if (
-                    $item->status !== 'pending'
-                    || $item->approval_stage !== $stage
-                    || ! $this->canReviewCorrection($item, $employee, $user)
-                ) {
-                    abort(403, 'Pengajuan ini belum berada pada tahap persetujuan Anda.');
-                }
+            if (
+                $item->status !== 'pending'
+                || ! $this->canReviewCorrection($item, $employee, $user)
+            ) {
+                abort(403, 'Pengajuan ini belum berada pada tahap persetujuan Anda.');
             }
 
             $reviewedAt = now();
-            foreach ($items as $item) {
-                if (! $approve) {
-                    $rejectionData = [
-                        'status' => 'rejected',
-                        'approval_stage' => 'completed',
-                        'approved_by' => null,
-                        'approved_at' => null,
-                        'rejected_at' => $reviewedAt,
-                        'rejection_reason' => $rejectionReason,
-                    ];
-                    if ($stage === 'spv') {
-                        $rejectionData['spv_reviewed_by'] = $user->id;
-                        $rejectionData['spv_reviewed_at'] = $reviewedAt;
-                        $rejectionData['spv_review_notes'] = $rejectionReason;
-                    } else {
-                        $rejectionData['manager_reviewed_by'] = $user->id;
-                        $rejectionData['manager_reviewed_at'] = $reviewedAt;
-                        $rejectionData['manager_review_notes'] = $rejectionReason;
-                    }
-                    $item->update($rejectionData);
-                    continue;
-                }
-
-                if ($stage === 'spv') {
-                    $item->update([
-                        'approval_stage' => 'manager',
-                        'spv_reviewed_by' => $user->id,
-                        'spv_reviewed_at' => $reviewedAt,
-                        'spv_review_notes' => null,
-                    ]);
-                    continue;
-                }
-
-                $item->update([
-                    'status' => 'approved',
+            if (! $approve) {
+                $rejectionData = [
+                    'status' => 'rejected',
                     'approval_stage' => 'completed',
-                    'approved_by' => $user->id,
-                    'approved_at' => $reviewedAt,
-                    'rejected_at' => null,
-                    'rejection_reason' => null,
-                    'manager_reviewed_by' => $user->id,
-                    'manager_reviewed_at' => $reviewedAt,
-                ]);
+                    'approved_by' => null,
+                    'approved_at' => null,
+                    'rejected_at' => $reviewedAt,
+                    'rejection_reason' => $rejectionReason,
+                ];
+                if ($stage === 'spv') {
+                    $rejectionData['spv_reviewed_by'] = $user->id;
+                    $rejectionData['spv_reviewed_at'] = $reviewedAt;
+                    $rejectionData['spv_review_notes'] = $rejectionReason;
+                } else {
+                    $rejectionData['manager_reviewed_by'] = $user->id;
+                    $rejectionData['manager_reviewed_at'] = $reviewedAt;
+                    $rejectionData['manager_review_notes'] = $rejectionReason;
+                }
+                $item->update($rejectionData);
+                return null;
             }
 
-            return $approve && $stage === 'spv' ? 'manager' : null;
+            if ($stage === 'spv') {
+                $item->update([
+                    'approval_stage' => 'manager',
+                    'spv_reviewed_by' => $user->id,
+                    'spv_reviewed_at' => $reviewedAt,
+                    'spv_review_notes' => null,
+                ]);
+                return 'manager';
+            }
+
+            $item->update([
+                'status' => 'approved',
+                'approval_stage' => 'completed',
+                'approved_by' => $user->id,
+                'approved_at' => $reviewedAt,
+                'rejected_at' => null,
+                'rejection_reason' => null,
+                'manager_reviewed_by' => $user->id,
+                'manager_reviewed_at' => $reviewedAt,
+            ]);
+
+            return null;
         });
     }
 

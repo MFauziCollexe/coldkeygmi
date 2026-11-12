@@ -159,7 +159,15 @@
                   <td class="py-2 pr-3">{{ group.name }}</td>
                   <td class="py-2 pr-3">{{ group.departmentName || '-' }}</td>
                   <td class="py-2 pr-3">{{ group.supervisorName || '-' }}</td>
-                  <td class="py-2 pr-3">{{ group.totalKoreksi }}</td>
+                  <td class="py-2 pr-3">
+                    <span
+                      v-if="group.hasPendingCorrection"
+                      class="inline-flex min-w-[2rem] justify-center rounded-md border border-rose-400/40 bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-200"
+                    >
+                      {{ group.totalKoreksi }}
+                    </span>
+                    <span v-else>{{ group.totalKoreksi }}</span>
+                  </td>
                   <td class="py-2 pr-3">
                     <span class="inline-flex min-w-[2rem] justify-center px-2 py-0.5 rounded-md text-xs font-semibold border bg-amber-500/20 text-amber-200 border-amber-400/40">
                       {{ group.totalTerlambat }}
@@ -284,7 +292,7 @@
                                     Hapus Koreksi
                                   </button>
 
-                                  <template v-if="row.correction?.can_review && isCorrectionGroupLead(row)">
+                                  <template v-if="row.correction?.can_review">
                                     <button
                                       type="button"
                                       class="rounded bg-emerald-700 px-2.5 py-1 text-[12px] font-semibold hover:bg-emerald-600"
@@ -343,7 +351,13 @@
             <div class="mt-4 grid grid-cols-2 gap-2 text-center text-sm">
               <div class="rounded-lg border border-slate-700 bg-slate-800/80 p-2">
                 <div class="text-[11px] text-slate-400">Koreksi</div>
-                <div class="font-semibold text-white">{{ group.totalKoreksi }}</div>
+                <div
+                  :class="group.hasPendingCorrection
+                    ? 'mx-auto mt-1 inline-flex min-w-[2rem] justify-center rounded-md border border-rose-400/40 bg-rose-500/20 px-2 py-0.5 font-semibold text-rose-200'
+                    : 'font-semibold text-white'"
+                >
+                  {{ group.totalKoreksi }}
+                </div>
               </div>
               <div class="rounded-lg border border-amber-400/30 bg-amber-500/10 p-2">
                 <div class="text-[11px] text-amber-200">Terlambat</div>
@@ -468,7 +482,7 @@
                       Hapus Koreksi
                     </button>
                     <button
-                      v-if="row.correction?.can_review && isCorrectionGroupLead(row)"
+                      v-if="row.correction?.can_review"
                       type="button"
                       class="w-full rounded bg-emerald-700 px-3 py-2 text-[12px] font-semibold hover:bg-emerald-600"
                       @click="reviewCorrection(row, 'approve')"
@@ -476,7 +490,7 @@
                       {{ row.correction.approval_stage === 'spv' ? 'Setujui ke Manager' : 'Setujui' }}
                     </button>
                     <button
-                      v-if="row.correction?.can_review && isCorrectionGroupLead(row)"
+                      v-if="row.correction?.can_review"
                       type="button"
                       class="w-full rounded bg-rose-700 px-3 py-2 text-[12px] font-semibold hover:bg-rose-600"
                       @click="reviewCorrection(row, 'reject')"
@@ -869,6 +883,10 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  pendingCorrectionRequestCountsByPin: {
+    type: Object,
+    default: () => ({}),
+  },
   canSubmitCorrections: {
     type: Boolean,
     default: false,
@@ -1200,6 +1218,7 @@ const allEmployeeGroups = computed(() => {
         departmentName: String(row?.department_name || '-'),
         supervisorName: normalizeReportingToName(row?.supervisor_name),
         totalKoreksi: Number(props.correctionRequestCountsByPin?.[pin] ?? 0),
+        hasPendingCorrection: Number(props.pendingCorrectionRequestCountsByPin?.[pin] ?? 0) > 0,
         totalTerlambat: 0,
         totalAbsen: 0,
         totalLain: 0,
@@ -1998,18 +2017,6 @@ function submitCorrectionRequest() {
   });
 }
 
-function isCorrectionGroupLead(row) {
-  const correction = row?.correction;
-  if (!correction?.request_group_id) return true;
-
-  const groupCorrections = attendanceRows.value
-    .filter((item) => item?.correction?.request_group_id === correction.request_group_id)
-    .map((item) => Number(item.correction.id))
-    .filter(Number.isFinite);
-
-  return !groupCorrections.some((id) => id < Number(correction.id));
-}
-
 async function reviewCorrection(row, action) {
   const correction = row?.correction;
   if (!correction?.id || !correction.can_review) return;
@@ -2034,8 +2041,8 @@ async function reviewCorrection(row, action) {
       icon: 'question',
       title: isSpvApproval ? 'Teruskan ke Manager?' : 'Setujui koreksi?',
       text: isSpvApproval
-        ? 'Semua tanggal dalam pengajuan ini diteruskan sekaligus ke Manager.'
-        : 'Semua tanggal dalam pengajuan ini akan disetujui dan diterapkan ke Attendance Log.',
+        ? 'Koreksi untuk tanggal ini diteruskan ke Manager.'
+        : 'Koreksi untuk tanggal ini akan disetujui dan diterapkan ke Attendance Log.',
       showCancelButton: true,
       confirmButtonText: isSpvApproval ? 'Teruskan' : 'Setujui',
       cancelButtonText: 'Batal',
