@@ -11,6 +11,7 @@ use App\Models\Customer;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
@@ -72,7 +73,7 @@ class UserController extends Controller
     {
         $departments = Department::where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $positions = Position::where('is_active', true)->orderBy('name')->get(['id', 'name', 'department_id']);
-        $customers = Customer::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $customers = Customer::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']);
 
         return Inertia::render('ControlPanel/User/UserCreate', [
             'departments' => $departments,
@@ -87,10 +88,14 @@ class UserController extends Controller
     public function store(Request $request)
     {
         // Select inputs may send empty string; normalize so `nullable|exists` behaves as intended.
+        if (! $request->exists('customer_ids')) {
+            $legacyCustomerId = $request->input('customer_id');
+            $request->merge(['customer_ids' => $legacyCustomerId ? [$legacyCustomerId] : []]);
+        }
+
         $request->merge([
             'department_id' => $request->input('department_id') ?: null,
             'position_id' => $request->input('position_id') ?: null,
-            'customer_id' => $request->input('customer_id') ?: null,
         ]);
 
         $validated = $request->validate([
@@ -101,27 +106,36 @@ class UserController extends Controller
             'status' => 'required|in:active,deactivated',
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
-            'customer_id' => 'nullable|exists:customers,id',
+            'customer_id' => 'sometimes|nullable|exists:customers,id',
+            'customer_ids' => 'present|array',
+            'customer_ids.*' => 'integer|distinct|exists:customers,id',
             'is_admin' => 'nullable|boolean',
         ]);
 
         try {
-            $user = User::create([
-                'name' => $validated['name'],
-                'account' => $validated['account'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'status' => $validated['status'],
-                'department_id' => $validated['department_id'] ?? null,
-                'position_id' => $validated['position_id'] ?? null,
-                'customer_id' => $validated['customer_id'] ?? null,
-                'is_admin' => $validated['is_admin'] ?? false,
-                'user_created' => Auth::user()->email,
-                'user_updated' => Auth::user()->email,
-            ]);
+            $user = DB::transaction(function () use ($validated) {
+                $user = User::create([
+                    'name' => $validated['name'],
+                    'account' => $validated['account'],
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                    'status' => $validated['status'],
+                    'department_id' => $validated['department_id'] ?? null,
+                    'position_id' => $validated['position_id'] ?? null,
+                    'customer_id' => $validated['customer_ids'][0] ?? null,
+                    'is_admin' => $validated['is_admin'] ?? false,
+                    'user_created' => Auth::user()->email,
+                    'user_updated' => Auth::user()->email,
+                ]);
+                $user->customers()->sync($validated['customer_ids']);
+
+                return $user;
+            });
 
             // Log activity
-            $this->logActivity('users', $user->id, 'created', null, $user->toArray(), 'Created user: ' . $user->name);
+            $newData = $user->toArray();
+            $newData['customer_ids'] = $validated['customer_ids'];
+            $this->logActivity('users', $user->id, 'created', null, $newData, 'Created user: ' . $user->name);
 
             return $this->redirectToRememberedIndex($request, 'control.users', 'control.users.index')
                 ->with('success', 'User created successfully.');
@@ -138,7 +152,12 @@ class UserController extends Controller
     {
         $departments = Department::where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $positions = Position::where('is_active', true)->orderBy('name')->get(['id', 'name', 'department_id']);
-        $customers = Customer::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $user->load('customers:id,name,code');
+        $customers = Customer::query()
+            ->where('is_active', true)
+            ->orWhereIn('id', $user->customers->pluck('id'))
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
 
         return Inertia::render('ControlPanel/User/UserEdit', [
             'user' => $user,
@@ -154,10 +173,14 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         // Select inputs may send empty string; normalize so `nullable|exists` behaves as intended.
+        if (! $request->exists('customer_ids')) {
+            $legacyCustomerId = $request->input('customer_id');
+            $request->merge(['customer_ids' => $legacyCustomerId ? [$legacyCustomerId] : []]);
+        }
+
         $request->merge([
             'department_id' => $request->input('department_id') ?: null,
             'position_id' => $request->input('position_id') ?: null,
-            'customer_id' => $request->input('customer_id') ?: null,
         ]);
 
         $validated = $request->validate([
@@ -168,12 +191,15 @@ class UserController extends Controller
             'status' => 'required|in:active,deactivated',
             'department_id' => 'nullable|exists:departments,id',
             'position_id' => 'nullable|exists:positions,id',
-            'customer_id' => 'nullable|exists:customers,id',
+            'customer_id' => 'sometimes|nullable|exists:customers,id',
+            'customer_ids' => 'present|array',
+            'customer_ids.*' => 'integer|distinct|exists:customers,id',
             'is_admin' => 'nullable|boolean',
         ]);
 
         try {
             $oldData = $user->toArray();
+            $oldData['customer_ids'] = $user->customers()->pluck('customers.id')->all();
 
             $updateData = [
                 'name' => $validated['name'],
@@ -182,7 +208,7 @@ class UserController extends Controller
                 'status' => $validated['status'],
                 'department_id' => $validated['department_id'] ?? null,
                 'position_id' => $validated['position_id'] ?? null,
-                'customer_id' => $validated['customer_id'] ?? null,
+                'customer_id' => $validated['customer_ids'][0] ?? null,
                 'is_admin' => $validated['is_admin'] ?? false,
                 'user_updated' => Auth::user()->email,
             ];
@@ -192,10 +218,15 @@ class UserController extends Controller
                 $updateData['password'] = Hash::make($validated['password']);
             }
 
-            $user->update($updateData);
+            DB::transaction(function () use ($user, $updateData, $validated) {
+                $user->update($updateData);
+                $user->customers()->sync($validated['customer_ids']);
+            });
 
             // Log activity
-            $this->logActivity('users', $user->id, 'updated', $oldData, $user->fresh()->toArray(), 'Updated user: ' . $user->name);
+            $newData = $user->fresh()->toArray();
+            $newData['customer_ids'] = $validated['customer_ids'];
+            $this->logActivity('users', $user->id, 'updated', $oldData, $newData, 'Updated user: ' . $user->name);
 
             return $this->redirectToRememberedIndex($request, 'control.users', 'control.users.index')
                 ->with('success', 'User updated successfully.');

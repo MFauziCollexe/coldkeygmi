@@ -151,6 +151,11 @@ class User extends Authenticatable
         return $this->belongsTo(\App\Models\Customer::class);
     }
 
+    public function customers()
+    {
+        return $this->belongsToMany(\App\Models\Customer::class);
+    }
+
     /**
      * Get the employee profile associated with the user.
      */

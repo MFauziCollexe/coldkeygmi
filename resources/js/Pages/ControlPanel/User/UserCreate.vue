@@ -146,30 +146,11 @@
           <div v-if="errors.position_id" class="mt-1 text-sm text-red-400">{{ errors.position_id }}</div>
         </div>
 
-        <div class="relative group">
-          <SearchableSelect
-            v-model="form.customer_id"
-            :options="customers"
-            option-value="id"
-            option-label="name"
-            placeholder=" "
-            empty-label="Select Customer (optional)"
-            input-class="w-full pl-3 pr-10 pt-5 pb-2 !bg-slate-800 !border-slate-700 rounded-lg text-slate-100"
-            button-class="border-0 border-l !border-slate-700 rounded-r-lg !bg-slate-800 text-slate-100"
-          />
-          <label
-            :class="[
-              'pointer-events-none absolute left-3 z-10 transition-all',
-              (form.customer_id
-                ? 'top-0 -translate-y-1/2 bg-slate-800 px-1 text-xs text-slate-300'
-                : 'top-1/2 -translate-y-1/2 bg-transparent px-0 text-base text-slate-400'),
-              'group-focus-within:top-0 group-focus-within:-translate-y-1/2 group-focus-within:bg-slate-800 group-focus-within:px-1 group-focus-within:text-xs group-focus-within:text-slate-200',
-            ]"
-          >
-            Customer Account
-          </label>
-          <div v-if="errors.customer_id" class="mt-1 text-sm text-red-400">{{ errors.customer_id }}</div>
-        </div>
+        <CustomerMultiSelect
+          v-model="form.customer_ids"
+          :options="customers"
+          :error="customerSelectionError"
+        />
 
         <div class="pt-2">
           <label class="flex cursor-pointer items-center gap-2">
@@ -197,6 +178,7 @@ import { Link } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import CustomerMultiSelect from '@/Components/CustomerMultiSelect.vue';
 
 const props = defineProps({
   departments: Array,
@@ -213,13 +195,17 @@ const form = reactive({
   status: 'active',
   department_id: '',
   position_id: '',
-  customer_id: '',
+  customer_ids: [],
   is_admin: false,
 });
 
 const departments = props.departments || [];
 const positions = props.positions || [];
 const customers = props.customers || [];
+const customerSelectionError = computed(() => {
+  if (props.errors?.customer_ids) return props.errors.customer_ids;
+  return Object.entries(props.errors || {}).find(([key]) => key.startsWith('customer_ids.'))?.[1] || '';
+});
 
 const filteredPositions = computed(() => {
   if (!form.department_id) return positions;

@@ -61,6 +61,36 @@ class CrossOdooCustomerAccessTest extends TestCase
         $this->assertNotContains((int) $inactiveCustomer->customers_id_odoo, array_column($assignedOptions[0], 'customer_id'));
     }
 
+    public function test_user_with_multiple_customer_assignments_can_access_each_assigned_customer_only(): void
+    {
+        $firstCustomer = Customer::create([
+            'name' => 'Customer One',
+            'customers_id_odoo' => '501',
+            'is_active' => true,
+        ]);
+        $secondCustomer = Customer::create([
+            'name' => 'Customer Two',
+            'customers_id_odoo' => '502',
+            'is_active' => true,
+        ]);
+
+        $user = $this->createUser();
+        $user->customers()->sync([$firstCustomer->id, $secondCustomer->id]);
+
+        $odoo = Mockery::mock(OdooXmlRpcService::class);
+        $odoo->shouldReceive('searchRead')->once()->andReturn([
+            ['id' => 11, 'name' => 'Product A', 'default_code' => 'A', 'x_studio_customer' => [501, 'Odoo Name A']],
+            ['id' => 12, 'name' => 'Product B', 'default_code' => 'B', 'x_studio_customer' => [502, 'Odoo Name B']],
+            ['id' => 13, 'name' => 'Other Product', 'default_code' => 'C', 'x_studio_customer' => [503, 'Other Customer']],
+        ]);
+
+        [$customers, $products] = (new CrossOdooCustomerAccessService($odoo))->fetchCustomersAndProducts($user);
+
+        $this->assertSame([501, 502], array_column($customers, 'customer_id'));
+        $this->assertSame([11, 12], array_column($products, 'product_id'));
+        $this->assertSame(['Customer One', 'Customer Two'], array_column($customers, 'customer_name'));
+    }
+
     public function test_admin_can_assign_customer_to_user_and_invalid_customer_ids_are_rejected(): void
     {
         $customer = Customer::create([
@@ -86,6 +116,32 @@ class CrossOdooCustomerAccessTest extends TestCase
             'account' => 'customer-login',
             'customer_id' => $customer->id,
         ]);
+
+        $otherCustomer = Customer::create([
+            'name' => 'Other Assigned Customer',
+            'customers_id_odoo' => '502',
+            'is_active' => true,
+        ]);
+        $multiCustomerResponse = $this->post(route('control.users.store'), [
+            'name' => 'Multi Customer Login',
+            'account' => 'multi-customer-login',
+            'email' => 'multi-customer-login@example.test',
+            'password' => 'password',
+            'status' => 'active',
+            'customer_ids' => [$customer->id, $otherCustomer->id],
+            'is_admin' => false,
+        ]);
+
+        $multiCustomerResponse->assertRedirect();
+        $multiCustomerUser = \App\Models\User::query()->where('account', 'multi-customer-login')->firstOrFail();
+        $this->assertSame(
+            [$customer->id, $otherCustomer->id],
+            array_map(
+                'intval',
+                $multiCustomerUser->customers()->orderBy('customers.id')->pluck('customers.id')->all()
+            )
+        );
+        $this->assertSame($customer->id, $multiCustomerUser->customer_id);
 
         $this->post(route('control.users.store'), [
             'name' => 'Invalid Customer Login',

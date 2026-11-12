@@ -16,19 +16,22 @@ class CrossOdooCustomerAccessService
      */
     public function fetchCustomersAndProducts(?User $user): array
     {
-        $assignedCustomer = null;
-        $assignedOdooId = null;
+        $assignedCustomers = $user?->customers()->get() ?? collect();
+        if ($assignedCustomers->isEmpty() && $user?->customer_id !== null) {
+            $legacyCustomer = Customer::query()->find($user->customer_id);
+            if ($legacyCustomer) {
+                $assignedCustomers->push($legacyCustomer);
+            }
+        }
 
-        if ($user?->customer_id !== null) {
-            $assignedCustomer = Customer::query()->find($user->customer_id);
-            $assignedOdooId = $assignedCustomer
-                ? filter_var(trim((string) $assignedCustomer->customers_id_odoo), FILTER_VALIDATE_INT)
-                : false;
-
-            abort_unless(
-                $assignedCustomer !== null && $assignedCustomer->is_active && is_int($assignedOdooId) && $assignedOdooId > 0,
-                403,
-            );
+        $assignedCustomerByOdooId = null;
+        if ($assignedCustomers->isNotEmpty()) {
+            $assignedCustomerByOdooId = [];
+            foreach ($assignedCustomers as $assignedCustomer) {
+                $assignedOdooId = filter_var(trim((string) $assignedCustomer->customers_id_odoo), FILTER_VALIDATE_INT);
+                abort_unless($assignedCustomer->is_active && is_int($assignedOdooId) && $assignedOdooId > 0, 403);
+                $assignedCustomerByOdooId[$assignedOdooId] = $assignedCustomer;
+            }
         }
 
         $templates = $this->odoo->searchRead(
@@ -52,11 +55,11 @@ class CrossOdooCustomerAccessService
                 continue;
             }
 
-            if ($assignedOdooId !== null && $customerId !== $assignedOdooId) {
+            if ($assignedCustomerByOdooId !== null && ! isset($assignedCustomerByOdooId[$customerId])) {
                 continue;
             }
 
-            $customerName = $assignedCustomer?->name ?? (string) ($customer[1] ?? '');
+            $customerName = $assignedCustomerByOdooId[$customerId]->name ?? (string) ($customer[1] ?? '');
             $customers[$customerId] = [
                 'customer_id' => $customerId,
                 'customer_name' => $customerName,
@@ -71,7 +74,7 @@ class CrossOdooCustomerAccessService
             ];
         }
 
-        if ($assignedCustomer !== null && $assignedOdooId !== null) {
+        foreach ($assignedCustomerByOdooId ?? [] as $assignedOdooId => $assignedCustomer) {
             $customers[$assignedOdooId] = [
                 'customer_id' => $assignedOdooId,
                 'customer_name' => $assignedCustomer->name,

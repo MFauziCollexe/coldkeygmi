@@ -10,6 +10,7 @@
         :type="isVisible ? 'text' : 'password'"
         :placeholder="placeholder"
         :required="required"
+        :autocomplete="autocomplete"
         class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition pr-10"
         @input="$emit('update:modelValue', $event.target.value)"
       />
@@ -47,6 +48,10 @@ defineProps({
   required: {
     type: Boolean,
     default: false,
+  },
+  autocomplete: {
+    type: String,
+    default: 'off',
   },
   error: {
     type: String,

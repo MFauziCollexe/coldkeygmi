@@ -843,6 +843,9 @@ Route::get('/', function () {
 Route::get('/signup', [UserController::class, 'showSignUp'])->name('signup');
 Route::post('/signup', [UserController::class, 'store'])->name('signup.store');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+Route::put('/password', [AuthController::class, 'changePassword'])
+    ->middleware('auth')
+    ->name('password.update');
 Route::get('/temporary-user-access/{token}', [App\Http\Controllers\UserImpersonationController::class, 'confirm'])
     ->where('token', '[A-Za-z0-9]+')
     ->name('user-impersonation.confirm');

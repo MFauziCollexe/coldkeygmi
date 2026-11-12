@@ -8,6 +8,21 @@ use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
+    public function changePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'password' => ['required', 'string', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+        $user->password = $validated['password'];
+        $user->user_updated = $request->ip();
+        $user->save();
+
+        return redirect()->back()->with('success', 'Password berhasil diubah.');
+    }
+
     public function login(Request $request)
     {
         $credentials = $request->validate([
