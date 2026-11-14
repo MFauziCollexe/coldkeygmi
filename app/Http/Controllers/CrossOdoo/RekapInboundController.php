@@ -20,8 +20,6 @@ class RekapInboundController extends Controller
 
     private const OUT_PATTERNS = ['DELIVERY ORDERS'];
 
-    private const EXCLUDE_PATTERNS = ['RETURN', 'REPACK', 'ADJUSTMENT', 'CREDIT NOTE', 'INTERNAL TRANSFER', 'PICKING', 'PUTAWAY'];
-
     public function index(Request $request): Response
     {
         $filtersApplied = $request->boolean('filters_applied');
@@ -44,6 +42,7 @@ class RekapInboundController extends Controller
         $totalRows = 0;
         $totalQty = 0.0;
         $totalQtyKg = 0.0;
+        $totalQtyUnavailable = false;
         $allRows = [];
         $allItems = count($selectedProductIds) !== 1;
 
@@ -56,11 +55,18 @@ class RekapInboundController extends Controller
                 if (! empty($allRow['is_subtotal'])) {
                     continue;
                 }
-                $totalQty += (float) ($allRow['qty'] ?? 0);
+                if ($allRow['qty'] === null) {
+                    $totalQtyUnavailable = true;
+                } else {
+                    $totalQty += (float) $allRow['qty'];
+                }
                 $totalQtyKg += (float) ($allRow['qty_kg'] ?? 0);
             }
+            if ($totalQtyUnavailable) {
+                $totalQty = null;
+            }
 
-            $totalRows = count($allRows);
+            $totalRows = count(array_filter($allRows, fn ($row) => empty($row['is_subtotal'])));
             $rows = $allRows;
         }
 
@@ -100,7 +106,7 @@ class RekapInboundController extends Controller
         $startDate = $period.'-01';
         $endDate = Carbon::parse($period.'-01')->endOfMonth()->toDateString();
 
-        $headers = ['NO', 'TANGGAL', 'KD CUSTOMER', 'NM CUSTOMER', 'NO DELIVERY', 'SOURCE DOCUMENTS', 'NO MOBIL', 'KD BARANG', 'NM BARANG', 'QTY', 'QTY KG', 'UOM'];
+        $headers = ['NO', 'TANGGAL', 'KD CUSTOMER', 'NM CUSTOMER', 'NO DELIVERY', 'SOURCE DOCUMENTS', 'NO MOBIL', 'KD BARANG', 'NM BARANG', 'QTY', 'QTY KG', 'UOM', 'KETERANGAN ToS'];
         $data = [];
 
         if ($filtersApplied && $selectedCustomerId !== null) {
@@ -123,9 +129,10 @@ class RekapInboundController extends Controller
                     $row['no_mobil'],
                     $row['kd_barang'],
                     $row['nm_barang'],
-                    (float) $row['qty'],
+                    $row['qty'] === null ? null : (float) $row['qty'],
                     (float) $row['qty_kg'],
                     $row['uom'],
+                    $row['qty_source'],
                 ];
             }
         }
@@ -235,7 +242,7 @@ class RekapInboundController extends Controller
 
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['id', 'date', 'quantity', 'ns_actual_weight', 'product_id', 'lot_id', 'owner_id', 'picking_id', 'product_uom_id', 'reference', 'picking_type_id', 'location_id', 'location_dest_id'],
+            ['id', 'date', 'quantity', 'ns_actual_weight', 'product_id', 'lot_id', 'owner_id', 'picking_id', 'move_id', 'product_uom_id', 'reference', 'picking_type_id', 'location_id', 'location_dest_id'],
             null,
             $domain,
         );
@@ -244,15 +251,19 @@ class RekapInboundController extends Controller
             return [];
         }
 
-        $locationUsages = $this->fetchLocationUsages($odoo, $lines);
-
         $pickingIds = [];
+        $moveIds = [];
         $productProductIds = [];
         $uomIds = [];
         foreach ($lines as $line) {
             $picking = $line['picking_id'] ?? false;
             if (is_array($picking) && isset($picking[0])) {
                 $pickingIds[(int) $picking[0]] = true;
+            }
+
+            $move = $line['move_id'] ?? false;
+            if (is_array($move) && isset($move[0]) && (! isset($line['quantity']) || ! is_numeric($line['quantity']))) {
+                $moveIds[(int) $move[0]] = true;
             }
 
             $product = $line['product_id'] ?? false;
@@ -267,6 +278,16 @@ class RekapInboundController extends Controller
         }
 
         $pickings = $this->fetchPickings($odoo, array_keys($pickingIds));
+        $moveQuantities = $this->fetchMoveQuantities($odoo, array_keys($moveIds));
+        $knownMoveQuantities = [];
+        foreach ($lines as $line) {
+            $move = $line['move_id'] ?? false;
+            if (is_array($move) && isset($move[0]) && isset($line['quantity']) && is_numeric($line['quantity'])) {
+                $moveId = (int) $move[0];
+                $knownMoveQuantities[$moveId] = ($knownMoveQuantities[$moveId] ?? 0.0) + (float) $line['quantity'];
+            }
+        }
+        $fallbackAllocatedMoves = [];
         $productDetails = $this->fetchProductDetails($odoo, array_keys($productProductIds));
         $uoms = $this->fetchUoms($odoo, array_keys($uomIds));
 
@@ -285,7 +306,7 @@ class RekapInboundController extends Controller
                 continue;
             }
 
-            $direction = $this->movementDirection($line, $locationUsages);
+            $direction = $this->movementDirection($line);
 
             if ($this->isNeurusoftOpeningMovement($reference)) {
                 continue;
@@ -295,6 +316,17 @@ class RekapInboundController extends Controller
                 continue;
             }
 
+            $move = $line['move_id'] ?? false;
+            $moveId = is_array($move) && isset($move[0]) ? (int) $move[0] : null;
+            $actualQuantity = $this->resolveActualQuantity(
+                $line,
+                $moveQuantities,
+                $knownMoveQuantities,
+                $moveId !== null && ! empty($fallbackAllocatedMoves[$moveId]),
+            );
+            if ($actualQuantity['fallback_allocated'] && $moveId !== null) {
+                $fallbackAllocatedMoves[$moveId] = true;
+            }
             $picking = $line['picking_id'] ?? false;
             $pickingId = is_array($picking) ? (int) $picking[0] : null;
             $pickingInfo = $pickingId !== null ? ($pickings[$pickingId] ?? null) : null;
@@ -315,12 +347,15 @@ class RekapInboundController extends Controller
                 'tanggal' => substr((string) ($line['date'] ?? ''), 0, 10),
                 'kd_customer' => $partner['ref'] ?? null,
                 'nm_customer' => $partner['name'] ?? null,
+                'transaksi' => ($line['reference'] ?? false) !== false ? (string) $line['reference'] : null,
                 'no_delivery' => $pickingInfo['name'] ?? null,
                 'source_documents' => $pickingInfo['origin'] ?? null,
                 'no_mobil' => $pickingInfo['plate'] ?? null,
                 'kd_barang' => $productInfo['default_code'] ?? null,
                 'nm_barang' => $productInfo['name'] ?? null,
-                'qty' => (float) ($line['quantity'] ?? 0),
+                'qty' => $actualQuantity['quantity'],
+                'qty_source' => $actualQuantity['source'],
+                'qty_available' => $actualQuantity['available'],
                 'qty_kg' => abs((float) ($line['ns_actual_weight'] ?? 0)),
                 'uom' => $uomId !== null ? ($uoms[$uomId] ?? null) : null,
             ];
@@ -330,6 +365,7 @@ class RekapInboundController extends Controller
         foreach ($rows as $row) {
             $groupKey = json_encode([
                 $row['tanggal'],
+                $row['transaksi'],
                 $row['kd_customer'],
                 $row['nm_customer'],
                 $row['no_delivery'],
@@ -344,11 +380,20 @@ class RekapInboundController extends Controller
                 continue;
             }
 
-            $groupedRows[$groupKey]['qty'] += $row['qty'];
+            $groupedRows[$groupKey]['qty'] += $row['qty'] ?? 0;
+            $groupedRows[$groupKey]['qty_available'] = $groupedRows[$groupKey]['qty_available'] && $row['qty_available'];
+            $groupedRows[$groupKey]['qty_source'] = $this->combineQuantitySources($groupedRows[$groupKey]['qty_source'], $row['qty_source']);
             $groupedRows[$groupKey]['qty_kg'] += $row['qty_kg'];
         }
 
         $rows = array_values($groupedRows);
+        foreach ($rows as &$row) {
+            if (! $row['qty_available']) {
+                $row['qty'] = null;
+            }
+            unset($row['qty_available']);
+        }
+        unset($row);
 
         usort($rows, function ($a, $b) {
             return strcmp((string) $a['tanggal'], (string) $b['tanggal'])
@@ -397,54 +442,81 @@ class RekapInboundController extends Controller
         string $endDate,
     ): array {
         if (count($selectedProductIds) === 1) {
-            return $this->computeRows($odoo, $selectedProductIds[0], $selectedCustomerId, $startDate, $endDate);
+            return $this->groupRowsByTransaction(
+                $this->computeRows($odoo, $selectedProductIds[0], $selectedCustomerId, $startDate, $endDate)
+            );
         }
-
-        $byItem = [];
-        foreach ($this->productTemplateIds($selectedCustomerId, $products, $selectedProductIds) as $templateId) {
-            foreach ($this->computeRows($odoo, $templateId, $selectedCustomerId, $startDate, $endDate) as $row) {
-                $key = (string) ($row['kd_barang'] ?? '').'|'.(string) ($row['nm_barang'] ?? '');
-                $byItem[$key][] = $row;
-            }
-        }
-
-        $keys = array_keys($byItem);
-        usort($keys, fn ($a, $b) => strcmp($a, $b));
 
         $rows = [];
-        foreach ($keys as $key) {
-            $items = $byItem[$key];
-            usort($items, function ($a, $b) {
-                return strcmp((string) $a['tanggal'], (string) $b['tanggal'])
-                    ?: strcmp((string) $a['no_delivery'], (string) $b['no_delivery']);
-            });
+        foreach ($this->productTemplateIds($selectedCustomerId, $products, $selectedProductIds) as $templateId) {
+            array_push($rows, ...$this->computeRows($odoo, $templateId, $selectedCustomerId, $startDate, $endDate));
+        }
 
+        return $this->groupRowsByTransaction($rows);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function groupRowsByTransaction(array $rows): array
+    {
+        $transactions = [];
+        foreach ($rows as $row) {
+            $key = $row['transaksi'] !== null && $row['transaksi'] !== ''
+                ? json_encode(['transaksi', $row['transaksi']])
+                : json_encode(['fallback', $row['tanggal'], $row['no_delivery'], $row['kd_customer']]);
+            $transactions[$key][] = $row;
+        }
+
+        uasort($transactions, function ($a, $b) {
+            $firstA = $a[0];
+            $firstB = $b[0];
+
+            return strcmp((string) $firstA['tanggal'], (string) $firstB['tanggal'])
+                ?: strcmp((string) $firstA['transaksi'], (string) $firstB['transaksi'])
+                ?: strcmp((string) $firstA['no_delivery'], (string) $firstB['no_delivery'])
+                ?: strcmp((string) $firstA['source_documents'], (string) $firstB['source_documents']);
+        });
+
+        $groupedRows = [];
+        foreach ($transactions as $items) {
+            usort($items, fn ($a, $b) => strcmp((string) $a['kd_barang'], (string) $b['kd_barang']));
             $qty = 0.0;
             $qtyKg = 0.0;
+            $qtyAvailable = true;
+            $qtySource = null;
             foreach ($items as $item) {
-                $qty += (float) $item['qty'];
+                if ($item['qty'] === null) {
+                    $qtyAvailable = false;
+                } else {
+                    $qty += (float) $item['qty'];
+                }
+                $qtySource = $this->combineQuantitySources($qtySource, $item['qty_source']);
                 $qtyKg += (float) $item['qty_kg'];
-                $rows[] = $item;
+                $groupedRows[] = $item;
             }
 
             $first = $items[0];
-            $rows[] = [
+            $groupedRows[] = [
                 'tanggal' => null,
+                'transaksi' => $first['transaksi'],
                 'kd_customer' => null,
                 'nm_customer' => null,
-                'no_delivery' => null,
-                'source_documents' => null,
+                'no_delivery' => $first['no_delivery'],
+                'source_documents' => $first['source_documents'],
                 'no_mobil' => null,
-                'kd_barang' => $first['kd_barang'],
-                'nm_barang' => $first['nm_barang'],
-                'qty' => $qty,
+                'kd_barang' => null,
+                'nm_barang' => null,
+                'qty' => $qtyAvailable ? $qty : null,
+                'qty_source' => $qtySource,
                 'qty_kg' => $qtyKg,
                 'uom' => null,
                 'is_subtotal' => true,
             ];
         }
 
-        return $rows;
+        return $groupedRows;
     }
 
     /**
@@ -505,6 +577,88 @@ class RekapInboundController extends Controller
         }
 
         return $map;
+    }
+
+    /**
+     * @param  array<int, int>  $moveIds
+     * @return array<int, float>
+     */
+    private function fetchMoveQuantities(OdooXmlRpcService $odoo, array $moveIds): array
+    {
+        if ($moveIds === []) {
+            return [];
+        }
+
+        $moves = $odoo->searchRead(
+            'stock.move',
+            ['id', 'quantity'],
+            null,
+            [['id', 'in', $moveIds]],
+        );
+
+        $quantities = [];
+        foreach ($moves as $move) {
+            if (isset($move['quantity']) && is_numeric($move['quantity'])) {
+                $quantities[(int) $move['id']] = (float) $move['quantity'];
+            }
+        }
+
+        return $quantities;
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     * @param  array<int, float>  $moveQuantities
+     * @param  array<int, float>  $knownMoveQuantities
+     * @return array{quantity: float|null, source: string, available: bool, fallback_allocated: bool}
+     */
+    private function resolveActualQuantity(array $line, array $moveQuantities, array $knownMoveQuantities, bool $fallbackAlreadyAllocated): array
+    {
+        if (isset($line['quantity']) && is_numeric($line['quantity'])) {
+            return [
+                'quantity' => (float) $line['quantity'],
+                'source' => 'Aktual mutasi: stock.move.line.quantity',
+                'available' => true,
+                'fallback_allocated' => false,
+            ];
+        }
+
+        $move = $line['move_id'] ?? false;
+        $moveId = is_array($move) && isset($move[0]) ? (int) $move[0] : null;
+        if ($moveId !== null && array_key_exists($moveId, $moveQuantities)) {
+            $quantity = 0.0;
+            $fallbackAllocated = ! $fallbackAlreadyAllocated;
+            if ($fallbackAllocated) {
+                $quantity = max(0.0, $moveQuantities[$moveId] - ($knownMoveQuantities[$moveId] ?? 0.0));
+            }
+
+            return [
+                'quantity' => $quantity,
+                'source' => 'Fallback global: sisa stock.move.quantity setelah aktual per baris dikurangkan; dialokasikan satu kali per mutasi',
+                'available' => true,
+                'fallback_allocated' => $fallbackAllocated,
+            ];
+        }
+
+        return [
+            'quantity' => null,
+            'source' => 'Kuantitas aktual dan fallback global tidak tersedia; kuantitas demand tidak digunakan',
+            'available' => false,
+            'fallback_allocated' => false,
+        ];
+    }
+
+    private function combineQuantitySources(?string $current, string $next): string
+    {
+        if ($current === null || $current === '') {
+            return $next;
+        }
+
+        if (str_contains($current, $next)) {
+            return $current;
+        }
+
+        return $current.'; '.$next;
     }
 
     /**
@@ -591,54 +745,11 @@ class RekapInboundController extends Controller
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $lines
-     * @return array<int, string>
-     */
-    private function fetchLocationUsages(OdooXmlRpcService $odoo, array $lines): array
-    {
-        $locationIds = [];
-
-        foreach ($lines as $line) {
-            foreach (['location_id', 'location_dest_id'] as $field) {
-                $location = $line[$field] ?? false;
-
-                if (is_array($location) && isset($location[0])) {
-                    $locationIds[(int) $location[0]] = true;
-                }
-            }
-        }
-
-        if ($locationIds === []) {
-            return [];
-        }
-
-        $locations = $odoo->searchRead(
-            'stock.location',
-            ['id', 'usage'],
-            null,
-            [['id', 'in', array_keys($locationIds)]],
-            ['active_test' => false],
-        );
-
-        $usages = [];
-        foreach ($locations as $location) {
-            $usages[(int) $location['id']] = (string) ($location['usage'] ?? '');
-        }
-
-        return $usages;
-    }
-
-    /**
      * @param  array<string, mixed>  $line
-     * @param  array<int, string>  $locationUsages
      */
-    private function movementDirection(array $line, array $locationUsages): ?string
+    private function movementDirection(array $line): ?string
     {
         $label = $this->pickingTypeLabel($line['picking_type_id'] ?? false);
-
-        if ($label !== null && $this->isExcludedLabel($label)) {
-            return null;
-        }
 
         if ($label !== null && $this->isInboundLabel($label)) {
             return 'in';
@@ -646,23 +757,6 @@ class RekapInboundController extends Controller
 
         if ($label !== null && $this->isOutboundLabel($label)) {
             return 'out';
-        }
-
-        $source = $line['location_id'] ?? false;
-        $destination = $line['location_dest_id'] ?? false;
-        $sourceUsage = is_array($source) ? ($locationUsages[(int) ($source[0] ?? 0)] ?? null) : null;
-        $destinationUsage = is_array($destination) ? ($locationUsages[(int) ($destination[0] ?? 0)] ?? null) : null;
-
-        if ($sourceUsage !== null && $destinationUsage !== null) {
-            if ($sourceUsage !== 'internal' && $destinationUsage === 'internal') {
-                return 'in';
-            }
-
-            if ($sourceUsage === 'internal' && $destinationUsage !== 'internal') {
-                return 'out';
-            }
-
-            return null;
         }
 
         return null;
@@ -690,7 +784,7 @@ class RekapInboundController extends Controller
     private function isInboundLabel(string $label): bool
     {
         foreach (self::IN_PATTERNS as $pattern) {
-            if (str_contains($label, $pattern)) {
+            if ($label === $pattern) {
                 return true;
             }
         }
@@ -701,18 +795,7 @@ class RekapInboundController extends Controller
     private function isOutboundLabel(string $label): bool
     {
         foreach (self::OUT_PATTERNS as $pattern) {
-            if (str_contains($label, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function isExcludedLabel(string $label): bool
-    {
-        foreach (self::EXCLUDE_PATTERNS as $pattern) {
-            if (str_contains($label, $pattern)) {
+            if ($label === $pattern) {
                 return true;
             }
         }

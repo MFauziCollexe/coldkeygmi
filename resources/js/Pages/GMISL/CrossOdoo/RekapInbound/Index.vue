@@ -9,6 +9,7 @@
             <span class="font-semibold text-slate-200">{{ customerName }}</span>
             dan product
             <span class="font-semibold text-slate-200">{{ productName }}</span>.
+            Kuantitas memakai aktual mutasi; fallback global dan dasar kuantitas tercantum pada kolom ToS.
           </p>
         </div>
         <div class="flex flex-col items-end gap-2">
@@ -101,27 +102,28 @@
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-semibold">QTY KG</th>
               <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">UOM</th>
+              <th class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-semibold">KETERANGAN ToS</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!paginatedRows.length">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="12">
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-6 text-center text-slate-400" colspan="13">
                 {{ filtersApplied ? 'Tidak ada data untuk filter yang dipilih.' : 'Pilih filter lalu klik Apply filter untuk memuat data.' }}
               </td>
             </tr>
             <template v-for="(row, index) in paginatedRows" :key="index">
-              <tr v-if="row.is_subtotal && allItems" class="bg-slate-200 text-slate-900">
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-bold" colspan="9">SUBTOTAL - {{ row.nm_barang }}</td>
+              <tr v-if="row.is_subtotal" class="bg-slate-200 text-slate-900">
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 font-bold" colspan="9">SUBTOTAL TRANSAKSI - {{ row.transaksi || row.no_delivery || row.source_documents || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(row.qty) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(row.qty_kg) }}</td>
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="1"></td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="2"></td>
               </tr>
               <tr
                 v-else
                 :class="(index % 2 === 0 ? 'bg-white' : 'bg-slate-50') + ' text-slate-900'"
                 class="hover:bg-blue-50"
               >
-                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ allItems ? row.__no : index + 1 }}</td>
+                <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-center text-slate-900">{{ row.__no }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.tanggal) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.kd_customer || '-' }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.nm_customer || '-' }}</td>
@@ -133,6 +135,7 @@
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row.qty) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row.qty_kg) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.uom || '-' }}</td>
+                <td class="border border-slate-300 px-2 py-1 text-slate-900">{{ row.qty_source }}</td>
               </tr>
             </template>
           </tbody>
@@ -141,7 +144,7 @@
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="9">TOTAL</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalQty) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalQtyKg) }}</td>
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="1"></td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5" colspan="2"></td>
             </tr>
           </tfoot>
         </table>
@@ -201,7 +204,6 @@ const localProductIds = ref(props.selectedProductIds.length
   : [props.selectedProductId ?? 0]);
 
 const paginatedRows = computed(() => {
-  if (!props.allItems) return props.rows || [];
   let no = 0;
   return (props.rows || []).map(row => (row.is_subtotal ? row : { ...row, __no: ++no }));
 });
