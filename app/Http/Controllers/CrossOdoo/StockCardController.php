@@ -24,6 +24,8 @@ class StockCardController extends Controller
 
     private const EXCLUDE_PATTERNS = ['INTERNAL TRANSFER', 'PICKING', 'PUTAWAY'];
 
+    private const DISPLAY_EXCLUDE_PATTERNS = ['RETURN', 'REPACK', 'ADJUSTMENT', 'CREDIT NOTE'];
+
     public function index(Request $request): Response
     {
         $filtersApplied = $request->boolean('filters_applied');
@@ -79,6 +81,7 @@ class StockCardController extends Controller
                 'trans' => $row['trans'] ?? null,
                 'source_document' => $row['source_document'] ?? null,
                 'nopol' => $row['nopol'] ?? null,
+                'location_details' => $row['location_details'] ?? [],
                 'kd_barang' => $row['kd_barang'] ?? null,
                 'nm_barang' => $row['nm_barang'] ?? null,
                 'qty_in' => array_key_exists('qty_in', $row) && $row['qty_in'] !== null ? (float) $row['qty_in'] : null,
@@ -266,6 +269,8 @@ class StockCardController extends Controller
         $openingBalanceKg = 0.0;
         $totalInKg = 0.0;
         $totalOutKg = 0.0;
+        $balanceInKg = 0.0;
+        $balanceOutKg = 0.0;
         $finalSaldoKg = 0.0;
         $allRows = [];
 
@@ -283,20 +288,27 @@ class StockCardController extends Controller
             $groups = $this->sortGroups($groups);
 
             foreach ($groups as $group) {
-                $totalIn += (float) ($group['qty_in'] ?? 0);
-                $totalOut += (float) ($group['qty_out'] ?? 0);
-                $totalInKg += (float) ($group['qty_in_kg'] ?? 0);
-                $totalOutKg += (float) ($group['qty_out_kg'] ?? 0);
+                $balanceInKg += (float) ($group['qty_in_kg'] ?? 0);
+                $balanceOutKg += (float) ($group['qty_out_kg'] ?? 0);
+                if (! empty($group['displayable'])) {
+                    $totalIn += (float) ($group['qty_in'] ?? 0);
+                    $totalOut += (float) ($group['qty_out'] ?? 0);
+                    $totalInKg += (float) ($group['qty_in_kg'] ?? 0);
+                    $totalOutKg += (float) ($group['qty_out_kg'] ?? 0);
+                }
             }
 
             $sohWeightKg = $this->fetchSohWeightKg($odoo, $variantIds, $customerId);
-            $openingBalanceKg = $sohWeightKg - ($totalInKg - $totalOutKg);
+            $openingBalanceKg = $sohWeightKg - ($balanceInKg - $balanceOutKg);
 
             $running = $openingBalance;
             $runningKg = $openingBalanceKg;
             foreach ($groups as $group) {
                 $running += $group['balance_delta'] ?? ($group['qty_in'] - $group['qty_out']);
                 $runningKg += $group['balance_delta_kg'] ?? ($group['qty_in_kg'] - $group['qty_out_kg']);
+                if (empty($group['displayable'])) {
+                    continue;
+                }
                 $group['saldo'] = $running;
                 $group['saldo_kg'] = $runningKg;
                 $allRows[] = $group;
@@ -698,6 +710,8 @@ class StockCardController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $line
+    /**
      * @param  array<int, int>  $variantIds
      * @return array<int, array<string, mixed>>
      */
@@ -705,7 +719,7 @@ class StockCardController extends Controller
     {
         $lines = $odoo->searchRead(
             'stock.move.line',
-            ['date', 'quantity', 'ns_actual_weight', 'lot_id', 'reference', 'picking_type_id', 'picking_id', 'location_id', 'location_dest_id'],
+            ['id', 'date', 'quantity', 'ns_actual_weight', 'reference', 'picking_type_id', 'picking_id', 'product_id', 'product_uom_id', 'lot_id', 'location_id', 'location_dest_id', 'package_id', 'result_package_id'],
             null,
             [
                 ['state', '=', 'done'],
@@ -720,21 +734,17 @@ class StockCardController extends Controller
         }
 
         $locationUsages = $this->fetchLocationUsages($odoo, $lines);
+        $previousColdStorageMoves = $this->fetchPreviousColdStorageMoves($odoo, $lines, $variantIds, $endDate);
+        $lotExpirations = $previousColdStorageMoves['lot_expirations'] ?? [];
 
-        $lotIds = [];
         $pickingIds = [];
         foreach ($lines as $line) {
-            if (is_array($line['lot_id'] ?? null)) {
-                $lotIds[(int) $line['lot_id'][0]] = true;
-            }
-
             $picking = $line['picking_id'] ?? false;
             if (is_array($picking) && isset($picking[0])) {
                 $pickingIds[(int) $picking[0]] = true;
             }
         }
 
-        $expirations = $this->fetchLotExpirations($odoo, array_keys($lotIds));
         $pickingInfos = $this->fetchPickingInfos($odoo, array_keys($pickingIds));
 
         $groups = [];
@@ -769,29 +779,27 @@ class StockCardController extends Controller
                 continue;
             }
 
-            $lotRef = $line['lot_id'] ?? false;
-            $lotId = is_array($lotRef) ? (int) $lotRef[0] : null;
             $trans = ($line['reference'] ?? false) !== false ? (string) $line['reference'] : null;
-            $expiredRaw = $lotId !== null ? ($expirations[$lotId] ?? null) : null;
-            $expired = $expiredRaw !== null ? substr($expiredRaw, 0, 10) : null;
 
             $picking = $line['picking_id'] ?? false;
             $pickingId = is_array($picking) ? (int) $picking[0] : null;
             $pickingInfo = $pickingId !== null ? ($pickingInfos[$pickingId] ?? null) : null;
             $source = $pickingInfo !== null ? $pickingInfo['origin'] : null;
             $plate = $pickingInfo !== null ? $pickingInfo['plate'] : null;
+            $displayable = $this->isRegularInOutLabel($label);
 
-            $key = $date.'|'.($trans ?? '').'|'.($expiredRaw ?? '').'|'.($source ?? '');
+            $key = $date.'|'.$label.'|'.$direction.'|'.($trans ?? '').'|'.($source ?? '');
 
             if (! isset($groups[$key])) {
                 $groups[$key] = [
                     'date' => $date,
                     'operation_type' => $label,
                     'trans' => $trans,
-                    'expired' => $expired,
-                    'expired_raw' => $expiredRaw,
                     'source_document' => $source,
+
+                    'displayable' => $displayable,
                     'nopol' => null,
+                    'location_details' => [],
                     'qty_in' => 0.0,
                     'qty_out' => 0.0,
                     'qty_in_kg' => 0.0,
@@ -804,6 +812,46 @@ class StockCardController extends Controller
             }
 
             $actualWeight = abs((float) ($line['ns_actual_weight'] ?? 0));
+            $estimatedSources = $outbound
+                ? $this->previousColdStorageSources($line, $previousColdStorageMoves)
+                : [];
+
+            if ($estimatedSources !== []) {
+                foreach ($estimatedSources as $source) {
+                    $detailKey = 'estimated:'.$source['id'];
+                    if (! isset($groups[$key]['location_details'][$detailKey])) {
+                        $groups[$key]['location_details'][$detailKey] = [
+                            'location' => $source['location'],
+                            'lot_serial_number' => $source['lot_serial_number'],
+                            'uom' => $source['uom'],
+                            'expiration_date' => $source['expiration_date'],
+                            'destination_location' => $source['destination'],
+                            'source_package' => $source['source_package'],
+                            'destination_package' => $source['destination_package'],
+                            'qty_in' => 0.0,
+                            'qty_out' => $source['quantity'],
+                            'qty_in_kg' => 0.0,
+                            'qty_out_kg' => $source['weight'],
+                            'tracking' => 'Perkiraan berdasarkan lot',
+                            'source_date' => $source['date'],
+                            'source_move_id' => $source['id'],
+                            'route' => $source['route'],
+                            'reference' => $source['reference'],
+                        ];
+                    }
+                }
+            } else {
+                $this->addLocationDetail(
+                    $groups[$key],
+                    $line,
+                    $inbound,
+                    (float) $line['quantity'],
+                    $actualWeight,
+                    $this->relationDisplayName($line['product_uom_id'] ?? false),
+                    $this->lotExpirationDate($line['lot_id'] ?? false, $lotExpirations),
+                );
+            }
+
             if ($inbound) {
                 $groups[$key]['qty_in'] += (float) $line['quantity'];
                 $groups[$key]['qty_in_kg'] += $actualWeight;
@@ -815,7 +863,316 @@ class StockCardController extends Controller
             }
         }
 
+        foreach ($groups as &$group) {
+            $group['location_details'] = array_values($group['location_details']);
+        }
+        unset($group);
+
         return array_values($groups);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $lines
+     * @param  array<int, int>  $variantIds
+     * @return array{moves: array<string, array<int, array{id: int, location_id: int, location: string, destination_id: int, destination: string, source_package: string|null, destination_package: string|null, source_package_id: int|null, destination_package_id: int|null, lot_serial_number: string|null, uom: string|null, expiration_date: string|null, quantity: float, weight: float, reference: string|null, date: string}>>, locations: array<int, array{name: string, usage: string}>, lot_expirations: array<int, string|null>}
+     */
+    private function fetchPreviousColdStorageMoves(OdooXmlRpcService $odoo, array $lines, array $variantIds, string $endDate): array
+    {
+        $lotIds = [];
+        foreach ($lines as $line) {
+            $lot = $line['lot_id'] ?? false;
+            if (is_array($lot) && isset($lot[0])) {
+                $lotIds[(int) $lot[0]] = true;
+            }
+        }
+
+        if ($lotIds === []) {
+            return ['moves' => [], 'locations' => [], 'lot_expirations' => []];
+        }
+
+        $previousLines = $odoo->searchRead(
+            'stock.move.line',
+            ['id', 'date', 'quantity', 'ns_actual_weight', 'product_id', 'product_uom_id', 'lot_id', 'reference', 'location_id', 'location_dest_id', 'package_id', 'result_package_id'],
+            null,
+            [
+                ['state', '=', 'done'],
+                ['product_id', 'in', $variantIds],
+                ['lot_id', 'in', array_keys($lotIds)],
+                ['date', '<=', $endDate.' 23:59:59'],
+            ],
+        );
+
+        $lots = $odoo->searchRead(
+            'stock.lot',
+            ['id', 'expiration_date'],
+            null,
+            [['id', 'in', array_keys($lotIds)]],
+        );
+        $lotExpirations = [];
+        foreach ($lots as $lot) {
+            $expiration = $lot['expiration_date'] ?? false;
+            $lotExpirations[(int) $lot['id']] = ($expiration !== false && $expiration !== null && $expiration !== '')
+                ? (string) $expiration
+                : null;
+        }
+
+        $locationIds = [];
+        foreach ($previousLines as $previousLine) {
+            foreach (['location_id', 'location_dest_id'] as $field) {
+                $location = $previousLine[$field] ?? false;
+                if (is_array($location) && isset($location[0])) {
+                    $locationIds[(int) $location[0]] = true;
+                }
+            }
+        }
+
+        $locations = $locationIds === [] ? [] : $odoo->searchRead(
+            'stock.location',
+            ['id', 'complete_name', 'usage'],
+            null,
+            [['id', 'in', array_keys($locationIds)]],
+            ['active_test' => false],
+        );
+        $locationNames = [];
+        foreach ($locations as $location) {
+            $locationNames[(int) $location['id']] = [
+                'name' => (string) ($location['complete_name'] ?? $location['name'] ?? ''),
+                'usage' => (string) ($location['usage'] ?? ''),
+            ];
+        }
+
+        $moves = [];
+        foreach ($previousLines as $previousLine) {
+            $product = $previousLine['product_id'] ?? false;
+            $lot = $previousLine['lot_id'] ?? false;
+            $destination = $previousLine['location_dest_id'] ?? false;
+            $source = $previousLine['location_id'] ?? false;
+            if (! is_array($product) || ! isset($product[0]) || ! is_array($lot) || ! isset($lot[0])
+                || ! is_array($destination) || ! isset($destination[0]) || ! is_array($source) || ! isset($source[0])) {
+                continue;
+            }
+
+            $key = (int) $product[0].'|'.(int) $lot[0].'|'.(int) $destination[0];
+            $moves[$key][] = [
+                'id' => (int) ($previousLine['id'] ?? 0),
+                'location_id' => (int) $source[0],
+                'location' => $locationNames[(int) $source[0]]['name'] ?? (string) ($source[1] ?? ''),
+                'destination_id' => (int) $destination[0],
+                'destination' => $locationNames[(int) $destination[0]]['name'] ?? (string) ($destination[1] ?? ''),
+                'source_package' => $this->relationDisplayName($previousLine['package_id'] ?? false),
+                'destination_package' => $this->relationDisplayName($previousLine['result_package_id'] ?? false),
+                'source_package_id' => $this->relationId($previousLine['package_id'] ?? false),
+                'destination_package_id' => $this->relationId($previousLine['result_package_id'] ?? false),
+                'lot_serial_number' => $this->relationDisplayName($previousLine['lot_id'] ?? false),
+                'uom' => $this->relationDisplayName($previousLine['product_uom_id'] ?? false),
+                'expiration_date' => $this->lotExpirationDate($previousLine['lot_id'] ?? false, $lotExpirations),
+                'quantity' => abs((float) ($previousLine['quantity'] ?? 0)),
+                'weight' => abs((float) ($previousLine['ns_actual_weight'] ?? 0)),
+                'reference' => ($previousLine['reference'] ?? false) !== false ? (string) $previousLine['reference'] : null,
+                'date' => (string) ($previousLine['date'] ?? ''),
+            ];
+        }
+
+        return ['moves' => $moves, 'locations' => $locationNames, 'lot_expirations' => $lotExpirations];
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     * @param  array{moves: array<string, array<int, array{id: int, location_id: int, location: string, destination_id: int, destination: string, source_package: string|null, destination_package: string|null, source_package_id: int|null, destination_package_id: int|null, lot_serial_number: string|null, uom: string|null, expiration_date: string|null, quantity: float, weight: float, reference: string|null, date: string}>>, locations: array<int, array{name: string, usage: string}>, lot_expirations: array<int, string|null>}  $previousMoves
+     * @return array<int, array{id: int, location_id: int, location: string, date: string, route: string, destination: string, source_package: string|null, destination_package: string|null, lot_serial_number: string|null, uom: string|null, expiration_date: string|null, quantity: float, weight: float, reference: string|null}>
+     */
+    private function previousColdStorageSources(array $line, array $previousMoves): array
+    {
+        $product = $line['product_id'] ?? false;
+        $lot = $line['lot_id'] ?? false;
+        $destination = $line['location_id'] ?? false;
+        if (! is_array($product) || ! isset($product[0]) || ! is_array($lot) || ! isset($lot[0])
+            || ! is_array($destination) || ! isset($destination[0])) {
+            return [];
+        }
+
+        $moves = $previousMoves['moves'] ?? [];
+        $locations = $previousMoves['locations'] ?? [];
+        $lineDate = (string) ($line['date'] ?? '');
+        $lineId = (int) ($line['id'] ?? 0);
+        $linePackageId = $this->relationId($line['package_id'] ?? false);
+        $lineQuantity = abs((float) ($line['quantity'] ?? 0));
+        $trace = function (
+            int $targetLocationId,
+            string $beforeDate,
+            int $beforeId,
+            ?int $expectedPackageId,
+            float $expectedQuantity,
+            array $route,
+            int $depth,
+        ) use (&$trace, $moves, $locations, $product, $lot): array {
+            if ($depth >= 12) {
+                return [];
+            }
+
+            $key = (int) $product[0].'|'.(int) $lot[0].'|'.$targetLocationId;
+            $eligible = array_values(array_filter(
+                $moves[$key] ?? [],
+                fn (array $candidate): bool => $candidate['date'] < $beforeDate
+                    || ($candidate['date'] === $beforeDate && $candidate['id'] < $beforeId),
+            ));
+
+            if ($eligible === []) {
+                return [];
+            }
+
+            $eligible = $this->rankPreviousMoves($eligible, $expectedPackageId, $expectedQuantity);
+            $sources = [];
+
+            foreach ($eligible as $candidate) {
+                $sourceName = $candidate['location'];
+                $nextRoute = [$sourceName, ...$route];
+                if (preg_match('/(^|\/)CS(?:\s+\d+)?(\/|$)/i', $sourceName) === 1) {
+                    $sources[] = [
+                        'id' => $candidate['id'],
+                        'location_id' => $candidate['location_id'],
+                        'location' => $sourceName,
+                        'date' => $candidate['date'],
+                        'route' => implode(' → ', $nextRoute),
+                        'destination' => $candidate['destination'],
+                        'source_package' => $candidate['source_package'],
+                        'destination_package' => $candidate['destination_package'],
+                        'source_package_id' => $candidate['source_package_id'] ?? null,
+                        'destination_package_id' => $candidate['destination_package_id'] ?? null,
+                        'lot_serial_number' => $candidate['lot_serial_number'],
+                        'uom' => $candidate['uom'],
+                        'expiration_date' => $candidate['expiration_date'],
+                        'quantity' => $candidate['quantity'],
+                        'weight' => $candidate['weight'],
+                        'reference' => $candidate['reference'],
+                    ];
+
+                    continue;
+                }
+
+                if (($locations[$candidate['location_id']]['usage'] ?? '') === 'internal') {
+                    $sources = array_merge(
+                        $sources,
+                        $trace(
+                            $candidate['location_id'],
+                            $candidate['date'],
+                            $candidate['id'],
+                            $candidate['source_package_id'] ?? null,
+                            $candidate['quantity'],
+                            $nextRoute,
+                            $depth + 1,
+                        ),
+                    );
+                }
+            }
+
+            return $sources;
+        };
+
+        $currentLocationName = (string) ($destination[1] ?? '');
+        return $trace(
+            (int) $destination[0],
+            $lineDate,
+            $lineId,
+            $linePackageId,
+            $lineQuantity,
+            [$currentLocationName],
+            0,
+        );
+    }
+
+    /**
+     * Prefer source moves matching both the package and quantity; fall back to
+     * package, then quantity, before using the latest same-lot movement.
+     *
+     * @param  array<int, array<string, mixed>>  $candidates
+     * @return array<int, array<string, mixed>>
+     */
+    private function rankPreviousMoves(array $candidates, ?int $packageId, float $quantity): array
+    {
+        $samePackage = $packageId !== null
+            ? array_values(array_filter(
+                $candidates,
+                fn (array $candidate): bool => ($candidate['destination_package_id'] ?? null) === $packageId,
+            ))
+            : [];
+        $pool = $samePackage !== [] ? $samePackage : $candidates;
+
+        $sameQuantity = array_values(array_filter(
+            $pool,
+            fn (array $candidate): bool => abs($candidate['quantity'] - $quantity) < 0.000001,
+        ));
+        if ($sameQuantity !== []) {
+            $pool = $sameQuantity;
+        }
+
+        usort($pool, fn (array $a, array $b): int => strcmp($b['date'], $a['date']) ?: ($b['id'] <=> $a['id']));
+        $latest = $pool[0];
+
+        return array_values(array_filter(
+            $pool,
+            fn (array $candidate): bool => $candidate['date'] === $latest['date'] && $candidate['id'] === $latest['id'],
+        ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $group
+     */
+    private function addLocationDetail(array &$group, array $line, bool $inbound, float $quantity, float $weight, ?string $uom, ?string $expirationDate): void
+    {
+        $location = $line['location_id'] ?? false;
+        $locationId = is_array($location) && isset($location[0]) ? (int) $location[0] : null;
+        $locationName = is_array($location) && isset($location[1]) ? (string) $location[1] : '-';
+        $destination = $line['location_dest_id'] ?? false;
+        $key = $locationId !== null ? (string) $locationId : 'unknown';
+
+        if (! isset($group['location_details'][$key])) {
+            $group['location_details'][$key] = [
+                'location' => $locationName,
+                'lot_serial_number' => $this->relationDisplayName($line['lot_id'] ?? false),
+                'uom' => $uom,
+                'expiration_date' => $expirationDate,
+                'destination_location' => is_array($destination) ? (string) ($destination[1] ?? '-') : '-',
+                'source_package' => $this->relationDisplayName($line['package_id'] ?? false),
+                'destination_package' => $this->relationDisplayName($line['result_package_id'] ?? false),
+                'qty_in' => 0.0,
+                'qty_out' => 0.0,
+                'qty_in_kg' => 0.0,
+                'qty_out_kg' => 0.0,
+                'tracking' => 'Lokasi pada transaksi',
+                'source_date' => null,
+                'source_move_id' => null,
+                'route' => null,
+                'reference' => ($line['reference'] ?? false) !== false ? (string) $line['reference'] : null,
+            ];
+        }
+
+        $direction = $inbound ? 'in' : 'out';
+        $group['location_details'][$key]['qty_'.$direction] += $quantity;
+        $group['location_details'][$key]['qty_'.$direction.'_kg'] += $weight;
+    }
+
+    private function relationDisplayName(mixed $relation): ?string
+    {
+        return is_array($relation) && isset($relation[1]) && $relation[1] !== ''
+            ? (string) $relation[1]
+            : null;
+    }
+
+    private function relationId(mixed $relation): ?int
+    {
+        return is_array($relation) && isset($relation[0]) ? (int) $relation[0] : null;
+    }
+
+    /**
+     * @param  array<int, string|null>  $lotExpirations
+     */
+    private function lotExpirationDate(mixed $lot, array $lotExpirations): ?string
+    {
+        $lotId = is_array($lot) && isset($lot[0]) ? (int) $lot[0] : null;
+        $expiration = $lotId !== null ? ($lotExpirations[$lotId] ?? null) : null;
+
+        return is_string($expiration) && $expiration !== '' ? substr($expiration, 0, 10) : null;
     }
 
     /**
@@ -868,14 +1225,6 @@ class StockCardController extends Controller
             return null;
         }
 
-        if ($label !== null && $this->isInboundLabel($label)) {
-            return 'in';
-        }
-
-        if ($label !== null && $this->isOutboundLabel($label)) {
-            return 'out';
-        }
-
         $source = $line['location_id'] ?? false;
         $destination = $line['location_dest_id'] ?? false;
         $sourceUsage = is_array($source) ? ($locationUsages[(int) ($source[0] ?? 0)] ?? null) : null;
@@ -893,37 +1242,15 @@ class StockCardController extends Controller
             return null;
         }
 
+        if ($label !== null && $this->isOutboundLabel($label)) {
+            return 'out';
+        }
+
+        if ($label !== null && $this->isInboundLabel($label)) {
+            return 'in';
+        }
+
         return null;
-    }
-
-    /**
-     * @param  array<int, int>  $lotIds
-     * @return array<int, string|null>
-     */
-    private function fetchLotExpirations(OdooXmlRpcService $odoo, array $lotIds): array
-    {
-        if ($lotIds === []) {
-            return [];
-        }
-
-        $lots = $odoo->searchRead(
-            'stock.lot',
-            ['id', 'expiration_date'],
-            null,
-            [['id', 'in', $lotIds]],
-        );
-
-        $map = [];
-
-        foreach ($lots as $lot) {
-            $expiration = $lot['expiration_date'] ?? false;
-
-            $map[(int) $lot['id']] = ($expiration !== false && $expiration !== null && $expiration !== '')
-                ? (string) $expiration
-                : null;
-        }
-
-        return $map;
     }
 
     /**
@@ -970,8 +1297,7 @@ class StockCardController extends Controller
     {
         usort($groups, function ($a, $b) {
             return $this->compareNullable((string) $a['date'], (string) $b['date'])
-                ?: $this->compareNullable($a['trans'], $b['trans'])
-                ?: $this->compareNullable($a['expired'], $b['expired']);
+                ?: $this->compareNullable($a['trans'], $b['trans']);
         });
 
         return $groups;
@@ -1022,18 +1348,26 @@ class StockCardController extends Controller
 
     private function isInboundLabel(string $label): bool
     {
-        foreach (self::IN_PATTERNS as $pattern) {
-            if (str_contains($label, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->containsAnyPattern($label, self::IN_PATTERNS);
     }
 
     private function isOutboundLabel(string $label): bool
     {
-        foreach (self::OUT_PATTERNS as $pattern) {
+        return $this->containsAnyPattern($label, self::OUT_PATTERNS);
+    }
+
+    private function isRegularInOutLabel(?string $label): bool
+    {
+        if ($label === null || $label === '' || $this->containsAnyPattern($label, self::DISPLAY_EXCLUDE_PATTERNS)) {
+            return false;
+        }
+
+        return $this->containsAnyPattern($label, ['RECEIPTS', 'DELIVERY ORDERS']);
+    }
+
+    private function containsAnyPattern(string $label, array $patterns): bool
+    {
+        foreach ($patterns as $pattern) {
             if (str_contains($label, $pattern)) {
                 return true;
             }

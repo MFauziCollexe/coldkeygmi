@@ -140,8 +140,9 @@
               </tr>
               <tr
                 v-else
-                :class="(row.item_start ? 'bg-sky-50' : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')) + ' text-slate-900'"
-                class="hover:bg-blue-50"
+                :class="(row.item_start ? 'bg-sky-50' : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')) + ' text-slate-900' + (row.location_details?.length ? ' cursor-pointer hover:bg-blue-50' : '')"
+                :aria-expanded="row.location_details?.length ? expandedRows[index] === true : undefined"
+                @click="toggleRow(index, row)"
               >
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ formatDateShort(row.transaction_date) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-slate-900">{{ row.operation_type || '-' }}</td>
@@ -157,11 +158,49 @@
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row.qty_out_kg) }}</td>
                 <td class="whitespace-nowrap border border-slate-300 px-2 py-1 text-right text-slate-900">{{ formatNumber(row.saldo_kg) }}</td>
               </tr>
+              <tr v-if="!row.item_subtotal && expandedRows[index] && row.location_details?.length" class="bg-slate-100">
+                <td colspan="13" class="border border-slate-300 p-3">
+                  <table class="w-full min-w-[1100px] border-collapse text-xs text-slate-800">
+                    <thead>
+                      <tr class="bg-sky-500 text-slate-900">
+                        <th class="border border-slate-300 px-2 py-1 text-left">LOCATION</th>
+                        <th class="border border-slate-300 px-2 py-1 text-left">LOT/SERIAL NUMBER</th>
+                        <th class="border border-slate-300 px-2 py-1 text-left">UOM</th>
+                        <th class="border border-slate-300 px-2 py-1 text-left">EXPIRED DATE</th>
+                        <th class="border border-slate-300 px-2 py-1 text-left">SOURCE PACKAGE</th>
+                        <th class="border border-slate-300 px-2 py-1 text-left">DESTINATION PACKAGE</th>
+                        <th class="border border-slate-300 px-2 py-1 text-right">QTY IN</th>
+                        <th class="border border-slate-300 px-2 py-1 text-right">QTY OUT</th>
+                        <th class="border border-slate-300 px-2 py-1 text-right">QTY IN KG</th>
+                        <th class="border border-slate-300 px-2 py-1 text-right">QTY OUT KG</th>
+                        <th class="border border-slate-300 px-2 py-1 text-left">TRANSAKSI SUMBER</th>
+                        <th class="border border-slate-300 px-2 py-1 text-left">TANGGAL MUTASI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(detail, detailIndex) in row.location_details" :key="`${detail.location}-${detailIndex}`" class="bg-sky-100">
+                        <td class="border border-slate-300 px-2 py-1">{{ detail.location || '-' }}</td>
+                        <td class="border border-slate-300 px-2 py-1">{{ detail.lot_serial_number || '-' }}</td>
+                        <td class="border border-slate-300 px-2 py-1">{{ detail.uom || '-' }}</td>
+                        <td class="border border-slate-300 px-2 py-1">{{ detail.expiration_date ? formatDateShort(detail.expiration_date) : '-' }}</td>
+                        <td class="border border-slate-300 px-2 py-1">{{ detail.source_package || '-' }}</td>
+                        <td class="border border-slate-300 px-2 py-1">{{ detail.destination_package || '-' }}</td>
+                        <td class="border border-slate-300 px-2 py-1 text-right">{{ formatNumber(detail.qty_in) }}</td>
+                        <td class="border border-slate-300 px-2 py-1 text-right">{{ formatNumber(detail.qty_out) }}</td>
+                        <td class="border border-slate-300 px-2 py-1 text-right">{{ formatNumber(detail.qty_in_kg) }}</td>
+                        <td class="border border-slate-300 px-2 py-1 text-right">{{ formatNumber(detail.qty_out_kg) }}</td>
+                        <td class="border border-slate-300 px-2 py-1">{{ detail.reference || '-' }}</td>
+                        <td class="border border-slate-300 px-2 py-1">{{ detail.source_date ? formatDateShort(detail.source_date) : '-' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
             </template>
           </tbody>
           <tfoot>
             <tr class="bg-slate-200 text-slate-900">
-              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="7">TOTAL</td>
+              <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-left font-bold" colspan="9">TOTAL</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalIn) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(totalOut) }}</td>
               <td class="whitespace-nowrap border border-slate-300 px-2 py-1.5 text-right font-bold text-slate-900">{{ formatNumber(finalSaldo) }}</td>
@@ -210,6 +249,9 @@ const props = defineProps({
 
 const allRows       = computed(() => props.rows || []);
 const paginatedRows = computed(() => allRows.value);
+const expandedRows = ref({});
+
+watch(() => props.rows, () => { expandedRows.value = {}; });
 
 const todayDate    = new Date();
 const defaultPeriod = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}`;
@@ -256,6 +298,10 @@ function formatDateShort(v) {
 function formatNumber(v) {
   if (v === null || v === undefined || v === '') return '-';
   return Number(v).toLocaleString('id-ID', { minimumFractionDigits:0, maximumFractionDigits:2 });
+}
+function toggleRow(index, row) {
+  if (!row.location_details?.length) return;
+  expandedRows.value[index] = !expandedRows.value[index];
 }
 
 function buildParams(overrides = {}) {

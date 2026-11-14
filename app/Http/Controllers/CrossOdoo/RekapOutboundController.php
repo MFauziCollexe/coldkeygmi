@@ -16,11 +16,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RekapOutboundController extends Controller
 {
-    private const IN_PATTERNS = ['RECEIPTS', 'REPACK INBOUND', 'ADJUSTMENT INBOUND', 'CREDIT NOTE'];
+    private const IN_PATTERNS = ['RECEIPTS'];
 
-    private const OUT_PATTERNS = ['DELIVERY ORDERS', 'RETURN RECEIPTS', 'REPACK OUTBOUND', 'ADJUSTMENT OUTBOUND'];
+    private const OUT_PATTERNS = ['DELIVERY ORDERS'];
 
-    private const EXCLUDE_PATTERNS = ['INTERNAL TRANSFER', 'PICKING', 'PUTAWAY'];
+    private const EXCLUDE_PATTERNS = ['RETURN', 'REPACK', 'ADJUSTMENT', 'CREDIT NOTE', 'INTERNAL TRANSFER', 'PICKING', 'PUTAWAY'];
 
     public function index(Request $request): Response
     {
