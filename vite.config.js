@@ -34,4 +34,21 @@ export default defineConfig({
             drop: ["console", "debugger"],
         },
     },
+    // TAMBAHKAN BLOK BUILD INI UNTUK MENGATASI CHUNK BESAR
+    build: {
+        chunkSizeWarningLimit: 600, // Menaikkan limit warning jika diperlukan
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    // Memisahkan library dari node_modules agar tidak menumpuk di app.js
+                    if (id.includes("node_modules")) {
+                        if (id.includes("jspdf")) {
+                            return "jspdf"; // Memisahkan jspdf ke file sendiri karena ukurannya besar
+                        }
+                        return "vendor"; // Library node_modules lainnya dijadikan satu di vendor.js
+                    }
+                },
+            },
+        },
+    },
 });
