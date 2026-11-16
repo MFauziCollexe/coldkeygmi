@@ -405,6 +405,7 @@ class AttendanceLogController extends Controller
                     $scanCount = 0;
                 }
             }
+            [$firstScan, $lastScan] = $this->applyApprovedCorrection($correction, $firstScan, $lastScan);
             $firstScanTime = $this->normalizeTime($firstScan);
             $lastScanTime = $this->normalizeTime($lastScan);
             $timeMatched = $startTime !== null && $firstScanTime !== null && substr($startTime, 0, 5) === substr($firstScanTime, 0, 5);
@@ -641,14 +642,7 @@ class AttendanceLogController extends Controller
                         [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
                     }
                     $correction = $correctionMap->get($logDate . '|' . $pin);
-                    if ($correction && $correction->status === 'approved') {
-                        if ($correction->corrected_first_scan !== null) {
-                            $firstScan = $correction->corrected_first_scan->format('Y-m-d H:i:s');
-                        }
-                        if ($correction->corrected_last_scan !== null) {
-                            $lastScan = $correction->corrected_last_scan->format('Y-m-d H:i:s');
-                        }
-                    }
+                    [$firstScan, $lastScan] = $this->applyApprovedCorrection($correction, $firstScan, $lastScan);
                     $firstScanTime = $this->normalizeTime($firstScan);
                     $lastScanTime = $this->normalizeTime($lastScan);
                     if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
@@ -1749,14 +1743,7 @@ class AttendanceLogController extends Controller
 
             [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate, $nextDayStartTime);
             $correction = $correctionMap->get($logDate . '|' . $pin);
-            if ($correction && $correction->status === 'approved') {
-                if ($correction->corrected_first_scan !== null) {
-                    $firstScan = $correction->corrected_first_scan->format('Y-m-d H:i:s');
-                }
-                if ($correction->corrected_last_scan !== null) {
-                    $lastScan = $correction->corrected_last_scan->format('Y-m-d H:i:s');
-                }
-            }
+            [$firstScan, $lastScan] = $this->applyApprovedCorrection($correction, $firstScan, $lastScan);
 
             $firstScanTime = $this->normalizeTime($firstScan);
             $hasFirstScan = $firstScan !== null;
@@ -1898,14 +1885,7 @@ class AttendanceLogController extends Controller
                     [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
                 }
                 $correction = $correctionMap->get($logDate . '|' . $pin);
-                if ($correction && $correction->status === 'approved') {
-                    if ($correction->corrected_first_scan !== null) {
-                        $firstScan = $correction->corrected_first_scan->format('Y-m-d H:i:s');
-                    }
-                    if ($correction->corrected_last_scan !== null) {
-                        $lastScan = $correction->corrected_last_scan->format('Y-m-d H:i:s');
-                    }
-                }
+                [$firstScan, $lastScan] = $this->applyApprovedCorrection($correction, $firstScan, $lastScan);
 
                 $firstScanTime = $this->normalizeTime($firstScan);
                 if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
@@ -4096,6 +4076,24 @@ class AttendanceLogController extends Controller
                 });
             })
             ->values();
+    }
+
+    /**
+     * @return array{0: string|null, 1: string|null}
+     */
+    private function applyApprovedCorrection(
+        ?AttendanceLogCorrection $correction,
+        ?string $firstScan,
+        ?string $lastScan,
+    ): array {
+        if ($correction?->status !== 'approved') {
+            return [$firstScan, $lastScan];
+        }
+
+        return [
+            $correction->corrected_first_scan?->format('Y-m-d H:i:s') ?? $firstScan,
+            $correction->corrected_last_scan?->format('Y-m-d H:i:s') ?? $lastScan,
+        ];
     }
 
     private function formatCorrection(?AttendanceLogCorrection $correction, bool $canReview = false): ?array

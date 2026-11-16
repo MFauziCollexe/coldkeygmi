@@ -13,6 +13,42 @@ use Tests\TestCase;
 
 class AttendanceLogControllerTest extends TestCase
 {
+    public function test_approved_manual_correction_is_applied_to_attendance_scan_window(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'applyApprovedCorrection');
+        $method->setAccessible(true);
+
+        $correction = new AttendanceLogCorrection([
+            'status' => 'approved',
+            'corrected_first_scan' => '2026-11-02 08:15:00',
+            'corrected_last_scan' => '2026-11-02 17:20:00',
+        ]);
+
+        $this->assertSame(
+            ['2026-11-02 08:15:00', '2026-11-02 17:20:00'],
+            $method->invoke($controller, $correction, '2026-11-02 08:30:00', '2026-11-02 17:00:00')
+        );
+    }
+
+    public function test_pending_correction_does_not_change_attendance_scan_window(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'applyApprovedCorrection');
+        $method->setAccessible(true);
+
+        $correction = new AttendanceLogCorrection([
+            'status' => 'pending',
+            'corrected_first_scan' => '2026-11-02 08:15:00',
+            'corrected_last_scan' => '2026-11-02 17:20:00',
+        ]);
+
+        $this->assertSame(
+            ['2026-11-02 08:30:00', '2026-11-02 17:00:00'],
+            $method->invoke($controller, $correction, '2026-11-02 08:30:00', '2026-11-02 17:00:00')
+        );
+    }
+
     public function test_correction_status_label_tracks_multilevel_approval_stage(): void
     {
         $controller = new AttendanceLogController();
