@@ -63,6 +63,18 @@ class AttendanceLogControllerTest extends TestCase
         );
     }
 
+    public function test_blank_manual_correction_time_clears_its_override(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'buildManualCorrectionTimes');
+        $method->setAccessible(true);
+
+        $this->assertSame(
+            [null, '2026-11-02 17:20:00'],
+            $method->invoke($controller, '2026-11-02', null, '17:20', '08:00:00', '17:00:00')
+        );
+    }
+
     public function test_correction_status_label_tracks_multilevel_approval_stage(): void
     {
         $controller = new AttendanceLogController();

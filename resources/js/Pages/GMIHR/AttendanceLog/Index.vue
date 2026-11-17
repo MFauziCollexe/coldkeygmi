@@ -2175,9 +2175,12 @@ async function openCorrectionSwal(row) {
     html: `
       <div style="display:grid;grid-template-columns:1fr;gap:8px;text-align:left">
         <label style="font-size:12px;color:#94a3b8">Scan Masuk (HH:mm)</label>
-        <input id="swal-first-time" type="time" class="swal2-input" style="margin:0;height:40px" value="${safeFirst}">
+        <span style="font-size:11px;color:#94a3b8">Saat ini: ${safeFirst || '-'}</span>
+        <input id="swal-first-time" type="time" class="swal2-input" style="margin:0;height:40px" value="">
         <label style="font-size:12px;color:#94a3b8">Scan Pulang (HH:mm)</label>
-        <input id="swal-last-time" type="time" class="swal2-input" style="margin:0;height:40px" value="${safeLast}">
+        <span style="font-size:11px;color:#94a3b8">Saat ini: ${safeLast || '-'}</span>
+        <input id="swal-last-time" type="time" class="swal2-input" style="margin:0;height:40px" value="">
+        <span style="font-size:11px;color:#94a3b8">Isi hanya jam yang ingin diubah. Jam kosong tidak akan dikoreksi.</span>
         <label style="font-size:12px;color:#94a3b8">Catatan</label>
         <input id="swal-note" type="text" class="swal2-input" style="margin:0;height:40px" value="${safeNote}">
       </div>
@@ -2206,6 +2209,11 @@ async function openCorrectionSwal(row) {
   }, {
     preserveScroll: true,
     onSuccess: () => {
+      if (!result.value.first || !result.value.last) {
+        router.reload({ preserveScroll: true });
+        return;
+      }
+
       applyLocalCorrection(row, result.value);
     },
     onError: (errors) => {

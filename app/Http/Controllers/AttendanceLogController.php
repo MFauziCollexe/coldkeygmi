@@ -2105,16 +2105,13 @@ class AttendanceLogController extends Controller
         $startTime = $this->normalizeScheduleTimeInput($validated['start_time'] ?? null);
         $endTime = $this->normalizeScheduleTimeInput($validated['end_time'] ?? null);
 
-        $existingCorrection = AttendanceLogCorrection::query()
-            ->whereDate('log_date', $logDate)
-            ->where('pin', $pin)
-            ->first();
-        $firstScan = ! empty($validated['corrected_first_time'])
-            ? $this->buildCorrectionDateTime($logDate, $validated['corrected_first_time'], $startTime, $endTime, false)
-            : $existingCorrection?->corrected_first_scan;
-        $lastScan = ! empty($validated['corrected_last_time'])
-            ? $this->buildCorrectionDateTime($logDate, $validated['corrected_last_time'], $startTime, $endTime, true)
-            : $existingCorrection?->corrected_last_scan;
+        [$firstScan, $lastScan] = $this->buildManualCorrectionTimes(
+            $logDate,
+            $validated['corrected_first_time'] ?? null,
+            $validated['corrected_last_time'] ?? null,
+            $startTime,
+            $endTime,
+        );
 
         AttendanceLogCorrection::updateOrCreate(
             [
@@ -4089,6 +4086,26 @@ class AttendanceLogController extends Controller
         return [
             $correction->corrected_first_scan?->format('Y-m-d H:i:s') ?? $firstScan,
             $correction->corrected_last_scan?->format('Y-m-d H:i:s') ?? $lastScan,
+        ];
+    }
+
+    /**
+     * @return array{0: string|null, 1: string|null}
+     */
+    private function buildManualCorrectionTimes(
+        string $logDate,
+        ?string $firstTime,
+        ?string $lastTime,
+        ?string $startTime,
+        ?string $endTime,
+    ): array {
+        return [
+            $firstTime !== null
+                ? $this->buildCorrectionDateTime($logDate, $firstTime, $startTime, $endTime, false)
+                : null,
+            $lastTime !== null
+                ? $this->buildCorrectionDateTime($logDate, $lastTime, $startTime, $endTime, true)
+                : null,
         ];
     }
 
