@@ -1994,8 +1994,6 @@ class AttendanceLogController extends Controller
         $validated = $request->validate([
             'items' => ['required', 'array', 'min:1', 'max:5'],
             'items.*.log_date' => ['required', 'date'],
-            'items.*.corrected_first_time' => ['nullable', 'date_format:H:i'],
-            'items.*.corrected_last_time' => ['nullable', 'date_format:H:i'],
             'items.*.note' => ['required', 'string', 'max:1000'],
         ]);
 
@@ -2037,20 +2035,8 @@ class AttendanceLogController extends Controller
 
                 $correction->fill([
                     'request_group_id' => $requestGroupId,
-                    'corrected_first_scan' => $this->buildCorrectionDateTime(
-                        $logDate,
-                        $item['corrected_first_time'] ?? null,
-                        null,
-                        null,
-                        false
-                    ),
-                    'corrected_last_scan' => $this->buildCorrectionDateTime(
-                        $logDate,
-                        $item['corrected_last_time'] ?? null,
-                        null,
-                        null,
-                        true
-                    ),
+                    'corrected_first_scan' => null,
+                    'corrected_last_scan' => null,
                     'note' => trim($item['note']),
                     'status' => 'pending',
                     'approval_stage' => $approvalStage,
@@ -2089,8 +2075,8 @@ class AttendanceLogController extends Controller
             'pin' => ['required'],
             'start_time' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'end_time' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
-            'corrected_first_time' => ['nullable', 'date_format:H:i'],
-            'corrected_last_time' => ['nullable', 'date_format:H:i'],
+            'corrected_first_time' => ['required_without:corrected_last_time', 'nullable', 'date_format:H:i'],
+            'corrected_last_time' => ['required_without:corrected_first_time', 'nullable', 'date_format:H:i'],
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -4079,7 +4065,7 @@ class AttendanceLogController extends Controller
         ?string $firstScan,
         ?string $lastScan,
     ): array {
-        if ($correction?->status !== 'approved') {
+        if ($correction?->status !== 'approved' || $correction->request_group_id !== null) {
             return [$firstScan, $lastScan];
         }
 

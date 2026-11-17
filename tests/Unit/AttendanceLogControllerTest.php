@@ -49,6 +49,25 @@ class AttendanceLogControllerTest extends TestCase
         );
     }
 
+    public function test_approved_correction_request_does_not_change_attendance_scan_window(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'applyApprovedCorrection');
+        $method->setAccessible(true);
+
+        $correction = new AttendanceLogCorrection([
+            'request_group_id' => 'request-group',
+            'status' => 'approved',
+            'corrected_first_scan' => '2026-11-02 08:15:00',
+            'corrected_last_scan' => '2026-11-02 17:20:00',
+        ]);
+
+        $this->assertSame(
+            ['2026-11-02 08:30:00', '2026-11-02 17:00:00'],
+            $method->invoke($controller, $correction, '2026-11-02 08:30:00', '2026-11-02 17:00:00')
+        );
+    }
+
     public function test_approved_correction_without_time_changes_keeps_existing_scan_times(): void
     {
         $controller = new AttendanceLogController();
@@ -63,16 +82,60 @@ class AttendanceLogControllerTest extends TestCase
         );
     }
 
-    public function test_blank_manual_correction_time_clears_its_override(): void
+    public function test_manual_correction_sets_both_checkin_and_checkout_times(): void
     {
         $controller = new AttendanceLogController();
         $method = new ReflectionMethod($controller, 'buildManualCorrectionTimes');
         $method->setAccessible(true);
 
         $this->assertSame(
-            [null, '2026-11-02 17:20:00'],
-            $method->invoke($controller, '2026-11-02', null, '17:20', '08:00:00', '17:00:00')
+            ['2026-11-02 08:15:00', '2026-11-02 17:20:00'],
+            $method->invoke($controller, '2026-11-02', '08:15', '17:20', '08:00:00', '17:00:00')
         );
+    }
+
+    public function test_manual_correction_can_change_only_one_scan_time(): void
+    {
+        $controller = new AttendanceLogController();
+        $buildTimes = new ReflectionMethod($controller, 'buildManualCorrectionTimes');
+        $buildTimes->setAccessible(true);
+        $applyCorrection = new ReflectionMethod($controller, 'applyApprovedCorrection');
+        $applyCorrection->setAccessible(true);
+
+        foreach ([
+            [
+                '08:15',
+                null,
+                ['2026-11-02 08:15:00', null],
+                ['2026-11-02 08:15:00', '2026-11-02 17:00:00'],
+            ],
+            [
+                null,
+                '17:20',
+                [null, '2026-11-02 17:20:00'],
+                ['2026-11-02 08:30:00', '2026-11-02 17:20:00'],
+            ],
+        ] as [$firstTime, $lastTime, $expectedOverrides, $expectedScans]) {
+            $overrides = $buildTimes->invoke(
+                $controller,
+                '2026-11-02',
+                $firstTime,
+                $lastTime,
+                '08:00:00',
+                '17:00:00'
+            );
+            $this->assertSame($expectedOverrides, $overrides);
+
+            $correction = new AttendanceLogCorrection([
+                'status' => 'approved',
+                'corrected_first_scan' => $overrides[0],
+                'corrected_last_scan' => $overrides[1],
+            ]);
+            $this->assertSame(
+                $expectedScans,
+                $applyCorrection->invoke($controller, $correction, '2026-11-02 08:30:00', '2026-11-02 17:00:00')
+            );
+        }
     }
 
     public function test_correction_status_label_tracks_multilevel_approval_stage(): void

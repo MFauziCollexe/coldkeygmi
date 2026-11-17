@@ -266,7 +266,7 @@
                                   >
                                     {{ correctionLabel(row.correction.status_label) }}
                                   </span>
-                                  <span class="text-[11px] text-slate-400">
+                                  <span v-if="!row.correction.request_group_id" class="text-[11px] text-slate-400">
                                     {{ formatTimeOnly(row.correction.first_scan) }} - {{ formatTimeOnly(row.correction.last_scan) }}
                                   </span>
                                 </div>
@@ -454,7 +454,7 @@
                       >
                         {{ correctionLabel(row.correction.status_label) }}
                       </span>
-                      <div class="text-[11px] text-slate-400">
+                      <div v-if="!row.correction.request_group_id" class="text-[11px] text-slate-400">
                         {{ formatTimeOnly(row.correction.first_scan) }} - {{ formatTimeOnly(row.correction.last_scan) }}
                       </div>
                       <div v-if="row.correction.note" class="max-w-56 text-[11px] text-slate-400">{{ row.correction.note }}</div>
@@ -546,7 +546,6 @@
                     <tr class="bg-white">
                       <th class="w-12 border border-slate-400 px-2 py-2">No</th>
                       <th class="w-48 border border-slate-400 px-2 py-2">Tanggal absen</th>
-                      <th class="w-64 border border-slate-400 px-2 py-2">Koreksi absen</th>
                       <th class="border border-slate-400 px-2 py-2">Alasan</th>
                     </tr>
                   </thead>
@@ -561,13 +560,6 @@
                         />
                       </td>
                       <td class="border border-slate-400 p-1">
-                        <div class="flex items-center gap-1">
-                          <input v-model="row.corrected_first_time" type="time" aria-label="Jam masuk koreksi" class="min-w-0 flex-1 rounded border-0 bg-white px-1 py-2 text-black" />
-                          <span>-</span>
-                          <input v-model="row.corrected_last_time" type="time" aria-label="Jam pulang koreksi" class="min-w-0 flex-1 rounded border-0 bg-white px-1 py-2 text-black" />
-                        </div>
-                      </td>
-                      <td class="border border-slate-400 p-1">
                         <input v-model="row.note" type="text" maxlength="1000" placeholder="Jelaskan alasan koreksi" class="w-full rounded border-0 bg-white px-2 py-2 text-black placeholder:text-black" />
                       </td>
                     </tr>
@@ -576,7 +568,7 @@
               </div>
 
               <p class="mt-4 text-xs text-black">
-                Isi tanggal dan alasan pada setiap baris yang digunakan. Jam masuk/pulang boleh dikosongkan jika tidak dikoreksi. Baris kosong tidak diajukan.
+                Permohonan hanya mencatat tanggal dan alasan, tidak mengubah jam masuk/pulang. Baris kosong tidak diajukan.
               </p>
               <div class="mt-5 flex justify-end gap-2 border-t border-slate-200 pt-4">
                 <button type="button" class="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100" @click="closeCorrectionRequest">Batal</button>
@@ -1945,8 +1937,6 @@ function hasLeaveRequest(row) {
 function createCorrectionRequestRows() {
   return Array.from({ length: 5 }, () => ({
     log_date: '',
-    corrected_first_time: '',
-    corrected_last_time: '',
     note: '',
   }));
 }
@@ -1963,7 +1953,7 @@ function closeCorrectionRequest() {
 function submitCorrectionRequest() {
   const rows = correctionRequestRows.value
     .map((row, index) => ({ ...row, index }))
-    .filter((row) => row.log_date || row.corrected_first_time || row.corrected_last_time || row.note.trim());
+    .filter((row) => row.log_date || row.note.trim());
 
   if (!rows.length) {
     Swal.fire({ icon: 'warning', title: 'Data belum lengkap', text: 'Isi minimal satu baris koreksi.' });
@@ -1975,7 +1965,7 @@ function submitCorrectionRequest() {
       Swal.fire({
         icon: 'warning',
         title: `Baris ${row.index + 1} belum lengkap`,
-        text: 'Isi tanggal dan alasan. Jam masuk/pulang boleh dikosongkan jika tidak dikoreksi.',
+        text: 'Isi tanggal dan alasan permohonan.',
       });
       return;
     }
@@ -1983,10 +1973,8 @@ function submitCorrectionRequest() {
 
   isSubmittingCorrectionRequest.value = true;
   router.post('/attendance-log/correction-requests', {
-    items: rows.map(({ log_date, corrected_first_time, corrected_last_time, note }) => ({
+    items: rows.map(({ log_date, note }) => ({
       log_date,
-      corrected_first_time: corrected_first_time || null,
-      corrected_last_time: corrected_last_time || null,
       note: note.trim(),
     })),
   }, {
@@ -2042,7 +2030,7 @@ async function reviewCorrection(row, action) {
       title: isSpvApproval ? 'Teruskan ke Manager?' : 'Setujui koreksi?',
       text: isSpvApproval
         ? 'Koreksi untuk tanggal ini diteruskan ke Manager.'
-        : 'Koreksi untuk tanggal ini akan disetujui dan diterapkan ke Attendance Log.',
+        : 'Permohonan disetujui tanpa mengubah jam masuk atau jam pulang.',
       showCancelButton: true,
       confirmButtonText: isSpvApproval ? 'Teruskan' : 'Setujui',
       cancelButtonText: 'Batal',
@@ -2174,13 +2162,13 @@ async function openCorrectionSwal(row) {
     title: `Koreksi ${row.name || '-'} (${row.pin || '-'})`,
     html: `
       <div style="display:grid;grid-template-columns:1fr;gap:8px;text-align:left">
-        <label style="font-size:12px;color:#94a3b8">Scan Masuk (HH:mm)</label>
+        <label style="font-size:12px;color:#94a3b8">Jam Masuk (HH:mm)</label>
         <span style="font-size:11px;color:#94a3b8">Saat ini: ${safeFirst || '-'}</span>
         <input id="swal-first-time" type="time" class="swal2-input" style="margin:0;height:40px" value="">
-        <label style="font-size:12px;color:#94a3b8">Scan Pulang (HH:mm)</label>
+        <label style="font-size:12px;color:#94a3b8">Jam Pulang (HH:mm)</label>
         <span style="font-size:11px;color:#94a3b8">Saat ini: ${safeLast || '-'}</span>
         <input id="swal-last-time" type="time" class="swal2-input" style="margin:0;height:40px" value="">
-        <span style="font-size:11px;color:#94a3b8">Isi hanya jam yang ingin diubah. Jam kosong tidak akan dikoreksi.</span>
+        <span style="font-size:11px;color:#94a3b8">Isi jam yang ingin dikoreksi. Jam kosong akan tetap memakai scan fingerprint asli. Isi minimal satu jam.</span>
         <label style="font-size:12px;color:#94a3b8">Catatan</label>
         <input id="swal-note" type="text" class="swal2-input" style="margin:0;height:40px" value="${safeNote}">
       </div>
@@ -2192,6 +2180,10 @@ async function openCorrectionSwal(row) {
       const first = normalizePromptTime(document.getElementById('swal-first-time')?.value || '');
       const last = normalizePromptTime(document.getElementById('swal-last-time')?.value || '');
       const note = String(document.getElementById('swal-note')?.value || '').trim();
+      if (!first && !last) {
+        Swal.showValidationMessage('Isi minimal jam masuk atau jam pulang yang ingin dikoreksi.');
+        return false;
+      }
       return { first, last, note };
     },
   });
@@ -2209,12 +2201,7 @@ async function openCorrectionSwal(row) {
   }, {
     preserveScroll: true,
     onSuccess: () => {
-      if (!result.value.first || !result.value.last) {
-        router.reload({ preserveScroll: true });
-        return;
-      }
-
-      applyLocalCorrection(row, result.value);
+      router.reload({ preserveScroll: true });
     },
     onError: (errors) => {
       const messages = Object.values(errors || {})
@@ -2278,110 +2265,6 @@ function cloneAttendanceRows(rows) {
       correction: row?.correction ? { ...row.correction } : null,
     }))
     : [];
-}
-
-function applyLocalCorrection(targetRow, payload) {
-  const row = attendanceRows.value.find((item) =>
-    String(item?.log_date || '') === String(targetRow?.log_date || '')
-      && String(item?.pin || '') === String(targetRow?.pin || '')
-  );
-
-  if (!row) {
-    return;
-  }
-
-  const firstScan = payload.first
-    ? buildClientCorrectionDateTime(row.log_date, payload.first, row.start_time, false)
-    : row.first_scan;
-  const lastScan = payload.last
-    ? buildClientCorrectionDateTime(row.log_date, payload.last, row.start_time, true)
-    : row.last_scan;
-
-  row.first_scan = firstScan;
-  row.last_scan = lastScan;
-  row.scan_time = firstScan ? String(firstScan).split(' ')[1] || null : null;
-  row.correction = {
-    ...(row.correction || {}),
-    status: 'approved',
-    first_scan: firstScan,
-    last_scan: lastScan,
-    note: payload.note || null,
-    rejection_reason: null,
-  };
-
-  const evaluation = evaluateCorrectedRowStatus(row, firstScan, lastScan);
-  row.expected = evaluation.expected;
-  row.status = evaluation.status;
-  row.reason = 'Koreksi attendance diterapkan.';
-}
-
-function buildClientCorrectionDateTime(logDate, timeHm, startTime, isLastScan) {
-  if (!logDate || !timeHm) return null;
-
-  const base = `${logDate} ${timeHm}:00`;
-  if (!isLastScan || !startTime) {
-    return base;
-  }
-
-  const startHm = String(startTime).slice(0, 5);
-  if (timeHm >= startHm) {
-    return base;
-  }
-
-  const date = new Date(`${logDate}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
-    return base;
-  }
-
-  date.setDate(date.getDate() + 1);
-  return `${formatDateInputValue(date)} ${timeHm}:00`;
-}
-
-function evaluateCorrectedRowStatus(row, firstScan, lastScan) {
-  const lockedExpected = String(row?.expected || '').toLowerCase();
-  if (['off', 'libur nasional', 'izin', 'sakit', 'cuti', 'dinas luar'].includes(lockedExpected)) {
-    return {
-      expected: row.expected,
-      status: row.status || 'matched',
-    };
-  }
-
-  if (!firstScan && !lastScan) {
-    return { expected: 'Tidak Masuk', status: 'missing_scan' };
-  }
-
-  if (!firstScan && lastScan) {
-    return { expected: 'Tidak Scan masuk', status: 'missing_checkin' };
-  }
-
-  if (firstScan && !lastScan) {
-    if (isLateBeyondTolerance(row?.start_time, firstScan)) {
-      return { expected: 'Terlambat', status: 'time_mismatch' };
-    }
-
-    return { expected: 'Tidak Scan pulang', status: 'missing_checkout' };
-  }
-
-  if (isLateBeyondTolerance(row?.start_time, firstScan)) {
-    return { expected: 'Terlambat', status: 'time_mismatch' };
-  }
-
-  return { expected: 'On Time', status: 'matched' };
-}
-
-function isLateBeyondTolerance(startTime, scanDateTime) {
-  if (!startTime || !scanDateTime) return false;
-
-  const startHm = String(startTime).slice(0, 5);
-  const scanHm = formatTimeOnly(scanDateTime);
-  if (startHm === '-' || scanHm === '-') return false;
-
-  const [startHour, startMinute] = startHm.split(':').map(Number);
-  const [scanHour, scanMinute] = scanHm.split(':').map(Number);
-  const startTotal = (startHour * 60) + startMinute;
-  const scanTotal = (scanHour * 60) + scanMinute;
-
-  return (scanTotal - startTotal) > lateToleranceMinutes.value;
 }
 
 function escapeHtmlValue(value) {
