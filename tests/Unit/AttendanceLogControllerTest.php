@@ -49,6 +49,20 @@ class AttendanceLogControllerTest extends TestCase
         );
     }
 
+    public function test_approved_correction_without_time_changes_keeps_existing_scan_times(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'applyApprovedCorrection');
+        $method->setAccessible(true);
+
+        $correction = new AttendanceLogCorrection(['status' => 'approved']);
+
+        $this->assertSame(
+            ['2026-11-02 08:30:00', '2026-11-02 17:00:00'],
+            $method->invoke($controller, $correction, '2026-11-02 08:30:00', '2026-11-02 17:00:00')
+        );
+    }
+
     public function test_correction_status_label_tracks_multilevel_approval_stage(): void
     {
         $controller = new AttendanceLogController();

@@ -4,11 +4,26 @@ namespace Tests\Unit;
 
 use App\Http\Controllers\CrossOdoo\StockCardController;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use ReflectionMethod;
 use Tests\TestCase;
 
 class StockCardOperationTypeTest extends TestCase
 {
+    public function test_stock_card_export_keeps_zero_values_as_numeric_cells(): void
+    {
+        $controller = new StockCardController;
+        $method = new ReflectionMethod($controller, 'populateExportSheet');
+        $method->setAccessible(true);
+        $spreadsheet = new Spreadsheet;
+
+        $method->invoke($controller, $spreadsheet->getActiveSheet(), ['QTY IN', 'QTY OUT'], [[0, 0.0]]);
+
+        $this->assertSame(0, $spreadsheet->getActiveSheet()->getCell('A2')->getValue());
+        $this->assertSame(0.0, $spreadsheet->getActiveSheet()->getCell('B2')->getValue());
+        $spreadsheet->disconnectWorksheets();
+    }
+
     #[DataProvider('operationTypesWithoutDisplayValue')]
     public function test_empty_operation_types_are_not_displayable(?string $operationType): void
     {

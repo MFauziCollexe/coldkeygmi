@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -195,8 +196,7 @@ class StockCardController extends Controller
 
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->fromArray($headers, null, 'A1');
-        $sheet->fromArray($data, null, 'A2');
+        $this->populateExportSheet($sheet, $headers, $data);
 
         $safePart = $selection['productName'] ?? 'product';
         $safePart = preg_replace('/[^A-Za-z0-9\-_]+/', '_', (string) $safePart);
@@ -206,6 +206,16 @@ class StockCardController extends Controller
             $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
         }, $filename, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
+    /**
+     * @param  array<int, string>  $headers
+     * @param  array<int, array<int, mixed>>  $data
+     */
+    private function populateExportSheet(Worksheet $sheet, array $headers, array $data): void
+    {
+        $sheet->fromArray($headers, null, 'A1', true);
+        $sheet->fromArray($data, null, 'A2', true);
     }
 
     /**

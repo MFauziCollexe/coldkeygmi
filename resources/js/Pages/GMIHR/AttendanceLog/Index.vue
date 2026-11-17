@@ -576,7 +576,7 @@
               </div>
 
               <p class="mt-4 text-xs text-black">
-                Isi tanggal, minimal salah satu jam masuk/pulang, dan alasan pada setiap baris yang digunakan. Baris kosong tidak diajukan.
+                Isi tanggal dan alasan pada setiap baris yang digunakan. Jam masuk/pulang boleh dikosongkan jika tidak dikoreksi. Baris kosong tidak diajukan.
               </p>
               <div class="mt-5 flex justify-end gap-2 border-t border-slate-200 pt-4">
                 <button type="button" class="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100" @click="closeCorrectionRequest">Batal</button>
@@ -1971,11 +1971,11 @@ function submitCorrectionRequest() {
   }
 
   for (const row of rows) {
-    if (!row.log_date || (!row.corrected_first_time && !row.corrected_last_time) || !row.note.trim()) {
+    if (!row.log_date || !row.note.trim()) {
       Swal.fire({
         icon: 'warning',
         title: `Baris ${row.index + 1} belum lengkap`,
-        text: 'Isi tanggal, minimal salah satu jam masuk/pulang, dan alasan.',
+        text: 'Isi tanggal dan alasan. Jam masuk/pulang boleh dikosongkan jika tidak dikoreksi.',
       });
       return;
     }
@@ -2189,10 +2189,6 @@ async function openCorrectionSwal(row) {
       const first = normalizePromptTime(document.getElementById('swal-first-time')?.value || '');
       const last = normalizePromptTime(document.getElementById('swal-last-time')?.value || '');
       const note = String(document.getElementById('swal-note')?.value || '').trim();
-      if (!first && !last) {
-        Swal.showValidationMessage('Isi minimal salah satu jam koreksi.');
-        return false;
-      }
       return { first, last, note };
     },
   });
@@ -2288,10 +2284,10 @@ function applyLocalCorrection(targetRow, payload) {
 
   const firstScan = payload.first
     ? buildClientCorrectionDateTime(row.log_date, payload.first, row.start_time, false)
-    : null;
+    : row.first_scan;
   const lastScan = payload.last
     ? buildClientCorrectionDateTime(row.log_date, payload.last, row.start_time, true)
-    : null;
+    : row.last_scan;
 
   row.first_scan = firstScan;
   row.last_scan = lastScan;

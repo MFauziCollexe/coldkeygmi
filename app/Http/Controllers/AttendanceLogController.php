@@ -2001,12 +2001,6 @@ class AttendanceLogController extends Controller
 
         $seenDates = [];
         foreach ($validated['items'] as $index => $item) {
-            if (empty($item['corrected_first_time']) && empty($item['corrected_last_time'])) {
-                throw ValidationException::withMessages([
-                    "items.{$index}.corrected_first_time" => 'Isi minimal salah satu jam koreksi: masuk atau pulang.',
-                ]);
-            }
-
             $date = Carbon::parse($item['log_date'])->format('Y-m-d');
             if (isset($seenDates[$date])) {
                 throw ValidationException::withMessages([
@@ -2100,12 +2094,6 @@ class AttendanceLogController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        if (empty($validated['corrected_first_time']) && empty($validated['corrected_last_time'])) {
-            return redirect()->back()->withErrors([
-                'corrected_time' => 'Isi minimal salah satu jam koreksi: masuk atau pulang.',
-            ]);
-        }
-
         $pin = $this->normalizePin((string) $validated['pin']);
         if ($pin === '' || strlen($pin) > 32) {
             return redirect()->back()->withErrors([
@@ -2117,8 +2105,16 @@ class AttendanceLogController extends Controller
         $startTime = $this->normalizeScheduleTimeInput($validated['start_time'] ?? null);
         $endTime = $this->normalizeScheduleTimeInput($validated['end_time'] ?? null);
 
-        $firstScan = $this->buildCorrectionDateTime($logDate, $validated['corrected_first_time'] ?? null, $startTime, $endTime, false);
-        $lastScan = $this->buildCorrectionDateTime($logDate, $validated['corrected_last_time'] ?? null, $startTime, $endTime, true);
+        $existingCorrection = AttendanceLogCorrection::query()
+            ->whereDate('log_date', $logDate)
+            ->where('pin', $pin)
+            ->first();
+        $firstScan = ! empty($validated['corrected_first_time'])
+            ? $this->buildCorrectionDateTime($logDate, $validated['corrected_first_time'], $startTime, $endTime, false)
+            : $existingCorrection?->corrected_first_scan;
+        $lastScan = ! empty($validated['corrected_last_time'])
+            ? $this->buildCorrectionDateTime($logDate, $validated['corrected_last_time'], $startTime, $endTime, true)
+            : $existingCorrection?->corrected_last_scan;
 
         AttendanceLogCorrection::updateOrCreate(
             [
