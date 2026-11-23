@@ -62,6 +62,7 @@ const allTemplateLabels = {
   maintanance: 'Maintanance',
   security: 'Security',
   office: 'Office',
+  it: 'IT',
 };
 
 const props = defineProps({
@@ -98,6 +99,7 @@ const props = defineProps({
       'maintanance',
       'security',
       'office',
+      'it',
     ],
   },
 });

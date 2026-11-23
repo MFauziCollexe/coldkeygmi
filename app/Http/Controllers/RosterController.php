@@ -36,6 +36,7 @@ class RosterController extends Controller
         'maintanance',
         'security',
         'office',
+        'it',
     ];
 
     protected function accessRules(): AccessRuleService
@@ -149,7 +150,7 @@ class RosterController extends Controller
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
             'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
-            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,maintanance,maintenance,security,office',
+            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,maintanance,maintenance,security,office,it',
         ]);
 
         $this->assertOfficePeriodIsEffective($request);
@@ -253,7 +254,7 @@ class RosterController extends Controller
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
             'preview_key' => 'required|string',
-            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,maintanance,maintenance,security,office',
+            'template_type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,maintanance,maintenance,security,office,it',
             'change_reason' => 'nullable|string|max:1000',
             'edited_rows' => 'nullable|array',
             'edited_rows.*.employee_key' => 'required_with:edited_rows|string|max:120',
@@ -697,7 +698,7 @@ class RosterController extends Controller
         $request->validate([
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
-            'type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,maintanance,maintenance,security,office',
+            'type' => 'nullable|string|in:inventory_said,inventory_imanda,risk_control,maintanance,maintenance,security,office,it',
         ]);
 
         $this->assertOfficePeriodIsEffective($request);
@@ -1163,6 +1164,7 @@ class RosterController extends Controller
             'maintanance' => 'MNT',
             'security' => 'SEC',
             'office' => self::OFFICE_DEPARTMENT_CODE,
+            'it' => 'IT',
         ];
         $departmentCode = $codeMap[$normalized] ?? null;
         if (! $departmentCode) {
@@ -1179,6 +1181,9 @@ class RosterController extends Controller
     private function detectTemplateTypeFromFilename(string $filename): ?string
     {
         $name = strtolower($filename);
+        if (str_contains($name, 'roster_it') || str_contains($name, 'template_it')) {
+            return 'it';
+        }
         if (str_contains($name, 'office') || str_contains($name, 'kantor')) {
             return 'office';
         }
@@ -1203,6 +1208,13 @@ class RosterController extends Controller
 
     private function getFixedTemplateEmployees(string $type = 'inventory_said'): array
     {
+        if ($type === 'it') {
+            return [
+                ['nrp' => '080414383', 'name' => 'MOKHAMAD FAUZI'],
+                ['nrp' => '26111351', 'name' => 'YANUAR FRANDY SAPUTRO'],
+            ];
+        }
+
         if ($type === 'office') {
             return [
                 ['nrp' => '25090304', 'name' => 'ACHMAD NAZUMAH ARIF'],

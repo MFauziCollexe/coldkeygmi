@@ -490,6 +490,7 @@ function detectTemplateTypeFromFilename(filename) {
   if (name.includes('security') || name.includes('satpam')) return 'security';
   if (name.includes('inventory_said') || name.includes('inv_said')) return 'inventory_said';
   if (name.includes('inventory_imanda') || name.includes('inv_imanda')) return 'inventory_imanda';
+  if (name.includes('roster_it') || name.includes('template_it')) return 'it';
   if (name.includes('office') || name.includes('kantor')) return 'office';
   return null;
 }

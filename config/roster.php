@@ -56,6 +56,7 @@ return [
      | maintanance      : semua user MNT
      | security         : semua user SEC
      | office           : Diah Ayu Ratnasari (20)
+     | it               : semua karyawan aktif departemen IT
      |
      | MNT/SEC memakai department_codes karena roster dipegang banyak orang.
      */
@@ -66,6 +67,7 @@ return [
         'maintanance' => ['department_codes' => ['MNT']],
         'security' => ['department_codes' => ['SEC']],
         'office' => ['user_ids' => [20]],
+        'it' => ['department_codes' => ['IT']],
     ],
 
     /*

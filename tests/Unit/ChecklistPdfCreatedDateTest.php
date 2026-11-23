@@ -636,6 +636,7 @@ class ChecklistPdfCreatedDateTest extends TestCase
                 ],
             ],
         ]);
+        
         $header->setAttribute('created_at', Carbon::parse('2026-10-09 14:35:00'));
 
         $controller = new ChecklistEntryController();

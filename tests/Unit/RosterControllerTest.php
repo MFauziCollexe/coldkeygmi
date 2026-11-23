@@ -10,6 +10,39 @@ use Tests\TestCase;
 
 class RosterControllerTest extends TestCase
 {
+    public function test_it_is_a_supported_roster_template_type(): void
+    {
+        $controller = new RosterController;
+
+        $method = new ReflectionMethod($controller, 'normalizeTemplateType');
+        $method->setAccessible(true);
+
+        $this->assertSame('it', $method->invoke($controller, 'IT'));
+    }
+
+    public function test_it_roster_template_filename_is_detected(): void
+    {
+        $controller = new RosterController;
+
+        $method = new ReflectionMethod($controller, 'detectTemplateTypeFromFilename');
+        $method->setAccessible(true);
+
+        $this->assertSame('it', $method->invoke($controller, 'template_roster_it_2026_11.xlsx'));
+    }
+
+    public function test_it_roster_template_returns_configured_nrp_and_name(): void
+    {
+        $controller = new RosterController;
+
+        $method = new ReflectionMethod($controller, 'getFixedTemplateEmployees');
+        $method->setAccessible(true);
+
+        $this->assertSame(
+            [['nrp' => '26111351', 'name' => 'YANUAR FRANDY SAPUTRO']],
+            $method->invoke($controller, 'it')
+        );
+    }
+
     public function test_resolve_default_work_hours_uses_five_hours_on_saturday(): void
     {
         $controller = new RosterController;
