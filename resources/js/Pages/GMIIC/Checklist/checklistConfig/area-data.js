@@ -415,6 +415,175 @@ export const patroliSecurityAreaOptions = patroliSecuritySections.map(
     }),
 );
 
+export const printerChecklistSections = [
+    {
+        id: "printer_epson_l121_lantai_2",
+        title: "PRINTER EPSON L121 > LANTAI 2",
+        items: [
+            "Daya & indikator lampu status printer menyala normal (tidak ada blinking error/alarm)",
+            "Koneksi USB / jaringan LAN / Wi-Fi printer terhubung stabil dan terdeteksi Online",
+            "Status antrean cetak (Print Spooler) bersih tanpa ada dokumen yang nyangkut (stuck)",
+            "Level tinta / toner / pita (ribbon) mencukupi (tidak ada peringatan Low Ink/Toner)",
+            "Hasil cetak Test Page jelas, tajam, dan warna akurat (tidak bergaris, pudar, atau putus-putus)",
+            "Mekanisme penarik kertas (Paper Roller) berfungsi normal tanpa paper jam atau menarik kertas ganda",
+        ],
+    },
+    {
+        id: "printer_dotmatrix_play_1_lantai_1_admin",
+        title: "PRINTER DOTMATRIX PLAY 1 > LANTAI 1 ADMIN",
+        items: [
+            "Daya & indikator panel kontrol printer menyala normal (tidak ada lampu error berkedip atau bunyi alarm)",
+            "Koneksi port paralel / USB / LAN / print server terhubung stabil dan status printer Online",
+            "Print head bergerak mulus di sepanjang rel (carriage shaft) tanpa macet atau suara gesekan kasar",
+            "Kualitas hasil cetak jelas, rata, dan tidak putus-putus pada seluruh pin print head (tidak ada karakter hilang/samar)",
+            "Ribbon cartridge (pita tinta) terpasang tepat, terputar lancar, dan tinta masih tebal (tidak pudar atau kusut)",
+            "Kebersihan fisik bodi, jalur kertas, sisa sobekan lubang pin-feed, serta kerapian kabel daya dan data",
+            "Jarak print head ke kertas (lever ketebalan kertas) sesuai dengan jumlah rangkap / ketebalan media cetak",
+            "Tractor feed / friction roller menarik kertas continuous form atau rangkap (NCR) lurus tanpa miring atau paper jam",
+        ],
+    },
+    {
+        id: "printer_dotmatrix_play_2_lantai_1_admin",
+        title: "PRINTER DOTMATRIX PLAY 2 > LANTAI 1 ADMIN",
+        items: [
+            "Daya & indikator panel kontrol printer menyala normal (tidak ada lampu error berkedip atau bunyi alarm)",
+            "Koneksi port paralel / USB / LAN / print server terhubung stabil dan status printer Online",
+            "Print head bergerak mulus di sepanjang rel (carriage shaft) tanpa macet atau suara gesekan kasar",
+            "Kualitas hasil cetak jelas, rata, dan tidak putus-putus pada seluruh pin print head (tidak ada karakter hilang/samar)",
+            "Ribbon cartridge (pita tinta) terpasang tepat, terputar lancar, dan tinta masih tebal (tidak pudar atau kusut)",
+            "Kebersihan fisik bodi, jalur kertas, sisa sobekan lubang pin-feed, serta kerapian kabel daya dan data",
+            "Jarak print head ke kertas (lever ketebalan kertas) sesuai dengan jumlah rangkap / ketebalan media cetak",
+            "Tractor feed / friction roller menarik kertas continuous form atau rangkap (NCR) lurus tanpa miring atau paper jam",
+        ],
+    },
+    {
+        id: "printer_kyocera_ecosys_m2040dn_lantai_1_admin",
+        title: "PRINTER KYOCERA ECOSYS M2040DN > LANTAI 1 ADMIN",
+        items: [
+            "Daya & layar LCD panel menyala normal (indikator Attention tidak berkedip, tidak ada kode error / J-Code)",
+            "Koneksi jaringan LAN / USB stabil, status printer Online",
+            "Level toner TK-1174 mencukupi (lihat/cek melalui menu Toner Status, tidak ada peringatan Low Toner / Check Toner)",
+            "Hasil cetak tajam dan bersih tanpa garis vertikal hitam, bayangan abu-abu (background fog), atau toner luntur",
+        ],
+    },
+    {
+        id: "printer_sato_w14_axb_lantai_1_admin",
+        title: "PRINTER SATO W14-AXB > LANTAI 1 ADMIN",
+        items: [
+            "Daya & layar LCD panel menyala normal tanpa lampu indikator merah / peringatan error (Head Open, Ribbon End, Paper End)",
+            "Koneksi port USB / LAN / Wi-Fi stabil dan printer terdeteksi Online pada sistem cetak label (BarTender / ERP)",
+            "Kondisi elemen pemanas Thermal Print Head bersih tanpa goresan atau residu lem label (tidak ada garis putih vertikal pada hasil cetak)",
+            "Kualitas hasil cetak barcode & teks hitam pekat, tajam, dan terbaca lancar oleh barcode scanner (tingkat panas/darkness sesuai)",
+            "Gulungan Ribbon (khusus mode Thermal Transfer) terpasang kencang, tidak kusut/melipat, dan tergulung rapi pada ribbon take-up core",
+            "Gulungan Label terpasang presisi di media guide, posisi sensor gap / I-mark tepat di tengah, dan kalibrasi ukuran label akurat (tidak meleset)",
+            "Kondisi Platen Roller (rol karet bawah) bersih, tidak licin, tidak aus/tergores, dan menarik label mulus tanpa macet atau miring",
+        ],
+    },
+];
+
+export const printerChecklistDeviceOptions = printerChecklistSections.map(
+    (section) => ({ id: section.id, name: section.title }),
+);
+
+const cctvCameraStandard = "Gambar jelas, fokus tajam, sudut tepat, tidak terhalang";
+
+export const cctvChecklistSections = [
+    {
+        id: "nvr_1",
+        title: "NVR 1",
+        items: [
+            "Daya & UPS NVR menyala normal (indikator power aktif, UPS tidak alarm)",
+            "Status online seluruh 18 channel kamera di NVR (tidak ada sinyal lost / offline)",
+            "Kapasitas & kesehatan HDD Storage normal (tidak ada peringatan HDD Error/Full)",
+            "Status perekaman (Recording) berjalan aktif sesuai jadwal/mode",
+            "Sinkronisasi tanggal & jam NVR akurat (NTP/RTC sesuai waktu aktual)",
+            "Koneksi jaringan LAN / PoE Switch ke NVR stabil tanpa putus",
+            "Monitor Live View CCTV tampil jelas (tidak blank, flicker, atau freeze)",
+            "Kebersihan fisik unit NVR, rak, dan kerapian kabel patch cord",
+        ],
+    },
+    {
+        id: "nvr_2",
+        title: "NVR 2",
+        items: [
+            "Daya & UPS NVR menyala normal (indikator power aktif, UPS tidak alarm)",
+            "Status online seluruh 27 channel kamera di NVR (tidak ada sinyal lost / offline)",
+            "Kapasitas & kesehatan HDD Storage normal (tidak ada peringatan HDD Error/Full)",
+            "Status perekaman (Recording) berjalan aktif sesuai jadwal/mode",
+            "Sinkronisasi tanggal & jam NVR akurat (NTP/RTC sesuai waktu aktual)",
+            "Koneksi jaringan LAN / PoE Switch ke NVR stabil tanpa putus",
+            "Monitor Live View CCTV tampil jelas (tidak blank, flicker, atau freeze)",
+            "Kebersihan fisik unit NVR, rak, dan kerapian kabel patch cord",
+        ],
+    },
+    {
+        id: "cctv_luar",
+        title: "CCTV Luar",
+        items: [
+            "Parkiran",
+            "Office",
+            "Pintu Loading",
+            "Office Lt 1",
+            "Locker",
+            "Admin Lt 1",
+            "Tangga Lt 2",
+            "Server",
+            "Office Lt 3",
+            "Lorong Samping",
+            "Pintu Ruang Baterai",
+            "Genset / Trafo",
+            "Ruang Baterai",
+            "Mesin 2",
+            "Mesin Utama",
+            "Control Room",
+            "Pagar Barat",
+            "Pagar Utara",
+            "Lantai 2",
+        ].map((area) => `${area} - ${cctvCameraStandard}`),
+    },
+    {
+        id: "cctv_dalam",
+        title: "CCTV Dalam",
+        items: [
+            "Loading Duct 1",
+            "Loading Duct 2",
+            "Loading Duct Anteroom",
+            "Anteroom Depan",
+            "Anteroom Tengah Depan",
+            "Anteroom Tengah Belakang",
+            "Anteroom Belakang",
+            "CS 1 Pintu Besar",
+            "CS 1 Pintu Kecil",
+            "CS 2 Pintu Besar",
+            "CS 2 Pintu Kecil",
+            "CS 3 Pintu Besar",
+            "CS 3 Pintu Kecil",
+            "CS 3 Pintu Besar",
+            "CS 4 Pintu Kecil",
+            "CS 4 Pintu Besar",
+            "CS 5 Pintu Kecil",
+            "CS 5 Pintu Besar",
+            "CS 6 Pintu Besar",
+            "CS 7 Pintu Besar",
+            "CS 8 Pintu Kecil",
+            "CS 8 Pintu Besar",
+            "CS 9 Pintu Kecil",
+            "CS 9 Pintu Besar",
+            "CS 9 Pintu Kecil (2)",
+            "CS 10 Pintu Besar",
+            "CS 10 Pintu Kecil",
+            "CS 11 Pintu Besar",
+            "CS 11 Pintu Kecil",
+            "CS 12 Pintu Besar",
+            "CS 12 Pintu Kecil",
+        ].map((area) => `${area} - ${cctvCameraStandard}`),
+    },
+];
+
+export const cctvChecklistGroupOptions = cctvChecklistSections.map(
+    (section) => ({ id: section.id, name: section.title }),
+);
+
 export const cleaningOBShifts = [
     {
         id: "07_00_08_30_ob_i_ii",

@@ -85,6 +85,8 @@ $templatePermissions = array_merge(
     $buildTemplatePermissions(
         [
             'patroli_security',
+            'printer',
+            'cctv',
             'inspeksi_loker',
         ],
         $mergeChecklistRules($itChecklistRules, $securityChecklistRules)

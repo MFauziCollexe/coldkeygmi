@@ -12,6 +12,8 @@ export function useScanner({
   isSiteVisitMaintenance,
   isSiteVisitHse,
   isPatroliSecurity,
+  isPrinterChecklist,
+  isCctvChecklist,
   isCleaningOB,
   showQrScanner,
   kotakP3KMonthValidation,
@@ -23,6 +25,8 @@ export function useScanner({
   canScanMaintenance,
   canScanSiteVisitHse,
   canScanPatroliSecurity,
+  canScanPrinterChecklist,
+  canScanCctvChecklist,
   canScanCleaningOB,
   nextPendingSanitationDay,
   nextPendingSaranaPrasaranaDay,
@@ -31,11 +35,15 @@ export function useScanner({
   maintenanceScanTargetKey,
   siteVisitHseTargetKey,
   patroliSecurityTargetKey,
+  printerTargetKey,
+  cctvTargetKey,
   cleaningOBTargetKey,
   formatShortDateDisplay,
   formatDateTimeDisplay,
   getLocationBarcodeAliases,
   getPatroliSecurityBarcodeAliases,
+  getPrinterChecklistDeviceLabel,
+  getCctvChecklistGroupLabel,
   getFireSafetyLocationLabel,
   getSanitationAreaBarcodeAliases,
   getSaranaPrasaranaAreaLabel,
@@ -89,6 +97,8 @@ export function useScanner({
     if (mode === 'sarana_prasarana') return [getSaranaPrasaranaAreaLabel(entry.value.form.selected_area)]
     if (mode === 'site_visit_hse') return [getSiteVisitHseAreaLabel(entry.value.form.selected_area)]
     if (mode === 'patroli_security') return getPatroliSecurityBarcodeAliases(entry.value.form.selected_area)
+    if (mode === 'printer') return [getPrinterChecklistDeviceLabel(printerTargetKey.value)]
+    if (mode === 'cctv') return [getCctvChecklistGroupLabel(cctvTargetKey.value)]
     if (mode === 'site_visit_maintenance') return [getMaintenanceDailyAreaLabel(maintenanceScanTargetKey.value)]
     if (mode === 'cleaning_ob') return [getCleaningOBShiftLabel(cleaningOBTargetKey.value)]
     if (mode === 'warehouse_sanitation') {
@@ -155,6 +165,16 @@ export function useScanner({
   async function scanPatroliSecurityBarcode() {
     if (!entry.value || !isPatroliSecurity.value || !showQrScanner.value || !canScanPatroliSecurity.value) return
     openScanner('patroli_security')
+  }
+
+  async function scanPrinterChecklistBarcode() {
+    if (!entry.value || !isPrinterChecklist.value || !showQrScanner.value || !canScanPrinterChecklist.value) return
+    openScanner('printer')
+  }
+
+  async function scanCctvChecklistBarcode() {
+    if (!entry.value || !isCctvChecklist.value || !showQrScanner.value || !canScanCctvChecklist.value) return
+    openScanner('cctv')
   }
 
   async function scanCleaningOBBarcode() {
@@ -226,6 +246,16 @@ export function useScanner({
     if (mode === 'patroli_security') {
       entry.value.form.area_barcodes = { ...(entry.value.form.area_barcodes || {}), [patroliSecurityTargetKey.value]: decodedText }
       entry.value.form.area_scan_dates = { ...(entry.value.form.area_scan_dates || {}), [patroliSecurityTargetKey.value]: formatShortDateDisplay(now) }
+    }
+
+    if (mode === 'printer') {
+      entry.value.form.area_barcodes = { ...(entry.value.form.area_barcodes || {}), [printerTargetKey.value]: decodedText }
+      entry.value.form.area_scan_dates = { ...(entry.value.form.area_scan_dates || {}), [printerTargetKey.value]: formatShortDateDisplay(now) }
+    }
+
+    if (mode === 'cctv') {
+      entry.value.form.area_barcodes = { ...(entry.value.form.area_barcodes || {}), [cctvTargetKey.value]: decodedText }
+      entry.value.form.area_scan_dates = { ...(entry.value.form.area_scan_dates || {}), [cctvTargetKey.value]: formatShortDateDisplay(now) }
     }
 
     if (mode === 'cleaning_ob') {
@@ -327,6 +357,8 @@ export function useScanner({
     scanMaintenanceBarcode,
     scanSiteVisitHseBarcode,
     scanPatroliSecurityBarcode,
+    scanPrinterChecklistBarcode,
+    scanCctvChecklistBarcode,
     scanCleaningOBBarcode,
     closeScannerModal,
     stopBarcodeScanner,

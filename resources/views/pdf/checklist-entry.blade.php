@@ -10,6 +10,7 @@
         'personal_hygiene_karyawan' => 'Personal Hygiene Karyawan',
         'sarana_dan_prasarana' => 'Sarana dan Prasarana',
         'patroli_security' => 'Patroli Security',
+        'cctv' => 'Checklist CCTV',
         'site_visit_hse' => 'Site Visit HSE',
         'site_visit_maintenance' => 'Site Visit Maintenance',
         'genset_running' => 'Pemanasan (Running) Genset',
@@ -25,6 +26,7 @@
         'apar_smoke_detector_fire_alarm',
         'personal_hygiene_karyawan',
         'patroli_security',
+        'cctv',
         'site_visit_hse',
         'sarana_dan_prasarana',
         'jadwal_cleaning_ob',
@@ -64,6 +66,8 @@
     @include('pdf.checklist-templates.sarana_prasarana', ['entry' => $entry, 'form' => $form])
 @elseif($tid === 'patroli_security')
     @include('pdf.checklist-templates.patroli_security', ['entry' => $entry, 'form' => $form])
+@elseif($tid === 'cctv')
+    @include('pdf.checklist-templates.cctv', ['entry' => $entry, 'form' => $form])
 @elseif($tid === 'site_visit_hse')
     @include('pdf.checklist-templates.site_visit_hse', ['entry' => $entry, 'form' => $form])
 @elseif($tid === 'inspeksi_loker')

@@ -95,11 +95,11 @@
           </div>
 
           <ApprovalButton
-            :is-ready="localPatroliSecurityApprovalReady"
-            :disabled="!localPatroliSecurityApprovalReady"
+            :is-ready="patroliSecurityApprovalReady"
+            :disabled="!patroliSecurityApprovalReady"
             label="Approval"
             button-class="w-[96px]"
-            :tooltip="localPatroliSecurityApprovalReady ? 'Approval siap' : 'Lengkapi semua isian atau isi catatan jika ada silang.'"
+            :tooltip="patroliSecurityApprovalReady ? 'Approval siap' : 'Lengkapi semua isian atau isi catatan jika ada silang.'"
             @click="handleApproveClick"
           />
         </div>
@@ -156,7 +156,7 @@
       </table>
     </div>
 
-    <div class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
+    <div v-if="showPhotos" class="mt-4 rounded border border-slate-300 bg-slate-50 p-3">
       <div class="mb-2 text-sm font-semibold">{{ noteLabel }}</div>
       <textarea
         :value="note"
@@ -203,7 +203,7 @@
             >
               <img
                 :src="photo.url"
-                :alt="photo.name || `Foto patroli security ${index + 1}`"
+                :alt="photo.name || `Foto checklist ${index + 1}`"
                 class="h-40 w-full rounded object-cover"
               />
             </button>
@@ -233,14 +233,14 @@
     </div>
 
     <div
-      v-if="previewPhoto"
+      v-if="showPhotos && previewPhoto"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       @click.self="closePhotoPreview"
     >
       <div class="w-full max-w-5xl rounded-xl bg-slate-900 p-4 shadow-2xl">
         <div class="mb-4 flex items-center justify-between gap-3">
           <div class="min-w-0">
-            <h3 class="truncate text-lg font-semibold text-white">{{ previewPhoto.name || 'Foto Patroli Security' }}</h3>
+            <h3 class="truncate text-lg font-semibold text-white">{{ previewPhoto.name || 'Foto Checklist' }}</h3>
           </div>
           <button
             type="button"
@@ -254,7 +254,7 @@
         <div class="overflow-hidden rounded-lg border border-slate-700 bg-black">
           <img
             :src="previewPhoto.url"
-            :alt="previewPhoto.name || 'Foto Patroli Security'"
+            :alt="previewPhoto.name || 'Foto Checklist'"
             class="max-h-[72vh] w-full object-contain"
           />
         </div>
@@ -262,7 +262,7 @@
         <div class="mt-4 flex justify-end">
           <a
             :href="previewPhoto.url"
-            :download="previewPhoto.name || 'foto-patroli-security.jpg'"
+            :download="previewPhoto.name || 'foto-checklist.jpg'"
             class="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500"
           >
             Download
@@ -281,6 +281,10 @@ const props = defineProps({
   entry: {
     type: Object,
     required: true,
+  },
+  showPhotos: {
+    type: Boolean,
+    default: true,
   },
   areaOptions: {
     type: Array,
@@ -336,8 +340,9 @@ const props = defineProps({
   },
 });
 
-const localPatroliSecurityApprovalReady = computed(() => {
+const patroliSecurityApprovalReady = computed(() => {
   if (!props.entry || props.entry.template_id !== 'patroli_security') return false
+  if (!props.canApproveEntry) return false
   const selectedArea = String(props.entry.form.selected_area || '').trim()
   if (!selectedArea || !String(props.entry.form.date_value || '').trim()) return false
   if (props.approvedAreas.includes(selectedArea)) return false
@@ -360,7 +365,7 @@ const localPatroliSecurityApprovalReady = computed(() => {
 const previewPhoto = ref(null);
 
 function handleApproveClick() {
-  if (localPatroliSecurityApprovalReady.value) {
+  if (patroliSecurityApprovalReady.value && props.canApproveEntry) {
     emit('approve')
   }
 }
@@ -372,7 +377,7 @@ function openPhotoPreview(photo, index) {
 
   previewPhoto.value = {
     ...photo,
-    name: photo.name || `Foto patroli security ${Number(index) + 1}`,
+    name: photo.name || `Foto checklist ${Number(index) + 1}`,
   };
 }
 

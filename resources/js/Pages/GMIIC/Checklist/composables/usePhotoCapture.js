@@ -74,7 +74,17 @@ export function usePhotoCapture({
     const photoCaptureButtonLabel = ref("Ambil Foto");
 
     function updatePhotoModalLabels(mode) {
-        if (mode === "patroli_security") {
+        if (mode === "cctv") {
+            photoModalTitle.value = "Ambil Foto Checklist CCTV";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto kondisi CCTV secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "printer") {
+            photoModalTitle.value = "Ambil Foto Checklist Printer";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto kondisi printer secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "patroli_security") {
             photoModalTitle.value = "Ambil Foto Patroli Security";
             photoModalDescription.value =
                 "Gunakan kamera HP atau laptop, lalu ambil foto area patroli secara langsung.";
@@ -237,9 +247,13 @@ export function usePhotoCapture({
             !patroliSecurityTargetKey.value
         )
             return;
-        photoCaptureMode.value = "patroli_security";
+        photoCaptureMode.value = entry.value.template_id === "printer"
+            ? "printer"
+            : entry.value.template_id === "cctv"
+                ? "cctv"
+                : "patroli_security";
         photoCaptureDay.value = null;
-        updatePhotoModalLabels("patroli_security");
+        updatePhotoModalLabels(photoCaptureMode.value);
         photoError.value = "";
         photoLoading.value = true;
         photoModalOpen.value = true;
@@ -1567,7 +1581,11 @@ export function usePhotoCapture({
             const formData = new FormData();
             formData.append("photo", file);
             const response = await axios.post(
-                "/gmiic/checklist/patroli-security/photo",
+                entry.value.template_id === "printer"
+                    ? "/gmiic/checklist/printer/photo"
+                    : entry.value.template_id === "cctv"
+                        ? "/gmiic/checklist/cctv/photo"
+                        : "/gmiic/checklist/patroli-security/photo",
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } },
             );
@@ -2667,9 +2685,16 @@ export function usePhotoCapture({
         if (!confirmed) return;
         try {
             if (String(photo.path || "").trim()) {
-                await axios.delete("/gmiic/checklist/patroli-security/photo", {
+                await axios.delete(
+                    entry.value.template_id === "printer"
+                        ? "/gmiic/checklist/printer/photo"
+                        : entry.value.template_id === "cctv"
+                            ? "/gmiic/checklist/cctv/photo"
+                            : "/gmiic/checklist/patroli-security/photo",
+                    {
                     data: { path: photo.path },
-                });
+                    },
+                );
             }
             updatePatroliSecurityPhotoState({
                 removeIndex: Number(index),
@@ -3008,10 +3033,16 @@ export function usePhotoCapture({
                 await closePhotoModal();
                 return;
             }
-            if (photoCaptureMode.value === "patroli_security") {
+            if (
+                photoCaptureMode.value === "patroli_security" ||
+                photoCaptureMode.value === "printer" ||
+                photoCaptureMode.value === "cctv"
+            ) {
                 if (!isPatroliSecurity.value || !patroliSecurityTargetKey.value)
                     return;
-                applyPatroliSecurityPhotoOverlay(canvas, new Date());
+                if (photoCaptureMode.value === "patroli_security") {
+                    applyPatroliSecurityPhotoOverlay(canvas, new Date());
+                }
                 const selectedAreaLabel = getPatroliSecurityAreaLabel(
                     entry.value.form.selected_area,
                 )
@@ -3020,7 +3051,7 @@ export function usePhotoCapture({
                     .replace(/(^-|-$)/g, "");
                 const file = await canvasToJpegFile(
                     canvas,
-                    `patroli-security-${selectedAreaLabel || "area"}-${Date.now()}.jpg`,
+                    `${photoCaptureMode.value === "printer" ? "printer" : photoCaptureMode.value === "cctv" ? "cctv" : "patroli-security"}-${selectedAreaLabel || "area"}-${Date.now()}.jpg`,
                 );
                 await uploadPatroliSecurityPhoto(file);
                 await closePhotoModal();

@@ -1,5 +1,5 @@
 import { getDaysInPeriod, toPeriodValue, toDateInputValue, formatDateDisplay, formatDateTimeDisplay } from './date-utils';
-import { patroliSecuritySections, patroliSecurityAreaOptions, cleaningOBShifts, cleaningOBShiftOptions, saranaPrasaranaSections, saranaPrasaranaAreaOptions, siteVisitHseSections, siteVisitHseAreaOptions } from './area-data';
+import { patroliSecuritySections, patroliSecurityAreaOptions, printerChecklistSections, printerChecklistDeviceOptions, cctvChecklistSections, cctvChecklistGroupOptions, cleaningOBShifts, cleaningOBShiftOptions, saranaPrasaranaSections, saranaPrasaranaAreaOptions, siteVisitHseSections, siteVisitHseAreaOptions } from './area-data';
 
 export function createPatroliSecuritySections() {
     return patroliSecuritySections.map((section) => ({
@@ -105,6 +105,102 @@ export function createPatroliSecurityEntry(userName) {
             effective_date: "22 Desember 2025",
             page: "1 dari 1",
             sections: createPatroliSecuritySections(),
+        },
+    };
+}
+
+export function createPrinterChecklistSections(existingSections = []) {
+    return printerChecklistSections.map((section) => {
+        const existingSection = existingSections.find((item) => item.id === section.id);
+        return {
+            id: section.id,
+            title: section.title,
+            items: section.items.map((name, index) => {
+                const id = `${section.id}-${index + 1}`;
+                const existingItem = existingSection?.items?.find((item) => item.id === id);
+                return { no: index + 1, id, name, status: existingItem?.status || "" };
+            }),
+        };
+    });
+}
+
+export function getPrinterChecklistDeviceLabel(deviceId) {
+    return printerChecklistDeviceOptions.find((device) => device.id === deviceId)?.name || "-";
+}
+
+export function createPrinterChecklistEntry(userName) {
+    const now = new Date();
+    return {
+        id: `printer-${Date.now()}`,
+        template_id: "printer",
+        name: "Checklist Printer",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            date_value: toDateInputValue(now),
+            date: formatDateDisplay(now),
+            selected_area: printerChecklistDeviceOptions[0]?.id || "",
+            pic: userName || "User Login",
+            approved: false,
+            approved_areas: [],
+            area_barcodes: {},
+            area_notes: {},
+            area_photo_paths: {},
+            area_photo_urls: {},
+            area_photo_names: {},
+            area_scan_dates: {},
+            document_no: "",
+            rev: "00",
+            effective_date: "",
+            page: "1 dari 1",
+            sections: createPrinterChecklistSections(),
+        },
+    };
+}
+
+export function createCctvChecklistSections(existingSections = []) {
+    return cctvChecklistSections.map((section) => {
+        const existingSection = existingSections.find((item) => item.id === section.id);
+        return {
+            id: section.id,
+            title: section.title,
+            items: section.items.map((name, index) => {
+                const id = `${section.id}-${index + 1}`;
+                const existingItem = existingSection?.items?.find((item) => item.id === id);
+                return { no: index + 1, id, name, status: existingItem?.status || "" };
+            }),
+        };
+    });
+}
+
+export function getCctvChecklistGroupLabel(groupId) {
+    return cctvChecklistGroupOptions.find((group) => group.id === groupId)?.name || "-";
+}
+
+export function createCctvChecklistEntry(userName) {
+    const now = new Date();
+    return {
+        id: `cctv-${Date.now()}`,
+        template_id: "cctv",
+        name: "Checklist CCTV",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            date_value: toDateInputValue(now),
+            date: formatDateDisplay(now),
+            selected_area: cctvChecklistGroupOptions[0]?.id || "",
+            pic: userName || "User Login",
+            approved: false,
+            approved_areas: [],
+            area_barcodes: {},
+            area_notes: {},
+            area_photo_paths: {},
+            area_photo_urls: {},
+            area_photo_names: {},
+            area_scan_dates: {},
+            document_no: "",
+            rev: "00",
+            effective_date: "",
+            page: "1 dari 1",
+            sections: createCctvChecklistSections(),
         },
     };
 }

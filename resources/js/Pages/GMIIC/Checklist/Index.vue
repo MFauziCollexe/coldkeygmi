@@ -346,7 +346,7 @@ const previewResults = ref([]);
 const previewChecked = ref(false);
 const previewLoading = ref(false);
 const previewRequestId = ref(0);
-const supportedTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler', 'checklist_it', 'inspeksi_loker', 'jadwal_cleaning_ob'];
+const supportedTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm', 'pengangkutan_sampah_pt_sier', 'warehouse_sanitation_1', 'personal_hygiene_karyawan', 'sarana_dan_prasarana', 'patroli_security', 'printer', 'cctv', 'site_visit_hse', 'site_visit_maintenance', 'genset_running', 'running_genset', 'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler', 'checklist_it', 'inspeksi_loker', 'jadwal_cleaning_ob'];
 const dailyApprovedTemplates = ['kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler'];
 const monthlyChecklistTemplates = ['kotak_p3k', 'apar_smoke_detector_fire_alarm'];
 const checklistAbilities = computed(() => page.props.checklistAbilities || {});

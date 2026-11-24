@@ -12,6 +12,8 @@ import {
     formatDateTimeDisplay,
     formatShortDateDisplay,
     rebuildPatroliSecuritySections,
+    createPrinterChecklistSections,
+    createCctvChecklistSections,
     rebuildFireSafetyRows,
     rebuildSaranaPrasaranaSections,
     rebuildSiteVisitHseSections,
@@ -29,6 +31,8 @@ import {
     createFireSafetyLocationState,
     saranaPrasaranaAreaOptions,
     patroliSecurityAreaOptions,
+    printerChecklistDeviceOptions,
+    cctvChecklistGroupOptions,
     siteVisitHseAreaOptions,
 } from "../checklistConfig";
 
@@ -199,6 +203,60 @@ function hydratePatroliSecurityEntry(savedEntry) {
             sections: rebuildPatroliSecuritySections(
                 savedEntry?.form?.sections || [],
             ),
+        },
+    };
+}
+
+function hydratePrinterChecklistEntry(savedEntry) {
+    if (savedEntry?.template_id !== "printer") return savedEntry;
+    const now = new Date();
+    const dateValue = String(savedEntry?.form?.date_value || "").trim() || toDateInputValue(now);
+    return {
+        ...savedEntry,
+        form: {
+            ...savedEntry.form,
+            date_value: dateValue,
+            date: savedEntry?.form?.date || formatDateInputDisplay(dateValue),
+            selected_area: String(savedEntry?.form?.selected_area || "").trim() || printerChecklistDeviceOptions[0]?.id || "",
+            approved_areas: Array.isArray(savedEntry?.form?.approved_areas) ? savedEntry.form.approved_areas : [],
+            area_barcodes: { ...(savedEntry?.form?.area_barcodes || {}) },
+            area_notes: { ...(savedEntry?.form?.area_notes || {}) },
+            area_photo_paths: { ...(savedEntry?.form?.area_photo_paths || {}) },
+            area_photo_urls: { ...(savedEntry?.form?.area_photo_urls || {}) },
+            area_photo_names: { ...(savedEntry?.form?.area_photo_names || {}) },
+            area_scan_dates: { ...(savedEntry?.form?.area_scan_dates || {}) },
+            document_no: savedEntry?.form?.document_no || "",
+            rev: savedEntry?.form?.rev || "00",
+            effective_date: savedEntry?.form?.effective_date || "",
+            page: savedEntry?.form?.page || "1 dari 1",
+            sections: createPrinterChecklistSections(savedEntry?.form?.sections || []),
+        },
+    };
+}
+
+function hydrateCctvChecklistEntry(savedEntry) {
+    if (savedEntry?.template_id !== "cctv") return savedEntry;
+    const now = new Date();
+    const dateValue = String(savedEntry?.form?.date_value || "").trim() || toDateInputValue(now);
+    return {
+        ...savedEntry,
+        form: {
+            ...savedEntry.form,
+            date_value: dateValue,
+            date: savedEntry?.form?.date || formatDateInputDisplay(dateValue),
+            selected_area: String(savedEntry?.form?.selected_area || "").trim() || cctvChecklistGroupOptions[0]?.id || "",
+            approved_areas: Array.isArray(savedEntry?.form?.approved_areas) ? savedEntry.form.approved_areas : [],
+            area_barcodes: { ...(savedEntry?.form?.area_barcodes || {}) },
+            area_notes: { ...(savedEntry?.form?.area_notes || {}) },
+            area_photo_paths: { ...(savedEntry?.form?.area_photo_paths || {}) },
+            area_photo_urls: { ...(savedEntry?.form?.area_photo_urls || {}) },
+            area_photo_names: { ...(savedEntry?.form?.area_photo_names || {}) },
+            area_scan_dates: { ...(savedEntry?.form?.area_scan_dates || {}) },
+            document_no: savedEntry?.form?.document_no || "",
+            rev: savedEntry?.form?.rev || "00",
+            effective_date: savedEntry?.form?.effective_date || "",
+            page: savedEntry?.form?.page || "1 dari 1",
+            sections: createCctvChecklistSections(savedEntry?.form?.sections || []),
         },
     };
 }
@@ -598,6 +656,8 @@ function hydrateChecklistEntry(savedEntry) {
         hydrateSanitationEntry,
         hydrateSaranaPrasaranaEntry,
         hydratePatroliSecurityEntry,
+        hydratePrinterChecklistEntry,
+        hydrateCctvChecklistEntry,
         hydratePersonalHygieneEntry,
         hydrateSiteVisitHseEntry,
         hydrateSiteVisitMaintenanceEntry,

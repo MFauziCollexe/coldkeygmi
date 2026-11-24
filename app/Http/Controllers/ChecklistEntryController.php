@@ -1732,7 +1732,7 @@ class ChecklistEntryController extends Controller
         $landscapeTemplates = [
             'kompresor_harian', 'charger_baterai', 'checklist_baterai', 'unit_cooler',
             'non_warehouse_sanitation', 'personal_hygiene_karyawan',
-            'sarana_dan_prasarana', 'inspeksi_loker', 'kotak_p3k', 'apar_smoke_detector_fire_alarm',
+            'sarana_dan_prasarana', 'inspeksi_loker', 'printer', 'cctv', 'kotak_p3k', 'apar_smoke_detector_fire_alarm',
         ];
         $tid = (string) ($entry['template_id'] ?? '');
 
@@ -2413,7 +2413,7 @@ class ChecklistEntryController extends Controller
             'warehouse_sanitation_1' => !$this->isFilled($currentForm['verification']['prepared_date'] ?? null) && $this->isFilled($nextForm['verification']['prepared_date'] ?? null)
                 || !$this->isFilled($currentForm['verification']['verified_date'] ?? null) && $this->isFilled($nextForm['verification']['verified_date'] ?? null),
             'sarana_dan_prasarana' => $this->hasMapListExpanded($currentForm['approved_days_by_area'] ?? [], $nextForm['approved_days_by_area'] ?? []),
-            'patroli_security', 'site_visit_hse' => $this->hasListExpanded($currentForm['approved_areas'] ?? [], $nextForm['approved_areas'] ?? []),
+            'patroli_security', 'printer', 'cctv', 'site_visit_hse' => $this->hasListExpanded($currentForm['approved_areas'] ?? [], $nextForm['approved_areas'] ?? []),
             default => !$this->isTruthy($currentForm['approved'] ?? false) && $this->isTruthy($nextForm['approved'] ?? false),
         };
     }
@@ -2432,7 +2432,7 @@ class ChecklistEntryController extends Controller
             'non_warehouse_sanitation' => $this->allExpectedSanitationAreasScanned($form),
             'warehouse_sanitation_1' => $this->isFilled($form['barcode'] ?? null),
             'sarana_dan_prasarana' => $this->hasSaranaPrasaranaScanForLatestApproval($form),
-            'patroli_security', 'site_visit_hse' => $this->isFilled($this->latestListValue($form['approved_areas'] ?? [], $form['area_barcodes'] ?? [])),
+            'patroli_security', 'printer', 'cctv', 'site_visit_hse' => $this->isFilled($this->latestListValue($form['approved_areas'] ?? [], $form['area_barcodes'] ?? [])),
             'site_visit_maintenance' => $this->hasMaintenanceQrScan($form),
             'genset_running', 'running_genset' => $this->hasGensetRunningQrScan($form),
             default => true,

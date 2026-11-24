@@ -2,7 +2,7 @@ import { checklistOptions } from './registry';
 import { groupedChecklistAreaLabels } from './shared-data';
 import { getFireSafetyCardLabel, getFireSafetyLocationLabel, getFireSafetyLocationOptions } from './fire-safety';
 import { sanitationAreaOptions, warehouseAreaOptions, getLocationLabel, getSanitationAreaLabel } from './location-data';
-import { getSaranaPrasaranaAreaLabel, getSiteVisitHseAreaLabel, getPatroliSecurityAreaLabel } from './area-templates';
+import { getSaranaPrasaranaAreaLabel, getSiteVisitHseAreaLabel, getPatroliSecurityAreaLabel, getPrinterChecklistDeviceLabel, getCctvChecklistGroupLabel } from './area-templates';
 import { getMaintenanceDailyAreaLabel } from './maintenances';
 
 export function getChecklistLabel(templateId) {
@@ -62,6 +62,14 @@ export function getChecklistEntryAreaLabel(entry) {
 
     if (entry?.template_id === "patroli_security") {
         return getPatroliSecurityAreaLabel(entry.form?.selected_area);
+    }
+
+    if (entry?.template_id === "printer") {
+        return getPrinterChecklistDeviceLabel(entry.form?.selected_area);
+    }
+
+    if (entry?.template_id === "cctv") {
+        return getCctvChecklistGroupLabel(entry.form?.selected_area);
     }
 
     if (entry?.template_id === "site_visit_maintenance") {

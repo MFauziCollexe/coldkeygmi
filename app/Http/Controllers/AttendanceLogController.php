@@ -122,9 +122,16 @@ class AttendanceLogController extends Controller
             ->map(fn (Collection $items) => $items->count())
             ->all();
 
-        $correctionMap = $corrections->keyBy(function (AttendanceLogCorrection $correction) {
+        $correctionKey = function (AttendanceLogCorrection $correction) {
             return $correction->log_date->format('Y-m-d') . '|' . $this->normalizePin((string) $correction->pin);
-        });
+        };
+        $requestCorrectionMap = $corrections
+            ->filter(fn (AttendanceLogCorrection $correction) => $correction->correction_type === 'request')
+            ->keyBy($correctionKey);
+        $manualCorrectionMap = $corrections
+            ->filter(fn (AttendanceLogCorrection $correction) => $correction->correction_type === 'manual')
+            ->keyBy($correctionKey);
+        $correctionMap = $requestCorrectionMap->union($manualCorrectionMap);
 
         $scanRows = DB::table('fingerprints')
             ->when($scanRangeStart !== null, fn($query) => $query->whereDate('scan_date_only', '>=', $scanRangeStart))
@@ -405,7 +412,11 @@ class AttendanceLogController extends Controller
                     $scanCount = 0;
                 }
             }
-            [$firstScan, $lastScan] = $this->applyApprovedCorrection($correction, $firstScan, $lastScan);
+            [$firstScan, $lastScan] = $this->applyApprovedCorrection(
+                $manualCorrectionMap->get($logDate . '|' . $pin),
+                $firstScan,
+                $lastScan
+            );
             $firstScanTime = $this->normalizeTime($firstScan);
             $lastScanTime = $this->normalizeTime($lastScan);
             $timeMatched = $startTime !== null && $firstScanTime !== null && substr($startTime, 0, 5) === substr($firstScanTime, 0, 5);
@@ -642,7 +653,11 @@ class AttendanceLogController extends Controller
                         [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
                     }
                     $correction = $correctionMap->get($logDate . '|' . $pin);
-                    [$firstScan, $lastScan] = $this->applyApprovedCorrection($correction, $firstScan, $lastScan);
+                    [$firstScan, $lastScan] = $this->applyApprovedCorrection(
+                        $manualCorrectionMap->get($logDate . '|' . $pin),
+                        $firstScan,
+                        $lastScan
+                    );
                     $firstScanTime = $this->normalizeTime($firstScan);
                     $lastScanTime = $this->normalizeTime($lastScan);
                     if ($this->usesFlexibleT2PNoRosterSchedule($displayPin)) {
@@ -1542,9 +1557,11 @@ class AttendanceLogController extends Controller
             ->whereMonth('log_date', $month)
             ->get();
 
-        $correctionMap = $corrections->keyBy(function (AttendanceLogCorrection $correction) {
-            return $correction->log_date->format('Y-m-d') . '|' . $this->normalizePin((string) $correction->pin);
-        });
+        $manualCorrectionMap = $corrections
+            ->filter(fn (AttendanceLogCorrection $correction) => $correction->correction_type === 'manual')
+            ->keyBy(function (AttendanceLogCorrection $correction) {
+                return $correction->log_date->format('Y-m-d') . '|' . $this->normalizePin((string) $correction->pin);
+            });
 
         $scanRows = DB::table('fingerprints')
             ->when($scanRangeStart !== null, fn($query) => $query->whereDate('scan_date_only', '>=', $scanRangeStart))
@@ -1742,7 +1759,7 @@ class AttendanceLogController extends Controller
             }
 
             [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $startTime, $endTime, $logDate, $nextDayStartTime);
-            $correction = $correctionMap->get($logDate . '|' . $pin);
+            $correction = $manualCorrectionMap->get($logDate . '|' . $pin);
             [$firstScan, $lastScan] = $this->applyApprovedCorrection($correction, $firstScan, $lastScan);
 
             $firstScanTime = $this->normalizeTime($firstScan);
@@ -1884,7 +1901,7 @@ class AttendanceLogController extends Controller
                 } else {
                     [$firstScan, $lastScan] = $this->resolveScanWindow($scans, $defaultStartTime, $defaultEndTime, $logDate, $defaultNextDayStartTime);
                 }
-                $correction = $correctionMap->get($logDate . '|' . $pin);
+                $correction = $manualCorrectionMap->get($logDate . '|' . $pin);
                 [$firstScan, $lastScan] = $this->applyApprovedCorrection($correction, $firstScan, $lastScan);
 
                 $firstScanTime = $this->normalizeTime($firstScan);
@@ -2019,6 +2036,7 @@ class AttendanceLogController extends Controller
                 $correction = AttendanceLogCorrection::query()
                     ->whereDate('log_date', $logDate)
                     ->where('pin', $pin)
+                    ->where('correction_type', 'request')
                     ->lockForUpdate()
                     ->first();
 
@@ -2031,9 +2049,11 @@ class AttendanceLogController extends Controller
                 $correction ??= new AttendanceLogCorrection([
                     'log_date' => $logDate,
                     'pin' => $pin,
+                    'correction_type' => 'request',
                 ]);
 
                 $correction->fill([
+                    'correction_type' => 'request',
                     'request_group_id' => $requestGroupId,
                     'corrected_first_scan' => null,
                     'corrected_last_scan' => null,
@@ -2103,8 +2123,10 @@ class AttendanceLogController extends Controller
             [
                 'log_date' => $logDate,
                 'pin' => $pin,
+                'correction_type' => 'manual',
             ],
             [
+                'correction_type' => 'manual',
                 'request_group_id' => null,
                 'corrected_first_scan' => $firstScan,
                 'corrected_last_scan' => $lastScan,

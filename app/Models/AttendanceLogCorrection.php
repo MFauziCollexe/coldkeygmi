@@ -13,6 +13,7 @@ class AttendanceLogCorrection extends Model
         'request_group_id',
         'log_date',
         'pin',
+        'correction_type',
         'corrected_first_scan',
         'corrected_last_scan',
         'note',
