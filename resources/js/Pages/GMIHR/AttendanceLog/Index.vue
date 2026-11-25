@@ -91,6 +91,9 @@
               <button class="min-w-[126px] rounded bg-emerald-600 px-4 py-2 text-sm font-semibold hover:bg-emerald-500" @click="exportExcel">
                 Export Excel
               </button>
+              <button class="min-w-[126px] rounded bg-teal-600 px-4 py-2 text-sm font-semibold hover:bg-teal-500" @click="exportCsv">
+                Export CSV
+              </button>
               <button v-if="isCurrentUserItDepartment" class="min-w-[126px] rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-400" @click="exportDummy">
                 Export Dummy
               </button>
@@ -1795,14 +1798,14 @@ function goToPage(page) {
   });
 }
 
-function exportExcel() {
+function buildExportParams(exportType) {
   const params = new URLSearchParams();
   params.set('date_from', String(form.date_from || ''));
   params.set('date_to', String(form.date_to || ''));
   params.set('status', String(form.status || 'all'));
   params.set('q', String(form.q || ''));
   params.set('per_page', String(form.per_page || 2000));
-  params.set('export', '1');
+  params.set('export', exportType);
 
   selectedPins.value.forEach((pin) => {
     params.append('pins[]', String(pin || ''));
@@ -1816,30 +1819,21 @@ function exportExcel() {
     params.append('departments[]', String(department || ''));
   });
 
+  return params;
+}
+
+function exportExcel() {
+  const params = buildExportParams('1');
+  window.open(`/attendance-log?${params.toString()}`, '_blank');
+}
+
+function exportCsv() {
+  const params = buildExportParams('csv');
   window.open(`/attendance-log?${params.toString()}`, '_blank');
 }
 
 function exportDummy() {
-  const params = new URLSearchParams();
-  params.set('date_from', String(form.date_from || ''));
-  params.set('date_to', String(form.date_to || ''));
-  params.set('status', String(form.status || 'all'));
-  params.set('q', String(form.q || ''));
-  params.set('per_page', String(form.per_page || 2000));
-  params.set('export', 'dummy');
-
-  selectedPins.value.forEach((pin) => {
-    params.append('pins[]', String(pin || ''));
-  });
-
-  selectedNames.value.forEach((name) => {
-    params.append('names[]', String(name || ''));
-  });
-
-  selectedDepartments.value.forEach((department) => {
-    params.append('departments[]', String(department || ''));
-  });
-
+  const params = buildExportParams('dummy');
   window.open(`/attendance-log?${params.toString()}`, '_blank');
 }
 

@@ -176,6 +176,134 @@ class AttendanceLogControllerTest extends TestCase
         );
     }
 
+    public function test_attendance_log_csv_keeps_fingerprint_columns_and_uses_processed_times(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'exportRowsToCsv');
+        $method->setAccessible(true);
+
+        $response = $method->invoke(
+            $controller,
+            collect([
+                [
+                    'log_date' => '2026-11-18',
+                    'pin' => 'AKU26001',
+                    'name' => 'Huda Santoso',
+                    'shift_code' => 'A',
+                    'is_off' => false,
+                    'start_time' => '08:00:00',
+                    'end_time' => '16:00:00',
+                    'first_scan' => '2026-11-18 08:00:00',
+                    'last_scan' => '2026-11-18 20:27:00',
+                ],
+            ]),
+            collect([
+                (object) [
+                    'pin' => 'AKU26001',
+                    'scan_date' => '2026-11-18 08:00:00',
+                    'nip' => 'NIP001',
+                    'name' => 'Huda',
+                    'position' => 'Staff',
+                    'department' => 'IT',
+                    'office' => 'Head Office',
+                    'verify' => 1,
+                    'io' => 2,
+                    'workcode' => 0,
+                    'sn' => 'FIO001',
+                    'machine' => 'Mesin 1',
+                ],
+                (object) [
+                    'pin' => 'AKU26001',
+                    'scan_date' => '2026-11-18 20:27:00',
+                    'nip' => 'NIP001',
+                    'name' => 'Huda',
+                    'position' => 'Staff',
+                    'department' => 'IT',
+                    'office' => 'Head Office',
+                    'verify' => 1,
+                    'io' => 1,
+                    'workcode' => 0,
+                    'sn' => 'FIO001',
+                    'machine' => 'Mesin 1',
+                ],
+            ])
+        );
+
+        $this->assertInstanceOf(StreamedResponse::class, $response);
+        $this->assertStringContainsString('.csv', (string) $response->headers->get('content-disposition'));
+        $this->assertSame('text/csv; charset=UTF-8', $response->headers->get('content-type'));
+
+        ob_start();
+        try {
+            $response->sendContent();
+            $csv = (string) ob_get_contents();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $csv);
+        $this->assertSame(
+            [
+                'Tanggal scan', 'Tanggal', 'Jam', 'PIN', 'NIP', 'Nama', 'Jabatan',
+                'Departemen', 'Kantor', 'Verifikasi', 'I/O', 'Workcode', 'SN', 'Mesin',
+            ],
+            str_getcsv(explode("\n", substr($csv, 3))[0])
+        );
+        $this->assertSame(
+            [
+                '18-11-2026 08:00:00', '18-11-2026', '08:00:00', 'AKU26001', 'NIP001',
+                'Huda Santoso', 'Staff', 'IT', 'Head Office', '1', '1', '0', 'FIO001', 'Mesin 1',
+            ],
+            str_getcsv(explode("\n", substr($csv, 3))[1])
+        );
+        $this->assertSame(
+            [
+                '18-11-2026 20:27:00', '18-11-2026', '20:27:00', 'AKU26001', 'NIP001',
+                'Huda Santoso', 'Staff', 'IT', 'Head Office', '1', '2', '0', 'FIO001', 'Mesin 1',
+            ],
+            str_getcsv(explode("\n", substr($csv, 3))[2])
+        );
+        $this->assertStringNotContainsString('08:02:00', $csv);
+        $this->assertStringNotContainsString('20:25:00', $csv);
+    }
+
+    public function test_csv_uses_random_seconds_for_processed_correction_at_exact_minute(): void
+    {
+        $controller = new AttendanceLogController();
+        $method = new ReflectionMethod($controller, 'buildProcessedCsvRows');
+        $method->setAccessible(true);
+
+        $rows = $method->invoke(
+            $controller,
+            collect([
+                [
+                    'log_date' => '2026-11-18',
+                    'pin' => 'AKU26001',
+                    'name' => 'Huda Santoso',
+                    'first_scan' => '2026-11-18 08:00:00',
+                    'last_scan' => null,
+                ],
+            ]),
+            collect([
+                (object) [
+                    'pin' => 'AKU26001',
+                    'scan_date' => '2026-11-18 08:02:43',
+                    'name' => 'Huda',
+                ],
+            ])
+        );
+
+        $this->assertCount(1, $rows);
+        $this->assertMatchesRegularExpression(
+            '/^18-11-2026 08:00:(0[1-9]|[1-5]\d)$/',
+            $rows->first()[0]
+        );
+        $this->assertMatchesRegularExpression(
+            '/^08:00:(0[1-9]|[1-5]\d)$/',
+            $rows->first()[2]
+        );
+    }
+
     public function test_dummy_export_keeps_missing_october_scans_empty(): void
     {
         $controller = new AttendanceLogController();

@@ -141,8 +141,18 @@ class AttendanceLogController extends Controller
             ->get([
                 'scan_date_only as log_date',
                 'pin',
+                'nip',
                 'name',
+                'position',
+                'department',
+                'office',
+                'verify',
+                'io',
+                'workcode',
+                'sn',
+                'machine',
                 'scan_date',
+                'scan_time',
             ]);
 
         $employeeColumns = [
@@ -925,6 +935,10 @@ class AttendanceLogController extends Controller
             abort_unless($this->isItDepartment($user), 403, 'Export dummy hanya tersedia untuk departemen IT.');
 
             return $this->exportRowsToDummyExcel($rows);
+        }
+
+        if ((string) $request->input('export') === 'csv') {
+            return $this->exportRowsToCsv($rows, $scanRows);
         }
 
         if ($request->boolean('export')) {
@@ -4359,6 +4373,131 @@ class AttendanceLogController extends Controller
             'Pragma' => 'no-cache',
             'Expires' => '0',
         ]);
+    }
+
+    private function exportRowsToCsv(Collection $rows, Collection $scanRows)
+    {
+        $headers = [
+            'Tanggal scan',
+            'Tanggal',
+            'Jam',
+            'PIN',
+            'NIP',
+            'Nama',
+            'Jabatan',
+            'Departemen',
+            'Kantor',
+            'Verifikasi',
+            'I/O',
+            'Workcode',
+            'SN',
+            'Mesin',
+        ];
+
+        $filename = 'attendance_log_' . now()->format('Ymd_His') . '.csv';
+        $csvRows = $this->buildProcessedCsvRows($rows, $scanRows);
+
+        return response()->streamDownload(function () use ($csvRows, $headers) {
+            $output = fopen('php://output', 'w');
+            if ($output === false) {
+                throw new \RuntimeException('Tidak dapat membuka output stream untuk export CSV.');
+            }
+
+            fwrite($output, "\xEF\xBB\xBF");
+            fwrite($output, implode(',', array_map(fn ($value) => $this->formatCsvField($value), $headers)) . "\r\n");
+
+            foreach ($csvRows as $csvRow) {
+                fwrite($output, implode(',', array_map(fn ($value) => $this->formatCsvField($value), $csvRow)) . "\r\n");
+            }
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
+    }
+
+    private function buildProcessedCsvRows(Collection $rows, Collection $scanRows): Collection
+    {
+        $processedRows = collect();
+
+        foreach ($rows as $attendanceRow) {
+            $pin = trim((string) ($attendanceRow['pin'] ?? ''));
+            $candidatePins = array_fill_keys($this->pinCandidatesForMatch($pin), true);
+            $sourceScans = $scanRows
+                ->filter(fn ($scan) => isset($candidatePins[$this->normalizePin((string) ($scan->pin ?? ''))]))
+                ->values();
+
+            foreach (['first_scan', 'last_scan'] as $scanField) {
+                $processedScan = trim((string) ($attendanceRow[$scanField] ?? ''));
+                if ($processedScan === '') {
+                    continue;
+                }
+
+                $processedDateTime = Carbon::parse($processedScan);
+                $sourceScan = $sourceScans
+                    ->sortBy(fn ($scan) => abs(
+                        Carbon::parse((string) $scan->scan_date)->getTimestamp()
+                        - $processedDateTime->getTimestamp()
+                    ))
+                    ->first();
+                $sourceScanTimestamp = $sourceScan
+                    ? Carbon::parse((string) $sourceScan->scan_date)->getTimestamp()
+                    : null;
+                if ($processedDateTime->second === 0
+                    && ($sourceScanTimestamp === null || $sourceScanTimestamp !== $processedDateTime->getTimestamp())) {
+                    $processedDateTime->setSecond(random_int(1, 59));
+                }
+
+                $sourcePin = trim((string) ($sourceScan->pin ?? ''));
+                $csvPin = $sourcePin !== '' ? $sourcePin : $pin;
+                $csvName = trim((string) ($attendanceRow['name'] ?? ''));
+                if ($csvName === '') {
+                    $csvName = trim((string) ($sourceScan->name ?? ''));
+                }
+
+                $processedRows->push([
+                    'sort_key' => $processedDateTime->getTimestamp(),
+                    'values' => [
+                        $processedDateTime->format('d-m-Y H:i:s'),
+                        $processedDateTime->format('d-m-Y'),
+                        $processedDateTime->format('H:i:s'),
+                        $csvPin,
+                        $sourceScan->nip ?? '',
+                        $csvName,
+                        $sourceScan->position ?? '',
+                        $sourceScan->department ?? '',
+                        $sourceScan->office ?? '',
+                        $sourceScan->verify ?? 0,
+                        $scanField === 'first_scan' ? 1 : 2,
+                        $sourceScan->workcode ?? 0,
+                        $sourceScan->sn ?? '',
+                        $sourceScan->machine ?? '',
+                    ],
+                ]);
+            }
+        }
+
+        return $processedRows
+            ->sortBy('sort_key')
+            ->map(fn (array $row) => $row['values'])
+            ->values();
+    }
+
+    private function formatCsvField($value): string
+    {
+        $value = (string) ($value ?? '');
+        if (trim($value) !== '-' && preg_match('/^\s*[=+\-@]/u', $value) === 1) {
+            $value = "'" . $value;
+        }
+
+        if (strpbrk($value, ",\"\r\n") !== false) {
+            return '"' . str_replace('"', '""', $value) . '"';
+        }
+
+        return $value;
     }
 
     private function exportRowsToDummyExcel(Collection $rows)
