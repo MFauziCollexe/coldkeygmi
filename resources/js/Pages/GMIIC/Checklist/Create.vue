@@ -415,7 +415,7 @@ const currentTemplateProps = computed(() => {
     onRemovePhoto: photo.removeSaranaPrasaranaPhoto,
   }
   if (tid === 'patroli_security') return {
-    entry: entry.value, areaOptions: patroliSecurity.patroliSecurityAreaOptions.value,
+    entry: entry.value, areaOptions: patroliSecurity.patroliSecurityAreaOptions,
     currentSection: patroliSecurity.currentPatroliSecuritySection.value,
     approvedAreas: patroliSecurity.patroliSecurityApprovedAreas.value,
     isAreaApproved: patroliSecurity.patroliSecurityApprovedAreas.value.includes(entry.value.form.selected_area),
