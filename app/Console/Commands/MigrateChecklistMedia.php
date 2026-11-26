@@ -6,6 +6,7 @@ use App\Models\ChecklistHeader;
 use App\Models\ChecklistMedia;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -14,7 +15,7 @@ class MigrateChecklistMedia extends Command
 {
     protected $signature = 'checklist:migrate-media';
 
-    protected $description = 'Move legacy checklist image data from JSON into file storage and checklist_media';
+    protected $description = 'Copy checklist files to configured storage and migrate JSON media references';
 
     public function handle(): int
     {
@@ -24,6 +25,7 @@ class MigrateChecklistMedia extends Command
             return self::FAILURE;
         }
 
+        $copiedFiles = $this->copyLegacyChecklistFiles();
         $migrated = 0;
         ChecklistHeader::query()
             ->with(['states' => fn ($query) => $query->orderByDesc('version_no')])
@@ -85,9 +87,37 @@ class MigrateChecklistMedia extends Command
             }
         });
 
-        $this->info("Migrated media references for {$migrated} checklist entries.");
+        $this->info("Copied {$copiedFiles} checklist files and migrated media references for {$migrated} checklist entries.");
 
         return self::SUCCESS;
+    }
+
+    private function copyLegacyChecklistFiles(): int
+    {
+        $paths = Storage::disk('public')->allFiles('checklist');
+        $legacyPublicRoot = public_path('storage/checklist');
+
+        if (File::isDirectory($legacyPublicRoot)) {
+            foreach (File::allFiles($legacyPublicRoot) as $file) {
+                $relativePath = str_replace('\\', '/', $file->getRelativePathname());
+                $paths[] = 'checklist/' . $relativePath;
+            }
+        }
+
+        $paths = array_values(array_unique($paths));
+        $disk = Storage::disk('checklist_media');
+        $copied = 0;
+
+        foreach ($paths as $path) {
+            if ($disk->exists($path)) {
+                continue;
+            }
+
+            $this->ensureStoredOnConfiguredDisk($path);
+            $copied++;
+        }
+
+        return $copied;
     }
 
     private function extractMedia(array $entry): array
@@ -189,17 +219,28 @@ class MigrateChecklistMedia extends Command
 
     private function ensureStoredOnConfiguredDisk(string $path): void
     {
+        if (
+            !Str::startsWith($path, 'checklist/')
+            || Str::contains($path, '..')
+        ) {
+            throw new RuntimeException("Invalid checklist image path: {$path}");
+        }
+
         $disk = Storage::disk('checklist_media');
         if ($disk->exists($path)) {
             return;
         }
 
         $legacyDisk = Storage::disk('public');
-        if (!$legacyDisk->exists($path)) {
+        $legacyPublicPath = public_path('storage/' . $path);
+        $legacyExistsOnDisk = $legacyDisk->exists($path);
+        if (!$legacyExistsOnDisk && !File::isFile($legacyPublicPath)) {
             throw new RuntimeException("Checklist image file is missing: {$path}");
         }
 
-        $stream = $legacyDisk->readStream($path);
+        $stream = $legacyExistsOnDisk
+            ? $legacyDisk->readStream($path)
+            : fopen($legacyPublicPath, 'rb');
         if (!is_resource($stream)) {
             throw new RuntimeException("Failed to read checklist image file: {$path}");
         }

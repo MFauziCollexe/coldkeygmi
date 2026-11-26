@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -2487,17 +2488,28 @@ class ChecklistEntryController extends Controller
 
     private function ensureChecklistMediaFileStored(string $path): void
     {
+        if (
+            !str_starts_with($path, 'checklist/')
+            || str_contains($path, '..')
+        ) {
+            abort(422, 'Path foto checklist tidak valid.');
+        }
+
         $disk = Storage::disk('checklist_media');
         if ($disk->exists($path)) {
             return;
         }
 
         $legacyDisk = Storage::disk('public');
-        if (!$legacyDisk->exists($path)) {
+        $legacyPublicPath = public_path('storage/' . $path);
+        $legacyExistsOnDisk = $legacyDisk->exists($path);
+        if (!$legacyExistsOnDisk && !File::isFile($legacyPublicPath)) {
             abort(422, 'File foto checklist tidak ditemukan di penyimpanan.');
         }
 
-        $stream = $legacyDisk->readStream($path);
+        $stream = $legacyExistsOnDisk
+            ? $legacyDisk->readStream($path)
+            : fopen($legacyPublicPath, 'rb');
         if (!is_resource($stream)) {
             abort(500, 'File foto checklist gagal dibaca dari penyimpanan lama.');
         }

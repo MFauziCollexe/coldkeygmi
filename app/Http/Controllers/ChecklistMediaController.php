@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
 class ChecklistMediaController extends Controller
@@ -32,6 +33,7 @@ class ChecklistMediaController extends Controller
     {
         Storage::disk('checklist_media')->delete($path);
         Storage::disk('public')->delete($path);
+        File::delete(public_path('storage/' . $path));
     }
 
     public function uploadWasteTransportPhoto(Request $request)
