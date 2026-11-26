@@ -19,14 +19,23 @@ class ChecklistMediaController extends Controller
             abort(404);
         }
 
+        $headers = ['Cache-Control' => 'public, max-age=86400'];
         $disk = Storage::disk('checklist_media');
-        if (!$disk->exists($path)) {
-            abort(404);
+        if ($disk->exists($path)) {
+            return $disk->response($path, basename($path), $headers, 'inline');
         }
 
-        return $disk->response($path, basename($path), [
-            'Cache-Control' => 'public, max-age=86400',
-        ], 'inline');
+        $legacyDisk = Storage::disk('public');
+        if ($legacyDisk->exists($path)) {
+            return $legacyDisk->response($path, basename($path), $headers, 'inline');
+        }
+
+        $legacyPublicPath = public_path('storage/' . $path);
+        if (File::isFile($legacyPublicPath)) {
+            return response()->file($legacyPublicPath, $headers);
+        }
+
+        abort(404);
     }
 
     private function deletePhotoFile(string $path): void

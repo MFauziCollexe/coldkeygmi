@@ -2565,6 +2565,39 @@ class ChecklistEntryController extends Controller
             $areaNames[$scope] = array_values($areaNames[$scope]);
         }
 
+        foreach (array_unique(array_merge(array_keys($areaPaths), array_keys($areaUrls))) as $scope) {
+            $paths = $this->normalizeChecklistMediaBucket($areaPaths[$scope] ?? []);
+            $urls = $this->normalizeChecklistMediaBucket($areaUrls[$scope] ?? []);
+            $count = max(count($paths), count($urls));
+            for ($index = 0; $index < $count; $index++) {
+                [$path, $url] = $this->checklistMediaUrlForResponse(
+                    (string) ($paths[$index] ?? ''),
+                    (string) ($urls[$index] ?? ''),
+                );
+                $paths[$index] = $path;
+                $urls[$index] = $url;
+            }
+            $areaPaths[$scope] = array_values($paths);
+            $areaUrls[$scope] = array_values($urls);
+        }
+
+        foreach ($rows as $index => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            [$path, $url] = $this->checklistMediaUrlForResponse(
+                (string) ($row['collector_photo_path'] ?? ''),
+                (string) ($row['collector_photo_url'] ?? $row['collector_photo_preview'] ?? ''),
+            );
+            if ($path !== '') {
+                $rows[$index]['collector_photo_path'] = $path;
+            }
+            if ($url !== '') {
+                $rows[$index]['collector_photo_url'] = $url;
+                unset($rows[$index]['collector_photo_preview']);
+            }
+        }
+
         data_set($entry, 'form.area_photo_paths', $areaPaths);
         data_set($entry, 'form.area_photo_urls', $areaUrls);
         data_set($entry, 'form.area_photo_names', $areaNames);
@@ -2573,6 +2606,26 @@ class ChecklistEntryController extends Controller
         }
 
         return $entry;
+    }
+
+    private function checklistMediaUrlForResponse(string $path, string $url): array
+    {
+        $path = trim($path);
+        $url = trim($url);
+        if ($path === '') {
+            $path = $this->checklistStoragePathFromUrl($url);
+        }
+
+        if (
+            $path === ''
+            || !str_starts_with($path, 'checklist/')
+            || str_contains($path, '..')
+            || !preg_match('/^checklist\/[A-Za-z0-9._\/-]+$/', $path)
+        ) {
+            return [$path, $url];
+        }
+
+        return [$path, Storage::disk('checklist_media')->url($path)];
     }
 
     private function resolvePeriodType(array $entry): ?string
