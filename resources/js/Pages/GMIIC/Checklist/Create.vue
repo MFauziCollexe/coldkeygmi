@@ -1298,7 +1298,7 @@ async function approveChecklist() {
   if (tid === 'patroli_security') {
     const selectedArea = String(entry.value.form.selected_area || '').trim()
     entry.value.form.approved_areas = [...new Set([...(entry.value.form.approved_areas || []), selectedArea])]
-    entry.value.form.approved = patroliSecurity.patroliSecurityAreaOptions.value.every((area) => entry.value.form.approved_areas.includes(area.id))
+    entry.value.form.approved = patroliSecurity.patroliSecurityAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id))
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
     return
   }
