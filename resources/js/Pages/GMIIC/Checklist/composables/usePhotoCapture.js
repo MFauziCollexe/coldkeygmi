@@ -6,6 +6,7 @@ export function usePhotoCapture({
     entry,
     isWasteTransport,
     isPatroliSecurity,
+    isComputerLaptop,
     isSiteVisitMaintenance,
     isCleaningOB,
     isChecklistIT,
@@ -18,6 +19,7 @@ export function usePhotoCapture({
     isWarehouseSanitation,
     warehouseTargetKey,
     patroliSecurityTargetKey,
+    computerLaptopTargetKey,
     maintenanceScanTargetKey,
     cleaningOBTargetKey,
     runningGensetTargetKey,
@@ -27,8 +29,10 @@ export function usePhotoCapture({
     saranaPrasaranaTargetKey,
     wasteTransportRows,
     currentPatroliSecurityPhotos,
+    currentComputerLaptopPhotos,
     currentCleaningOBPhotos,
     getPatroliSecurityAreaLabel,
+    getComputerLaptopAreaLabel,
     getCleaningOBShiftLabel,
     patroliSecurityOverlayAddressLines,
     currentUser,
@@ -43,6 +47,8 @@ export function usePhotoCapture({
 
     const patroliSecurityPhotoUploading = ref(false);
     const patroliSecurityPhotoError = ref("");
+    const computerLaptopPhotoUploading = ref(false);
+    const computerLaptopPhotoError = ref("");
     const maintenancePhotoUploading = ref(false);
     const maintenancePhotoError = ref("");
     const cleaningOBPhotoUploading = ref(false);
@@ -88,6 +94,11 @@ export function usePhotoCapture({
             photoModalTitle.value = "Ambil Foto Patroli Security";
             photoModalDescription.value =
                 "Gunakan kamera HP atau laptop, lalu ambil foto area patroli secara langsung.";
+            photoCaptureButtonLabel.value = "Capture & Upload";
+        } else if (mode === "komputer_laptop") {
+            photoModalTitle.value = "Ambil Foto Komputer/Laptop";
+            photoModalDescription.value =
+                "Gunakan kamera HP atau laptop, lalu ambil foto kondisi komputer/laptop secara langsung.";
             photoCaptureButtonLabel.value = "Capture & Upload";
         } else if (mode === "maintenance") {
             photoModalTitle.value = "Ambil Foto Visit Maintenance";
@@ -254,6 +265,18 @@ export function usePhotoCapture({
                 : "patroli_security";
         photoCaptureDay.value = null;
         updatePhotoModalLabels(photoCaptureMode.value);
+        photoError.value = "";
+        photoLoading.value = true;
+        photoModalOpen.value = true;
+        await nextTick();
+        await startPhotoCamera();
+    }
+
+    async function openComputerLaptopCamera() {
+        if (!entry.value || !isComputerLaptop.value || !computerLaptopTargetKey.value) return;
+        photoCaptureMode.value = "komputer_laptop";
+        photoCaptureDay.value = null;
+        updatePhotoModalLabels("komputer_laptop");
         photoError.value = "";
         photoLoading.value = true;
         photoModalOpen.value = true;
@@ -1119,6 +1142,13 @@ export function usePhotoCapture({
         return single ? [single] : [];
     }
 
+    function normalizeComputerLaptopPhotoBucket(bucket) {
+        if (Array.isArray(bucket))
+            return bucket.filter((item) => String(item || "").trim() !== "");
+        const single = String(bucket || "").trim();
+        return single ? [single] : [];
+    }
+
     function normalizeMaintenancePhotoBucket(bucket) {
         if (Array.isArray(bucket))
             return bucket.filter((item) => String(item || "").trim() !== "");
@@ -1567,6 +1597,47 @@ export function usePhotoCapture({
         entry.value.form.area_photo_names = nextNames;
     }
 
+    function updateComputerLaptopPhotoState(payload = {}) {
+        if (!entry.value || !isComputerLaptop.value || !computerLaptopTargetKey.value) return;
+        const targetKey = computerLaptopTargetKey.value;
+        const nextPaths = { ...(entry.value.form.area_photo_paths || {}) };
+        const nextUrls = { ...(entry.value.form.area_photo_urls || {}) };
+        const nextNames = { ...(entry.value.form.area_photo_names || {}) };
+        const paths = normalizeComputerLaptopPhotoBucket(nextPaths[targetKey]);
+        const urls = normalizeComputerLaptopPhotoBucket(nextUrls[targetKey]);
+        const names = normalizeComputerLaptopPhotoBucket(nextNames[targetKey]);
+        const length = Math.max(paths.length, urls.length, names.length);
+        const photos = Array.from({ length }, (_, index) => ({
+            path: paths[index] || "",
+            url: urls[index] || "",
+            name: names[index] || "",
+        })).filter((photo) => String(photo.path || photo.url || photo.name || "").trim() !== "");
+
+        if (typeof payload.removeIndex === "number") {
+            photos.splice(payload.removeIndex, 1);
+        } else {
+            photos.push({
+                path: payload.path || "",
+                url: payload.url || "",
+                name: payload.name || "",
+            });
+        }
+
+        if (photos.length) {
+            nextPaths[targetKey] = photos.map((photo) => photo.path);
+            nextUrls[targetKey] = photos.map((photo) => photo.url);
+            nextNames[targetKey] = photos.map((photo) => photo.name);
+        } else {
+            delete nextPaths[targetKey];
+            delete nextUrls[targetKey];
+            delete nextNames[targetKey];
+        }
+
+        entry.value.form.area_photo_paths = nextPaths;
+        entry.value.form.area_photo_urls = nextUrls;
+        entry.value.form.area_photo_names = nextNames;
+    }
+
     async function uploadPatroliSecurityPhoto(file) {
         if (
             !entry.value ||
@@ -1599,6 +1670,31 @@ export function usePhotoCapture({
                 error?.response?.data?.message || "Foto gagal di-upload.";
         } finally {
             patroliSecurityPhotoUploading.value = false;
+        }
+    }
+
+    async function uploadComputerLaptopPhoto(file) {
+        if (!entry.value || !isComputerLaptop.value || !computerLaptopTargetKey.value || !file) return;
+        computerLaptopPhotoUploading.value = true;
+        computerLaptopPhotoError.value = "";
+        try {
+            const formData = new FormData();
+            formData.append("photo", file);
+            const response = await axios.post(
+                "/gmiic/checklist/komputer-laptop/photo",
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } },
+            );
+            updateComputerLaptopPhotoState({
+                path: response.data?.path || "",
+                url: response.data?.url || "",
+                name: response.data?.original_name || file.name || "",
+            });
+        } catch (error) {
+            computerLaptopPhotoError.value =
+                error?.response?.data?.message || "Foto gagal di-upload.";
+        } finally {
+            computerLaptopPhotoUploading.value = false;
         }
     }
 
@@ -2706,6 +2802,32 @@ export function usePhotoCapture({
         }
     }
 
+    async function removeComputerLaptopPhoto(index) {
+        if (!entry.value || !isComputerLaptop.value || !computerLaptopTargetKey.value) return;
+        computerLaptopPhotoError.value = "";
+        const photo = currentComputerLaptopPhotos.value[Number(index)];
+        if (!photo) return;
+        const confirmed = await swalConfirm({
+            title: "Hapus Foto",
+            text: "Foto area ini akan dihapus. Lanjutkan?",
+            confirmButtonText: "Ya, Hapus",
+            cancelButtonText: "Tidak",
+            confirmButtonColor: "#dc2626",
+        });
+        if (!confirmed) return;
+        try {
+            if (String(photo.path || "").trim()) {
+                await axios.delete("/gmiic/checklist/komputer-laptop/photo", {
+                    data: { path: photo.path },
+                });
+            }
+            updateComputerLaptopPhotoState({ removeIndex: Number(index) });
+        } catch (error) {
+            computerLaptopPhotoError.value =
+                error?.response?.data?.message || "Foto gagal dihapus.";
+        }
+    }
+
     function updateCleaningOBPhotoState(payload = {}) {
         if (!entry.value || !isCleaningOB.value || !cleaningOBTargetKey.value)
             return;
@@ -3033,6 +3155,22 @@ export function usePhotoCapture({
                 await closePhotoModal();
                 return;
             }
+            if (photoCaptureMode.value === "komputer_laptop") {
+                if (!isComputerLaptop.value || !computerLaptopTargetKey.value) return;
+                const selectedAreaLabel = getComputerLaptopAreaLabel(
+                    entry.value.form.selected_area,
+                )
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/(^-|-$)/g, "");
+                const file = await canvasToJpegFile(
+                    canvas,
+                    `komputer-laptop-${selectedAreaLabel || "area"}-${Date.now()}.jpg`,
+                );
+                await uploadComputerLaptopPhoto(file);
+                await closePhotoModal();
+                return;
+            }
             if (
                 photoCaptureMode.value === "patroli_security" ||
                 photoCaptureMode.value === "printer" ||
@@ -3209,6 +3347,8 @@ export function usePhotoCapture({
         photoGalleryInput,
         patroliSecurityPhotoUploading,
         patroliSecurityPhotoError,
+        computerLaptopPhotoUploading,
+        computerLaptopPhotoError,
         maintenancePhotoUploading,
         maintenancePhotoError,
         cleaningOBPhotoUploading,
@@ -3236,6 +3376,7 @@ export function usePhotoCapture({
         openWasteTransportGallery,
         handleWasteTransportGalleryFile,
         openPatroliSecurityCamera,
+        openComputerLaptopCamera,
         openMaintenanceCamera,
         openCleaningOBCamera,
         openChecklistITCamera,
@@ -3250,6 +3391,7 @@ export function usePhotoCapture({
         closePhotoModal,
         stopPhotoCamera,
         removePatroliSecurityPhoto,
+        removeComputerLaptopPhoto,
         removeMaintenancePhoto,
         removeCleaningOBPhoto,
         removeChecklistITPhoto,
@@ -3261,6 +3403,7 @@ export function usePhotoCapture({
         removeSaranaPrasaranaPhoto,
         removeWarehousePhoto,
         updatePatroliSecurityPhotoState,
+        updateComputerLaptopPhotoState,
         updateMaintenancePhotoState,
         updateCleaningOBPhotoState,
         updateChecklistITPhotoState,
@@ -3272,6 +3415,7 @@ export function usePhotoCapture({
         updateSaranaPrasaranaPhotoState,
         updateWarehousePhotoState,
         uploadPatroliSecurityPhoto,
+        uploadComputerLaptopPhoto,
         uploadMaintenancePhoto,
         uploadCleaningOBPhoto,
         uploadChecklistITPhoto,
@@ -3283,6 +3427,7 @@ export function usePhotoCapture({
         uploadSaranaPrasaranaPhoto,
         uploadWarehousePhoto,
         normalizePatroliSecurityPhotoBucket,
+        normalizeComputerLaptopPhotoBucket,
         normalizeMaintenancePhotoBucket,
         normalizeCleaningOBPhotoBucket,
         normalizeChecklistITPhotoBucket,

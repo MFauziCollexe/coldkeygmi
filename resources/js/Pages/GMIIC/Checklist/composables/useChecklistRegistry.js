@@ -5,6 +5,7 @@ import WarehouseSanitationTemplate from "../Templates/WarehouseSanitationTemplat
 import PersonalHygieneTemplate from "../Templates/PersonalHygieneTemplate.vue";
 import SaranaPrasaranaTemplate from "../Templates/SaranaPrasaranaTemplate.vue";
 import PatroliSecurityTemplate from "../Templates/PatroliSecurityTemplate.vue";
+import ComputerLaptopTemplate from "../Templates/ComputerLaptopTemplate.vue";
 import PrinterChecklistTemplate from "../Templates/PrinterChecklistTemplate.vue";
 import CctvChecklistTemplate from "../Templates/CctvChecklistTemplate.vue";
 import SiteVisitHseTemplate from "../Templates/SiteVisitHseTemplate.vue";
@@ -27,6 +28,7 @@ const supportedTemplates = [
     "personal_hygiene_karyawan",
     "sarana_dan_prasarana",
     "patroli_security",
+    "komputer_laptop",
     "printer",
     "cctv",
     "site_visit_hse",
@@ -50,6 +52,7 @@ export const templateRegistry = {
     personal_hygiene_karyawan: { component: PersonalHygieneTemplate },
     sarana_dan_prasarana: { component: SaranaPrasaranaTemplate },
     patroli_security: { component: PatroliSecurityTemplate },
+    komputer_laptop: { component: ComputerLaptopTemplate },
     printer: { component: PrinterChecklistTemplate },
     cctv: { component: CctvChecklistTemplate },
     site_visit_hse: { component: SiteVisitHseTemplate },

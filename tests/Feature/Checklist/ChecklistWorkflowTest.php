@@ -52,6 +52,45 @@ class ChecklistWorkflowTest extends TestCase
         $this->assertSame(1, ChecklistState::query()->where('checklist_header_id', $header->id)->count());
     }
 
+    public function test_it_user_can_save_computer_laptop_checklist_and_approval_requires_qr(): void
+    {
+        $itDepartment = $this->createDepartment([
+            'name' => 'Information Technology',
+            'code' => 'IT',
+        ]);
+        $itUser = $this->createUser([
+            'department' => $itDepartment,
+        ], 'gmiic.checklist');
+
+        $entry = [
+            'id' => 'IT-DEVICE-001',
+            'template_id' => 'komputer_laptop',
+            'name' => 'Checklist Komputer/Laptop',
+            'form' => [
+                'date_value' => '2026-11-25',
+                'selected_area' => 'pc_admin_1',
+                'approved_areas' => [],
+            ],
+        ];
+
+        $this->actingAs($itUser)
+            ->postJson(route('gmiic.checklist.entries.save'), ['entry' => $entry])
+            ->assertOk()
+            ->assertJsonPath('entry.template_id', 'komputer_laptop');
+
+        $entry['form']['approved_areas'] = ['pc_admin_1'];
+        $this->postJson(route('gmiic.checklist.entries.save'), [
+            'entry' => $entry,
+            'approval_action' => true,
+        ])->assertUnprocessable();
+
+        $entry['form']['area_barcodes'] = ['pc_admin_1' => 'QR-PC-ADMIN-1'];
+        $this->postJson(route('gmiic.checklist.entries.save'), [
+            'entry' => $entry,
+            'approval_action' => true,
+        ])->assertOk();
+    }
+
     public function test_it_matches_selected_date_against_payload_and_header_fields(): void
     {
         $controller = new ChecklistEntryController();

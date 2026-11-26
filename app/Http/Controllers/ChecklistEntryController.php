@@ -2414,6 +2414,7 @@ class ChecklistEntryController extends Controller
                 || !$this->isFilled($currentForm['verification']['verified_date'] ?? null) && $this->isFilled($nextForm['verification']['verified_date'] ?? null),
             'sarana_dan_prasarana' => $this->hasMapListExpanded($currentForm['approved_days_by_area'] ?? [], $nextForm['approved_days_by_area'] ?? []),
             'patroli_security', 'printer', 'cctv', 'site_visit_hse' => $this->hasListExpanded($currentForm['approved_areas'] ?? [], $nextForm['approved_areas'] ?? []),
+            'komputer_laptop' => $this->hasListExpanded($currentForm['approved_areas'] ?? [], $nextForm['approved_areas'] ?? []),
             default => !$this->isTruthy($currentForm['approved'] ?? false) && $this->isTruthy($nextForm['approved'] ?? false),
         };
     }
@@ -2433,6 +2434,7 @@ class ChecklistEntryController extends Controller
             'warehouse_sanitation_1' => $this->isFilled($form['barcode'] ?? null),
             'sarana_dan_prasarana' => $this->hasSaranaPrasaranaScanForLatestApproval($form),
             'patroli_security', 'printer', 'cctv', 'site_visit_hse' => $this->isFilled($this->latestListValue($form['approved_areas'] ?? [], $form['area_barcodes'] ?? [])),
+            'komputer_laptop' => $this->isFilled($this->latestListValue($form['approved_areas'] ?? [], $form['area_barcodes'] ?? [])),
             'site_visit_maintenance' => $this->hasMaintenanceQrScan($form),
             'genset_running', 'running_genset' => $this->hasGensetRunningQrScan($form),
             default => true,

@@ -72,12 +72,12 @@ import {
   createSaranaPrasaranaEntry, createPatroliSecurityEntry, createPrinterChecklistEntry, createCctvChecklistEntry, createSiteVisitHseEntry,
   createSiteVisitMaintenanceEntry, createGensetRunningEntry, createRunningGensetEntry,
   createKompresorHarianEntry, createChargerBateraiEntry, createChecklistBateraiEntry,
-  createUnitCoolerEntry,
+  createUnitCoolerEntry, createComputerLaptopEntry,
   rebuildUnitCoolerRows,
   unitCoolerItems,
   createChecklistITEntry, createInspeksiLokerEntry, createCleaningOBEntry, formatMonthYearDisplay, formatDateTimeDisplay, formatDateDisplay,
   formatShortDateDisplay, getKotakP3KMonthLabel, getLocationBarcodeAliases,
-  getPatroliSecurityBarcodeAliases, getSanitationAreaBarcodeAliases, kotakP3KMonths,
+  getPatroliSecurityBarcodeAliases, getComputerLaptopBarcodeAliases, getSanitationAreaBarcodeAliases, kotakP3KMonths,
   toPeriodValue,
 } from './checklistConfig'
 import { supportedTemplatesList, getTemplateComponent } from './composables/useChecklistRegistry'
@@ -92,6 +92,7 @@ import { useWarehouseSanitation } from './composables/useWarehouseSanitation'
 import { usePersonalHygiene } from './composables/usePersonalHygiene'
 import { useSaranaPrasarana } from './composables/useSaranaPrasarana'
 import { usePatroliSecurity } from './composables/usePatroliSecurity'
+import { useComputerLaptop } from './composables/useComputerLaptop'
 import { usePrinterChecklist } from './composables/usePrinterChecklist'
 import { useCctvChecklist } from './composables/useCctvChecklist'
 import { useSiteVisitHse } from './composables/useSiteVisitHse'
@@ -150,6 +151,7 @@ const warehouse = useWarehouseSanitation(entry, { canApproveWarehouseFinal, show
 const personalHygiene = usePersonalHygiene(entry, { props, currentUser })
 const saranaPrasarana = useSaranaPrasarana(entry, { showQrScanner })
 const patroliSecurity = usePatroliSecurity(entry, { currentUser, showQrScanner })
+const computerLaptop = useComputerLaptop(entry, { showQrScanner })
 const printerChecklist = usePrinterChecklist(entry, { showQrScanner })
 const cctvChecklist = useCctvChecklist(entry, { showQrScanner })
 const siteVisitHse = useSiteVisitHse(entry, { currentUser, showQrScanner })
@@ -176,6 +178,7 @@ const scanner = useScanner({
   isSiteVisitMaintenance: siteVisitMaintenance.isSiteVisitMaintenance,
   isSiteVisitHse: siteVisitHse.isSiteVisitHse,
   isPatroliSecurity: patroliSecurity.isPatroliSecurity,
+  isComputerLaptop: computerLaptop.isComputerLaptop,
   isPrinterChecklist: printerChecklist.isPrinterChecklist,
   isCctvChecklist: cctvChecklist.isCctvChecklist,
   isCleaningOB: cleaningOB.isCleaningOB,
@@ -188,6 +191,7 @@ const scanner = useScanner({
   canScanMaintenance: siteVisitMaintenance.canScanMaintenance,
   canScanSiteVisitHse: siteVisitHse.canScanSiteVisitHse,
   canScanPatroliSecurity: patroliSecurity.canScanPatroliSecurity,
+  canScanComputerLaptop: computerLaptop.canScanBarcode,
   canScanPrinterChecklist: printerChecklist.canScanPrinterChecklist,
   canScanCctvChecklist: cctvChecklist.canScanCctvChecklist,
   canScanCleaningOB: cleaningOB.canScanCleaningOB,
@@ -198,12 +202,14 @@ const scanner = useScanner({
   maintenanceScanTargetKey: siteVisitMaintenance.maintenanceScanTargetKey,
   siteVisitHseTargetKey: siteVisitHse.siteVisitHseTargetKey,
   patroliSecurityTargetKey: patroliSecurity.patroliSecurityTargetKey,
+  computerLaptopTargetKey: computerLaptop.targetKey,
   printerTargetKey: printerChecklist.printerTargetKey,
   cctvTargetKey: cctvChecklist.cctvTargetKey,
   cleaningOBTargetKey: cleaningOB.cleaningOBTargetKey,
   formatShortDateDisplay, formatDateTimeDisplay,
   getLocationBarcodeAliases,
   getPatroliSecurityBarcodeAliases,
+  getComputerLaptopBarcodeAliases,
   getPrinterChecklistDeviceLabel: printerChecklist.getPrinterChecklistDeviceLabel,
   getCctvChecklistGroupLabel: cctvChecklist.getCctvChecklistGroupLabel,
   getFireSafetyLocationLabel: fireSafety.getFireSafetyLocationLabel,
@@ -239,6 +245,7 @@ const photo = usePhotoCapture({
   entry,
   isWasteTransport: wasteTransport.isWasteTransport,
   isPatroliSecurity: isChecklistWithPatrolPhotos,
+  isComputerLaptop: computerLaptop.isComputerLaptop,
   isSiteVisitMaintenance: siteVisitMaintenance.isSiteVisitMaintenance,
   isCleaningOB: cleaningOB.isCleaningOB,
   isChecklistIT: computed(() => entry.value?.template_id === 'checklist_it'),
@@ -251,6 +258,7 @@ const photo = usePhotoCapture({
   isWarehouseSanitation: warehouse.isWarehouseSanitation,
   warehouseTargetKey: warehouse.warehouseTargetKey,
   patroliSecurityTargetKey: checklistPhotoTargetKey,
+  computerLaptopTargetKey: computerLaptop.targetKey,
   maintenanceScanTargetKey: siteVisitMaintenance.maintenanceScanTargetKey,
   cleaningOBTargetKey: cleaningOB.cleaningOBTargetKey,
   runningGensetTargetKey,
@@ -260,8 +268,10 @@ const photo = usePhotoCapture({
   saranaPrasaranaTargetKey: saranaPrasarana.saranaPrasaranaTargetKey,
   wasteTransportRows: wasteTransport.wasteTransportRows,
   currentPatroliSecurityPhotos: computed(() => printerChecklist.isPrinterChecklist.value ? printerChecklist.currentPrinterPhotos.value : cctvChecklist.isCctvChecklist.value ? cctvChecklist.currentCctvPhotos.value : patroliSecurity.currentPatroliSecurityPhotos.value),
+  currentComputerLaptopPhotos: computerLaptop.currentPhotos,
   currentCleaningOBPhotos: cleaningOB.currentCleaningOBPhotos,
   getPatroliSecurityAreaLabel: (areaId) => printerChecklist.isPrinterChecklist.value ? printerChecklist.getPrinterChecklistDeviceLabel(areaId) : cctvChecklist.isCctvChecklist.value ? cctvChecklist.getCctvChecklistGroupLabel(areaId) : patroliSecurity.getPatroliSecurityAreaLabel(areaId),
+  getComputerLaptopAreaLabel: (areaId) => computerLaptop.areaOptions.find((area) => area.id === areaId)?.name || '-',
   getCleaningOBShiftLabel: cleaningOB.getCleaningOBShiftLabel,
   patroliSecurityOverlayAddressLines: patroliSecurity.patroliSecurityOverlayAddressLines,
   currentUser,
@@ -405,7 +415,7 @@ const currentTemplateProps = computed(() => {
     onRemovePhoto: photo.removeSaranaPrasaranaPhoto,
   }
   if (tid === 'patroli_security') return {
-    entry: entry.value, areaOptions: patroliSecurity.patroliSecurityAreaOptions,
+    entry: entry.value, areaOptions: patroliSecurity.patroliSecurityAreaOptions.value,
     currentSection: patroliSecurity.currentPatroliSecuritySection.value,
     approvedAreas: patroliSecurity.patroliSecurityApprovedAreas.value,
     isAreaApproved: patroliSecurity.patroliSecurityApprovedAreas.value.includes(entry.value.form.selected_area),
@@ -425,6 +435,28 @@ const currentTemplateProps = computed(() => {
     onUpdateNote: patroliSecurity.updatePatroliSecurityNote,
     onOpenCamera: photo.openPatroliSecurityCamera,
     onRemovePhoto: photo.removePatroliSecurityPhoto,
+  }
+  if (tid === 'komputer_laptop') return {
+    entry: entry.value, areaOptions: computerLaptop.areaOptions,
+    currentSection: computerLaptop.currentSection.value,
+    approvedAreas: computerLaptop.approvedAreas.value,
+    isAreaApproved: computerLaptop.approvedAreas.value.includes(entry.value.form.selected_area),
+    note: computerLaptop.note.value,
+    noteLabel: computerLaptop.noteLabel.value,
+    currentBarcode: computerLaptop.currentBarcode.value,
+    canScanBarcode: computerLaptop.canScanBarcode.value,
+    canApproveEntry: canApproveEntry,
+    currentPhotos: computerLaptop.currentPhotos.value,
+    photoUploading: photo.computerLaptopPhotoUploading.value,
+    photoError: photo.computerLaptopPhotoError.value,
+    showQrScanner: showQrScanner.value,
+    onApprove: approveChecklist, onScanBarcode: scanner.scanComputerLaptopBarcode,
+    onUpdateDate: computerLaptop.updateDate,
+    onUpdateArea: computerLaptop.updateArea,
+    onCycleRowStatus: computerLaptop.cycleRowStatus,
+    onUpdateNote: computerLaptop.updateNote,
+    onOpenCamera: photo.openComputerLaptopCamera,
+    onRemovePhoto: photo.removeComputerLaptopPhoto,
   }
   if (tid === 'printer') return {
     entry: entry.value,
@@ -866,6 +898,16 @@ const canApprovePatroliSecurityEntry = computed(() => {
   return true
 })
 
+const canApproveComputerLaptopEntry = computed(() => {
+  if (!entry.value || entry.value.template_id !== 'komputer_laptop') return false
+  const selectedArea = String(entry.value.form.selected_area || '').trim()
+  if (!selectedArea || !String(entry.value.form.date_value || '').trim()) return false
+  if (computerLaptop.approvedAreas.value.includes(selectedArea)) return false
+  const validation = computerLaptop.validation.value
+  if (!validation.allAnswersFilled || (validation.hasNoAnswer && !validation.hasRequiredNote)) return false
+  return !showQrScanner.value || Boolean(String(computerLaptop.currentBarcode.value || '').trim())
+})
+
 const canApprovePrinterChecklistEntry = computed(() => {
   if (!entry.value || entry.value.template_id !== 'printer') return false
   if (!canApproveCurrentTemplate.value) return false
@@ -1063,6 +1105,11 @@ const canApproveEntry = computed(() => {
     return canApprovePatroliSecurityEntry.value
   }
 
+  if (tid === 'komputer_laptop') {
+    if (!canApproveCurrentTemplate.value) return false
+    return canApproveComputerLaptopEntry.value
+  }
+
   if (tid === 'jadwal_cleaning_ob') {
     if (!canApproveCurrentTemplate.value) return false
     const selectedShift = String(entry.value.form.selected_shift || '').trim()
@@ -1251,7 +1298,15 @@ async function approveChecklist() {
   if (tid === 'patroli_security') {
     const selectedArea = String(entry.value.form.selected_area || '').trim()
     entry.value.form.approved_areas = [...new Set([...(entry.value.form.approved_areas || []), selectedArea])]
-    entry.value.form.approved = patroliSecurity.patroliSecurityAreaOptions.every((area) => entry.value.form.approved_areas.includes(area.id))
+    entry.value.form.approved = patroliSecurity.patroliSecurityAreaOptions.value.every((area) => entry.value.form.approved_areas.includes(area.id))
+    await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
+    return
+  }
+
+  if (tid === 'komputer_laptop') {
+    const selectedArea = String(entry.value.form.selected_area || '').trim()
+    entry.value.form.approved_areas = [...new Set([...(entry.value.form.approved_areas || []), selectedArea])]
+    entry.value.form.approved = computerLaptop.areaOptions.every((area) => entry.value.form.approved_areas.includes(area.id))
     await persistChecklistEntry(entry.value, { force: true, approvalAction: true })
     return
   }
@@ -1409,6 +1464,7 @@ function createEntryByTemplate(templateId, options = {}) {
     personal_hygiene_karyawan: () => createPersonalHygieneEntry(userName),
     sarana_dan_prasarana: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createSaranaPrasaranaEntry(userName),
     patroli_security: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createPatroliSecurityEntry(userName),
+    komputer_laptop: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createComputerLaptopEntry(userName),
     printer: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createPrinterChecklistEntry(userName),
     cctv: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createCctvChecklistEntry(userName),
     jadwal_cleaning_ob: () => continuableEntry ? hydrateChecklistEntry(continuableEntry) : createCleaningOBEntry(userName),
@@ -1434,6 +1490,7 @@ function createInitialEntry() {
   }
   const continuableSanitationEntry = null
   const continuablePatroliEntry = selectedChecklist.value === 'patroli_security' ? patroliSecurity.findOpenPatroliSecurityDraft(props.existingEntries) : null
+  const continuableComputerLaptopEntry = selectedChecklist.value === 'komputer_laptop' ? computerLaptop.findOpenDraft(props.existingEntries) : null
   const continuablePrinterEntry = selectedChecklist.value === 'printer' ? (props.existingEntries || []).find((item) => item?.template_id === 'printer' && !Boolean(item?.form?.approved)) : null
   const continuableCctvEntry = selectedChecklist.value === 'cctv' ? (props.existingEntries || []).find((item) => item?.template_id === 'cctv' && !Boolean(item?.form?.approved)) : null
   const continuableCleaningOBEntry = selectedChecklist.value === 'jadwal_cleaning_ob' ? cleaningOB.findOpenCleaningOBDraft(props.existingEntries) : null
@@ -1444,13 +1501,14 @@ function createInitialEntry() {
   const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(props.existingEntries) : null
   const continuableFireSafetyEntry = selectedChecklist.value === 'apar_smoke_detector_fire_alarm' ? findSameYearFireSafetyEntry(props.existingEntries) : null
   const continuableUnitCoolerEntry = selectedChecklist.value === 'unit_cooler' ? findSamePeriodUnitCoolerEntry(props.existingEntries) : null
-  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuablePrinterEntry || continuableCctvEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry || continuableUnitCoolerEntry })
+  return createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuableSanitationEntry || continuablePatroliEntry || continuableComputerLaptopEntry || continuablePrinterEntry || continuableCctvEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry || continuableUnitCoolerEntry })
 }
 
 function refreshEntry() {
   if (props.entryId && entry.value?.id === props.entryId && entry.value?.template_id === selectedChecklist.value) return
   const continuableSanitationEntry = null
   const continuablePatroliEntry = selectedChecklist.value === 'patroli_security' ? patroliSecurity.findOpenPatroliSecurityDraft(knownChecklistEntries.value) : null
+  const continuableComputerLaptopEntry = selectedChecklist.value === 'komputer_laptop' ? computerLaptop.findOpenDraft(knownChecklistEntries.value) : null
   const continuablePrinterEntry = selectedChecklist.value === 'printer' ? (knownChecklistEntries.value || []).find((item) => item?.template_id === 'printer' && !Boolean(item?.form?.approved)) : null
   const continuableCctvEntry = selectedChecklist.value === 'cctv' ? (knownChecklistEntries.value || []).find((item) => item?.template_id === 'cctv' && !Boolean(item?.form?.approved)) : null
   const continuableCleaningOBEntry = selectedChecklist.value === 'jadwal_cleaning_ob' ? cleaningOB.findOpenCleaningOBDraft(knownChecklistEntries.value) : null
@@ -1461,8 +1519,8 @@ function refreshEntry() {
   const continuableKotakP3KEntry = selectedChecklist.value === 'kotak_p3k' ? findSameYearKotakP3KEntry(knownChecklistEntries.value) : null
   const continuableFireSafetyEntry = selectedChecklist.value === 'apar_smoke_detector_fire_alarm' ? findSameYearFireSafetyEntry(knownChecklistEntries.value) : null
   const continuableUnitCoolerEntry = selectedChecklist.value === 'unit_cooler' ? findSamePeriodUnitCoolerEntry(knownChecklistEntries.value) : null
-  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuablePatroliEntry || continuablePrinterEntry || continuableCctvEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry || continuableUnitCoolerEntry })
-  if ((continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuablePrinterEntry && entry.value?.id === continuablePrinterEntry.id) || (continuableCctvEntry && entry.value?.id === continuableCctvEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id) || (continuableKotakP3KEntry && entry.value?.id === continuableKotakP3KEntry.id) || (continuableFireSafetyEntry && entry.value?.id === continuableFireSafetyEntry.id) || (continuableSiteVisitHseEntry && entry.value?.id === continuableSiteVisitHseEntry.id) || (continuableSaranaPrasaranaEntry && entry.value?.id === continuableSaranaPrasaranaEntry.id) || (continuableWasteTransportEntry && entry.value?.id === continuableWasteTransportEntry.id)) syncCurrentEntryUrl(entry.value)
+  entry.value = createEntryByTemplate(selectedChecklist.value, { continuableEntry: continuablePatroliEntry || continuableComputerLaptopEntry || continuablePrinterEntry || continuableCctvEntry || continuableCleaningOBEntry || continuableMaintenanceEntry || continuableSiteVisitHseEntry || continuableSaranaPrasaranaEntry || continuableWasteTransportEntry || continuableKotakP3KEntry || continuableFireSafetyEntry || continuableUnitCoolerEntry })
+  if ((continuablePatroliEntry && entry.value?.id === continuablePatroliEntry.id) || (continuableComputerLaptopEntry && entry.value?.id === continuableComputerLaptopEntry.id) || (continuablePrinterEntry && entry.value?.id === continuablePrinterEntry.id) || (continuableCctvEntry && entry.value?.id === continuableCctvEntry.id) || (continuableCleaningOBEntry && entry.value?.id === continuableCleaningOBEntry.id) || (continuableKotakP3KEntry && entry.value?.id === continuableKotakP3KEntry.id) || (continuableFireSafetyEntry && entry.value?.id === continuableFireSafetyEntry.id) || (continuableSiteVisitHseEntry && entry.value?.id === continuableSiteVisitHseEntry.id) || (continuableSaranaPrasaranaEntry && entry.value?.id === continuableSaranaPrasaranaEntry.id) || (continuableWasteTransportEntry && entry.value?.id === continuableWasteTransportEntry.id)) syncCurrentEntryUrl(entry.value)
 }
 
 // ─── Initial Save State ──────────────────────────────────────

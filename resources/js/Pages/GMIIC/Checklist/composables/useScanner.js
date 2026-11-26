@@ -12,6 +12,7 @@ export function useScanner({
   isSiteVisitMaintenance,
   isSiteVisitHse,
   isPatroliSecurity,
+  isComputerLaptop,
   isPrinterChecklist,
   isCctvChecklist,
   isCleaningOB,
@@ -25,6 +26,7 @@ export function useScanner({
   canScanMaintenance,
   canScanSiteVisitHse,
   canScanPatroliSecurity,
+  canScanComputerLaptop,
   canScanPrinterChecklist,
   canScanCctvChecklist,
   canScanCleaningOB,
@@ -35,6 +37,7 @@ export function useScanner({
   maintenanceScanTargetKey,
   siteVisitHseTargetKey,
   patroliSecurityTargetKey,
+  computerLaptopTargetKey,
   printerTargetKey,
   cctvTargetKey,
   cleaningOBTargetKey,
@@ -42,6 +45,7 @@ export function useScanner({
   formatDateTimeDisplay,
   getLocationBarcodeAliases,
   getPatroliSecurityBarcodeAliases,
+  getComputerLaptopBarcodeAliases,
   getPrinterChecklistDeviceLabel,
   getCctvChecklistGroupLabel,
   getFireSafetyLocationLabel,
@@ -97,6 +101,7 @@ export function useScanner({
     if (mode === 'sarana_prasarana') return [getSaranaPrasaranaAreaLabel(entry.value.form.selected_area)]
     if (mode === 'site_visit_hse') return [getSiteVisitHseAreaLabel(entry.value.form.selected_area)]
     if (mode === 'patroli_security') return getPatroliSecurityBarcodeAliases(entry.value.form.selected_area)
+    if (mode === 'computer_laptop') return getComputerLaptopBarcodeAliases(entry.value.form.selected_area)
     if (mode === 'printer') return [getPrinterChecklistDeviceLabel(printerTargetKey.value)]
     if (mode === 'cctv') return [getCctvChecklistGroupLabel(cctvTargetKey.value)]
     if (mode === 'site_visit_maintenance') return [getMaintenanceDailyAreaLabel(maintenanceScanTargetKey.value)]
@@ -165,6 +170,11 @@ export function useScanner({
   async function scanPatroliSecurityBarcode() {
     if (!entry.value || !isPatroliSecurity.value || !showQrScanner.value || !canScanPatroliSecurity.value) return
     openScanner('patroli_security')
+  }
+
+  async function scanComputerLaptopBarcode() {
+    if (!entry.value || !isComputerLaptop.value || !showQrScanner.value || !canScanComputerLaptop.value) return
+    openScanner('computer_laptop')
   }
 
   async function scanPrinterChecklistBarcode() {
@@ -246,6 +256,11 @@ export function useScanner({
     if (mode === 'patroli_security') {
       entry.value.form.area_barcodes = { ...(entry.value.form.area_barcodes || {}), [patroliSecurityTargetKey.value]: decodedText }
       entry.value.form.area_scan_dates = { ...(entry.value.form.area_scan_dates || {}), [patroliSecurityTargetKey.value]: formatShortDateDisplay(now) }
+    }
+
+    if (mode === 'computer_laptop') {
+      entry.value.form.area_barcodes = { ...(entry.value.form.area_barcodes || {}), [computerLaptopTargetKey.value]: decodedText }
+      entry.value.form.area_scan_dates = { ...(entry.value.form.area_scan_dates || {}), [computerLaptopTargetKey.value]: formatShortDateDisplay(now) }
     }
 
     if (mode === 'printer') {
@@ -357,6 +372,7 @@ export function useScanner({
     scanMaintenanceBarcode,
     scanSiteVisitHseBarcode,
     scanPatroliSecurityBarcode,
+    scanComputerLaptopBarcode,
     scanPrinterChecklistBarcode,
     scanCctvChecklistBarcode,
     scanCleaningOBBarcode,

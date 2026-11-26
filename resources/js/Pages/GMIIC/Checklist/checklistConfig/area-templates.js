@@ -1,5 +1,5 @@
 import { getDaysInPeriod, toPeriodValue, toDateInputValue, formatDateDisplay, formatDateTimeDisplay } from './date-utils';
-import { patroliSecuritySections, patroliSecurityAreaOptions, printerChecklistSections, printerChecklistDeviceOptions, cctvChecklistSections, cctvChecklistGroupOptions, cleaningOBShifts, cleaningOBShiftOptions, saranaPrasaranaSections, saranaPrasaranaAreaOptions, siteVisitHseSections, siteVisitHseAreaOptions } from './area-data';
+import { patroliSecuritySections, patroliSecurityAreaOptions, computerLaptopSections, computerLaptopAreaOptions, printerChecklistSections, printerChecklistDeviceOptions, cctvChecklistSections, cctvChecklistGroupOptions, cleaningOBShifts, cleaningOBShiftOptions, saranaPrasaranaSections, saranaPrasaranaAreaOptions, siteVisitHseSections, siteVisitHseAreaOptions } from './area-data';
 
 export function createPatroliSecuritySections() {
     return patroliSecuritySections.map((section) => ({
@@ -37,10 +37,7 @@ export function rebuildPatroliSecuritySections(existingSections = []) {
 }
 
 export function getPatroliSecurityAreaLabel(areaId) {
-    return (
-        patroliSecurityAreaOptions.find((area) => area.id === areaId)?.name ||
-        "-"
-    );
+    return patroliSecurityAreaOptions.find((area) => area.id === areaId)?.name || "-";
 }
 
 export function getPatroliSecurityBarcodeAliases(areaId) {
@@ -109,6 +106,60 @@ export function createPatroliSecurityEntry(userName) {
     };
 }
 
+export function getComputerLaptopBarcodeAliases(areaId) {
+    const title = computerLaptopSections.find((section) => section.id === areaId)?.title || "";
+    const label = getComputerLaptopAreaLabel(areaId);
+    return [...new Set([title, label].filter((value) => String(value || "").trim() !== ""))];
+}
+
+export function createComputerLaptopSections(existingSections = []) {
+    return computerLaptopSections.map((section) => {
+        const existingSection = existingSections.find((item) => item.id === section.id);
+        return {
+            id: section.id,
+            title: section.title,
+            items: section.items.map((name, index) => {
+                const id = `${section.id}-${index + 1}`;
+                const existingItem = existingSection?.items?.find((item) => item.id === id);
+                return { no: index + 1, id, name, status: existingItem?.status || "" };
+            }),
+        };
+    });
+}
+
+export function getComputerLaptopAreaLabel(areaId) {
+    return computerLaptopAreaOptions.find((area) => area.id === areaId)?.name || "-";
+}
+
+export function createComputerLaptopEntry(userName) {
+    const now = new Date();
+    return {
+        id: `komputer_laptop-${Date.now()}`,
+        template_id: "komputer_laptop",
+        name: "Checklist Komputer/Laptop",
+        created_at: formatDateTimeDisplay(now),
+        form: {
+            date_value: toDateInputValue(now),
+            date: formatDateDisplay(now),
+            selected_area: computerLaptopAreaOptions[0]?.id || "",
+            pic: userName || "User Login",
+            approved: false,
+            approved_areas: [],
+            area_barcodes: {},
+            area_notes: {},
+            area_photo_paths: {},
+            area_photo_urls: {},
+            area_photo_names: {},
+            area_scan_dates: {},
+            document_no: "FRM/IT/03/01",
+            rev: "00",
+            effective_date: "01/12/2026",
+            page: "15",
+            sections: createComputerLaptopSections(),
+        },
+    };
+}
+
 export function createPrinterChecklistSections(existingSections = []) {
     return printerChecklistSections.map((section) => {
         const existingSection = existingSections.find((item) => item.id === section.id);
@@ -148,10 +199,10 @@ export function createPrinterChecklistEntry(userName) {
             area_photo_urls: {},
             area_photo_names: {},
             area_scan_dates: {},
-            document_no: "",
+            document_no: "FRM/IT/02/01",
             rev: "00",
-            effective_date: "",
-            page: "1 dari 1",
+            effective_date: "01/12/2026",
+            page: "5",
             sections: createPrinterChecklistSections(),
         },
     };
@@ -196,10 +247,10 @@ export function createCctvChecklistEntry(userName) {
             area_photo_urls: {},
             area_photo_names: {},
             area_scan_dates: {},
-            document_no: "",
+            document_no: "FRM/IT/01/01",
             rev: "00",
-            effective_date: "",
-            page: "1 dari 1",
+            effective_date: "01/12/2026",
+            page: "4",
             sections: createCctvChecklistSections(),
         },
     };

@@ -415,6 +415,47 @@ export const patroliSecurityAreaOptions = patroliSecuritySections.map(
     }),
 );
 
+const computerChecklistItems = [
+    "Daya PC monitor, menyala normal (tidak ada beep code, LED error)",
+    "Kapasitas & kesehatan media penyimpanan (SSD/HDD) normal (ruang kosong drive sistem minimal 20%, tidak ada bad sector / peringatan SMART)",
+    "Koneksi jaringan LAN / Wi-Fi stabil serta akses internet, sistem/web internal, dan Shared Folder berjalan lancar",
+    "Sinkronisasi tanggal & jam sistem operasi akurat sesuai waktu lokal",
+    "Kebersihan fisik bodi, ventilasi udara, layar, serta kerapian kabel daya, jaringan, dan periferal",
+];
+
+const laptopChecklistItems = [
+    "Daya, Baterai & Adaptor: Laptop menyala normal dengan baterai maupun adaptor (tidak ada beep code / LED error), baterai tidak kembung/drop ekstrem, proses charging berjalan normal, dan kabel/kepala charger aman tidak rusak",
+    "Kapasitas & Utilisasi RAM / CPU: Kapasitas RAM terbaca sesuai spesifikasi fisik (tidak ada slot gagal baca), tidak ada memory leak, dan penggunaan RAM/CPU saat kondisi idle wajar (tidak overload akibat aplikasi background berlebih)",
+    "Kapasitas & Kesehatan Penyimpanan (SSD/HDD): Ruang kosong drive sistem minimal 20%, tidak ada bad sector atau peringatan SMART",
+    "Aplikasi Kerja, Lisensi & Keamanan: Aplikasi operasional standar (Office, Browser, PDF, aplikasi internal/ERP) berjalan normal tanpa crash, lisensi OS & Office aktif, serta Antivirus/Windows Defender aktif dan up-to-date",
+    "Konektivitas Jaringan & Sistem: Koneksi Wi-Fi dan LAN stabil, serta akses internet, sistem/web internal, dan Shared Folder berjalan lancar",
+    "Perangkat Input Bawaan: Seluruh tombol keyboard berfungsi normal (tidak macet/double-typing/mati) dan touchpad responsif",
+    "Layar, Engsel & Port I/O: Engsel layar kokoh, layar bebas dead pixel/garis/kedip, serta seluruh port (USB, HDMI/VGA, audio, LAN) dan Bluetooth berfungsi normal",
+    "Kebersihan Fisik & Ventilasi: Kebersihan fisik bodi, layar, sela keyboard, serta lubang ventilasi/kipas bebas debu tebal (overheat) dan kabel charger tertata rapi",
+];
+
+export const computerLaptopSections = [
+    { id: "pc_admin_1", title: "Lantai 1 > PC Admin 1", items: computerChecklistItems },
+    { id: "pc_admin_2", title: "Lantai 1 > PC Admin 2", items: computerChecklistItems },
+    { id: "pc_operational_1", title: "Lantai 1 > PC Operational 1", items: computerChecklistItems },
+    { id: "pc_checker_1", title: "Lantai 1 > PC Checker 1", items: computerChecklistItems },
+    { id: "pc_risk_control_1", title: "Lantai 1 > PC Risk Control 1", items: computerChecklistItems },
+    { id: "pc_risk_control_2", title: "Lantai 1 > PC Risk Control 2", items: computerChecklistItems },
+    { id: "pc_security", title: "Lantai 1 > PC Security", items: computerChecklistItems },
+    { id: "pc_maintenance", title: "Lantai 1 > PC Maintenance", items: computerChecklistItems },
+    { id: "laptop_commercial", title: "Lantai 2 > Laptop Commercial", items: laptopChecklistItems },
+    { id: "laptop_hse", title: "Lantai 2 > Laptop HSE", items: laptopChecklistItems },
+    { id: "laptop_hrd", title: "Lantai 2 > Laptop HRD", items: laptopChecklistItems },
+    { id: "laptop_fat_1", title: "Lantai 2 > Laptop FAT 1", items: laptopChecklistItems },
+    { id: "laptop_fat_2", title: "Lantai 2 > Laptop FAT 2", items: laptopChecklistItems },
+    { id: "laptop_mtc", title: "Control Room > Laptop MTC", items: laptopChecklistItems },
+    { id: "laptop_it", title: "Lantai 3 > Laptop IT", items: laptopChecklistItems },
+];
+
+export const computerLaptopAreaOptions = computerLaptopSections.map(
+    (section) => ({ id: section.id, name: section.title }),
+);
+
 export const printerChecklistSections = [
     {
         id: "printer_epson_l121_lantai_2",

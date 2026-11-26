@@ -79,6 +79,7 @@ $templatePermissions = array_merge(
     $buildTemplatePermissions(
         [
             'checklist_it',
+            'komputer_laptop',
         ],
         $itChecklistRules
     ),

@@ -315,6 +315,12 @@ Route::post('gmiic/checklist/patroli-security/photo', [App\Http\Controllers\Chec
 Route::delete('gmiic/checklist/patroli-security/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deletePatroliSecurityPhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.patroli-security.photo.delete');
+Route::post('gmiic/checklist/komputer-laptop/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadComputerLaptopPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.komputer-laptop.photo');
+Route::delete('gmiic/checklist/komputer-laptop/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteComputerLaptopPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.komputer-laptop.photo.delete');
 Route::post('gmiic/checklist/printer/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadPrinterPhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.printer.photo');

@@ -12,6 +12,7 @@ import {
     formatDateTimeDisplay,
     formatShortDateDisplay,
     rebuildPatroliSecuritySections,
+    createComputerLaptopSections,
     createPrinterChecklistSections,
     createCctvChecklistSections,
     rebuildFireSafetyRows,
@@ -31,6 +32,7 @@ import {
     createFireSafetyLocationState,
     saranaPrasaranaAreaOptions,
     patroliSecurityAreaOptions,
+    computerLaptopAreaOptions,
     printerChecklistDeviceOptions,
     cctvChecklistGroupOptions,
     siteVisitHseAreaOptions,
@@ -197,12 +199,37 @@ function hydratePatroliSecurityEntry(savedEntry) {
             area_scan_dates: { ...(savedEntry?.form?.area_scan_dates || {}) },
             document_no: savedEntry?.form?.document_no || "FRM.HSE.15.02",
             rev: savedEntry?.form?.rev || "00",
-            effective_date:
-                savedEntry?.form?.effective_date || "22 Desember 2025",
+            effective_date: savedEntry?.form?.effective_date || "22 Desember 2025",
             page: savedEntry?.form?.page || "1 dari 1",
-            sections: rebuildPatroliSecuritySections(
-                savedEntry?.form?.sections || [],
-            ),
+            sections: rebuildPatroliSecuritySections(savedEntry?.form?.sections || []),
+        },
+    };
+}
+
+function hydrateComputerLaptopEntry(savedEntry) {
+    if (savedEntry?.template_id !== "komputer_laptop") return savedEntry;
+    const now = new Date();
+    const dateValue = String(savedEntry?.form?.date_value || "").trim() || toDateInputValue(now);
+
+    return {
+        ...savedEntry,
+        form: {
+            ...savedEntry.form,
+            date_value: dateValue,
+            date: savedEntry?.form?.date || formatDateInputDisplay(dateValue),
+            selected_area: String(savedEntry?.form?.selected_area || "").trim() || computerLaptopAreaOptions[0]?.id || "",
+            approved_areas: Array.isArray(savedEntry?.form?.approved_areas) ? savedEntry.form.approved_areas : [],
+            area_barcodes: { ...(savedEntry?.form?.area_barcodes || {}) },
+            area_notes: { ...(savedEntry?.form?.area_notes || {}) },
+            area_photo_paths: { ...(savedEntry?.form?.area_photo_paths || {}) },
+            area_photo_urls: { ...(savedEntry?.form?.area_photo_urls || {}) },
+            area_photo_names: { ...(savedEntry?.form?.area_photo_names || {}) },
+            area_scan_dates: { ...(savedEntry?.form?.area_scan_dates || {}) },
+            document_no: savedEntry?.form?.document_no || "FRM/IT/03/01",
+            rev: savedEntry?.form?.rev || "00",
+            effective_date: savedEntry?.form?.effective_date || "01/12/2026",
+            page: savedEntry?.form?.page || "15",
+            sections: createComputerLaptopSections(savedEntry?.form?.sections || []),
         },
     };
 }
@@ -225,10 +252,10 @@ function hydratePrinterChecklistEntry(savedEntry) {
             area_photo_urls: { ...(savedEntry?.form?.area_photo_urls || {}) },
             area_photo_names: { ...(savedEntry?.form?.area_photo_names || {}) },
             area_scan_dates: { ...(savedEntry?.form?.area_scan_dates || {}) },
-            document_no: savedEntry?.form?.document_no || "",
+            document_no: savedEntry?.form?.document_no || "FRM/IT/02/01",
             rev: savedEntry?.form?.rev || "00",
-            effective_date: savedEntry?.form?.effective_date || "",
-            page: savedEntry?.form?.page || "1 dari 1",
+            effective_date: savedEntry?.form?.effective_date || "01/12/2026",
+            page: savedEntry?.form?.page || "5",
             sections: createPrinterChecklistSections(savedEntry?.form?.sections || []),
         },
     };
@@ -252,10 +279,10 @@ function hydrateCctvChecklistEntry(savedEntry) {
             area_photo_urls: { ...(savedEntry?.form?.area_photo_urls || {}) },
             area_photo_names: { ...(savedEntry?.form?.area_photo_names || {}) },
             area_scan_dates: { ...(savedEntry?.form?.area_scan_dates || {}) },
-            document_no: savedEntry?.form?.document_no || "",
+            document_no: savedEntry?.form?.document_no || "FRM/IT/01/01",
             rev: savedEntry?.form?.rev || "00",
-            effective_date: savedEntry?.form?.effective_date || "",
-            page: savedEntry?.form?.page || "1 dari 1",
+            effective_date: savedEntry?.form?.effective_date || "01/12/2026",
+            page: savedEntry?.form?.page || "4",
             sections: createCctvChecklistSections(savedEntry?.form?.sections || []),
         },
     };
@@ -656,6 +683,7 @@ function hydrateChecklistEntry(savedEntry) {
         hydrateSanitationEntry,
         hydrateSaranaPrasaranaEntry,
         hydratePatroliSecurityEntry,
+        hydrateComputerLaptopEntry,
         hydratePrinterChecklistEntry,
         hydrateCctvChecklistEntry,
         hydratePersonalHygieneEntry,

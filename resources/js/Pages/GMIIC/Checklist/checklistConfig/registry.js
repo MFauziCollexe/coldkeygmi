@@ -8,6 +8,7 @@ export const checklistOptions = [
     { id: "pengangkutan_sampah_pt_sier", name: "Pengangkutan Sampah PT SIER" },
     { id: "personal_hygiene_karyawan", name: "Personal Hygiene Karyawan" },
     { id: "patroli_security", name: "Patroli Security" },
+    { id: "komputer_laptop", name: "Checklist Komputer/Laptop" },
     { id: "printer", name: "Checklist Printer" },
     { id: "cctv", name: "Checklist CCTV" },
     { id: "jadwal_cleaning_ob", name: "Jadwal Cleaning OB" },
