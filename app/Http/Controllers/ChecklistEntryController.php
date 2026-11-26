@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceHoliday;
 use App\Models\ChecklistHeader;
+use App\Models\ChecklistMedia;
 use App\Models\ChecklistState;
 use App\Models\ChecklistTemplate;
 use App\Models\Employee;
@@ -17,6 +18,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use setasign\Fpdi\Fpdi;
@@ -1244,7 +1246,7 @@ class ChecklistEntryController extends Controller
         }
 
         $headers = ChecklistHeader::query()
-            ->with('template:id,code,module')
+            ->with(['template:id,code,module', 'media'])
             ->with('creator:id,account,name')
             ->whereIn('id', $ids)
             ->get();
@@ -2003,7 +2005,7 @@ class ChecklistEntryController extends Controller
     private function findChecklistEntry(string $entryCode, $user = null, bool $enforceScope = false): ?array
     {
         $baseQuery = ChecklistHeader::query()
-            ->with('template:id,code,module')
+            ->with(['template:id,code,module', 'media'])
             ->where('entry_code', $entryCode)
             ->whereHas('template', fn ($query) => $query->where('module', self::CHECKLIST_MODULE));
 
@@ -2107,6 +2109,7 @@ class ChecklistEntryController extends Controller
         $entry['template_id'] = (string) ($entry['template_id'] ?? $header->template?->code ?? '');
         $entry['name'] = (string) ($entry['name'] ?? $header->title ?? $header->template?->name ?? '');
         $entry['form'] = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $entry = $this->attachChecklistMedia($header, $entry);
         $entry['created_at'] = $header->created_at?->format('H.i');
         $entry['created_date'] = $header->created_at?->format('d/m/Y');
         $entry['approved_at'] = $header->approved_at?->format('H.i');
@@ -2230,6 +2233,7 @@ class ChecklistEntryController extends Controller
 
     private function persistEntry(array $entry, Request $request): array
     {
+        $hasMediaPayload = $this->hasChecklistMediaPayload($entry);
         $template = ChecklistTemplate::query()->firstOrCreate(
             ['code' => $entry['template_id']],
             [
@@ -2243,6 +2247,15 @@ class ChecklistEntryController extends Controller
         $header = ChecklistHeader::query()->firstOrNew([
             'entry_code' => $entry['id'],
         ]);
+        $media = $this->extractChecklistMedia($entry);
+        if (!$hasMediaPayload && $header->exists) {
+            $header->loadMissing(['template', 'media']);
+            $media = $this->extractChecklistMedia(
+                $this->extractEntryFromHeader($header) ?? []
+            );
+            $hasMediaPayload = true;
+        }
+        $entry = $this->stripChecklistMedia($entry);
 
         $wasApproved = (bool) $header->approved_at;
         $isApproved = (bool) data_get($entry, 'form.approved');
@@ -2283,7 +2296,271 @@ class ChecklistEntryController extends Controller
         $state->saved_at = now();
         $state->save();
 
-        return $this->extractEntryFromHeader($header->fresh());
+        if ($hasMediaPayload) {
+            $this->syncChecklistMedia($header, $media);
+        }
+
+        return $this->extractEntryFromHeader($header->fresh(['template', 'media']));
+    }
+
+    private function extractChecklistMedia(array $entry): array
+    {
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        $media = [];
+        $pathsByScope = is_array($form['area_photo_paths'] ?? null) ? $form['area_photo_paths'] : [];
+        $urlsByScope = is_array($form['area_photo_urls'] ?? null) ? $form['area_photo_urls'] : [];
+        $namesByScope = is_array($form['area_photo_names'] ?? null) ? $form['area_photo_names'] : [];
+
+        foreach (array_unique(array_merge(array_keys($pathsByScope), array_keys($urlsByScope), array_keys($namesByScope))) as $scopeKey) {
+            $paths = $this->normalizeChecklistMediaBucket($pathsByScope[$scopeKey] ?? []);
+            $urls = $this->normalizeChecklistMediaBucket($urlsByScope[$scopeKey] ?? []);
+            $names = $this->normalizeChecklistMediaBucket($namesByScope[$scopeKey] ?? []);
+            $count = max(count($paths), count($urls), count($names));
+
+            for ($index = 0; $index < $count; $index++) {
+                $media[] = [
+                    'media_type' => 'area',
+                    'scope_key' => (string) $scopeKey,
+                    'path' => (string) ($paths[$index] ?? ''),
+                    'url' => (string) ($urls[$index] ?? ''),
+                    'original_name' => (string) ($names[$index] ?? ''),
+                    'sort_order' => $index,
+                ];
+            }
+        }
+
+        foreach ((array) ($form['rows'] ?? []) as $row) {
+            if (!is_array($row) || !isset($row['day'])) {
+                continue;
+            }
+
+            $path = (string) ($row['collector_photo_path'] ?? '');
+            $url = (string) ($row['collector_photo_url'] ?? $row['collector_photo_preview'] ?? '');
+            $name = (string) ($row['collector_photo_name'] ?? '');
+            if ($path !== '' || $url !== '' || $name !== '') {
+                $media[] = [
+                    'media_type' => 'waste_transport',
+                    'scope_key' => (string) ((int) $row['day']),
+                    'path' => $path,
+                    'url' => $url,
+                    'original_name' => $name,
+                    'sort_order' => 0,
+                ];
+            }
+        }
+
+        return $media;
+    }
+
+    private function normalizeChecklistMediaBucket(mixed $bucket): array
+    {
+        if (is_array($bucket)) {
+            return array_values($bucket);
+        }
+
+        $value = trim((string) $bucket);
+
+        return $value === '' ? [] : [$value];
+    }
+
+    private function hasChecklistMediaPayload(array $entry): bool
+    {
+        $form = is_array($entry['form'] ?? null) ? $entry['form'] : [];
+        foreach (['area_photo_paths', 'area_photo_urls', 'area_photo_names'] as $field) {
+            if (array_key_exists($field, $form)) {
+                return true;
+            }
+        }
+
+        foreach ((array) ($form['rows'] ?? []) as $row) {
+            if (is_array($row) && (
+                array_key_exists('collector_photo_path', $row)
+                || array_key_exists('collector_photo_url', $row)
+                || array_key_exists('collector_photo_name', $row)
+                || array_key_exists('collector_photo_preview', $row)
+            )) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function stripChecklistMedia(array $entry): array
+    {
+        unset(
+            $entry['form']['area_photo_paths'],
+            $entry['form']['area_photo_urls'],
+            $entry['form']['area_photo_names']
+        );
+
+        foreach ((array) ($entry['form']['rows'] ?? []) as $index => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            unset(
+                $entry['form']['rows'][$index]['collector_photo_path'],
+                $entry['form']['rows'][$index]['collector_photo_url'],
+                $entry['form']['rows'][$index]['collector_photo_name'],
+                $entry['form']['rows'][$index]['collector_photo_preview']
+            );
+        }
+
+        return $entry;
+    }
+
+    private function syncChecklistMedia(ChecklistHeader $header, array $media): void
+    {
+        $rows = [];
+        foreach ($media as $item) {
+            $path = trim((string) ($item['path'] ?? ''));
+            $url = trim((string) ($item['url'] ?? ''));
+            $dataUri = str_starts_with($path, 'data:image/') ? $path : (str_starts_with($url, 'data:image/') ? $url : '');
+            if ($dataUri !== '') {
+                [$path, $url] = $this->storeChecklistDataUri($dataUri, (string) $item['media_type']);
+            } elseif ($path === '' && $url !== '') {
+                $path = $this->checklistStoragePathFromUrl($url);
+            }
+
+            if ($path === '') {
+                continue;
+            }
+
+            $this->ensureChecklistMediaFileStored($path);
+            $url = Storage::disk('checklist_media')->url($path);
+
+            $rows[] = [
+                'checklist_header_id' => $header->id,
+                'media_type' => (string) $item['media_type'],
+                'scope_key' => (string) $item['scope_key'],
+                'path' => $path,
+                'url' => $url,
+                'original_name' => mb_substr((string) ($item['original_name'] ?? ''), 0, 255),
+                'sort_order' => (int) $item['sort_order'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        $header->media()->delete();
+        if ($rows !== []) {
+            ChecklistMedia::query()->insert($rows);
+        }
+    }
+
+    private function storeChecklistDataUri(string $dataUri, string $mediaType): array
+    {
+        if (!preg_match('/^data:image\/(jpeg|jpg|png|gif|webp);base64,([A-Za-z0-9+\/=\r\n]+)$/', $dataUri, $matches)) {
+            abort(422, 'Format foto checklist tidak valid.');
+        }
+
+        $contents = base64_decode($matches[2], true);
+        if ($contents === false || strlen($contents) > 8 * 1024 * 1024) {
+            abort(422, 'Ukuran foto checklist melebihi batas.');
+        }
+
+        $extension = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+        $directory = 'checklist/' . ($mediaType === 'waste_transport' ? 'waste-transport' : 'legacy') . '/' . now()->format('Y/m');
+        $path = $directory . '/' . bin2hex(random_bytes(16)) . '.' . $extension;
+        if (!Storage::disk('checklist_media')->put($path, $contents)) {
+            abort(500, 'Foto checklist gagal dipindahkan ke penyimpanan file.');
+        }
+
+        return [$path, Storage::disk('checklist_media')->url($path)];
+    }
+
+    private function checklistStoragePathFromUrl(string $url): string
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+        if (!is_string($path)) {
+            return '';
+        }
+
+        foreach (['/gmiic/checklist/media/', '/storage/'] as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return substr($path, strlen($prefix));
+            }
+        }
+
+        return '';
+    }
+
+    private function ensureChecklistMediaFileStored(string $path): void
+    {
+        $disk = Storage::disk('checklist_media');
+        if ($disk->exists($path)) {
+            return;
+        }
+
+        $legacyDisk = Storage::disk('public');
+        if (!$legacyDisk->exists($path)) {
+            abort(422, 'File foto checklist tidak ditemukan di penyimpanan.');
+        }
+
+        $stream = $legacyDisk->readStream($path);
+        if (!is_resource($stream)) {
+            abort(500, 'File foto checklist gagal dibaca dari penyimpanan lama.');
+        }
+
+        try {
+            if (!$disk->writeStream($path, $stream)) {
+                abort(500, 'File foto checklist gagal dipindahkan ke penyimpanan baru.');
+            }
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    private function attachChecklistMedia(ChecklistHeader $header, array $entry): array
+    {
+        $mediaItems = $header->relationLoaded('media')
+            ? $header->getRelation('media')
+            : $header->media()->get();
+        $areaPaths = (array) data_get($entry, 'form.area_photo_paths', []);
+        $areaUrls = (array) data_get($entry, 'form.area_photo_urls', []);
+        $areaNames = (array) data_get($entry, 'form.area_photo_names', []);
+        $rows = (array) data_get($entry, 'form.rows', []);
+
+        foreach ($mediaItems as $item) {
+            if ($item->media_type === 'waste_transport') {
+                foreach ($rows as $index => $row) {
+                    if ((string) ($row['day'] ?? '') !== (string) $item->scope_key) {
+                        continue;
+                    }
+                    $rows[$index]['collector_photo_path'] = $item->path;
+                    $rows[$index]['collector_photo_url'] = $item->url;
+                    $rows[$index]['collector_photo_name'] = $item->original_name;
+                    unset($rows[$index]['collector_photo_preview']);
+                }
+                continue;
+            }
+
+            if ($item->media_type !== 'area') {
+                continue;
+            }
+            $scope = (string) $item->scope_key;
+            $areaPaths[$scope] = array_values((array) ($areaPaths[$scope] ?? []));
+            $areaUrls[$scope] = array_values((array) ($areaUrls[$scope] ?? []));
+            $areaNames[$scope] = array_values((array) ($areaNames[$scope] ?? []));
+            $areaPaths[$scope][$item->sort_order] = $item->path;
+            $areaUrls[$scope][$item->sort_order] = $item->url;
+            $areaNames[$scope][$item->sort_order] = $item->original_name ?? '';
+            ksort($areaPaths[$scope]);
+            ksort($areaUrls[$scope]);
+            ksort($areaNames[$scope]);
+            $areaPaths[$scope] = array_values($areaPaths[$scope]);
+            $areaUrls[$scope] = array_values($areaUrls[$scope]);
+            $areaNames[$scope] = array_values($areaNames[$scope]);
+        }
+
+        data_set($entry, 'form.area_photo_paths', $areaPaths);
+        data_set($entry, 'form.area_photo_urls', $areaUrls);
+        data_set($entry, 'form.area_photo_names', $areaNames);
+        if (array_key_exists('rows', $entry['form'])) {
+            $entry['form']['rows'] = $rows;
+        }
+
+        return $entry;
     }
 
     private function resolvePeriodType(array $entry): ?string

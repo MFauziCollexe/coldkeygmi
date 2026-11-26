@@ -7,6 +7,74 @@ use Illuminate\Support\Facades\Storage;
 
 class ChecklistMediaController extends Controller
 {
+    public function showPhoto(string $path)
+    {
+        $path = trim($path);
+        if (
+            !str_starts_with($path, 'checklist/')
+            || str_contains($path, '..')
+            || !preg_match('/^checklist\/[A-Za-z0-9._\/-]+$/', $path)
+        ) {
+            abort(404);
+        }
+
+        $disk = Storage::disk('checklist_media');
+        if (!$disk->exists($path)) {
+            abort(404);
+        }
+
+        return $disk->response($path, basename($path), [
+            'Cache-Control' => 'public, max-age=86400',
+        ], 'inline');
+    }
+
+    private function deletePhotoFile(string $path): void
+    {
+        Storage::disk('checklist_media')->delete($path);
+        Storage::disk('public')->delete($path);
+    }
+
+    public function uploadWasteTransportPhoto(Request $request)
+    {
+        $validated = $request->validate([
+            'photo' => ['required', 'image', 'max:8192'],
+        ]);
+
+        $userId = (int) optional($request->user())->id;
+        $directory = 'checklist/waste-transport/' . now()->format('Y/m');
+        if ($userId > 0) {
+            $directory .= '/user-' . $userId;
+        }
+
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
+        if (!$path) {
+            return response()->json(['message' => 'Foto gagal di-upload.'], 422);
+        }
+
+        return response()->json([
+            'message' => 'Foto berhasil di-upload.',
+            'path' => $path,
+            'url' => Storage::disk('checklist_media')->url($path),
+            'original_name' => (string) $validated['photo']->getClientOriginalName(),
+        ]);
+    }
+
+    public function deleteWasteTransportPhoto(Request $request)
+    {
+        $validated = $request->validate([
+            'path' => ['required', 'string', 'max:500'],
+        ]);
+
+        $path = trim((string) $validated['path']);
+        if ($path === '' || !str_starts_with($path, 'checklist/waste-transport/')) {
+            return response()->json(['message' => 'Path foto tidak valid.'], 422);
+        }
+
+        $this->deletePhotoFile($path);
+
+        return response()->json(['message' => 'Foto berhasil dihapus.']);
+    }
+
     public function uploadPatroliSecurityPhoto(Request $request)
     {
         $validated = $request->validate([
@@ -19,7 +87,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -29,7 +97,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -47,7 +115,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -66,7 +134,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json(['message' => 'Foto gagal di-upload.'], 422);
         }
@@ -74,7 +142,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -90,7 +158,7 @@ class ChecklistMediaController extends Controller
             return response()->json(['message' => 'Path foto tidak valid.'], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json(['message' => 'Foto berhasil dihapus.']);
     }
@@ -107,7 +175,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json(['message' => 'Foto gagal di-upload.'], 422);
         }
@@ -115,7 +183,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -131,7 +199,7 @@ class ChecklistMediaController extends Controller
             return response()->json(['message' => 'Path foto tidak valid.'], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json(['message' => 'Foto berhasil dihapus.']);
     }
@@ -148,7 +216,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json(['message' => 'Foto gagal di-upload.'], 422);
         }
@@ -156,7 +224,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -172,7 +240,7 @@ class ChecklistMediaController extends Controller
             return response()->json(['message' => 'Path foto tidak valid.'], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json(['message' => 'Foto berhasil dihapus.']);
     }
@@ -189,7 +257,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -199,7 +267,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -217,7 +285,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -236,7 +304,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -246,7 +314,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -264,7 +332,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -283,7 +351,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -293,7 +361,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -311,7 +379,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -330,7 +398,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -340,7 +408,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -358,7 +426,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -377,7 +445,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -387,7 +455,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -405,7 +473,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -424,7 +492,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -434,7 +502,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -452,7 +520,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -471,7 +539,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -481,7 +549,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -499,7 +567,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -518,7 +586,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -528,7 +596,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -546,7 +614,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -565,7 +633,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -575,7 +643,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -593,7 +661,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',
@@ -612,7 +680,7 @@ class ChecklistMediaController extends Controller
             $directory .= '/user-' . $userId;
         }
 
-        $path = Storage::disk('public')->putFile($directory, $validated['photo']);
+        $path = Storage::disk('checklist_media')->putFile($directory, $validated['photo']);
         if (!$path) {
             return response()->json([
                 'message' => 'Foto gagal di-upload.',
@@ -622,7 +690,7 @@ class ChecklistMediaController extends Controller
         return response()->json([
             'message' => 'Foto berhasil di-upload.',
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk('checklist_media')->url($path),
             'original_name' => (string) $validated['photo']->getClientOriginalName(),
         ]);
     }
@@ -640,7 +708,7 @@ class ChecklistMediaController extends Controller
             ], 422);
         }
 
-        Storage::disk('public')->delete($path);
+        $this->deletePhotoFile($path);
 
         return response()->json([
             'message' => 'Foto berhasil dihapus.',

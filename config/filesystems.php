@@ -47,6 +47,15 @@ return [
             'report' => false,
         ],
 
+        'checklist_media' => [
+            'driver' => 'local',
+            'root' => env('CHECKLIST_MEDIA_ROOT') ?: storage_path('app/public'),
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/gmiic/checklist/media',
+            'visibility' => 'public',
+            'throw' => true,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

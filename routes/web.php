@@ -309,6 +309,15 @@ Route::get('gmiic/checklist/entries/download-range', [App\Http\Controllers\Check
 Route::get('gmiic/checklist/entries/preview', [App\Http\Controllers\ChecklistEntryController::class, 'preview'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.entries.preview');
+Route::get('gmiic/checklist/media/{path}', [App\Http\Controllers\ChecklistMediaController::class, 'showPhoto'])
+    ->where('path', '.*')
+    ->name('gmiic.checklist.media.show');
+Route::post('gmiic/checklist/waste-transport/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadWasteTransportPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.waste-transport.photo');
+Route::delete('gmiic/checklist/waste-transport/photo', [App\Http\Controllers\ChecklistMediaController::class, 'deleteWasteTransportPhoto'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
+    ->name('gmiic.checklist.waste-transport.photo.delete');
 Route::post('gmiic/checklist/patroli-security/photo', [App\Http\Controllers\ChecklistMediaController::class, 'uploadPatroliSecurityPhoto'])
     ->middleware(['auth', \App\Http\Middleware\EnsureModulePermission::class . ':gmiic.checklist'])
     ->name('gmiic.checklist.patroli-security.photo');

@@ -29,6 +29,8 @@ export function createWasteTransportRows(periodValue, userName = "") {
             pickup_time: "",
             collector_name: isToday ? WASTE_TRANSPORT_COLLECTOR_NAME : "",
             collector_photo_name: "",
+            collector_photo_path: "",
+            collector_photo_url: "",
             collector_photo_preview: "",
             keterangan: "",
         };
@@ -61,6 +63,8 @@ export function rebuildWasteTransportRows(
                 matchedRow?.collector_name ||
                 (isToday ? WASTE_TRANSPORT_COLLECTOR_NAME : ""),
             collector_photo_name: matchedRow?.collector_photo_name || "",
+            collector_photo_path: matchedRow?.collector_photo_path || "",
+            collector_photo_url: matchedRow?.collector_photo_url || "",
             collector_photo_preview:
                 matchedRow?.collector_photo_preview || "",
             keterangan: matchedRow?.keterangan || "",

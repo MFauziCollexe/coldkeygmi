@@ -69,4 +69,9 @@ class ChecklistHeader extends Model
     {
         return $this->hasMany(ChecklistAuditLog::class, 'checklist_header_id');
     }
+
+    public function media()
+    {
+        return $this->hasMany(ChecklistMedia::class, 'checklist_header_id');
+    }
 }

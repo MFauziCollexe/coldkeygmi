@@ -205,6 +205,47 @@ export function usePhotoCapture({
         return canvas;
     }
 
+    async function uploadWasteTransportPhoto(file, day) {
+        if (!entry.value || !isWasteTransport.value || !file || !day) {
+            throw new Error("Data foto pengangkutan sampah tidak valid.");
+        }
+
+        const formData = new FormData();
+        formData.append("photo", file);
+        const response = await axios.post(
+            "/gmiic/checklist/waste-transport/photo",
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } },
+        );
+        const uploadedPhoto = response.data || {};
+        if (!uploadedPhoto.path || !uploadedPhoto.url) {
+            throw new Error("Server tidak mengembalikan lokasi foto.");
+        }
+
+        const existingRow = wasteTransportRows.value.find(
+            (row) => Number(row.day) === Number(day),
+        );
+        const previousPath = String(existingRow?.collector_photo_path || "");
+        entry.value.form.rows = wasteTransportRows.value.map((row) =>
+            Number(row.day) === Number(day)
+                ? {
+                      ...row,
+                      collector_photo_path: uploadedPhoto.path,
+                      collector_photo_url: uploadedPhoto.url,
+                      collector_photo_name:
+                          uploadedPhoto.original_name || file.name || "",
+                      collector_photo_preview: "",
+                  }
+                : row,
+        );
+
+        if (previousPath) {
+            await axios.delete("/gmiic/checklist/waste-transport/photo", {
+                data: { path: previousPath },
+            });
+        }
+    }
+
     async function handleWasteTransportGalleryFile(event) {
         const file = event.target?.files?.[0];
         if (event.target) event.target.value = "";
@@ -231,20 +272,18 @@ export function usePhotoCapture({
                 handoverName: matchedRow.handover_name,
                 collectorName: matchedRow.collector_name,
             });
-            const preview = canvas.toDataURL("image/jpeg", 0.9);
             const fileName = `foto-pengangkut-hari-${photoCaptureDay.value}.jpg`;
-            entry.value.form.rows = wasteTransportRows.value.map((row) =>
-                row.day === photoCaptureDay.value
-                    ? {
-                          ...row,
-                          collector_photo_name: fileName,
-                          collector_photo_preview: preview,
-                      }
-                    : row,
+            const photoFile = await canvasToJpegFile(canvas, fileName);
+            await uploadWasteTransportPhoto(
+                photoFile,
+                photoCaptureDay.value,
             );
             await closePhotoModal();
         } catch (error) {
-            photoError.value = error?.message || "Foto gagal diproses.";
+            photoError.value =
+                error?.response?.data?.message ||
+                error?.message ||
+                "Foto gagal diproses.";
         } finally {
             photoLoading.value = false;
             photoCapturing.value = false;
@@ -3141,16 +3180,11 @@ export function usePhotoCapture({
                     handoverName: matchedRow.handover_name,
                     collectorName: matchedRow.collector_name,
                 });
-                const preview = canvas.toDataURL("image/jpeg", 0.9);
                 const fileName = `foto-pengangkut-hari-${photoCaptureDay.value}.jpg`;
-                entry.value.form.rows = wasteTransportRows.value.map((row) =>
-                    row.day === photoCaptureDay.value
-                        ? {
-                              ...row,
-                              collector_photo_name: fileName,
-                              collector_photo_preview: preview,
-                          }
-                        : row,
+                const photoFile = await canvasToJpegFile(canvas, fileName);
+                await uploadWasteTransportPhoto(
+                    photoFile,
+                    photoCaptureDay.value,
                 );
                 await closePhotoModal();
                 return;

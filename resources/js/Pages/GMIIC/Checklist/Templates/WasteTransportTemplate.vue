@@ -139,13 +139,13 @@
               <div class="flex items-center gap-2">
                 <div class="min-w-0 flex-1">
                   <div
-                    v-if="row.collector_photo_preview"
+                    v-if="row.collector_photo_url || row.collector_photo_preview"
                     class="mb-1 h-12 w-12 cursor-pointer overflow-hidden rounded border border-slate-300 bg-slate-100 hover:ring-2 hover:ring-sky-400"
                     title="Klik untuk melihat foto"
                     @click="openPhotoPreview(row)"
                   >
                     <img
-                      :src="row.collector_photo_preview"
+                      :src="row.collector_photo_url || row.collector_photo_preview"
                       :alt="row.collector_photo_name || 'Foto petugas pengangkut'"
                       class="h-full w-full object-cover"
                     />
@@ -249,9 +249,9 @@ const todayDay = computed(() => {
 const previewPhoto = ref(null);
 
 function openPhotoPreview(row) {
-  if (!row?.collector_photo_preview) return;
+  if (!row?.collector_photo_url && !row?.collector_photo_preview) return;
   previewPhoto.value = {
-    preview: row.collector_photo_preview,
+    preview: row.collector_photo_url || row.collector_photo_preview,
     name: row.collector_photo_name || '',
     day: row.day,
   };
