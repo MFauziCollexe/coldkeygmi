@@ -13,7 +13,7 @@ use RuntimeException;
 
 class MigrateChecklistMedia extends Command
 {
-    protected $signature = 'checklist:migrate-media';
+    protected $signature = 'checklist:migrate-media {--skip-missing : Continue when a referenced image file is missing}';
 
     protected $description = 'Copy checklist files to configured storage and migrate JSON media references';
 
@@ -25,11 +25,13 @@ class MigrateChecklistMedia extends Command
             return self::FAILURE;
         }
 
+        $skipMissing = (bool) $this->option('skip-missing');
         $copiedFiles = $this->copyLegacyChecklistFiles();
         $migrated = 0;
+        $missingPaths = [];
         ChecklistHeader::query()
             ->with(['states' => fn ($query) => $query->orderByDesc('version_no')])
-            ->chunkById(100, function ($headers) use (&$migrated) {
+            ->chunkById(100, function ($headers) use (&$migrated, &$missingPaths, $skipMissing) {
                 foreach ($headers as $header) {
                     $entry = $header->payload_summary_json;
                     if (!is_array($entry) || $entry === []) {
@@ -44,9 +46,15 @@ class MigrateChecklistMedia extends Command
                         continue;
                     }
 
-                    DB::transaction(function () use ($header, $entry, $media) {
+                    $entryMissingPaths = [];
+                    DB::transaction(function () use ($header, $entry, $media, &$entryMissingPaths, $skipMissing) {
                         foreach ($media as $item) {
-                            [$path, $url] = $this->resolveStoredImage($item);
+                            $resolved = $this->resolveStoredImage($item, $skipMissing);
+                            if ($resolved === null) {
+                                $entryMissingPaths[] = $item['path'] ?: $item['url'];
+                                continue;
+                            }
+                            [$path, $url] = $resolved;
                             if ($path === '') {
                                 continue;
                             }
@@ -65,29 +73,48 @@ class MigrateChecklistMedia extends Command
                             );
                         }
 
-                        $header->payload_summary_json = $this->stripMedia($entry);
-                        $header->save();
-                        foreach ($header->states as $state) {
-                            $stateEntry = $state->state_json;
-                            if (is_array($stateEntry)) {
-                                $state->state_json = $this->stripMedia($stateEntry);
-                                $state->save();
+                        if ($entryMissingPaths === []) {
+                            $header->payload_summary_json = $this->stripMedia($entry);
+                            $header->save();
+                            foreach ($header->states as $state) {
+                                $stateEntry = $state->state_json;
+                                if (is_array($stateEntry)) {
+                                    $state->state_json = $this->stripMedia($stateEntry);
+                                    $state->save();
+                                }
                             }
                         }
                     });
+                    $missingPaths = array_merge($missingPaths, $entryMissingPaths);
                     $migrated++;
                 }
             });
 
-        ChecklistMedia::query()->chunkById(100, function ($items) {
+        ChecklistMedia::query()->chunkById(100, function ($items) use (&$missingPaths, $skipMissing) {
             foreach ($items as $item) {
-                $this->ensureStoredOnConfiguredDisk($item->path);
+                if (!$this->ensureStoredOnConfiguredDisk($item->path)) {
+                    if (!$skipMissing) {
+                        throw new RuntimeException("Checklist image file is missing: {$item->path}");
+                    }
+                    $missingPaths[] = $item->path;
+                    continue;
+                }
                 $item->url = Storage::disk('checklist_media')->url($item->path);
                 $item->save();
             }
         });
 
         $this->info("Copied {$copiedFiles} checklist files and migrated media references for {$migrated} checklist entries.");
+        if ($missingPaths !== []) {
+            $uniqueMissingPaths = array_values(array_unique(array_filter($missingPaths)));
+            $this->warn(count($uniqueMissingPaths) . ' missing image paths were skipped; their checklist JSON references were preserved for a later retry.');
+            foreach (array_slice($uniqueMissingPaths, 0, 20) as $path) {
+                $this->line(" - {$path}");
+            }
+            if (count($uniqueMissingPaths) > 20) {
+                $this->line(' - Additional missing paths omitted.');
+            }
+        }
 
         return self::SUCCESS;
     }
@@ -113,8 +140,9 @@ class MigrateChecklistMedia extends Command
                 continue;
             }
 
-            $this->ensureStoredOnConfiguredDisk($path);
-            $copied++;
+            if ($this->ensureStoredOnConfiguredDisk($path)) {
+                $copied++;
+            }
         }
 
         return $copied;
@@ -176,7 +204,7 @@ class MigrateChecklistMedia extends Command
         return trim((string) $value) === '' ? [] : [(string) $value];
     }
 
-    private function resolveStoredImage(array $item): array
+    private function resolveStoredImage(array $item, bool $skipMissing): ?array
     {
         $path = trim($item['path']);
         $url = trim($item['url']);
@@ -210,14 +238,19 @@ class MigrateChecklistMedia extends Command
         }
 
         if ($path !== '') {
-            $this->ensureStoredOnConfiguredDisk($path);
+            if (!$this->ensureStoredOnConfiguredDisk($path)) {
+                if ($skipMissing) {
+                    return null;
+                }
+                throw new RuntimeException("Checklist image file is missing: {$path}");
+            }
             $url = Storage::disk('checklist_media')->url($path);
         }
 
         return [$path, $url];
     }
 
-    private function ensureStoredOnConfiguredDisk(string $path): void
+    private function ensureStoredOnConfiguredDisk(string $path): bool
     {
         if (
             !Str::startsWith($path, 'checklist/')
@@ -228,14 +261,14 @@ class MigrateChecklistMedia extends Command
 
         $disk = Storage::disk('checklist_media');
         if ($disk->exists($path)) {
-            return;
+            return true;
         }
 
         $legacyDisk = Storage::disk('public');
         $legacyPublicPath = public_path('storage/' . $path);
         $legacyExistsOnDisk = $legacyDisk->exists($path);
         if (!$legacyExistsOnDisk && !File::isFile($legacyPublicPath)) {
-            throw new RuntimeException("Checklist image file is missing: {$path}");
+            return false;
         }
 
         $stream = $legacyExistsOnDisk
@@ -252,6 +285,8 @@ class MigrateChecklistMedia extends Command
         } finally {
             fclose($stream);
         }
+
+        return true;
     }
 
     private function stripMedia(array $entry): array
