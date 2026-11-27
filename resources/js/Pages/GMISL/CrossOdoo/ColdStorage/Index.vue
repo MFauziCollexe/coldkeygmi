@@ -137,7 +137,7 @@
           </div>
 
           <div v-if="historyStartDate <= historyEndDate && visibleHistorySnapshots.length" class="flex border-t border-slate-200 pt-4">
-            <div class="relative h-44 w-14 shrink-0 text-right text-[9px] font-semibold tabular-nums text-slate-600">
+            <div class="relative h-44 w-14 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-600">
               <span
                 v-for="(tick, index) in historyAxisTicks"
                 :key="`axis-${index}`"
@@ -179,7 +179,7 @@
                     class="relative h-8 w-6 shrink-0"
                     :title="snapshot.date"
                   >
-                    <span class="absolute left-1/2 top-0 -translate-x-1/2 origin-top -rotate-45 whitespace-nowrap text-xs font-semibold leading-none text-slate-600">
+                    <span class="absolute left-1/2 top-3 -translate-x-1/2 origin-center -rotate-45 whitespace-nowrap text-xs font-semibold leading-none text-slate-600">
                       {{ snapshot.date.slice(8, 10) }}/{{ snapshot.date.slice(5, 7) }}
                     </span>
                   </div>
