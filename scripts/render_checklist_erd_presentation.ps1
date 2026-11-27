@@ -94,16 +94,14 @@ function Connect-Cards {
     }
 }
 
-[void]$graphics.DrawString("GMIIC Checklist DB Flow - Presentation Version", $titleFont, $titleBrush, [single]36, [single]28)
-[void]$graphics.DrawString("Versi sederhana untuk menjelaskan alur master data, transaksi, jawaban, scan, dan approval.", $subtitleFont, $subBrush, [single]38, [single]68)
+[void]$graphics.DrawString("GMIIC Checklist DB Flow - Current Storage", $titleFont, $titleBrush, [single]36, [single]28)
+[void]$graphics.DrawString("Versi sederhana: header transaksi, snapshot form, metadata media, dan relasi user.", $subtitleFont, $subBrush, [single]38, [single]68)
 
 $master = Draw-Card -Title "1. Master Template" -Lines @(
     "checklist_templates",
-    "checklist_template_sections",
-    "checklist_template_questions",
     "",
-    "Menyimpan daftar template, section,",
-    "dan pertanyaan checklist."
+    "Menyimpan metadata template",
+    "yang dipakai oleh checklist."
 ) -X 80 -Y 180 -W 360 -H 210 -HeaderColor ([System.Drawing.Color]::FromArgb(14, 165, 233))
 
 $header = Draw-Card -Title "2. Checklist Header" -Lines @(
@@ -116,58 +114,37 @@ $header = Draw-Card -Title "2. Checklist Header" -Lines @(
     "Status utama ada di sini."
 ) -X 560 -Y 180 -W 360 -H 230 -HeaderColor ([System.Drawing.Color]::FromArgb(34, 197, 94))
 
-$answers = Draw-Card -Title "3. Jawaban Checklist" -Lines @(
-    "checklist_answers",
-    "",
-    "Menyimpan jawaban item/pertanyaan.",
-    "Terkait ke question master.",
-    "",
-    "Bisa pakai scope:",
-    "bulan / hari-area / area aktif."
-) -X 1040 -Y 180 -W 360 -H 230 -HeaderColor ([System.Drawing.Color]::FromArgb(16, 185, 129))
-
-$process = Draw-Card -Title "4. Proses Pendukung" -Lines @(
-    "checklist_scans",
-    "checklist_approvals",
-    "checklist_audit_logs",
-    "",
-    "Menyimpan scan barcode,",
-    "approval multi-level,",
-    "dan histori perubahan."
-) -X 1420 -Y 180 -W 300 -H 230 -HeaderColor ([System.Drawing.Color]::FromArgb(245, 158, 11))
-
-$state = Draw-Card -Title "5. Form State JSON" -Lines @(
+$state = Draw-Card -Title "3. Form State" -Lines @(
     "checklist_states",
     "",
-    "Untuk data kompleks yang sulit",
-    "langsung dipecah jadi tabel rinci.",
-    "",
-    "Cocok untuk template yang sangat dinamis."
+    "Menyimpan snapshot JSON dari",
+    "seluruh form checklist."
 ) -X 560 -Y 520 -W 360 -H 210 -HeaderColor ([System.Drawing.Color]::FromArgb(99, 102, 241))
 
-$users = Draw-Card -Title "6. User / Actor" -Lines @(
+$media = Draw-Card -Title "4. Media Checklist" -Lines @(
+    "checklist_media",
+    "",
+    "Menyimpan metadata dan lokasi",
+    "file foto yang terhubung ke header."
+) -X 1040 -Y 180 -W 300 -H 230 -HeaderColor ([System.Drawing.Color]::FromArgb(245, 158, 11))
+
+$users = Draw-Card -Title "5. User / Actor" -Lines @(
     "users",
     "",
     "Dipakai sebagai created_by,",
-    "answered_by, scanned_by,",
-    "approved_by, actor_id."
+    "approved_by, dan saved_by."
 ) -X 80 -Y 540 -W 360 -H 180 -HeaderColor ([System.Drawing.Color]::FromArgb(59, 130, 246))
 
 $notes = Draw-Card -Title "Simple Reading" -Lines @(
-    "Master pertanyaan dibuat sekali.",
-    "Saat user isi form, dibuat header transaksi.",
-    "Jawaban disimpan ke tabel answers.",
-    "Scan dan approval dipisah agar mudah dilacak.",
-    "JSON state dipakai untuk menjaga fleksibilitas."
+    "1 checklist = 1 row pada checklist_headers.",
+    "Payload form lengkap ada di checklist_states.state_json.",
+    "Status dan approval terakhir disimpan pada header.",
+    "File foto dikelola terpisah melalui checklist_media."
 ) -X 1040 -Y 520 -W 680 -H 180 -HeaderColor ([System.Drawing.Color]::FromArgb(168, 85, 247))
 
-Connect-Cards -From $master -FromSide "right" -To $header -ToSide "left" -Label "template dipakai saat create"
-Connect-Cards -From $header -FromSide "right" -To $answers -ToSide "left" -Label "1 checklist punya banyak jawaban"
-Connect-Cards -From $header -FromSide "right" -To $process -ToSide "left" -Label "scan / approval / log"
-Connect-Cards -From $header -FromSide "bottom" -To $state -ToSide "top" -Label "optional full form snapshot"
-Connect-Cards -From $users -FromSide "right" -To $header -ToSide "left" -Label "creator"
-Connect-Cards -From $users -FromSide "right" -To $answers -ToSide "bottom" -Label "answer actor"
-Connect-Cards -From $users -FromSide "right" -To $process -ToSide "bottom" -Label "scan / approve actor"
+Connect-Cards -From $master -FromSide "right" -To $header -ToSide "left"
+Connect-Cards -From $header -FromSide "bottom" -To $state -ToSide "top"
+Connect-Cards -From $header -FromSide "right" -To $media -ToSide "left"
 
 $outputPath = Join-Path (Get-Location) "docs\gmiic-checklist-erd-presentation.png"
 $bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)

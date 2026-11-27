@@ -50,26 +50,6 @@ class ChecklistHeader extends Model
         return $this->hasMany(ChecklistState::class, 'checklist_header_id')->orderBy('version_no');
     }
 
-    public function answers()
-    {
-        return $this->hasMany(ChecklistAnswer::class, 'checklist_header_id');
-    }
-
-    public function scans()
-    {
-        return $this->hasMany(ChecklistScan::class, 'checklist_header_id');
-    }
-
-    public function approvals()
-    {
-        return $this->hasMany(ChecklistApproval::class, 'checklist_header_id');
-    }
-
-    public function auditLogs()
-    {
-        return $this->hasMany(ChecklistAuditLog::class, 'checklist_header_id');
-    }
-
     public function media()
     {
         return $this->hasMany(ChecklistMedia::class, 'checklist_header_id');

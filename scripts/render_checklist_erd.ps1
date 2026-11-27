@@ -97,8 +97,8 @@ function Connect-Boxes {
     }
 }
 
-[void]$graphics.DrawString("GMIIC Checklist Database Flow (Recommended Relational Model)", $titleFont, $titleBrush, [single]40, [single]24)
-[void]$graphics.DrawString("Master template disimpan terpisah dari transaksi checklist, jawaban, scan, dan approval. Cocok untuk semua template checklist yang sekarang.", $subtitleFont, $subBrush, [single]42, [single]66)
+[void]$graphics.DrawString("GMIIC Checklist Database Flow (Current Storage Model)", $titleFont, $titleBrush, [single]40, [single]24)
+[void]$graphics.DrawString("Checklist disimpan sebagai header dan snapshot state; file foto dicatat terpisah di checklist_media.", $subtitleFont, $subBrush, [single]42, [single]66)
 
 $users = Draw-Table -Title "users" -Lines @(
     "PK id",
@@ -116,27 +116,6 @@ $templates = Draw-Table -Title "checklist_templates" -Lines @(
     "version_no"
 ) -X 360 -Y 150 -W 300 -H 165 -HeaderColor ([System.Drawing.Color]::FromArgb(14, 165, 233))
 
-$sections = Draw-Table -Title "checklist_template_sections" -Lines @(
-    "PK id",
-    "FK template_id -> checklist_templates.id",
-    "code",
-    "title",
-    "sort_order",
-    "is_active"
-) -X 740 -Y 150 -W 360 -H 180 -HeaderColor ([System.Drawing.Color]::FromArgb(6, 182, 212))
-
-$questions = Draw-Table -Title "checklist_template_questions" -Lines @(
-    "PK id",
-    "FK template_id -> checklist_templates.id",
-    "FK section_id -> checklist_template_sections.id",
-    "question_code",
-    "question_text",
-    "answer_type",
-    "sort_order",
-    "is_required",
-    "is_active"
-) -X 1180 -Y 130 -W 430 -H 235 -HeaderColor ([System.Drawing.Color]::FromArgb(8, 145, 178))
-
 $headers = Draw-Table -Title "checklist_headers" -Lines @(
     "PK id",
     "FK template_id -> checklist_templates.id",
@@ -151,7 +130,7 @@ $headers = Draw-Table -Title "checklist_headers" -Lines @(
     "approved_by (nullable)",
     "approved_at (nullable)",
     "payload_summary_json"
-) -X 360 -Y 480 -W 360 -H 270 -HeaderColor ([System.Drawing.Color]::FromArgb(34, 197, 94))
+) -X 740 -Y 150 -W 400 -H 270 -HeaderColor ([System.Drawing.Color]::FromArgb(34, 197, 94))
 
 $states = Draw-Table -Title "checklist_states" -Lines @(
     "PK id",
@@ -160,76 +139,30 @@ $states = Draw-Table -Title "checklist_states" -Lines @(
     "state_json",
     "FK saved_by -> users.id",
     "saved_at"
-) -X 40 -Y 500 -W 290 -H 180 -HeaderColor ([System.Drawing.Color]::FromArgb(22, 163, 74))
+) -X 360 -Y 500 -W 320 -H 180 -HeaderColor ([System.Drawing.Color]::FromArgb(22, 163, 74))
 
-$answers = Draw-Table -Title "checklist_answers" -Lines @(
+$media = Draw-Table -Title "checklist_media" -Lines @(
     "PK id",
     "FK checklist_header_id -> checklist_headers.id",
-    "FK template_question_id -> checklist_template_questions.id",
-    "FK section_id -> checklist_template_sections.id (nullable)",
+    "media_type",
     "scope_key",
-    "answer_value",
-    "note",
-    "answered_by",
-    "answered_at"
-) -X 800 -Y 450 -W 430 -H 235 -HeaderColor ([System.Drawing.Color]::FromArgb(16, 185, 129))
-
-$scans = Draw-Table -Title "checklist_scans" -Lines @(
-    "PK id",
-    "FK checklist_header_id -> checklist_headers.id",
-    "scan_scope",
-    "scope_key",
-    "barcode_value",
-    "scan_date",
-    "FK scanned_by -> users.id"
-) -X 1280 -Y 470 -W 350 -H 185 -HeaderColor ([System.Drawing.Color]::FromArgb(245, 158, 11))
-
-$approvals = Draw-Table -Title "checklist_approvals" -Lines @(
-    "PK id",
-    "FK checklist_header_id -> checklist_headers.id",
-    "approval_type",
-    "scope_key",
-    "notes",
-    "FK approved_by -> users.id",
-    "approved_at"
-) -X 1680 -Y 470 -W 330 -H 185 -HeaderColor ([System.Drawing.Color]::FromArgb(249, 115, 22))
-
-$audit = Draw-Table -Title "checklist_audit_logs" -Lines @(
-    "PK id",
-    "FK checklist_header_id -> checklist_headers.id",
-    "action",
-    "old_value_json",
-    "new_value_json",
-    "FK actor_id -> users.id",
-    "created_at"
-) -X 880 -Y 780 -W 380 -H 185 -HeaderColor ([System.Drawing.Color]::FromArgb(168, 85, 247))
+    "path",
+    "url",
+    "original_name",
+    "sort_order"
+) -X 1240 -Y 150 -W 420 -H 220 -HeaderColor ([System.Drawing.Color]::FromArgb(245, 158, 11))
 
 $legend = Draw-Table -Title "Notes" -Lines @(
     "1 checklist entry = 1 row di checklist_headers",
-    "Pertanyaan master ada di checklist_template_questions",
-    "Jawaban user masuk ke checklist_answers",
     "Data kompleks per template tetap aman di checklist_states.state_json",
-    "Scan barcode / area masuk ke checklist_scans",
-    "Approval multi-level masuk ke checklist_approvals"
-) -X 1340 -Y 760 -W 640 -H 180 -HeaderColor ([System.Drawing.Color]::FromArgb(99, 102, 241))
+    "Status dan approval terakhir ada pada checklist_headers",
+    "Metadata foto disimpan di checklist_media",
+    "File foto disimpan pada storage checklist terkonfigurasi"
+) -X 740 -Y 520 -W 660 -H 170 -HeaderColor ([System.Drawing.Color]::FromArgb(99, 102, 241))
 
-Connect-Boxes -From $templates -FromSide "right" -To $sections -ToSide "left" -Label "1:N"
-Connect-Boxes -From $templates -FromSide "right" -To $questions -ToSide "left" -Label "1:N"
-Connect-Boxes -From $sections -FromSide "right" -To $questions -ToSide "left" -Label "1:N"
 Connect-Boxes -From $templates -FromSide "bottom" -To $headers -ToSide "top" -Label "1:N"
-Connect-Boxes -From $users -FromSide "right" -To $headers -ToSide "left" -Label "created_by"
 Connect-Boxes -From $headers -FromSide "left" -To $states -ToSide "right" -Label "1:N"
-Connect-Boxes -From $headers -FromSide "right" -To $answers -ToSide "left" -Label "1:N"
-Connect-Boxes -From $questions -FromSide "bottom" -To $answers -ToSide "top" -Label "1:N"
-Connect-Boxes -From $sections -FromSide "bottom" -To $answers -ToSide "top" -Label "section ref"
-Connect-Boxes -From $headers -FromSide "right" -To $scans -ToSide "left" -Label "1:N"
-Connect-Boxes -From $headers -FromSide "right" -To $approvals -ToSide "left" -Label "1:N"
-Connect-Boxes -From $headers -FromSide "bottom" -To $audit -ToSide "top" -Label "1:N"
-Connect-Boxes -From $users -FromSide "bottom" -To $states -ToSide "top" -Label "saved_by"
-Connect-Boxes -From $users -FromSide "bottom" -To $answers -ToSide "left" -Label "answered_by"
-Connect-Boxes -From $users -FromSide "bottom" -To $scans -ToSide "left" -Label "scanned_by"
-Connect-Boxes -From $users -FromSide "bottom" -To $approvals -ToSide "top" -Label "approved_by"
-Connect-Boxes -From $users -FromSide "bottom" -To $audit -ToSide "left" -Label "actor_id"
+Connect-Boxes -From $headers -FromSide "right" -To $media -ToSide "left" -Label "1:N"
 
 $outputPath = Join-Path (Get-Location) "docs\gmiic-checklist-erd.png"
 $bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)

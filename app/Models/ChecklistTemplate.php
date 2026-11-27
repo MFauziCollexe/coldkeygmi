@@ -22,16 +22,6 @@ class ChecklistTemplate extends Model
         'is_active' => 'boolean',
     ];
 
-    public function sections()
-    {
-        return $this->hasMany(ChecklistTemplateSection::class, 'template_id')->orderBy('sort_order');
-    }
-
-    public function questions()
-    {
-        return $this->hasMany(ChecklistTemplateQuestion::class, 'template_id')->orderBy('sort_order');
-    }
-
     public function headers()
     {
         return $this->hasMany(ChecklistHeader::class, 'template_id');
