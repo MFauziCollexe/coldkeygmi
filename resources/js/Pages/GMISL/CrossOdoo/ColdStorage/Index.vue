@@ -156,7 +156,7 @@
                   <div
                     v-for="snapshot in visibleHistorySnapshots"
                     :key="snapshot.date"
-                    class="group relative z-10 flex h-full w-5 shrink-0 flex-col items-center justify-end"
+                    class="group relative z-10 flex h-full w-6 shrink-0 flex-col items-center justify-end"
                     :title="`${snapshot.date}\nTerpakai: ${formatNumber(snapshot.used)} / ${formatNumber(snapshot.capacity)} slot\nOkupansi: ${formatPercent(snapshot.occupancy)}`"
                   >
                     <div class="relative flex h-full w-full items-end">
@@ -176,10 +176,10 @@
                   <div
                     v-for="snapshot in visibleHistorySnapshots"
                     :key="`date-${snapshot.date}`"
-                    class="relative h-8 w-5 shrink-0"
+                    class="relative h-8 w-6 shrink-0"
                     :title="snapshot.date"
                   >
-                    <span class="absolute left-1/2 top-0 origin-top-left -rotate-45 whitespace-nowrap text-[9px] font-semibold leading-none text-slate-600">
+                    <span class="absolute left-1/2 top-0 -translate-x-1/2 origin-top -rotate-45 whitespace-nowrap text-xs font-semibold leading-none text-slate-600">
                       {{ snapshot.date.slice(8, 10) }}/{{ snapshot.date.slice(5, 7) }}
                     </span>
                   </div>
