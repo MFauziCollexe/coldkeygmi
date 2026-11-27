@@ -142,7 +142,7 @@
                 v-for="(tick, index) in historyAxisTicks"
                 :key="`axis-${index}`"
                 class="absolute right-2 -translate-y-1/2"
-                :style="{ top: `${index * 25}%` }"
+                :style="{ top: `${index * 10}%` }"
               >
                 {{ formatNumber(tick) }}
               </span>
