@@ -441,9 +441,7 @@ function getDefaultHistoryStartDate() {
   const endDate = props.history?.endDate;
   if (!endDate) return '';
 
-  const date = new Date(`${endDate}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() - 6);
-  const startDate = date.toISOString().slice(0, 10);
+  const startDate = `${endDate.slice(0, 7)}-01`;
   return startDate < (props.history?.startDate || startDate) ? props.history.startDate : startDate;
 }
 
