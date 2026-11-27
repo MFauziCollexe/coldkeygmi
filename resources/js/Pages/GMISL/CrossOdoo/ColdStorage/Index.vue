@@ -136,25 +136,55 @@
             </article>
           </div>
 
-          <div v-if="historyStartDate <= historyEndDate && visibleHistorySnapshots.length" class="overflow-x-auto border-t border-slate-200 pt-4">
-            <div class="flex h-44 min-w-full w-max items-end gap-1.5 px-1">
-              <div
-                v-for="snapshot in visibleHistorySnapshots"
-                :key="snapshot.date"
-                class="group flex h-full w-4 flex-col items-center justify-end"
-                :title="`${snapshot.date}\nTerpakai: ${formatNumber(snapshot.used)} / ${formatNumber(snapshot.capacity)} slot\nOkupansi: ${formatPercent(snapshot.occupancy)}`"
+          <div v-if="historyStartDate <= historyEndDate && visibleHistorySnapshots.length" class="flex border-t border-slate-200 pt-4">
+            <div class="relative h-44 w-14 shrink-0 text-right text-[9px] tabular-nums text-slate-500">
+              <span
+                v-for="(tick, index) in historyAxisTicks"
+                :key="`axis-${index}`"
+                class="absolute right-2 -translate-y-1/2"
+                :style="{ top: `${index * 25}%` }"
               >
-                <div class="flex h-full w-full items-end rounded-t-sm bg-slate-800">
+                {{ formatNumber(tick) }}
+              </span>
+            </div>
+            <div class="min-w-0 flex-1 overflow-x-auto">
+              <div class="relative w-max min-w-full">
+                <div class="pointer-events-none absolute inset-x-0 top-0 z-20 flex h-44 flex-col justify-between">
+                  <div v-for="tick in historyAxisTicks" :key="`grid-${tick}`" class="border-t border-dashed border-slate-300/70"></div>
+                </div>
+                <div class="relative flex h-44 min-w-full w-max items-end gap-2 px-1">
                   <div
-                    class="w-full rounded-t-sm bg-sky-400 transition group-hover:bg-sky-300"
-                    :style="{ height: `${Math.max(2, Math.min(100, Number(snapshot.occupancy)))}%` }"
-                  ></div>
+                    v-for="snapshot in visibleHistorySnapshots"
+                    :key="snapshot.date"
+                    class="group relative z-10 flex h-full w-5 shrink-0 flex-col items-center justify-end"
+                    :title="`${snapshot.date}\nTerpakai: ${formatNumber(snapshot.used)} / ${formatNumber(snapshot.capacity)} slot\nOkupansi: ${formatPercent(snapshot.occupancy)}`"
+                  >
+                    <div class="relative flex h-full w-full items-end">
+                      <div
+                        class="relative w-full rounded-t-sm bg-slate-800"
+                        :style="{ height: `${Math.max(0, Math.min(100, Number(snapshot.capacity) / historyAxisMaxCapacity * 100))}%` }"
+                      >
+                        <div
+                          class="absolute inset-x-0 bottom-0 rounded-t-sm bg-sky-400 transition group-hover:bg-sky-300"
+                          :style="{ height: `${Number(snapshot.capacity) > 0 ? Math.min(100, Number(snapshot.used) / Number(snapshot.capacity) * 100) : 0}%` }"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-2 flex w-max min-w-full items-start gap-2 px-1 pb-5">
+                  <div
+                    v-for="snapshot in visibleHistorySnapshots"
+                    :key="`date-${snapshot.date}`"
+                    class="relative h-8 w-5 shrink-0"
+                    :title="snapshot.date"
+                  >
+                    <span class="absolute left-1/2 top-0 origin-top-left -rotate-45 whitespace-nowrap text-[9px] leading-none text-slate-500">
+                      {{ snapshot.date.slice(8, 10) }}/{{ snapshot.date.slice(5, 7) }}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="mt-2 flex justify-between text-[10px] text-slate-500">
-              <span>{{ visibleHistorySnapshots[0]?.date }}</span>
-              <span>{{ visibleHistorySnapshots[visibleHistorySnapshots.length - 1]?.date }}</span>
             </div>
           </div>
           <p v-else-if="historyStartDate <= historyEndDate" class="border-t border-slate-200 py-8 text-center text-sm text-slate-500">
@@ -388,6 +418,13 @@ const customerOccupancy = computed(() => props.customerOccupancy || []);
 const history = computed(() => props.history || { snapshots: [] });
 const visibleHistorySnapshots = computed(() => (history.value.snapshots || []).filter((snapshot) =>
   snapshot.date >= historyStartDate.value && snapshot.date <= historyEndDate.value
+));
+const historyAxisMaxCapacity = computed(() => Math.max(
+  1,
+  ...visibleHistorySnapshots.value.map((snapshot) => Number(snapshot.capacity || 0)),
+));
+const historyAxisTicks = computed(() => Array.from({ length: 11 }, (_, index) =>
+  Math.round(historyAxisMaxCapacity.value * (10 - index) / 10)
 ));
 const historyComparison = computed(() => {
   const snapshots = visibleHistorySnapshots.value;
